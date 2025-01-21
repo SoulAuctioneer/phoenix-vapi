@@ -1,3 +1,2 @@
 vapi_python
-RPi.GPIO
 python-dotenv

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Installing AI Companion for Kids..."
+echo "Installing Phoenix AI Companion..."
 
 # Update system packages
 echo "Updating system packages..."
@@ -12,8 +12,7 @@ echo "Installing system dependencies..."
 sudo apt-get install -y \
     python3-pip \
     python3-venv \
-    portaudio19-dev \
-    python3-rpi.gpio
+    portaudio19-dev
 
 # Create virtual environment
 echo "Setting up Python virtual environment..."
@@ -36,7 +35,6 @@ fi
 chmod +x main.py
 
 echo "Installation complete!"
-echo "To start the AI Companion:"
+echo "To start Phoenix AI Companion:"
 echo "1. Edit .env file and add your Vapi API key"
-echo "2. Connect button to GPIO 18 and LED to GPIO 24"
-echo "3. Run: source venv/bin/activate && python main.py" 
+echo "2. Run: source venv/bin/activate && python main.py" 
