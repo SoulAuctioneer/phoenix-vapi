@@ -28,6 +28,7 @@ ASSISTANT_CONFIG = {
     "model": "gpt-4",  # Using GPT-4 for better safety and quality
     "voice": "jennifer-playht",  # Using a friendly voice
     "recordingEnabled": True,
-    "interruptionsEnabled": True,
-    "maxDuration": 300  # 5 minutes max per session
+    "interruptionsEnabled": True
 } 
+
+ASSISTANT_ID = "d9b51094-b2a8-4b69-ae16-72897c6cb418"

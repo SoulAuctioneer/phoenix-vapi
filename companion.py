@@ -1,5 +1,5 @@
 from vapi_python import Vapi
-from config import VAPI_API_KEY, ASSISTANT_CONFIG
+from config import VAPI_API_KEY, ASSISTANT_CONFIG, ASSISTANT_ID
 
 class KidsCompanion:
     def __init__(self):
@@ -11,7 +11,8 @@ class KidsCompanion:
         if not self.is_active:
             self.is_active = True
             try:
-                self.vapi.start(assistant=ASSISTANT_CONFIG)
+                # self.vapi.start(assistant=ASSISTANT_CONFIG)
+                self.vapi.start(assistant_id=ASSISTANT_ID)
             except Exception as e:
                 print(f"Error starting companion: {e}")
                 self.stop_interaction()
