@@ -1,2 +1,2 @@
-vapi_python
 python-dotenv
+vapi-python
