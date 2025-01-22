@@ -2,7 +2,7 @@ import time
 from app import App
 
 def main():
-    print("Starting AI Companion...")
+    print("Starting Phoenix AI Companion...")
     app = App()
     
     try:
@@ -11,7 +11,7 @@ def main():
             time.sleep(0.1)  # Small delay to prevent CPU overhead
             
     except KeyboardInterrupt:
-        print("\nShutting down AI Companion...")
+        print("\nShutting down Phoenix AI Companion...")
     finally:
         app.cleanup()
 

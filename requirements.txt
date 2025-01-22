@@ -1,3 +1,4 @@
 python-dotenv
-git+https://github.com/daily-co/daily-python.git
-vapi_python==0.1.9
+daily-python==0.14.2
+pyaudio
+requests

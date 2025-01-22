@@ -1,5 +1,5 @@
 import logging
-from vapi_python import Vapi
+from vapi import Vapi
 from config import VAPI_API_KEY, ASSISTANT_CONFIG, ASSISTANT_ID
 
 # Configure logging

@@ -16,27 +16,12 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     # Install system dependencies
     echo "Installing system dependencies..."
     brew install portaudio
-
-    # Install Rust if not present
-    if ! command -v rustc &> /dev/null; then
-        echo "Installing Rust..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source $HOME/.cargo/env
-    fi
     
 elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
     # Windows
     echo "Detected Windows system..."
     echo "Please ensure you have Python 3.8+ installed from python.org"
     echo "Also ensure you have the Microsoft Visual C++ Build Tools installed"
-    
-    # Install Rust if not present
-    if ! command -v rustc &> /dev/null; then
-        echo "Installing Rust..."
-        curl --proto '=https' --tlsv1.2 -sSf https://win.rustup.rs -o rustup-init.exe
-        ./rustup-init.exe -y
-        source $HOME/.cargo/env
-    fi
     
 else
     # Linux
@@ -51,17 +36,7 @@ else
     sudo apt-get install -y \
         python3-pip \
         python3-venv \
-        portaudio19-dev \
-        build-essential \
-        pkg-config \
-        libssl-dev
-
-    # Install Rust if not present
-    if ! command -v rustc &> /dev/null; then
-        echo "Installing Rust..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source $HOME/.cargo/env
-    fi
+        portaudio19-dev
 fi
 
 # Create virtual environment
@@ -88,14 +63,14 @@ fi
 
 # Make main.py executable (not needed for Windows)
 if [[ "$OSTYPE" != "msys" ]] && [[ "$OSTYPE" != "win32" ]]; then
-    chmod +x main.py
+    chmod +x src/main.py
 fi
 
 echo "Installation complete!"
 echo "To start Phoenix AI Companion:"
 echo "1. Edit .env file and add your Vapi API key"
 if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
-    echo "2. Run: venv\\Scripts\\activate && python main.py"
+    echo "2. Run: venv\\Scripts\\activate && python src/main.py"
 else
-    echo "2. Run: source venv/bin/activate && python main.py"
+    echo "2. Run: source venv/bin/activate && python src/main.py"
 fi 
