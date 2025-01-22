@@ -1,2 +1,3 @@
 python-dotenv
+daily-python==0.14.2
 vapi_python==0.1.9
