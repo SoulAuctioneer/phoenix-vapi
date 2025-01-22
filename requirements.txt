@@ -1,4 +1,4 @@
 python-dotenv
-daily-python==0.14.2
+daily-python
 pyaudio
 requests

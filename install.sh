@@ -36,7 +36,9 @@ else
     sudo apt-get install -y \
         python3-pip \
         python3-venv \
-        portaudio19-dev
+        portaudio19-dev \
+        python3-dev \
+        libasound2-dev
 fi
 
 # Create virtual environment
