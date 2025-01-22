@@ -1,2 +1,2 @@
 python-dotenv
-vapi_python==0.1.9
+vapi_python

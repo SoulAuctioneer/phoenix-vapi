@@ -1,19 +1,19 @@
 import time
-from companion import KidsCompanion
+from app import App
 
 def main():
     print("Starting AI Companion...")
-    companion = KidsCompanion()
+    app = App()
     
     try:
-        companion.start_interaction()
+        app.start_interaction()
         while True:
             time.sleep(0.1)  # Small delay to prevent CPU overhead
             
     except KeyboardInterrupt:
         print("\nShutting down AI Companion...")
     finally:
-        companion.cleanup()
+        app.cleanup()
 
 if __name__ == "__main__":
     main() 
