@@ -12,7 +12,7 @@ class App:
     def __init__(self):
         self.vapi = Vapi(api_key=VAPI_API_KEY)
         self.is_active = False
-        logging.info("KidsCompanion initialized")
+        logging.info("App initialized")
 
     def start_interaction(self):
         """Start an interaction session with the AI companion"""
