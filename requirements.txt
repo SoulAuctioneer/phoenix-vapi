@@ -2,3 +2,6 @@ python-dotenv
 daily-python
 pyaudio
 requests
+numpy
+sounddevice
+pvporcupine

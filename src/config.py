@@ -32,3 +32,7 @@ ASSISTANT_CONFIG = {
 } 
 
 ASSISTANT_ID = "d9b51094-b2a8-4b69-ae16-72897c6cb418"
+
+# Wake Word Configuration
+WAKE_WORD_BUILTIN = None  # Not using built-in wake word
+WAKE_WORD_PATH = "assets/Hey-Phoenix_en_raspberry-pi_v3_0_0.ppn"  # Using custom Hey Phoenix wake word
