@@ -2,6 +2,7 @@ import daily
 import threading
 import pyaudio
 import json
+from audio_control import AudioControl
 
 SAMPLE_RATE = 16000
 NUM_CHANNELS = 1
@@ -21,6 +22,8 @@ class DailyCall(daily.EventHandler):
         daily.Daily.init()
 
         self.__audio_interface = pyaudio.PyAudio()
+        self.__audio_control = AudioControl()
+        self.__audio_control.volume = 0.6  # Set initial volume to 80%
 
         self.__input_audio_stream = self.__audio_interface.open(
             format=pyaudio.paInt16,
@@ -160,7 +163,9 @@ class DailyCall(daily.EventHandler):
             buffer = self.__speaker_device.read_frames(CHUNK_SIZE)
 
             if len(buffer) > 0:
-                self.__output_audio_stream.write(buffer, CHUNK_SIZE)
+                # Adjust volume before playing
+                adjusted_buffer = self.__audio_control.adjust_stream_volume(buffer)
+                self.__output_audio_stream.write(adjusted_buffer, CHUNK_SIZE)
 
     def send_app_message(self, message):
         """
@@ -173,3 +178,17 @@ class DailyCall(daily.EventHandler):
             self.__call_client.send_app_message(serialized_message)
         except Exception as e:
             print(f"Failed to send app message: {e}")
+
+    def set_volume(self, volume):
+        """Set the output volume (0.0 to 1.0)"""
+        self.__audio_control.volume = volume
+
+    def get_volume(self):
+        """Get the current output volume (0.0 to 1.0)"""
+        return self.__audio_control.volume
+
+    def cleanup(self):
+        """Clean up resources"""
+        if hasattr(self, '__audio_control'):
+            self.__audio_control.cleanup()
+        self.leave()
