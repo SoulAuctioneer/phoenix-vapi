@@ -38,8 +38,12 @@ class WakeWordDetector:
             # Use custom keyword file
             if not os.path.exists(keyword_path):
                 raise ValueError(f"Custom keyword file not found: {keyword_path}")
-            keywords = [keyword_path]
             self.wake_word = os.path.basename(keyword_path)
+            # Initialize Porcupine with keyword_paths for custom wake word
+            self.porcupine = pvporcupine.create(
+                access_key=self.access_key,
+                keyword_paths=[keyword_path]
+            )
         else:
             # Use built-in keyword
             keyword = keyword or "porcupine"  # Default to "porcupine" if no keyword specified
@@ -48,25 +52,15 @@ class WakeWordDetector:
                 raise ValueError(
                     f"Keyword '{keyword}' not found. Available keywords:\n{available_keywords}"
                 )
-            keywords = [keyword]
             self.wake_word = keyword
-            
-        # Initialize Porcupine
-        try:
+            # Initialize Porcupine with keywords for built-in wake word
             self.porcupine = pvporcupine.create(
                 access_key=self.access_key,
-                keywords=keywords
+                keywords=[keyword]
             )
             
-            # Initialize PyAudio
-            self.audio = pyaudio.PyAudio()
-            
-        except Exception as e:
-            self.stop()  # Clean up any partially initialized resources
-            print(f"Failed to initialize Porcupine: {e}")
-            if "AccessKeyError" in str(e):
-                print("Invalid access key. Please check your key at console.picovoice.ai")
-            raise
+        # Initialize PyAudio
+        self.audio = pyaudio.PyAudio()
         
     def start(self):
         """Start listening for wake word"""

@@ -1,19 +1,29 @@
-import time
+import signal
+import sys
 from app import App
 
 def main():
-    print("Starting Phoenix AI Companion...")
     app = App()
     
-    try:
-        app.start_interaction()
-        while True:
-            time.sleep(0.1)  # Small delay to prevent CPU overhead
-            
-    except KeyboardInterrupt:
-        print("\nShutting down Phoenix AI Companion...")
-    finally:
+    # Handle Ctrl+C gracefully
+    def signal_handler(sig, frame):
+        print("\nStopping Phoenix Assistant...")
         app.cleanup()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        print("Starting Phoenix Assistant...")
+        app.start()
+        
+        # Keep the program running
+        signal.pause()
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        app.cleanup()
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 

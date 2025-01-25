@@ -63,26 +63,7 @@ cd phoenix-vapi
 python src/example_wake_word.py
 ```
 
-2. Say one of the available wake words (shown when you start the program)
-   - The default wake word is usually "Porcupine"
-   - Other built-in options:
-   Available built-in wake words:
-    - alexa
-    - americano
-    - blueberry
-    - bumblebee
-    - computer
-    - grapefruit
-    - grasshopper
-    - hey barista
-    - hey google
-    - hey siri
-    - jarvis
-    - ok google
-    - pico clock
-    - picovoice
-    - porcupine
-    - terminator
+2. Say one of the available wake words. The default wake word is "Porcupine"
 
 Alternatively, you can use a custom wake word by passing the path to a ppn file to the WakeWordDetector constructor, or set in the config.py file.
 
