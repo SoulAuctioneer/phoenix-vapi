@@ -1,4 +1,5 @@
 import logging
+import daily
 from vapi import Vapi
 from wake_word import WakeWordDetector
 from config import VAPI_API_KEY, PICOVOICE_ACCESS_KEY, ASSISTANT_CONFIG, ASSISTANT_ID, WAKE_WORD_PATH
@@ -11,6 +12,10 @@ logging.basicConfig(
 
 class App:
     def __init__(self):
+        # Initialize Daily runtime
+        daily.Daily.init()
+        logging.info("Daily runtime initialized")
+        
         self.vapi = Vapi(api_key=VAPI_API_KEY)
         self.wake_word_detector = None
         self.is_active = False
@@ -34,21 +39,33 @@ class App:
         """Handle wake word detection by starting an interaction"""
         if not self.is_active:
             logging.info("Wake word detected, starting interaction")
+            # Stop wake word detector's audio stream before starting Vapi
+            if self.wake_word_detector:
+                logging.info("Pausing wake word detection")
+                self.wake_word_detector.stop()
+            logging.info("Starting new interaction session")
             self.start_interaction()
         else:
             logging.debug("Wake word detected but interaction already active")
 
+    def on_vapi_session_end(self):
+        """Handle Vapi session completion"""
+        logging.info("Vapi session ended")
+        self.stop_interaction()
+
     def start_interaction(self):
         """Start an interaction session with the AI companion"""
+        logging.info("Starting new interaction session")
         if not self.is_active:
             logging.info("Starting new interaction session")
             self.is_active = True
             try:
                 logging.info("Attempting to start Vapi connection with assistant_id: %s", ASSISTANT_ID)
                 self.vapi.start(assistant_id=ASSISTANT_ID)
+                # self.vapi.start(assistant_id=ASSISTANT_ID, on_session_end=self.on_vapi_session_end)
                 logging.info("Vapi connection started successfully")
             except Exception as e:
-                logging.error("Failed to start companion: %s", str(e), exc_info=True)
+                logging.error("Failed to start Vapi: %s", str(e), exc_info=True)
                 self.stop_interaction()
         else:
             logging.warning("Attempted to start interaction while already active")
@@ -61,6 +78,10 @@ class App:
             try:
                 self.vapi.stop()
                 logging.info("Vapi connection stopped successfully")
+                # Restart wake word detection after Vapi call ends
+                if self.wake_word_detector:
+                    logging.info("Resuming wake word detection")
+                    self.wake_word_detector.start()
             except Exception as e:
                 logging.error("Error stopping companion: %s", str(e), exc_info=True)
         else:

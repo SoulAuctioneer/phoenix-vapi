@@ -1,3 +1,4 @@
+import logging
 from daily import *
 import requests
 from daily_call import DailyCall
@@ -26,6 +27,8 @@ class Vapi:
     def __init__(self, *, api_key, api_url="https://api.vapi.ai"):
         self.api_key = api_key
         self.api_url = api_url
+        self.__client = None
+        # self.__on_session_end = None
 
     def start(
         self,
@@ -35,7 +38,12 @@ class Vapi:
         assistant_overrides=None,
         squad_id=None,
         squad=None,
+        # on_session_end=None,
     ):
+        logging.info("Starting Vapi...")
+        # Store the session end callback
+        # self.__on_session_end = on_session_end
+
         # Start a new call
         if assistant_id:
             payload = {'assistantId': assistant_id, 'assistantOverrides': assistant_overrides}
@@ -48,20 +56,26 @@ class Vapi:
         else:
             raise Exception("Error: No assistant specified.")
 
+        logging.info("Creating web call...")
         call_id, web_call_url = create_web_call(
             self.api_url, self.api_key, payload)
 
         if not web_call_url:
             raise Exception("Error: Unable to create call.")
 
-        print('Joining call... ' + call_id)
+        logging.info('Joining call... ' + call_id)
 
+        # self.__client = DailyCall(on_session_end=self.__on_session_end)
         self.__client = DailyCall()
         self.__client.join(web_call_url)
 
     def stop(self):
-        self.__client.leave()
-        self.__client = None
+        if self.__client:
+            self.__client.leave()
+            self.__client = None
+            # Call the session end callback if it exists
+            # if self.__on_session_end:
+            #     self.__on_session_end()
 
     def send(self, message):
         """

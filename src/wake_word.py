@@ -1,3 +1,4 @@
+import logging
 import pvporcupine
 import pyaudio
 import struct
@@ -67,72 +68,58 @@ class WakeWordDetector:
         if self.running:
             return
             
-        self.running = True
-        
         try:
+            # Validate audio format requirements
+            if self.porcupine.sample_rate != 16000:  # Standard Porcupine sample rate
+                raise ValueError(f"Porcupine requires 16kHz sample rate")
+                
             self.stream = self.audio.open(
                 rate=self.porcupine.sample_rate,
-                channels=1,
-                format=pyaudio.paInt16,
+                channels=1,  # Porcupine requires single-channel audio
+                format=pyaudio.paInt16,  # Porcupine requires 16-bit encoding
                 input=True,
-                frames_per_buffer=self.porcupine.frame_length,
-                stream_callback=self._audio_callback
+                frames_per_buffer=self.porcupine.frame_length
             )
-            self.stream.start_stream()
             
-        except Exception as e:
-            print(f"Failed to start audio stream: {e}")
-            self.running = False
-            self.stop()
-            raise
+            self.running = True
             
-    def _audio_callback(self, in_data, frame_count, time_info, status):
-        """Handle audio input from PyAudio"""
-        if status:
-            print(f"Audio callback status: {status}")
-            
-        try:
-            # Convert audio data to integers
-            pcm = struct.unpack_from("h" * self.porcupine.frame_length, in_data)
-            
-            # Process with Porcupine
-            keyword_index = self.porcupine.process(pcm)
-            
-            # If wake word detected (keyword_index >= 0)
-            if keyword_index >= 0:
-                print(f"Wake word '{self.wake_word}' detected!")
-                self.callback_fn()
+            # Main processing loop
+            while self.running:
+                pcm = self.stream.read(self.porcupine.frame_length, exception_on_overflow=False)
+                pcm = struct.unpack_from("h" * self.porcupine.frame_length, pcm)
                 
+                # Process with Porcupine
+                keyword_index = self.porcupine.process(pcm)
+                
+                # If wake word detected (keyword_index >= 0)
+                if keyword_index >= 0:
+                    logging.info(f"Wake word '{self.wake_word}' detected!")
+                    self.callback_fn()
+                    
         except Exception as e:
-            print(f"Error processing audio: {e}")
+            logging.error(f"Error in audio processing: {e}")
+        finally:
+            self.stop()
             
-        return (in_data, pyaudio.paContinue)
-        
     def stop(self):
         """Stop listening and clean up"""
+        logging.info("Stopping wake word detection")
         self.running = False
         
+        if hasattr(self, 'porcupine') and self.porcupine:
+            self.porcupine.delete()
+            self.porcupine = None
+            
         if hasattr(self, 'stream') and self.stream:
-            try:
-                self.stream.stop_stream()
-                self.stream.close()
-            except Exception as e:
-                print(f"Error closing audio stream: {e}")
+            self.stream.stop_stream()
+            self.stream.close()
             self.stream = None
             
         if hasattr(self, 'audio') and self.audio:
-            try:
-                self.audio.terminate()
-            except Exception as e:
-                print(f"Error terminating PyAudio: {e}")
+            self.audio.terminate()
             self.audio = None
             
-        if hasattr(self, 'porcupine') and self.porcupine:
-            try:
-                self.porcupine.delete()
-            except Exception as e:
-                print(f"Error deleting Porcupine instance: {e}")
-            self.porcupine = None
+        logging.info("Wake word detection stopped")
             
     def __del__(self):
         self.stop() 
