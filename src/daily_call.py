@@ -23,7 +23,7 @@ class DailyCall(daily.EventHandler):
 
         self.__audio_interface = pyaudio.PyAudio()
         self.__audio_control = AudioControl()
-        self.__audio_control.volume = 0.6  # Set initial volume to 80%
+        self.__audio_control.volume = 0.4  # Set initial volume to 80%
 
         self.__input_audio_stream = self.__audio_interface.open(
             format=pyaudio.paInt16,
