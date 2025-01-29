@@ -217,14 +217,15 @@ class DailyCall(daily.EventHandler):
 
     def on_joined(self, data, error):
         if error:
-            print(f"Unable to join call: {error}")
+            logging.error(f"Unable to join call: {error}")
             self.__app_error = error
         else:
             self.__app_joined = True
-            print("Joined call!")
+            logging.info("Joined call")
         self.maybe_start()
 
     def join(self, meeting_url):
+        logging.info(f"Joining call with URL: {meeting_url}")
         self.__call_client.join(meeting_url, completion=self.on_joined)
 
     def leave(self):
