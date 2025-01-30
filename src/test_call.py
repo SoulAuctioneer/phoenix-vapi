@@ -12,25 +12,58 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+SAMPLE_RATE = 16000
+NUM_CHANNELS = 1
+
 class AudioManager:
     _instance = None
+    _virtual_mic = None
+    _virtual_speaker = None
     
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
             cls._instance = pyaudio.PyAudio()
+            # Create virtual devices
+            cls._virtual_mic = daily.Daily.create_microphone_device(
+                "virtual-mic",
+                sample_rate=SAMPLE_RATE,
+                channels=NUM_CHANNELS,
+                non_blocking=True  # Important for preventing blocking issues
+            )
+            cls._virtual_speaker = daily.Daily.create_speaker_device(
+                "virtual-speaker",
+                sample_rate=SAMPLE_RATE,
+                channels=NUM_CHANNELS
+            )
+            daily.Daily.select_microphone_device("virtual-mic")
+            daily.Daily.select_speaker_device("virtual-speaker")
         return cls._instance
     
     @classmethod
     def cleanup(cls):
         if cls._instance:
+            # First release virtual devices
+            if cls._virtual_mic:
+                daily.Daily.select_microphone_device(None)
+                cls._virtual_mic = None
+            if cls._virtual_speaker:
+                daily.Daily.select_speaker_device(None)
+                cls._virtual_speaker = None
+            
+            # Wait a bit for devices to be released
+            time.sleep(0.5)
+            
+            # Then terminate PyAudio
             cls._instance.terminate()
             cls._instance = None
+            time.sleep(0.5)  # Give extra time for cleanup
 
 class MockWakeWordDetector:
     def __init__(self):
         self.running = False
         self.stream = None
+        self._audio = None
         
     def start(self):
         """Start listening for wake word"""
@@ -39,23 +72,22 @@ class MockWakeWordDetector:
             
         try:
             # Get shared PyAudio instance
-            audio = AudioManager.get_instance()
+            self._audio = AudioManager.get_instance()
             
-            # Get default input device info
-            device_info = audio.get_default_input_device_info()
-            logging.info(f"Using input device: {device_info['name']}")
-            
-            # Configure stream with device-specific settings
-            self.stream = audio.open(
-                rate=16000,
-                channels=1,
+            # Configure stream with non-blocking callback
+            self.stream = self._audio.open(
+                rate=SAMPLE_RATE,
+                channels=NUM_CHANNELS,
                 format=pyaudio.paInt16,
                 input=True,
-                input_device_index=device_info['index'],
+                output=False,  # We only need input for wake word
                 frames_per_buffer=512,
-                stream_callback=self._audio_callback
+                stream_callback=self._audio_callback,
+                start=False  # Don't start immediately
             )
             
+            # Start stream after configuration
+            self.stream.start_stream()
             self.running = True
             logging.info("Audio stream started successfully")
             return True
@@ -69,6 +101,9 @@ class MockWakeWordDetector:
         """Handle audio data from the stream"""
         if status:
             logging.warning(f"Audio callback status: {status}")
+        if self.running and AudioManager._virtual_mic:
+            # Write to virtual microphone if we're running
+            AudioManager._virtual_mic.write_frames(in_data)
         return (None, pyaudio.paContinue)
         
     def stop(self):
@@ -76,9 +111,10 @@ class MockWakeWordDetector:
         logging.info("Stopping wake word detection")
         self.running = False
         
-        if hasattr(self, 'stream') and self.stream:
+        if self.stream:
             try:
                 self.stream.stop_stream()
+                time.sleep(0.1)  # Small delay before closing
                 self.stream.close()
                 self.stream = None
             except Exception as e:
@@ -114,6 +150,9 @@ async def test_consecutive_calls():
             logging.info("Wake word detected!")
             detector.stop()
             
+            # Add delay after stopping detector
+            await asyncio.sleep(0.5)
+            
             try:
                 # Start call
                 logging.info(f"Starting call {i+1}...")
@@ -130,10 +169,10 @@ async def test_consecutive_calls():
                 del vapi
                 vapi = None
                 
-                # Wait between calls
+                # Wait between calls with longer delay
                 if i < 1:  # Don't wait after last call
-                    logging.info("Waiting 2 seconds before next wake word detection...")
-                    await asyncio.sleep(2)
+                    logging.info("Waiting 3 seconds before next wake word detection...")
+                    await asyncio.sleep(3)
                     
             except Exception as e:
                 logging.error(f"Error during call {i+1}: {e}")
@@ -164,6 +203,7 @@ async def test_consecutive_calls():
             if detector:
                 try:
                     detector.stop()
+                    await asyncio.sleep(0.5)  # Give time for detector cleanup
                 except Exception as e:
                     logging.error(f"Error stopping detector: {e}")
                 detector = None
@@ -171,7 +211,7 @@ async def test_consecutive_calls():
             # 3. Clean up audio resources
             try:
                 AudioManager.cleanup()
-                await asyncio.sleep(0.5)  # Give some time for audio resources to clean up
+                await asyncio.sleep(1.0)  # Give more time for audio resources to clean up
             except Exception as e:
                 logging.error(f"Error cleaning up audio: {e}")
             
