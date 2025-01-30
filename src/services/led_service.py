@@ -14,7 +14,7 @@ class LEDService(BaseService):
         try:
             self.led_controller = LEDController()
             # Start with breathing effect
-            self.led_controller.start_breathing()
+            self.led_controller.start_idle_pattern()
             if self.platform == "raspberry-pi":
                 logging.info("LED service started with breathing effect on Raspberry Pi")
             else:
@@ -47,33 +47,33 @@ class LEDService(BaseService):
 
         if event_type == "wake_word_detected":
             # Wake word detected - switch to rainbow effect
-            self.led_controller.start_rainbow(speed=0.01)  # Faster rainbow for wake word
+            self.led_controller.start_listening_pattern(speed=0.01)  # Faster rainbow for wake word
             logging.info("Wake word detected - switched to rainbow effect")
 
         elif event_type == "conversation_started":
             # Conversation started - switch to conversation effect
-            self.led_controller.start_conversation()
+            self.led_controller.start_conversation_pattern()
             logging.info("Conversation started - switched to conversation effect")
 
         elif event_type == "conversation_ended":
             # Conversation ended - return to breathing effect
-            self.led_controller.start_breathing()
+            self.led_controller.start_idle_pattern()
             logging.info("Conversation ended - returned to breathing effect")
 
         elif event_type == "led_command":
             # Handle manual LED commands
             command = event.get('data', {}).get('command')
-            if command == "start_rainbow":
+            if command == "start_listening_pattern":
                 speed = event.get('data', {}).get('speed', 0.02)
-                self.led_controller.start_rainbow(speed=speed)
+                self.led_controller.start_listening_pattern(speed=speed)
                 logging.info(f"Started rainbow effect with speed {speed}")
-            elif command == "start_breathing":
+            elif command == "start_idle_pattern":
                 speed = event.get('data', {}).get('speed', 0.05)
-                self.led_controller.start_breathing(speed=speed)
+                self.led_controller.start_idle_pattern(speed=speed)
                 logging.info(f"Started breathing effect with speed {speed}")
-            elif command == "start_conversation":
+            elif command == "start_conversation_pattern":
                 speed = event.get('data', {}).get('speed', 0.03)
-                self.led_controller.start_conversation(speed=speed)
+                self.led_controller.start_conversation_pattern(speed=speed)
                 logging.info(f"Started conversation effect with speed {speed}")
             elif command == "stop":
                 self.led_controller.stop_effect()

@@ -61,39 +61,23 @@ class LEDController:
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
 
-    def _breathing_effect(self, wait):
+    def _blue_breathing_effect(self, wait):
         """Gentle breathing effect in a soft blue color"""
         while not self._stop_event.is_set():
-            # Increased range and smaller step size for smoother transition
-            for i in range(0, 1000, 2):
+            for i in range(0, 100, 1):
                 if self._stop_event.is_set():
                     break
-                # Adjusted sine wave parameters for smoother breathing
-                brightness = (math.sin(i * math.pi / 500) + 1) / 2
+                # Use sine wave for smooth breathing
+                brightness = (math.sin(i * math.pi / 50) + 1) / 2
                 # Soft blue color (R, G, B)
                 color = (int(0 * brightness * 255),
                         int(0.5 * brightness * 255),
                         int(brightness * 255))
                 self.pixels.fill(color)
                 self.pixels.show()
-                # Reduced wait time for smoother animation
-                time.sleep(wait * 0.5)
-
-    def _rainbow_cycle(self, wait):
-        """Generate rainbow colors across all pixels"""
-        while not self._stop_event.is_set():
-            for j in range(255):
-                if self._stop_event.is_set():
-                    break
-                for i in range(LED_COUNT):
-                    hue = (i / LED_COUNT) + (j / 255.0)
-                    hue = hue % 1.0
-                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 1.0, 1.0)]
-                    self.pixels[i] = (r, g, b)
-                self.pixels.show()
                 time.sleep(wait)
 
-    def _active_conversation_effect(self, wait):
+    def _green_breathing_effect(self, wait):
         """Gentle pulsing green effect indicating active conversation"""
         base_hue = 0.3  # Green in HSV
         while not self._stop_event.is_set():
@@ -107,6 +91,46 @@ class LEDController:
                 self.pixels.show()
                 time.sleep(wait)
 
+    def _rotating_rainbow_effect(self, wait):
+        """Generate rainbow colors across all pixels"""
+        while not self._stop_event.is_set():
+            for j in range(255):
+                if self._stop_event.is_set():
+                    break
+                for i in range(LED_COUNT):
+                    hue = (i / LED_COUNT) + (j / 255.0)
+                    hue = hue % 1.0
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 1.0, 1.0)]
+                    self.pixels[i] = (r, g, b)
+                self.pixels.show()
+                time.sleep(wait)
+
+    def _pink_blue_rotation_effect(self, wait):
+        """Generate a slow rotating gradient between pink and blue colors"""
+        # Pink and blue hues in HSV (pink ≈ 0.85, blue ≈ 0.6)
+        pink_hue = 0.85
+        blue_hue = 0.6
+        while not self._stop_event.is_set():
+            for j in range(100):  # Slower cycle with 100 steps
+                if self._stop_event.is_set():
+                    break
+                # Create a moving gradient across all pixels
+                for i in range(LED_COUNT):
+                    # Calculate position in the gradient cycle
+                    position = (i / LED_COUNT + j / 100.0) % 1.0
+                    # Interpolate between pink and blue
+                    if position < 0.5:
+                        # Transition from pink to blue
+                        hue = pink_hue + (blue_hue - pink_hue) * (position * 2)
+                    else:
+                        # Transition from blue back to pink
+                        hue = blue_hue + (pink_hue - blue_hue) * ((position - 0.5) * 2)
+                    # Use high saturation and medium value for vibrant but not too bright colors
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 0.8, 0.7)]
+                    self.pixels[i] = (r, g, b)
+                self.pixels.show()
+                time.sleep(wait)
+
     def _start_effect(self, effect_func, speed):
         """Helper method to start an effect"""
         if self._effect_thread is not None:
@@ -116,17 +140,21 @@ class LEDController:
         self._effect_thread.daemon = True
         self._effect_thread.start()
 
-    def start_breathing(self, speed=0.05):
+    def start_idle_pattern(self, speed=0.05):
         """Start the breathing effect"""
-        self._start_effect(self._breathing_effect, speed)
+        self._start_effect(self._pink_blue_rotation_effect, speed)
 
-    def start_rainbow(self, speed=0.02):
+    def start_listening_pattern(self, speed=0.02):
         """Start the rainbow effect"""
-        self._start_effect(self._rainbow_cycle, speed)
+        self._start_effect(self._rotating_rainbow_effect, speed)
 
-    def start_conversation(self, speed=0.03):
+    def start_conversation_pattern(self, speed=0.03):
         """Start the conversation effect"""
-        self._start_effect(self._active_conversation_effect, speed)
+        self._start_effect(self._green_breathing_effect, speed)
+
+    def start_pink_blue_rotation(self, speed=0.05):
+        """Start the pink to blue rotation effect"""
+        self._start_effect(self._pink_blue_rotation_effect, speed)
 
     def stop_effect(self):
         """Stop any running effect"""
@@ -141,14 +169,14 @@ if __name__ == "__main__":
     led = LEDController()
     try:
         print("Testing LED effects...")
-        print("1. Breathing effect")
-        led.start_breathing()
+        print("1. Idle pattern")
+        led.start_idle_pattern()
         time.sleep(5)
-        print("2. Rainbow effect")
-        led.start_rainbow()
+        print("2. Listening pattern")
+        led.start_listening_pattern()
         time.sleep(5)
-        print("3. Conversation effect")
-        led.start_conversation()
+        print("3. Conversation pattern")
+        led.start_conversation_pattern()
         time.sleep(5)
         led.stop_effect()
     except KeyboardInterrupt:

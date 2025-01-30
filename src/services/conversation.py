@@ -21,7 +21,7 @@ class ConversationService(BaseService):
             await self.stop_conversation()
         await super().stop()
         
-    async def start_conversation(self):
+    async def start_conversation_pattern(self):
         """Start a conversation with the AI assistant"""
         if not self.is_active and not self._is_stopping:  # Only start if not active and not in process of stopping
             logging.info("Starting new conversation")
@@ -54,7 +54,7 @@ class ConversationService(BaseService):
         
         if event_type == "wake_word_detected":
             if not self.is_active and not self._is_stopping:  # Only handle if not in a transitional state
-                await self.start_conversation()
+                await self.start_conversation_pattern()
         elif event_type == "call_state":
             if event.get("state") == "ended" and self.is_active:
                 await self.stop_conversation() 
