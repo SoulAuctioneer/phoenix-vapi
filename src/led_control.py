@@ -4,6 +4,7 @@ import math
 from threading import Thread, Event
 from config import LED_PIN, LED_COUNT, LED_BRIGHTNESS, LED_ORDER, PLATFORM
 import logging
+import random
 
 # Try to import board and neopixel, but don't fail if they're not available, e.g. not on Raspberry Pi
 try:
@@ -131,6 +132,61 @@ class LEDController:
                 self.pixels.show()
                 time.sleep(wait)
 
+    def _random_twinkling_effect(self, wait):
+        """Create random twinkling pixels with dynamic fade speeds"""
+        # Track the state of each pixel
+        pixel_states = []
+        for _ in range(LED_COUNT):
+            pixel_states.append({
+                'active': False,
+                'brightness': 0.0,
+                'hue': 0.0,
+                'direction': 1  # 1 for brightening, -1 for dimming
+            })
+
+        while not self._stop_event.is_set():
+            # Randomly activate new pixels if we're below 25% active
+            active_count = sum(1 for p in pixel_states if p['active'])
+            target_active = LED_COUNT * 0.25
+            
+            if active_count < target_active:
+                for pixel in pixel_states:
+                    if not pixel['active'] and random.random() < 0.1:  # Small chance to activate each inactive pixel
+                        pixel['active'] = True
+                        pixel['brightness'] = 0.0
+                        pixel['hue'] = random.random()  # Random hue
+                        pixel['direction'] = 1
+            
+            # Update each active pixel
+            for i, pixel in enumerate(pixel_states):
+                if pixel['active']:
+                    # Calculate speed based on brightness - faster near zero
+                    speed_factor = 1.0 - (pixel['brightness'] ** 2)  # Quadratic falloff
+                    base_step = 0.02
+                    step = base_step + (base_step * 2 * speed_factor)
+                    
+                    # Update brightness
+                    pixel['brightness'] += step * pixel['direction']
+                    
+                    # Check bounds and reverse direction or deactivate
+                    if pixel['brightness'] >= 1.0:
+                        pixel['brightness'] = 1.0
+                        pixel['direction'] = -1
+                    elif pixel['brightness'] <= 0.0:
+                        if pixel['direction'] == -1:  # Only deactivate if we were fading out
+                            pixel['active'] = False
+                        pixel['brightness'] = 0.0
+                    
+                    # Set pixel color
+                    if pixel['active']:
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(pixel['hue'], 1.0, pixel['brightness'])]
+                        self.pixels[i] = (r, g, b)
+                    else:
+                        self.pixels[i] = (0, 0, 0)
+            
+            self.pixels.show()
+            time.sleep(wait)
+
     def _start_effect(self, effect_func, speed):
         """Helper method to start an effect"""
         if self._effect_thread is not None:
@@ -150,11 +206,15 @@ class LEDController:
 
     def start_conversation_pattern(self, speed=0.03):
         """Start the conversation effect"""
-        self._start_effect(self._green_breathing_effect, speed)
+        self._start_effect(self._random_twinkling_effect, speed)
 
     def start_pink_blue_rotation(self, speed=0.05):
         """Start the pink to blue rotation effect"""
         self._start_effect(self._pink_blue_rotation_effect, speed)
+
+    def start_random_twinkling(self, speed=0.02):
+        """Start the random twinkling effect"""
+        self._start_effect(self._random_twinkling_effect, speed)
 
     def stop_effect(self):
         """Stop any running effect"""
