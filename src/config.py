@@ -88,6 +88,6 @@ else:
 
 # LED Configuration
 LED_PIN = 21  # GPIO21 for NeoPixel data (D21) - Using this instead of GPIO18 to keep audio enabled
-LED_COUNT = 16  # Number of NeoPixels in the ring
-LED_BRIGHTNESS = 0.5  # LED brightness (0.0 to 1.0)
+LED_COUNT = 24  # Number of NeoPixels in the ring
+LED_BRIGHTNESS = 0.2  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
