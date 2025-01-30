@@ -11,6 +11,7 @@ class ConversationService(BaseService):
         super().__init__(manager)
         self.vapi = Vapi(api_key=VAPI_API_KEY, manager=manager)
         self.is_active = False
+        self._is_stopping = False  # Add state tracking for stop operation
         
     async def start(self):
         await super().start()
@@ -22,7 +23,7 @@ class ConversationService(BaseService):
         
     async def start_conversation(self):
         """Start a conversation with the AI assistant"""
-        if not self.is_active:
+        if not self.is_active and not self._is_stopping:  # Only start if not active and not in process of stopping
             logging.info("Starting new conversation")
             self.is_active = True
             try:
@@ -35,19 +36,25 @@ class ConversationService(BaseService):
                 
     async def stop_conversation(self):
         """Stop the current conversation"""
-        if self.is_active:
+        if self.is_active and not self._is_stopping:
+            self._is_stopping = True
             logging.info("Stopping conversation")
-            self.is_active = False
             try:
                 self.vapi.stop()
                 await self.manager.publish_event({"type": "conversation_ended"})
             except Exception as e:
                 logging.error("Error stopping conversation: %s", str(e), exc_info=True)
+            finally:
+                self.is_active = False
+                self._is_stopping = False
                 
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
-        if event.get("type") == "wake_word_detected":
-            await self.start_conversation()
-        elif event.get("type") == "call_state":
-            if event.get("state") == "ended":
+        event_type = event.get("type")
+        
+        if event_type == "wake_word_detected":
+            if not self.is_active and not self._is_stopping:  # Only handle if not in a transitional state
+                await self.start_conversation()
+        elif event_type == "call_state":
+            if event.get("state") == "ended" and self.is_active:
                 await self.stop_conversation() 

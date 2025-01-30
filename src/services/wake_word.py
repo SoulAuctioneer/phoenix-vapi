@@ -62,6 +62,16 @@ class WakeWordService(BaseService):
         if event.get("type") == "conversation_ended":
             if self._running:
                 logging.info("Conversation ended, reinitializing wake word detection")
-                await self.setup_detector()
-                if self.detector:
-                    self.detector.start() 
+                await self.cleanup_detector()  # Ensure cleanup
+                await asyncio.sleep(1)  # Add small delay to allow audio device to be released
+                try:
+                    await self.setup_detector()
+                    if self.detector:
+                        self.detector.start()
+                except Exception as e:
+                    logging.error(f"Failed to reinitialize wake word detection: {e}")
+                    # Retry once after a longer delay
+                    await asyncio.sleep(2)
+                    await self.setup_detector()
+                    if self.detector:
+                        self.detector.start() 

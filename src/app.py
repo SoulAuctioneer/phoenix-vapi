@@ -1,6 +1,7 @@
 import logging
 import daily
 from services import ServiceManager, WakeWordService, ConversationService
+import asyncio
 
 # Configure logging
 logging.basicConfig(
@@ -10,19 +11,20 @@ logging.basicConfig(
 
 class App:
     def __init__(self):
-        # Initialize Daily runtime
-        daily.Daily.init()
-        logging.info("Daily runtime initialized")
-        
         self.manager = ServiceManager()
         self.wake_word_service = None
         self.conversation_service = None
+        self._should_run = True
         # self.led_service = None
         # self.accelerometer_service = None
         
     async def start(self):
         """Start the application and all its services"""
         try:
+            # Initialize Daily runtime once at startup
+            daily.Daily.init()
+            logging.info("Daily runtime initialized")
+            
             # Initialize and start services
             self.wake_word_service = WakeWordService(self.manager)
             self.conversation_service = ConversationService(self.manager)
@@ -35,7 +37,12 @@ class App:
             # await self.manager.start_service("accelerometer", self.accelerometer_service)
             
             # Start event processing
-            await self.manager.process_events()
+            try:
+                while self._should_run:
+                    await self.manager.process_events()
+            except asyncio.CancelledError:
+                logging.info("App task cancelled")
+                raise
             
         except Exception as e:
             logging.error("Error starting application: %s", str(e), exc_info=True)
@@ -44,5 +51,13 @@ class App:
             
     async def cleanup(self):
         """Clean up resources"""
+        self._should_run = False
         logging.info("Cleaning up resources")
-        await self.manager.stop_all() 
+        await self.manager.stop_all()
+        
+        # Cleanup Daily runtime last
+        try:
+            daily.Daily.deinit()
+            logging.info("Daily runtime deinitialized")
+        except Exception as e:
+            logging.error("Error deinitializing Daily runtime: %s", str(e), exc_info=True) 

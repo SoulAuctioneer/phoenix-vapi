@@ -5,6 +5,7 @@ import json
 import logging
 from audio_control import AudioControl
 import asyncio
+import time
 
 SAMPLE_RATE = 16000
 NUM_CHANNELS = 1
@@ -61,6 +62,52 @@ class DailyCall:
     """Handles Daily call functionality"""
     def __init__(self, manager=None):
         self.manager = manager
+        self.__call_state = "initialized"
+        self.__app_quit = False
+        self.__app_error = None
+        self.__app_joined = False
+        self.__app_inputs_updated = False
+        self.__participants = {}
+        self.__start_event = threading.Event()
+        
+        # Initialize audio components and threads
+        self.setup_audio()
+        
+        # Setup Daily call client
+        self.__event_handler = DailyCallEventHandler(self)
+        self.__call_client = daily.CallClient(event_handler=self.__event_handler)
+        
+        self.__call_client.update_inputs({
+            "camera": False,
+            "microphone": {
+                "isEnabled": True,
+                "settings": {
+                    "deviceId": "my-mic",
+                    "customConstraints": {
+                        "autoGainControl": {"exact": True},
+                        "noiseSuppression": {"exact": True},
+                        "echoCancellation": {"exact": True},
+                    }
+                }
+            }
+        })
+        
+        self.__call_client.update_subscription_profiles({
+            "base": {
+                "camera": "unsubscribed",
+                "microphone": "subscribed"
+            }
+        })
+        
+        self.__participants = dict(self.__call_client.participants())
+        if "local" in self.__participants:
+            del self.__participants["local"]
+            
+        # Start audio threads
+        self.setup_audio_threads()
+
+    def setup_audio(self):
+        """Initialize audio components"""
         self.__audio_interface = pyaudio.PyAudio()
         self.__audio_control = AudioControl()
         self.__audio_control.volume = 0.4  # Set initial volume to 40%
@@ -94,51 +141,25 @@ class DailyCall:
         )
         daily.Daily.select_speaker_device("my-speaker")
 
-        self.__event_handler = DailyCallEventHandler(self)
-        self.__call_client = daily.CallClient(event_handler=self.__event_handler)
-
-        self.__call_client.update_inputs({
-            "camera": False,
-            "microphone": {
-                "isEnabled": True,
-                "settings": {
-                    "deviceId": "my-mic",
-                    "customConstraints": {
-                        "autoGainControl": {"exact": True},
-                        "noiseSuppression": {"exact": True},
-                        "echoCancellation": {"exact": True},
-                    }
-                }
-            }
-        })
-
-        self.__call_client.update_subscription_profiles({
-            "base": {
-                "camera": "unsubscribed",
-                "microphone": "subscribed"
-            }
-        })
-
-        self.__participants = dict(self.__call_client.participants())
-        del self.__participants["local"]
-
-        self.__app_quit = False
-        self.__app_error = None
-        self.__app_joined = False
-        self.__app_inputs_updated = False
-
-        self.__start_event = threading.Event()
-        self.__receive_bot_audio_thread = threading.Thread(
-            target=self.receive_bot_audio)
-        self.__send_user_audio_thread = threading.Thread(
-            target=self.send_user_audio)
-
+    def setup_audio_threads(self):
+        """Initialize and start audio threads"""
+        # Create new threads
+        self.__receive_bot_audio_thread = threading.Thread(target=self.receive_bot_audio)
+        self.__send_user_audio_thread = threading.Thread(target=self.send_user_audio)
+        
+        # Start threads
         self.__receive_bot_audio_thread.start()
         self.__send_user_audio_thread.start()
 
     async def handle_call_state_updated(self, state):
         """Handle call state changes and publish events"""
+        # Prevent redundant state updates
+        if state == self.__call_state:
+            return
+            
         logging.info(f"Call state updated: {state}")
+        self.__call_state = state
+        
         if self.manager:
             if state == "joined":
                 await self.manager.publish_event({
@@ -154,16 +175,17 @@ class DailyCall:
     async def handle_participant_left(self, participant, reason):
         """Handle participant leaving and publish event"""
         logging.info(f"Participant left: {participant}, reason: {reason}")
-        del self.__participants[participant["id"]]
-        
-        # If the leaving participant was the assistant, publish event
-        if "userName" in participant["info"] and participant["info"]["userName"] == "Vapi Speaker":
-            if self.manager:
-                await self.manager.publish_event({
-                    "type": "call_state",
-                    "state": "ended"
-                })
-        self.leave()
+        if participant["id"] in self.__participants:
+            del self.__participants[participant["id"]]
+            
+            # If the leaving participant was the assistant, publish event
+            if "userName" in participant["info"] and participant["info"]["userName"] == "Vapi Speaker":
+                if self.manager and self.__call_state != "left":  # Only if we haven't already left
+                    await self.manager.publish_event({
+                        "type": "call_state",
+                        "state": "ended"
+                    })
+                    self.leave()
 
     async def handle_participant_joined(self, participant):
         logging.info(f"Participant joined: {participant}")
@@ -190,15 +212,82 @@ class DailyCall:
         self.maybe_start()
 
     def join(self, meeting_url):
+        """Join a call with the given URL"""
+        if self.__call_state == "left":
+            # Stop existing threads if they exist
+            self.__app_quit = True
+            if hasattr(self, '__receive_bot_audio_thread') and self.__receive_bot_audio_thread:
+                if self.__receive_bot_audio_thread.is_alive():
+                    self.__receive_bot_audio_thread.join()
+            if hasattr(self, '__send_user_audio_thread') and self.__send_user_audio_thread:
+                if self.__send_user_audio_thread.is_alive():
+                    self.__send_user_audio_thread.join()
+            
+            # Clean up existing audio resources
+            self.cleanup_audio()
+            
+            # Reset state
+            self.__app_quit = False
+            self.__app_error = None
+            self.__app_joined = False
+            self.__app_inputs_updated = False
+            self.__start_event.clear()
+            
+            # Reinitialize audio and threads
+            self.setup_audio()
+            self.setup_audio_threads()
+            
         logging.info(f"Joining call with URL: {meeting_url}")
         self.__call_client.join(meeting_url, completion=self.__event_handler.on_joined)
 
     def leave(self):
         """Leave the call and clean up resources"""
+        if self.__call_state == "left":  # Don't leave if already left
+            return
+            
         self.__app_quit = True
-        self.__receive_bot_audio_thread.join()
-        self.__send_user_audio_thread.join()
+        if hasattr(self, '__receive_bot_audio_thread') and self.__receive_bot_audio_thread:
+            self.__receive_bot_audio_thread.join()
+        if hasattr(self, '__send_user_audio_thread') and self.__send_user_audio_thread:
+            self.__send_user_audio_thread.join()
         self.__call_client.leave()
+
+    def cleanup_audio(self):
+        """Clean up audio resources"""
+        # First stop the streams
+        if hasattr(self, '__input_audio_stream') and self.__input_audio_stream:
+            try:
+                self.__input_audio_stream.stop_stream()
+                self.__input_audio_stream.close()
+            except Exception as e:
+                logging.error(f"Error cleaning up input stream: {e}")
+            self.__input_audio_stream = None
+
+        if hasattr(self, '__output_audio_stream') and self.__output_audio_stream:
+            try:
+                self.__output_audio_stream.stop_stream()
+                self.__output_audio_stream.close()
+            except Exception as e:
+                logging.error(f"Error cleaning up output stream: {e}")
+            self.__output_audio_stream = None
+
+        # Then terminate PyAudio
+        if hasattr(self, '__audio_interface') and self.__audio_interface:
+            try:
+                self.__audio_interface.terminate()
+            except Exception as e:
+                logging.error(f"Error terminating audio interface: {e}")
+            self.__audio_interface = None
+
+        # Clear device references
+        if hasattr(self, '__mic_device'):
+            self.__mic_device = None
+
+        if hasattr(self, '__speaker_device'):
+            self.__speaker_device = None
+
+        # Small delay to allow OS to release audio resources
+        time.sleep(0.5)
 
     def maybe_start(self):
         if self.__app_error:
@@ -258,4 +347,25 @@ class DailyCall:
         """Clean up resources"""
         if hasattr(self, '__audio_control'):
             self.__audio_control.cleanup()
+        
+        # First stop the call and set quit flag
+        self.__app_quit = True
         self.leave()
+        
+        # Stop and clean up audio threads
+        if hasattr(self, '__receive_bot_audio_thread') and self.__receive_bot_audio_thread:
+            if self.__receive_bot_audio_thread.is_alive():
+                self.__receive_bot_audio_thread.join()
+            self.__receive_bot_audio_thread = None
+            
+        if hasattr(self, '__send_user_audio_thread') and self.__send_user_audio_thread:
+            if self.__send_user_audio_thread.is_alive():
+                self.__send_user_audio_thread.join()
+            self.__send_user_audio_thread = None
+            
+        # Finally clean up audio resources
+        self.cleanup_audio()
+        
+        # Reset events
+        if hasattr(self, '__start_event'):
+            self.__start_event.clear()
