@@ -1,0 +1,53 @@
+import logging
+import asyncio
+from typing import Dict, Any
+from .base import BaseService
+from vapi import Vapi
+from config import VAPI_API_KEY, ASSISTANT_ID
+
+class ConversationService(BaseService):
+    """Handles conversations with the AI assistant"""
+    def __init__(self, manager):
+        super().__init__(manager)
+        self.vapi = Vapi(api_key=VAPI_API_KEY, manager=manager)
+        self.is_active = False
+        
+    async def start(self):
+        await super().start()
+            
+    async def stop(self):
+        if self.is_active:
+            await self.stop_conversation()
+        await super().stop()
+        
+    async def start_conversation(self):
+        """Start a conversation with the AI assistant"""
+        if not self.is_active:
+            logging.info("Starting new conversation")
+            self.is_active = True
+            try:
+                logging.info("Attempting to start Vapi connection")
+                self.vapi.start(assistant_id=ASSISTANT_ID)
+                await self.manager.publish_event({"type": "conversation_started"})
+            except Exception as e:
+                logging.error("Failed to start Vapi: %s", str(e), exc_info=True)
+                await self.stop_conversation()
+                
+    async def stop_conversation(self):
+        """Stop the current conversation"""
+        if self.is_active:
+            logging.info("Stopping conversation")
+            self.is_active = False
+            try:
+                self.vapi.stop()
+                await self.manager.publish_event({"type": "conversation_ended"})
+            except Exception as e:
+                logging.error("Error stopping conversation: %s", str(e), exc_info=True)
+                
+    async def handle_event(self, event: Dict[str, Any]):
+        """Handle events from other services"""
+        if event.get("type") == "wake_word_detected":
+            await self.start_conversation()
+        elif event.get("type") == "call_state":
+            if event.get("state") == "ended":
+                await self.stop_conversation() 

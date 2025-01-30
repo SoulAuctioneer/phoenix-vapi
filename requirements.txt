@@ -5,3 +5,5 @@ requests
 numpy
 sounddevice
 pvporcupine
+adafruit-circuitpython-neopixel
+adafruit-circuitpython-mpu6050

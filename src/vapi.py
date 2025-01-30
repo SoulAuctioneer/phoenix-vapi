@@ -24,9 +24,10 @@ def create_web_call(api_url, api_key, payload):
 
 
 class Vapi:
-    def __init__(self, *, api_key, api_url="https://api.vapi.ai"):
+    def __init__(self, *, api_key, api_url="https://api.vapi.ai", manager=None):
         self.api_key = api_key
         self.api_url = api_url
+        self.manager = manager
         self.__client = None
         # self.__on_session_end = None
 
@@ -66,7 +67,7 @@ class Vapi:
         logging.info('Joining call... ' + call_id)
 
         # self.__client = DailyCall(on_session_end=self.__on_session_end)
-        self.__client = DailyCall()
+        self.__client = DailyCall(manager=self.manager)
         self.__client.join(web_call_url)
 
     def stop(self):

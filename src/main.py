@@ -1,29 +1,26 @@
 import signal
 import sys
+import asyncio
 from app import App
 
-def main():
+async def main():
     app = App()
     
     # Handle Ctrl+C gracefully
     def signal_handler(sig, frame):
         print("\nStopping Phoenix Assistant...")
-        app.cleanup()
+        asyncio.create_task(app.cleanup())
         sys.exit(0)
     
     signal.signal(signal.SIGINT, signal_handler)
     
     try:
         print("Starting Phoenix Assistant...")
-        app.start()
-        
-        # Keep the program running
-        signal.pause()
-        
+        await app.start()
     except Exception as e:
         print(f"Error: {e}")
-        app.cleanup()
+        await app.cleanup()
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    asyncio.run(main()) 

@@ -1,8 +1,6 @@
 import logging
 import daily
-from vapi import Vapi
-from wake_word import WakeWordDetector
-from config import VAPI_API_KEY, PICOVOICE_ACCESS_KEY, ASSISTANT_CONFIG, ASSISTANT_ID, WAKE_WORD_PATH
+from services import ServiceManager, WakeWordService, ConversationService
 
 # Configure logging
 logging.basicConfig(
@@ -16,96 +14,35 @@ class App:
         daily.Daily.init()
         logging.info("Daily runtime initialized")
         
-        self.vapi = Vapi(api_key=VAPI_API_KEY)
-        self.wake_word_detector = None
-        self.is_active = False
-        logging.info("App initialized")
-
-    def setup_wake_word(self):
-        """Initialize the wake word detector"""
+        self.manager = ServiceManager()
+        self.wake_word_service = None
+        self.conversation_service = None
+        # self.led_service = None
+        # self.accelerometer_service = None
+        
+    async def start(self):
+        """Start the application and all its services"""
         try:
-            logging.info("Using wake word from: %s", WAKE_WORD_PATH)
-            self.wake_word_detector = WakeWordDetector(
-                callback_fn=self.on_wake_word,
-                access_key=PICOVOICE_ACCESS_KEY,
-                keyword_path=WAKE_WORD_PATH,
-            )
-            logging.info("Wake word detector initialized successfully")
-        except Exception as e:
-            logging.error("Failed to initialize wake word detector: %s", str(e), exc_info=True)
-            raise
-
-    def on_wake_word(self):
-        """Handle wake word detection by starting an interaction"""
-        if not self.is_active:
-            logging.info("Wake word detected, starting interaction")
-            # Stop wake word detector's audio stream before starting Vapi
-            if self.wake_word_detector:
-                logging.info("Pausing wake word detection")
-                self.wake_word_detector.stop()
-            logging.info("Starting new interaction session")
-            self.start_interaction()
-        else:
-            logging.debug("Wake word detected but interaction already active")
-
-    def on_vapi_session_end(self):
-        """Handle Vapi session completion"""
-        logging.info("Vapi session ended")
-        self.stop_interaction()
-
-    def start_interaction(self):
-        """Start an interaction session with the AI companion"""
-        logging.info("Starting new interaction session")
-        if not self.is_active:
-            logging.info("Starting new interaction session")
-            self.is_active = True
-            try:
-                logging.info("Attempting to start Vapi connection with assistant_id: %s", ASSISTANT_ID)
-                self.vapi.start(assistant_id=ASSISTANT_ID)
-                # self.vapi.start(assistant_id=ASSISTANT_ID, on_session_end=self.on_vapi_session_end)
-                logging.info("Vapi connection started successfully")
-            except Exception as e:
-                logging.error("Failed to start Vapi: %s", str(e), exc_info=True)
-                self.stop_interaction()
-        else:
-            logging.warning("Attempted to start interaction while already active")
-
-    def stop_interaction(self):
-        """Stop the current interaction session"""
-        if self.is_active:
-            logging.info("Stopping interaction session")
-            self.is_active = False
-            try:
-                self.vapi.stop()
-                logging.info("Vapi connection stopped successfully")
-                # Restart wake word detection after Vapi call ends
-                if self.wake_word_detector:
-                    logging.info("Resuming wake word detection")
-                    self.wake_word_detector.start()
-            except Exception as e:
-                logging.error("Error stopping companion: %s", str(e), exc_info=True)
-        else:
-            logging.debug("Stop interaction called while already inactive")
-
-    def start(self):
-        """Start the application and begin listening for wake word"""
-        try:
-            self.setup_wake_word()
-            logging.info("Starting wake word detection...")
-            print("Waiting for wake word...")
-            self.wake_word_detector.start()
+            # Initialize and start services
+            self.wake_word_service = WakeWordService(self.manager)
+            self.conversation_service = ConversationService(self.manager)
+            # self.led_service = LEDService(self.manager)
+            # self.accelerometer_service = AccelerometerService(self.manager)
+            
+            await self.manager.start_service("wake_word", self.wake_word_service)
+            await self.manager.start_service("conversation", self.conversation_service)
+            # await self.manager.start_service("led", self.led_service)
+            # await self.manager.start_service("accelerometer", self.accelerometer_service)
+            
+            # Start event processing
+            await self.manager.process_events()
+            
         except Exception as e:
             logging.error("Error starting application: %s", str(e), exc_info=True)
-            self.cleanup()
+            await self.cleanup()
             raise
-
-    def cleanup(self):
+            
+    async def cleanup(self):
         """Clean up resources"""
         logging.info("Cleaning up resources")
-        self.stop_interaction()
-        if self.wake_word_detector:
-            try:
-                self.wake_word_detector.stop()
-                logging.info("Wake word detector stopped successfully")
-            except Exception as e:
-                logging.error("Error stopping wake word detector: %s", str(e), exc_info=True) 
+        await self.manager.stop_all() 
