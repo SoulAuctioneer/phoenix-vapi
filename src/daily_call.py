@@ -110,7 +110,7 @@ class DailyCall:
         """Initialize audio components"""
         self.__audio_interface = pyaudio.PyAudio()
         self.__audio_control = AudioControl()
-        self.__audio_control.volume = 0.4  # Set initial volume to 40%
+        self.__audio_control.volume = 0.3  # Set initial volume to 30%
 
         self.__input_audio_stream = self.__audio_interface.open(
             format=pyaudio.paInt16,
