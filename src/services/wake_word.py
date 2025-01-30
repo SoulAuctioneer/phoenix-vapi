@@ -4,6 +4,9 @@ from typing import Dict, Any
 from .base import BaseService
 from wake_word import WakeWordDetector
 from config import PICOVOICE_ACCESS_KEY, WAKE_WORD_PATH
+import threading
+import queue
+import sys
 
 class WakeWordService(BaseService):
     """Handles wake word detection"""
@@ -12,12 +15,35 @@ class WakeWordService(BaseService):
         self.detector = None
         self._retry_count = 0
         self._max_retries = 3
+        self._detector_thread = None
+        self._error_queue = queue.Queue()
+        
+    def _run_detector(self):
+        """Run the detector in a thread"""
+        try:
+            logging.info("Starting wake word detector thread")
+            self.detector.start()
+            logging.info("Wake word detector thread completed normally")
+        except Exception as e:
+            if self._running:  # Only log error if we haven't stopped intentionally
+                logging.error(f"Error in wake word detector thread: {e}")
+                self._error_queue.put(sys.exc_info())
         
     async def start(self):
         await super().start()
         await self.setup_detector()
         if self.detector:
-            self.detector.start()
+            # Start detector in a thread
+            self._detector_thread = threading.Thread(target=self._run_detector)
+            self._detector_thread.daemon = True
+            self._detector_thread.start()
+            
+            # Check for immediate startup errors
+            await asyncio.sleep(1)
+            if not self._error_queue.empty():
+                exc_info = self._error_queue.get()
+                await self.cleanup_detector()
+                raise exc_info[1].with_traceback(exc_info[2])
             
     async def stop(self):
         await self.cleanup_detector()
@@ -45,11 +71,26 @@ class WakeWordService(BaseService):
         """Clean up the wake word detector"""
         if self.detector:
             try:
+                logging.info("Stopping wake word detector...")
                 self.detector.stop()
+                
+                if self._detector_thread and self._detector_thread.is_alive():
+                    logging.info("Waiting for detector thread to finish...")
+                    self._detector_thread.join(timeout=2)
+                    if self._detector_thread.is_alive():
+                        logging.error("Detector thread did not stop cleanly!")
+                
                 await asyncio.sleep(0.5)  # Add small delay after stopping
+                
+                # Clear error queue
+                while not self._error_queue.empty():
+                    self._error_queue.get()
+                
             except Exception as e:
                 logging.error(f"Error stopping detector: {e}")
-            self.detector = None
+            finally:
+                self.detector = None
+                self._detector_thread = None
             
     def on_wake_word(self):
         """Handle wake word detection"""
@@ -77,7 +118,18 @@ class WakeWordService(BaseService):
                 try:
                     await self.setup_detector()
                     if self.detector:
-                        self.detector.start()
+                        # Start detector in a thread
+                        self._detector_thread = threading.Thread(target=self._run_detector)
+                        self._detector_thread.daemon = True
+                        self._detector_thread.start()
+                        
+                        # Check for immediate startup errors
+                        await asyncio.sleep(1)
+                        if not self._error_queue.empty():
+                            exc_info = self._error_queue.get()
+                            await self.cleanup_detector()
+                            raise exc_info[1].with_traceback(exc_info[2])
+                            
                         self._retry_count = 0  # Reset retry count on success
                 except Exception as e:
                     logging.error(f"Failed to reinitialize wake word detection: {e}")
@@ -90,7 +142,16 @@ class WakeWordService(BaseService):
                         await asyncio.sleep(retry_delay)
                         await self.setup_detector()
                         if self.detector:
-                            self.detector.start()
+                            self._detector_thread = threading.Thread(target=self._run_detector)
+                            self._detector_thread.daemon = True
+                            self._detector_thread.start()
+                            
+                            # Check for immediate startup errors
+                            await asyncio.sleep(1)
+                            if not self._error_queue.empty():
+                                exc_info = self._error_queue.get()
+                                await self.cleanup_detector()
+                                raise exc_info[1].with_traceback(exc_info[2])
                     else:
                         logging.error("Max retries reached for wake word initialization")
                         # Notify other services about the failure
