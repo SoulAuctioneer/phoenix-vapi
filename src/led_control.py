@@ -64,18 +64,20 @@ class LEDController:
     def _breathing_effect(self, wait):
         """Gentle breathing effect in a soft blue color"""
         while not self._stop_event.is_set():
-            for i in range(0, 100, 1):
+            # Increased range and smaller step size for smoother transition
+            for i in range(0, 1000, 2):
                 if self._stop_event.is_set():
                     break
-                # Use sine wave for smooth breathing
-                brightness = (math.sin(i * math.pi / 50) + 1) / 2
+                # Adjusted sine wave parameters for smoother breathing
+                brightness = (math.sin(i * math.pi / 500) + 1) / 2
                 # Soft blue color (R, G, B)
                 color = (int(0 * brightness * 255),
                         int(0.5 * brightness * 255),
                         int(brightness * 255))
                 self.pixels.fill(color)
                 self.pixels.show()
-                time.sleep(wait)
+                # Reduced wait time for smoother animation
+                time.sleep(wait * 0.5)
 
     def _rainbow_cycle(self, wait):
         """Generate rainbow colors across all pixels"""
