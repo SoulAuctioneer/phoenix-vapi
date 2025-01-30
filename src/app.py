@@ -1,6 +1,6 @@
 import logging
 import daily
-from services import ServiceManager, WakeWordService, ConversationService
+from services import ServiceManager, WakeWordService, ConversationService, LEDService
 import asyncio
 
 # Configure logging
@@ -15,7 +15,7 @@ class App:
         self.wake_word_service = None
         self.conversation_service = None
         self._should_run = True
-        # self.led_service = None
+        self.led_service = None
         # self.accelerometer_service = None
         
     async def start(self):
@@ -28,12 +28,12 @@ class App:
             # Initialize and start services
             self.wake_word_service = WakeWordService(self.manager)
             self.conversation_service = ConversationService(self.manager)
-            # self.led_service = LEDService(self.manager)
+            self.led_service = LEDService(self.manager)
             # self.accelerometer_service = AccelerometerService(self.manager)
             
             await self.manager.start_service("wake_word", self.wake_word_service)
             await self.manager.start_service("conversation", self.conversation_service)
-            # await self.manager.start_service("led", self.led_service)
+            await self.manager.start_service("led", self.led_service)
             # await self.manager.start_service("accelerometer", self.accelerometer_service)
             
             # Start event processing

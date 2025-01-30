@@ -2,6 +2,16 @@
 
 echo "Installing Phoenix AI Companion..."
 
+# Function to check if running on Raspberry Pi
+is_raspberry_pi() {
+    if [ -f /proc/device-tree/model ]; then
+        if grep -q "Raspberry Pi" /proc/device-tree/model; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
@@ -37,6 +47,41 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "Installing audio dependencies for Linux..."
     sudo apt-get update
     sudo apt-get install -y python3-pyaudio portaudio19-dev
+    
+    # Raspberry Pi specific setup
+    if is_raspberry_pi; then
+        echo "Detected Raspberry Pi - Setting up NeoPixel requirements..."
+        
+        # Install additional dependencies
+        sudo apt-get install -y python3-pip python3-dev
+        
+        # # Enable SPI interface
+        # if ! grep -q "dtparam=spi=on" /boot/config.txt; then
+        #     echo "Enabling SPI interface..."
+        #     sudo sh -c 'echo "dtparam=spi=on" >> /boot/config.txt'
+        #     echo "SPI interface will be enabled after reboot"
+        # fi
+        
+        # # Add user to gpio group if not already added
+        # if ! groups $USER | grep -q "gpio"; then
+        #     echo "Adding user to gpio group..."
+        #     sudo usermod -a -G gpio $USER
+        #     echo "Group permissions will take effect after logout/login"
+        # fi
+        
+        # # Create udev rule for NeoPixel access if it doesn't exist
+        # if [ ! -f "/etc/udev/rules.d/99-neopixel.rules" ]; then
+        #     echo "Setting up NeoPixel permissions..."
+        #     sudo sh -c 'echo "SUBSYSTEM==\"gpio*\", PROGRAM=\"/bin/sh -c '\''chown -R root:gpio /sys/class/gpio && chmod -R 770 /sys/class/gpio; chown -R root:gpio /sys/devices/virtual/gpio && chmod -R 770 /sys/devices/virtual/gpio; chown -R root:gpio /sys/devices/platform/soc/*.gpio/gpio && chmod -R 770 /sys/devices/platform/soc/*.gpio/gpio'\''\"\nSUBSYSTEM==\"spi*\", PROGRAM=\"/bin/sh -c '\''chown -R root:gpio /sys/bus/spi/devices/spi0.0 && chmod -R 770 /sys/bus/spi/devices/spi0.0'\''"' > /etc/udev/rules.d/99-neopixel.rules'
+        #     sudo udevadm control --reload-rules
+        #     sudo udevadm trigger
+        # fi
+
+        sudo python3 -m pip install --force-reinstall adafruit-blinka        
+        echo ""
+        echo "NeoPixel setup complete!"
+        echo "NOTE: You may need to reboot for all changes to take effect"
+    fi
 fi
 
 echo ""
@@ -47,4 +92,14 @@ echo "2. Get your Vapi API key from vapi.ai"
 echo "3. Add both keys to .env file:"
 echo "   PICOVOICE_ACCESS_KEY=your_key_here"
 echo "   VAPI_API_KEY=your_vapi_api_key_here"
-echo "4. Run the example: python src/example_wake_word.py" 
+echo "4. Run the example: python src/example_wake_word.py"
+
+# Add Raspberry Pi specific instructions if applicable
+if is_raspberry_pi; then
+    echo ""
+    echo "Raspberry Pi specific notes:"
+    echo "- If this is your first install, please REBOOT to enable SPI"
+    echo "- Log out and back in for GPIO group changes to take effect"
+    echo "- Connect NeoPixel data line to GPIO21 (pin 40 on the board) - we use this pin instead of GPIO18 to avoid conflicts with audio"
+    echo "- To test LED ring: python src/led_control.py"
+fi 
