@@ -137,11 +137,15 @@ class LEDController:
         # Track the state of each pixel
         pixel_states = []
         for _ in range(LED_COUNT):
+            # Randomly initialize each pixel with different phases
+            is_active = random.random() < 0.25  # 25% chance to start active
+            brightness = random.random() if is_active else 0.0
+            direction = -1 if brightness > 0.5 else 1  # Start dimming if bright, brightening if dim
             pixel_states.append({
-                'active': False,
-                'brightness': 0.0,
-                'hue': 0.0,
-                'direction': 1  # 1 for brightening, -1 for dimming
+                'active': is_active,
+                'brightness': brightness,
+                'hue': random.random(),
+                'direction': direction
             })
 
         while not self._stop_event.is_set():
