@@ -36,8 +36,8 @@ class AudioManager:
                 sample_rate=SAMPLE_RATE,
                 channels=NUM_CHANNELS
             )
-            daily.Daily.select_microphone_device("virtual-mic")
-            daily.Daily.select_speaker_device("virtual-speaker")
+            daily.Daily.select_microphone_device_id("virtual-mic")
+            daily.Daily.select_speaker_device_id("virtual-speaker")
         return cls._instance
     
     @classmethod
@@ -45,10 +45,10 @@ class AudioManager:
         if cls._instance:
             # First release virtual devices
             if cls._virtual_mic:
-                daily.Daily.select_microphone_device(None)
+                daily.Daily.select_microphone_device_id(None)
                 cls._virtual_mic = None
             if cls._virtual_speaker:
-                daily.Daily.select_speaker_device(None)
+                daily.Daily.select_speaker_device_id(None)
                 cls._virtual_speaker = None
             
             # Wait a bit for devices to be released
