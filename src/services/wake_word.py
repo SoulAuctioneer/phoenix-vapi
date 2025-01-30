@@ -17,6 +17,7 @@ class WakeWordService(BaseService):
         self._max_retries = 3
         self._detector_thread = None
         self._error_queue = queue.Queue()
+        self._loop = None  # Store the event loop for thread-safe callbacks
         
     def _run_detector(self):
         """Run the detector in a thread"""
@@ -31,6 +32,7 @@ class WakeWordService(BaseService):
         
     async def start(self):
         await super().start()
+        self._loop = asyncio.get_running_loop()  # Store the event loop
         await self.setup_detector()
         if self.detector:
             # Start detector in a thread
@@ -93,16 +95,24 @@ class WakeWordService(BaseService):
                 self._detector_thread = None
             
     def on_wake_word(self):
-        """Handle wake word detection"""
-        if self._running:
-            # Pause wake word detection
-            logging.info("Wake word detected, pausing detection")
-            if self.detector:
-                self.detector.stop()
-            # Notify other services
-            asyncio.create_task(self.manager.publish_event({
+        """Handle wake word detection - called from detector thread"""
+        if not self._running or not self._loop:
+            return
+            
+        # Stop detection immediately from the thread
+        logging.info("Wake word detected, pausing detection")
+        if self.detector:
+            self.detector.stop()
+            
+        # Schedule the async event publishing in the event loop
+        async def publish_wake_word_event():
+            await self.manager.publish_event({
                 "type": "wake_word_detected"
-            }))
+            })
+            
+        self._loop.call_soon_threadsafe(
+            lambda: asyncio.create_task(publish_wake_word_event())
+        )
             
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
