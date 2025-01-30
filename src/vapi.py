@@ -3,25 +3,6 @@ from daily import *
 import requests
 from daily_call import DailyCall
 
-SAMPLE_RATE = 16000
-CHANNELS = 1
-
-
-def create_web_call(api_url, api_key, payload):
-    url = f"{api_url}/call/web"
-    headers = {
-        'Authorization': 'Bearer ' + api_key,
-        'Content-Type': 'application/json'
-    }
-    response = requests.post(url, headers=headers, json=payload)
-    data = response.json()
-    if response.status_code == 201:
-        call_id = data.get('id')
-        web_call_url = data.get('webCallUrl')
-        return call_id, web_call_url
-    else:
-        raise Exception(f"Error: {data['message']}")
-
 
 class Vapi:
     def __init__(self, *, api_key, api_url="https://api.vapi.ai", manager=None):
@@ -30,6 +11,21 @@ class Vapi:
         self.manager = manager
         self.__client = None
         # self.__on_session_end = None
+
+    def __create_web_call(self, payload):
+        url = f"{self.api_url}/call/web"
+        headers = {
+            'Authorization': 'Bearer ' + self.api_key,
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        data = response.json()
+        if response.status_code == 201:
+            call_id = data.get('id')
+            web_call_url = data.get('webCallUrl')
+            return call_id, web_call_url
+        else:
+            raise Exception(f"Error: {data['message']}")
 
     def start(
         self,
@@ -58,8 +54,7 @@ class Vapi:
             raise Exception("Error: No assistant specified.")
 
         logging.info("Creating web call...")
-        call_id, web_call_url = create_web_call(
-            self.api_url, self.api_key, payload)
+        call_id, web_call_url = self.__create_web_call(payload)
 
         if not web_call_url:
             raise Exception("Error: Unable to create call.")
