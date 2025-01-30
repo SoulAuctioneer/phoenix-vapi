@@ -4,7 +4,7 @@ import numpy as np
 import threading
 import queue
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
 
@@ -48,18 +48,87 @@ class AudioBuffer:
                 except queue.Empty:
                     break
 
+class AudioConsumer:
+    """Represents a consumer of audio input data"""
+    def __init__(self, callback: Callable[[np.ndarray], None]):
+        self.callback = callback
+        self.buffer = AudioBuffer()
+        self.active = True
+
+class AudioProducer:
+    """Represents a producer of audio output data"""
+    def __init__(self, name: str):
+        self.name = name
+        self.buffer = AudioBuffer()
+        self.volume = 1.0
+        self.active = True
+
 class AudioManager:
     """Manages audio resources and provides thread-safe access"""
+    _instance = None
+
+    @classmethod
+    def get_instance(cls, config: AudioConfig = None) -> 'AudioManager':
+        """Get or create the AudioManager singleton instance"""
+        if cls._instance is None:
+            if config is None:
+                config = AudioConfig()
+            cls._instance = cls(config)
+        return cls._instance
+
     def __init__(self, config: AudioConfig = AudioConfig()):
+        if AudioManager._instance is not None:
+            raise RuntimeError("Use AudioManager.get_instance() to get the AudioManager instance")
+            
         self.config = config
         self._py_audio: Optional[pyaudio.PyAudio] = None
         self._input_stream: Optional[pyaudio.Stream] = None
         self._output_stream: Optional[pyaudio.Stream] = None
         self._lock = threading.Lock()
-        self.input_buffer = AudioBuffer()
         self._running = False
         self._input_thread: Optional[threading.Thread] = None
+        self._output_thread: Optional[threading.Thread] = None
         
+        # Audio consumers and producers
+        self._consumers: List[AudioConsumer] = []
+        self._producers: Dict[str, AudioProducer] = {}
+        self._consumers_lock = threading.Lock()
+        self._producers_lock = threading.Lock()
+        
+    def add_consumer(self, callback: Callable[[np.ndarray], None]) -> AudioConsumer:
+        """Add a new audio consumer"""
+        consumer = AudioConsumer(callback)
+        with self._consumers_lock:
+            self._consumers.append(consumer)
+        return consumer
+        
+    def remove_consumer(self, consumer: AudioConsumer):
+        """Remove an audio consumer"""
+        with self._consumers_lock:
+            if consumer in self._consumers:
+                consumer.active = False
+                self._consumers.remove(consumer)
+                
+    def add_producer(self, name: str) -> AudioProducer:
+        """Add a new audio producer"""
+        producer = AudioProducer(name)
+        with self._producers_lock:
+            self._producers[name] = producer
+        return producer
+        
+    def remove_producer(self, name: str):
+        """Remove an audio producer"""
+        with self._producers_lock:
+            if name in self._producers:
+                self._producers[name].active = False
+                del self._producers[name]
+                
+    def set_producer_volume(self, name: str, volume: float):
+        """Set volume for a specific producer"""
+        with self._producers_lock:
+            if name in self._producers:
+                self._producers[name].volume = max(0.0, min(1.0, volume))
+                
     @property
     def is_running(self) -> bool:
         return self._running
@@ -74,9 +143,15 @@ class AudioManager:
                 self._py_audio = pyaudio.PyAudio()
                 self._setup_streams()
                 self._running = True
-                self._input_thread = threading.Thread(target=self._input_loop)
+                
+                # Start input and output threads
+                self._input_thread = threading.Thread(target=self._input_loop, name="AudioInputThread")
+                self._output_thread = threading.Thread(target=self._output_loop, name="AudioOutputThread")
                 self._input_thread.daemon = True
+                self._output_thread.daemon = True
                 self._input_thread.start()
+                self._output_thread.start()
+                
             except Exception as e:
                 logging.error(f"Failed to start audio: {e}")
                 self.stop()
@@ -87,8 +162,19 @@ class AudioManager:
         with self._lock:
             self._running = False
             
+            # Stop all consumers and producers
+            with self._consumers_lock:
+                for consumer in self._consumers:
+                    consumer.active = False
+            with self._producers_lock:
+                for producer in self._producers.values():
+                    producer.active = False
+            
+            # Wait for threads to finish
             if self._input_thread and self._input_thread.is_alive():
                 self._input_thread.join(timeout=1.0)
+            if self._output_thread and self._output_thread.is_alive():
+                self._output_thread.join(timeout=1.0)
                 
             self._cleanup_streams()
             
@@ -108,8 +194,7 @@ class AudioManager:
             rate=self.config.rate,
             input=True,
             input_device_index=self.config.input_device_index,
-            frames_per_buffer=self.config.chunk,
-            stream_callback=self._input_callback
+            frames_per_buffer=self.config.chunk
         )
         
         # Setup output stream
@@ -125,55 +210,77 @@ class AudioManager:
     def _cleanup_streams(self):
         """Cleanup audio streams"""
         if self._input_stream:
-            self._input_stream.stop_stream()
-            self._input_stream.close()
+            try:
+                self._input_stream.stop_stream()
+                self._input_stream.close()
+            except Exception as e:
+                logging.error(f"Error closing input stream: {e}")
             self._input_stream = None
             
         if self._output_stream:
-            self._output_stream.stop_stream()
-            self._output_stream.close()
+            try:
+                self._output_stream.stop_stream()
+                self._output_stream.close()
+            except Exception as e:
+                logging.error(f"Error closing output stream: {e}")
             self._output_stream = None
             
-    def _input_callback(self, in_data, frame_count, time_info, status):
-        """Callback for input stream"""
-        if status:
-            logging.warning(f"Audio input status: {status}")
-        
-        try:
-            # Convert to numpy array
-            audio_data = np.frombuffer(in_data, dtype=np.float32)
-            
-            # Put in buffer, drop if buffer is full
-            if not self.input_buffer.put(audio_data):
-                logging.warning("Audio input buffer full, dropping frame")
-                
-        except Exception as e:
-            logging.error(f"Error in audio input callback: {e}")
-            
-        return (None, pyaudio.paContinue)
-        
     def _input_loop(self):
         """Main input processing loop"""
         while self._running:
             try:
-                data = self.input_buffer.get()
-                if data is not None:
-                    # Process audio data here
-                    # For now, we just pass it through
-                    pass
+                # Read from input stream
+                data = self._input_stream.read(self.config.chunk, exception_on_overflow=False)
+                audio_data = np.frombuffer(data, dtype=np.float32)
+                
+                # Distribute to all active consumers
+                with self._consumers_lock:
+                    for consumer in self._consumers:
+                        if consumer.active:
+                            consumer.callback(audio_data)
+                            
             except Exception as e:
                 logging.error(f"Error in audio input loop: {e}")
                 
-    def play_audio(self, audio_data: np.ndarray):
-        """Play audio data"""
-        if not self._output_stream or not self._running:
+    def _output_loop(self):
+        """Main output processing loop"""
+        while self._running:
+            try:
+                # Mix audio from all active producers
+                mixed_audio = np.zeros(self.config.chunk, dtype=np.float32)
+                
+                with self._producers_lock:
+                    active_producers = 0
+                    for producer in self._producers.values():
+                        if producer.active:
+                            data = producer.buffer.get()
+                            if data is not None:
+                                mixed_audio += data * producer.volume
+                                active_producers += 1
+                    
+                    # Normalize if we have multiple producers
+                    if active_producers > 1:
+                        mixed_audio /= active_producers
+                        
+                # Write to output stream
+                if active_producers > 0:
+                    self._output_stream.write(mixed_audio.tobytes())
+                    
+            except Exception as e:
+                logging.error(f"Error in audio output loop: {e}")
+                
+    def play_audio(self, audio_data: np.ndarray, producer_name: str = "default"):
+        """Play audio data through a specific producer"""
+        if not self._running:
             return
             
-        try:
-            self._output_stream.write(audio_data.tobytes())
-        except Exception as e:
-            logging.error(f"Error playing audio: {e}")
-            
+        with self._producers_lock:
+            if producer_name not in self._producers:
+                self.add_producer(producer_name)
+            producer = self._producers[producer_name]
+            if producer.active:
+                producer.buffer.put(audio_data)
+                
     @contextmanager
     def get_recorder(self, filename: str):
         """Context manager for recording audio to a file"""

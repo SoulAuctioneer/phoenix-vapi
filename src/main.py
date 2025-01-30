@@ -1,59 +1,68 @@
-import logging
-
-# Configure logging first, before any other imports
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-import signal
-import sys
 import asyncio
-from app import App
+import logging
+import signal
+from services.event_manager import EventManager
+from services.audio_service import AudioService
+from services.wake_word import WakeWordService
+from services.conversation import ConversationService
+from services.led_service import LEDService
 
 async def main():
-    app = App()
-    shutdown_event = asyncio.Event()
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     
-    def signal_handler(sig, frame):
-        logging.info("Stopping Phoenix Assistant...")
-        # Use call_soon_threadsafe since we're in a signal handler
-        asyncio.get_event_loop().call_soon_threadsafe(shutdown_event.set)
+    # Create event manager
+    event_manager = EventManager()
     
-    signal.signal(signal.SIGINT, signal_handler)
+    # Create and register services in order
+    services = [
+        AudioService(event_manager),        # Initialize audio first
+        WakeWordService(event_manager),     # Then wake word detection
+        ConversationService(event_manager), # Then conversation handling
+        LEDService(event_manager),          # Finally LED control
+    ]
     
+    # Start all services
+    for service in services:
+        await service.start()
+        
+    # Setup signal handlers for graceful shutdown
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(services)))
+        
+    # Keep the main task running
     try:
-        logging.info("Starting Phoenix Assistant...")
-        # Start app in a separate task
-        app_task = asyncio.create_task(app.start())
-        
-        # Wait for either the app to finish or shutdown signal
-        await shutdown_event.wait()
-        
-        # First attempt graceful shutdown
-        logging.info("Initiating graceful shutdown...")
-        await asyncio.wait_for(app.cleanup(), timeout=5.0)
-        
-        # If app task is still running, force cancel it
-        if not app_task.done():
-            logging.warning("Forcing application shutdown...")
-            app_task.cancel()
-            try:
-                await asyncio.wait_for(app_task, timeout=2.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
-                pass
+        while True:
+            await asyncio.sleep(1)
+    except asyncio.CancelledError:
+        pass
+
+async def shutdown(services):
+    """Gracefully shutdown all services"""
+    logging.info("Shutting down...")
+    
+    # Stop services in reverse order
+    for service in reversed(services):
+        try:
+            await service.stop()
+        except Exception as e:
+            logging.error(f"Error stopping service {service.__class__.__name__}: {e}")
             
-    except asyncio.TimeoutError:
-        logging.error("Shutdown timed out, forcing exit...")
-    except Exception as e:
-        logging.error(f"Error: {e}", exc_info=True)
-    finally:
-        # Force exit if we're still here
-        sys.exit(0)
+    # Cancel the main task
+    for task in asyncio.all_tasks():
+        if task is not asyncio.current_task():
+            task.cancel()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("Received keyboard interrupt, shutting down...") 
+        pass  # Handle Ctrl+C gracefully
+    except Exception as e:
+        logging.error(f"Fatal error: {e}", exc_info=True)
+    finally:
+        logging.info("Application stopped") 
