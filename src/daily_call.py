@@ -209,6 +209,8 @@ class DailyCall:
         else:
             self.__app_joined = True
             logging.info("Joined call")
+            if self.manager:
+                await self.manager.publish_event({"type": "conversation_started"})
         self.maybe_start()
 
     def join(self, meeting_url):

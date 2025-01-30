@@ -28,8 +28,8 @@ class ConversationService(BaseService):
             self.is_active = True
             try:
                 logging.info("Attempting to start Vapi connection")
+                await self.manager.publish_event({"type": "conversation_starting"})  # New event
                 self.vapi.start(assistant_id=ASSISTANT_ID)
-                await self.manager.publish_event({"type": "conversation_started"})
             except Exception as e:
                 logging.error("Failed to start Vapi: %s", str(e), exc_info=True)
                 await self.stop_conversation()
