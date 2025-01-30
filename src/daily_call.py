@@ -285,6 +285,8 @@ class DailyCall:
         # Clean up Daily devices first
         if hasattr(self, '__mic_device'):
             try:
+                # Release the mic device
+                daily.Daily.select_microphone_device(None)
                 self.__mic_device = None
                 time.sleep(0.2)  # Small delay after releasing mic device
             except Exception as e:
@@ -292,19 +294,21 @@ class DailyCall:
 
         if hasattr(self, '__speaker_device'):
             try:
+                # Release the speaker device
+                daily.Daily.select_speaker_device(None)
                 self.__speaker_device = None
                 time.sleep(0.2)  # Small delay after releasing speaker device
             except Exception as e:
                 logging.error(f"Error cleaning up speaker device: {e}")
                 
         # Small delay before terminating PyAudio to allow Daily devices to be fully released
-        time.sleep(0.5)
+        time.sleep(1.0)  # Increased delay to ensure ALSA has time to release the device
 
         # Then terminate PyAudio
         if hasattr(self, '__audio_interface') and self.__audio_interface:
             try:
                 self.__audio_interface.terminate()
-                time.sleep(0.2)  # Small delay after termination
+                time.sleep(0.5)  # Increased delay after termination
             except Exception as e:
                 logging.error(f"Error terminating audio interface: {e}")
             self.__audio_interface = None
