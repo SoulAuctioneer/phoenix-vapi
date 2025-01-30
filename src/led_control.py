@@ -5,22 +5,23 @@ from threading import Thread, Event
 from config import LED_PIN, LED_COUNT, LED_BRIGHTNESS, LED_ORDER, PLATFORM
 import logging
 
+# Try to import board and neopixel, but don't fail if they're not available, e.g. not on Raspberry Pi
+try:
+    import board
+    import neopixel
+    LEDS_AVAILABLE = True
+    logging.info("LED libraries available. Will use LEDs")
+except (ImportError, NotImplementedError):
+    LEDS_AVAILABLE = False
+    logging.info("LED libraries not available. Won't use LEDs")
+
 class LEDController:
-
-    # Only import board and neopixel on Raspberry Pi
-    if PLATFORM == "raspberry-pi":
-        import board
-        import neopixel
-        logging.info("Initializing LED controller for Raspberry Pi")
-    else:
-        logging.info("Initializing LED controller in simulation mode")
-
     def __init__(self):
         self._effect_thread = None
         self._stop_event = Event()
         
         # Initialize the NeoPixel object only on Raspberry Pi
-        if PLATFORM == "raspberry-pi":
+        if LEDS_AVAILABLE:
             # Get the correct board pin based on LED_PIN configuration
             pin = getattr(board, f'D{LED_PIN}') if hasattr(board, f'D{LED_PIN}') else LED_PIN
             self.pixels = neopixel.NeoPixel(
