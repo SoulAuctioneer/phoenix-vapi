@@ -248,14 +248,23 @@ class DailyCall:
             return
             
         self.__app_quit = True
+        
+        # First stop audio threads
         if hasattr(self, '__receive_bot_audio_thread') and self.__receive_bot_audio_thread:
             self.__receive_bot_audio_thread.join()
         if hasattr(self, '__send_user_audio_thread') and self.__send_user_audio_thread:
             self.__send_user_audio_thread.join()
+            
+        # Then leave the call
         self.__call_client.leave()
+        
+        # Finally clean up audio
+        self.cleanup_audio()
 
     def cleanup_audio(self):
         """Clean up audio resources"""
+        logging.info("Cleaning up audio resources")
+        
         # First stop the streams
         if hasattr(self, '__input_audio_stream') and self.__input_audio_stream:
             try:
@@ -272,24 +281,35 @@ class DailyCall:
             except Exception as e:
                 logging.error(f"Error cleaning up output stream: {e}")
             self.__output_audio_stream = None
+            
+        # Clean up Daily devices first
+        if hasattr(self, '__mic_device'):
+            try:
+                self.__mic_device = None
+                time.sleep(0.2)  # Small delay after releasing mic device
+            except Exception as e:
+                logging.error(f"Error cleaning up mic device: {e}")
+
+        if hasattr(self, '__speaker_device'):
+            try:
+                self.__speaker_device = None
+                time.sleep(0.2)  # Small delay after releasing speaker device
+            except Exception as e:
+                logging.error(f"Error cleaning up speaker device: {e}")
+                
+        # Small delay before terminating PyAudio to allow Daily devices to be fully released
+        time.sleep(0.5)
 
         # Then terminate PyAudio
         if hasattr(self, '__audio_interface') and self.__audio_interface:
             try:
                 self.__audio_interface.terminate()
+                time.sleep(0.2)  # Small delay after termination
             except Exception as e:
                 logging.error(f"Error terminating audio interface: {e}")
             self.__audio_interface = None
-
-        # Clear device references
-        if hasattr(self, '__mic_device'):
-            self.__mic_device = None
-
-        if hasattr(self, '__speaker_device'):
-            self.__speaker_device = None
-
-        # Small delay to allow OS to release audio resources
-        time.sleep(0.5)
+            
+        logging.info("Audio resources cleanup completed")
 
     def maybe_start(self):
         if self.__app_error:
