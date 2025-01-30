@@ -25,16 +25,19 @@ class App:
             daily.Daily.init()
             logging.info("Daily runtime initialized")
             
-            # Initialize and start services
+            # Initialize services
             self.wake_word_service = WakeWordService(self.manager)
             self.conversation_service = ConversationService(self.manager)
             self.led_service = LEDService(self.manager)
             # self.accelerometer_service = AccelerometerService(self.manager)
             
-            await self.manager.start_service("wake_word", self.wake_word_service)
-            await self.manager.start_service("conversation", self.conversation_service)
-            await self.manager.start_service("led", self.led_service)
-            # await self.manager.start_service("accelerometer", self.accelerometer_service)
+            # Start all services and wait for them to complete initialization
+            await asyncio.gather(
+                self.manager.start_service("led", self.led_service),  # Start LED first for visual feedback
+                self.manager.start_service("wake_word", self.wake_word_service),
+                self.manager.start_service("conversation", self.conversation_service)
+                # await self.manager.start_service("accelerometer", self.accelerometer_service)
+            )
             
             # Start event processing
             try:

@@ -5,15 +5,16 @@ from threading import Thread, Event
 from config import LED_PIN, LED_COUNT, LED_BRIGHTNESS, LED_ORDER, PLATFORM
 import logging
 
-# Only import board and neopixel on Raspberry Pi
-if PLATFORM == "raspberry-pi":
-    import board
-    import neopixel
-    logging.info("Initializing LED controller for Raspberry Pi")
-else:
-    logging.info("Initializing LED controller in simulation mode")
-
 class LEDController:
+
+    # Only import board and neopixel on Raspberry Pi
+    if PLATFORM == "raspberry-pi":
+        import board
+        import neopixel
+        logging.info("Initializing LED controller for Raspberry Pi")
+    else:
+        logging.info("Initializing LED controller in simulation mode")
+
     def __init__(self):
         self._effect_thread = None
         self._stop_event = Event()
