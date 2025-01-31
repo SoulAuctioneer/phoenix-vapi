@@ -43,6 +43,7 @@ class AudioService(BaseService):
         if event_type == "play_sound":
             wav_path = event.get("wav_path")
             producer_name = event.get("producer_name", "sound_effect")
+            volume = event.get("volume", 1.0)  # Default to full volume if not specified
             if wav_path and self.audio_manager:
                 # Run the audio playback in the event loop's executor to avoid blocking
                 loop = asyncio.get_event_loop()
@@ -50,7 +51,8 @@ class AudioService(BaseService):
                     None, 
                     self.audio_manager.play_wav_file,
                     wav_path,
-                    producer_name
+                    producer_name,
+                    volume
                 )
                 if not success:
                     self.logger.error(f"Failed to play sound: {wav_path}") 

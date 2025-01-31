@@ -460,14 +460,14 @@ class AudioManager:
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
                 
-    def play_wav_file(self, wav_path: str, producer_name: str = "sound_effect") -> bool:
+    def play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", volume: float = 1.0) -> bool:
         """Play a WAV file through the audio system"""
-        logging.info(f"play_wav_file called: path='{wav_path}', producer='{producer_name}'")
+        logging.info(f"play_wav_file called: path='{wav_path}', producer='{producer_name}', volume={volume}")
 
         if not self._running:
             logging.error("Cannot play WAV file - AudioManager not running")
             return False
-            
+
         def _play_in_thread():
             try:
                 logging.info(f"Opening WAV file: {wav_path}")
@@ -496,6 +496,14 @@ class AudioManager:
                     audio_array = np.frombuffer(audio_data, dtype=np.int16)
                     logging.info(f"Converted to numpy array: shape={audio_array.shape}, dtype={audio_array.dtype}")
                     
+                    # Create or get producer and set volume
+                    with self._producers_lock:
+                        if producer_name not in self._producers:
+                            producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000)
+                            self._producers[producer_name] = producer
+                        producer = self._producers[producer_name]
+                        producer.volume = max(0.0, min(1.0, volume))  # Clamp volume between 0 and 1
+                    
                     logging.info("Sending audio data to play_audio")
                     self.play_audio(audio_array, producer_name)
                     logging.info("Audio data sent to play_audio successfully")
@@ -508,7 +516,7 @@ class AudioManager:
                 return False
                 
             return True
-            
+
         # Start playback in a separate thread
         thread = threading.Thread(target=_play_in_thread, name=f"wav_player_{producer_name}")
         thread.daemon = True

@@ -2,23 +2,26 @@ import logging
 import asyncio
 from typing import Dict, Any
 from .service import BaseService
-from vapi import Vapi
+from call_manager import CallManager
 from config import VAPI_API_KEY, ASSISTANT_ID
 
 class ConversationService(BaseService):
     """Handles conversations with the AI assistant"""
     def __init__(self, manager):
         super().__init__(manager)
-        self.vapi = Vapi(api_key=VAPI_API_KEY, manager=manager)
+        self.call_manager = None  # Will be initialized in start()
         self.is_active = False
         self._is_stopping = False  # Add state tracking for stop operation
         
     async def start(self):
         await super().start()
+        self.call_manager = await CallManager.create(api_key=VAPI_API_KEY, manager=self.manager)
             
     async def stop(self):
         if self.is_active:
             await self.stop_conversation()
+        if self.call_manager:
+            await self.call_manager.cleanup()
         await super().stop()
         
     async def start_conversation(self):
@@ -35,13 +38,13 @@ class ConversationService(BaseService):
         self.is_active = True
         
         try:
-            self.logger.info("Initializing Vapi connection")
+            self.logger.info("Initializing call connection")
             await self.publish({"type": "conversation_starting"})
-            self.vapi.start(assistant_id=ASSISTANT_ID)
+            await self.call_manager.start_call(assistant_id=ASSISTANT_ID)
             self.logger.info("Conversation started successfully")
             
         except Exception as e:
-            self.logger.error("Failed to start Vapi: %s", str(e), exc_info=True)
+            self.logger.error("Failed to start call: %s", str(e), exc_info=True)
             self.is_active = False  # Reset active state on failure
             await self.stop_conversation()
             # Notify other services about the failure
@@ -49,21 +52,22 @@ class ConversationService(BaseService):
                 "type": "conversation_error",
                 "error": str(e)
             })
-                
+            
     async def stop_conversation(self):
         """Stop the current conversation"""
-        if self.is_active and not self._is_stopping:
-            self._is_stopping = True
-            self.logger.info("Stopping conversation")
-            try:
-                self.vapi.stop()
-                await self.publish({"type": "conversation_ended"})
-            except Exception as e:
-                self.logger.error("Error stopping conversation: %s", str(e), exc_info=True)
-            finally:
-                self.is_active = False
-                self._is_stopping = False
-                
+        if not self.is_active:
+            return
+            
+        self._is_stopping = True
+        try:
+            await self.call_manager.leave()
+        except Exception as e:
+            self.logger.error("Error stopping conversation: %s", str(e))
+        finally:
+            self.is_active = False
+            self._is_stopping = False
+            await self.publish({"type": "conversation_ended"})
+        
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
         event_type = event.get("type")
@@ -76,7 +80,8 @@ class ConversationService(BaseService):
                 await self.publish({
                     "type": "play_sound",
                     "wav_path": "assets/yawn.wav",
-                    "producer_name": "yawn"
+                    "producer_name": "yawn",
+                    "volume": 0.1  # Set volume to 30%
                 })
                 await self.start_conversation()
             else:

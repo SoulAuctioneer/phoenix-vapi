@@ -91,3 +91,35 @@ LED_PIN = 21  # GPIO21 for NeoPixel data (D21) - Using this instead of GPIO18 to
 LED_COUNT = 24  # Number of NeoPixels in the ring
 LED_BRIGHTNESS = 0.05  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
+
+# Audio Configuration for Calls
+class CallConfig:
+    """Unified configuration for call-related settings"""
+    
+    class Audio:
+        """Audio-specific configuration"""
+        SAMPLE_RATE = 16000
+        NUM_CHANNELS = 1
+        CHUNK_SIZE = 512
+        DEFAULT_VOLUME = 0.3
+    
+    class Vapi:
+        """Vapi API configuration"""
+        DEFAULT_API_URL = "https://api.vapi.ai"
+        SPEAKER_USERNAME = "Vapi Speaker"
+    
+    class Daily:
+        """Daily.co specific configuration"""
+        MIC_DEVICE_ID = "my-mic"
+        SPEAKER_DEVICE_ID = "my-speaker"
+        MIC_CONSTRAINTS = {
+            "autoGainControl": {"exact": True},
+            "noiseSuppression": {"exact": True},
+            "echoCancellation": {"exact": True},
+        }
+        SUBSCRIPTION_PROFILES = {
+            "base": {
+                "camera": "unsubscribed",
+                "microphone": "subscribed"
+            }
+        }
