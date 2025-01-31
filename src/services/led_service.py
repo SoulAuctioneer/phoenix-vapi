@@ -1,4 +1,4 @@
-from services import BaseService
+from services.service import BaseService
 from managers.led_manager import LEDManager
 from config import PLATFORM
 import logging

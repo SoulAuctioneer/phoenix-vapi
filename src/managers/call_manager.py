@@ -207,10 +207,10 @@ class CallEventHandler(daily.EventHandler):
 class CallManager:
     """Handles Daily call functionality and Vapi API integration"""
     
-    def __init__(self, *, api_key, api_url=CallConfig.Vapi.DEFAULT_API_URL, manager=None):
+    def __init__(self, *, manager=None):
         # Public attributes
-        self.api_key = api_key
-        self.api_url = api_url
+        self.api_key = CallConfig.Vapi.API_KEY
+        self.api_url = CallConfig.Vapi.DEFAULT_API_URL
         self.manager = manager
         self.state_manager = CallStateManager(self)
         self.audio_manager = None
@@ -226,9 +226,9 @@ class CallManager:
         self._initialized = False
 
     @classmethod
-    async def create(cls, *, api_key, api_url=CallConfig.Vapi.DEFAULT_API_URL, manager=None):
+    async def create(cls, *, manager=None):
         """Factory method to create and initialize a CallManager instance"""
-        instance = cls(api_key=api_key, api_url=api_url, manager=manager)
+        instance = cls(manager=manager)
         await instance.initialize()
         return instance
 
@@ -246,9 +246,13 @@ class CallManager:
             
             # Then create devices
             await self._initialize_devices()
-            
-            # Finally initialize call client
-            await self._initialize_call_client()
+                    
+            # Register state handlers
+            self.state_manager.register_handler(CallState.ERROR, self._handle_error_state)
+            self.state_manager.register_handler(CallState.INITIALIZED, self._handle_initialized_state)
+            self.state_manager.register_handler(CallState.JOINING, self._handle_joining_state)
+            self.state_manager.register_handler(CallState.JOINED, self._handle_joined_state)
+            self.state_manager.register_handler(CallState.LEFT, self._handle_left_state)
             
             self._initialized = True
         except Exception as e:
@@ -337,13 +341,6 @@ class CallManager:
             del participants["local"]
         for pid, pdata in participants.items():
             self.state_manager.update_participant(pid, pdata)
-        
-        # Register state handlers
-        self.state_manager.register_handler(CallState.ERROR, self._handle_error_state)
-        self.state_manager.register_handler(CallState.INITIALIZED, self._handle_initialized_state)
-        self.state_manager.register_handler(CallState.JOINING, self._handle_joining_state)
-        self.state_manager.register_handler(CallState.JOINED, self._handle_joined_state)
-        self.state_manager.register_handler(CallState.LEFT, self._handle_left_state)
 
     async def _handle_error_state(self):
         """Handle error state"""
@@ -509,6 +506,9 @@ class CallManager:
         self.state_manager.start_event.clear()
         self.state_manager._participants.clear()
         
+        # Initialize call client before joining
+        await self._initialize_call_client()
+        
         # Now transition to JOINING
         logging.info("Transitioning to JOINING state...")
         await self.state_manager.transition_to(CallState.JOINING)
@@ -544,6 +544,7 @@ class CallManager:
                 await asyncio.sleep(0.05)
                 # Then release the client
                 client.release()
+                logging.info("Call client released")
             except Exception as e:
                 logging.warning(f"Error during client cleanup: {e}")
         
@@ -556,6 +557,9 @@ class CallManager:
         except asyncio.TimeoutError:
             logging.warning("Timeout waiting for LEFT state from Daily, forcing transition")
             await self.state_manager.transition_to(CallState.LEFT)
+        
+        # Small delay to ensure cleanup is complete
+        await asyncio.sleep(0.1)
 
     async def cleanup(self):
         """Clean up all resources"""
@@ -577,6 +581,10 @@ class CallManager:
             
             # Reset to initialized state
             await self.state_manager.transition_to(CallState.INITIALIZED)
+            
+            # Clear event handler
+            self._event_handler = None
+            
         except Exception as e:
             logging.error(f"Error during CallManager cleanup: {e}")
             await self.state_manager.transition_to(CallState.ERROR)

@@ -15,7 +15,7 @@ class ConversationService(BaseService):
         
     async def start(self):
         await super().start()
-        self.call_manager = await CallManager.create(api_key=VAPI_API_KEY, manager=self.manager)
+        self.call_manager = await CallManager.create(manager=self.manager)
             
     async def stop(self):
         if self.is_active:

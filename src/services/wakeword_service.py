@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from typing import Dict, Any
-from .service import BaseService
+from services.service import BaseService
 from managers.wakeword_manager import WakeWordManager
 from config import PICOVOICE_ACCESS_KEY, WAKE_WORD_PATH
 

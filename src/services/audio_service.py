@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, Any
 import asyncio
-from .service import BaseService
-from ..managers.audio_manager import AudioManager, AudioConfig
+from services.service import BaseService
+from managers.audio_manager import AudioManager, AudioConfig
 
 class AudioService(BaseService):
     """Service to manage the AudioManager lifecycle"""

@@ -106,6 +106,7 @@ class CallConfig:
     class Vapi:
         """Vapi API configuration"""
         DEFAULT_API_URL = "https://api.vapi.ai"
+        API_KEY = VAPI_API_KEY
         SPEAKER_USERNAME = "Vapi Speaker"
     
     class Daily:
