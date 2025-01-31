@@ -241,12 +241,6 @@ class CallManager:
             # Initialize audio manager first
             self.audio_manager = AudioManager.get_instance()
             
-            # Then initialize Daily runtime
-            await self._initialize_daily_runtime()
-            
-            # Then create devices
-            await self._initialize_devices()
-                    
             # Register state handlers
             self.state_manager.register_handler(CallState.ERROR, self._handle_error_state)
             self.state_manager.register_handler(CallState.INITIALIZED, self._handle_initialized_state)
@@ -263,6 +257,9 @@ class CallManager:
     async def _initialize_devices(self):
         """Initialize Daily devices"""
         try:
+            # Small delay before creating devices
+            await asyncio.sleep(0.1)
+            
             # Create base Daily devices - these persist for the life of the class
             self._mic_device = daily.Daily.create_microphone_device(
                 CallConfig.Daily.MIC_DEVICE_ID,
@@ -275,6 +272,9 @@ class CallManager:
                 channels=CallConfig.Audio.NUM_CHANNELS
             )
             daily.Daily.select_speaker_device(CallConfig.Daily.SPEAKER_DEVICE_ID)
+            
+            # Small delay after device creation
+            await asyncio.sleep(0.1)
         except Exception as e:
             logging.error(f"Failed to initialize Daily devices: {e}")
             raise
@@ -307,7 +307,16 @@ class CallManager:
     async def _initialize_daily_runtime(self):
         """Initialize the Daily runtime"""
         try:
+            # First ensure Daily is deinitialized
+            try:
+                daily.Daily.deinit()
+                await asyncio.sleep(0.2)  # Small delay after deinit
+            except Exception:
+                pass  # Ignore errors from deinit attempt
+                
+            # Then initialize
             daily.Daily.init()
+            await asyncio.sleep(0.1)  # Small delay after init
             logging.info("Daily runtime initialized")
         except Exception as e:
             logging.error(f"Failed to initialize Daily runtime: {e}")
@@ -492,7 +501,70 @@ class CallManager:
 
     async def handle_app_message(self, message, sender):
         """Handle app messages"""
-        logging.info(f"App message received: {message}, sender: {sender}")
+        # Convert string messages to dict if needed
+        if isinstance(message, str):
+            try:
+                message = json.loads(message)
+            except json.JSONDecodeError:
+                logging.error(f"Failed to parse message as JSON: {message}")
+                return
+                
+        # Extract message type
+        msg_type = message.get("type", "")
+        
+        # Handle different message types
+        if msg_type == "status-update":
+            status = message.get("status", "")
+            logging.debug(f"Status update: {status}")
+        elif msg_type == "speech-update":
+            status = message.get("status", "")
+            role = message.get("role", "")
+            logging.debug(f"Speech update - Status: {status}, Role: {role}")
+        elif msg_type == "transcript":
+            role = message.get("role", "")
+            transcript_type = message.get("transcriptType", "")
+            transcript = message.get("transcript", "")
+            # Only log final transcripts
+            if transcript_type == "final":
+                logging.info(f"Transcript | {role.title()}: {transcript}")
+        elif msg_type == "conversation-update":
+            messages = message.get("messages", [])
+            if messages:
+                last_message = messages[-1]
+                role = "Assistant" if last_message.get('role') == 'bot' else last_message.get('role', '').title()
+                msg = last_message.get('message', '')
+                if msg:  # Only log if there's actual message content
+                    logging.info(f"Message | {role}: {msg}")
+        elif msg_type == "user-interrupted":
+            logging.info("User interrupted the assistant")
+        elif msg_type == "model-output":
+            # Skip logging individual model outputs - these will be captured in the final transcript
+            pass
+        elif msg_type == "voice-input":
+            # Skip logging voice inputs as they will appear in transcripts
+            pass
+        elif msg_type == "call_state":
+            old_state = message.get("old_state", "")
+            new_state = message.get("new_state", "")
+            logging.info(f"Call state changed: {old_state} -> {new_state}")
+        elif msg_type == "participant-left":
+            info = message.get("info", {})
+            username = info.get("userName", "Unknown")
+            reason = message.get("reason", "")
+            logging.info(f"Participant left: {username} ({reason})")
+        elif msg_type == "tool_calls":
+            function = message.get("function", {})
+            logging.debug(f"Tool call: {function.get('name', 'unknown')}")
+        elif msg_type == "tool_call_result":
+            name = message.get("name", "")
+            result = message.get("result", "")
+            logging.debug(f"Tool call result: {name} = {result}")
+        elif msg_type == "ERROR":
+            error_message = message.get("message", "")
+            target = message.get("target", "")
+            logging.error(f"WebSocket/Signaling Error - Message: {error_message}, Target: {target}")
+        else:
+            logging.warning(f"Unknown message type received: {msg_type}, full message: {message}")
 
     async def join(self, meeting_url):
         """Join a call with the given URL"""
@@ -501,6 +573,15 @@ class CallManager:
             return
             
         logging.info(f"Joining call with URL: {meeting_url} (current state: {self.state_manager.state})")
+        
+        # Initialize Daily runtime before joining
+        try:
+            await self._initialize_daily_runtime()
+            await self._initialize_devices()
+        except Exception as e:
+            logging.error(f"Failed to initialize Daily for call: {e}")
+            await self.state_manager.transition_to(CallState.ERROR)
+            return
         
         # Clear any previous state
         self.state_manager.start_event.clear()
@@ -540,11 +621,16 @@ class CallManager:
         if client:
             try:
                 client.leave()
-                # Wait a tiny bit for the leave message to be sent
-                await asyncio.sleep(0.05)
+                # Wait a bit for the leave message to be sent
+                await asyncio.sleep(0.2)
                 # Then release the client
-                client.release()
-                logging.info("Call client released")
+                try:
+                    client.release()
+                    logging.info("Call client released")
+                except Exception as e:
+                    logging.warning(f"Error releasing call client: {e}")
+                # Wait a bit after release
+                await asyncio.sleep(0.2)
             except Exception as e:
                 logging.warning(f"Error during client cleanup: {e}")
         
@@ -559,7 +645,7 @@ class CallManager:
             await self.state_manager.transition_to(CallState.LEFT)
         
         # Small delay to ensure cleanup is complete
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
 
     async def cleanup(self):
         """Clean up all resources"""
@@ -571,13 +657,25 @@ class CallManager:
             # Then cleanup audio
             self._cleanup_audio_system()
             
-            # Finally deinit Daily
+            # Release call client if it exists
             if hasattr(self, '_call_client') and self._call_client:
-                self._call_client.release()
+                try:
+                    self._call_client.release()
+                except Exception as e:
+                    logging.warning(f"Error releasing call client: {e}")
                 self._call_client = None
-                
-            daily.Daily.deinit()
-            logging.info("Daily runtime deinitialized")
+            
+            # Small delay to ensure client is fully released
+            await asyncio.sleep(0.2)
+            
+            # Finally deinit Daily
+            try:
+                daily.Daily.deinit()
+                logging.info("Daily runtime deinitialized")
+                # Add delay after deinit to ensure cleanup
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                logging.error(f"Error deinitializing Daily runtime: {e}")
             
             # Reset to initialized state
             await self.state_manager.transition_to(CallState.INITIALIZED)
@@ -588,6 +686,9 @@ class CallManager:
         except Exception as e:
             logging.error(f"Error during CallManager cleanup: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
+            
+        # Final delay to ensure all resources are cleaned up
+        await asyncio.sleep(0.2)
 
     def send_app_message(self, message):
         """Send an application message to the assistant."""
