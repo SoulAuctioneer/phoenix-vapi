@@ -11,6 +11,27 @@ class Vapi:
         self.manager = manager
         self.__client = None
         # self.__on_session_end = None
+        # Initialize Daily runtime
+        try:
+            Daily.init()
+            logging.info("Daily runtime initialized")
+        except Exception as e:
+            logging.error(f"Failed to initialize Daily runtime: {e}")
+            raise
+
+    def __del__(self):
+        """Cleanup when the Vapi instance is destroyed"""
+        self.cleanup()
+
+    def cleanup(self):
+        """Clean up resources"""
+        if self.__client:
+            self.stop()
+        try:
+            Daily.deinit()
+            logging.info("Daily runtime deinitialized")
+        except Exception as e:
+            logging.error(f"Error deinitializing Daily runtime: {e}")
 
     def __create_web_call(self, payload):
         url = f"{self.api_url}/call/web"
