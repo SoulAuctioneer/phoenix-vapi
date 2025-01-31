@@ -11,10 +11,10 @@ from contextlib import contextmanager
 @dataclass
 class AudioConfig:
     """Audio configuration parameters"""
-    format: int = pyaudio.paFloat32
+    format: int = pyaudio.paInt16
     channels: int = 1
     rate: int = 16000
-    chunk: int = 1024
+    chunk: int = 512
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
 
@@ -50,18 +50,50 @@ class AudioBuffer:
 
 class AudioConsumer:
     """Represents a consumer of audio input data"""
-    def __init__(self, callback: Callable[[np.ndarray], None]):
+    def __init__(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None):
         self.callback = callback
         self.buffer = AudioBuffer()
         self.active = True
+        self.chunk_size = chunk_size
 
 class AudioProducer:
     """Represents a producer of audio output data"""
-    def __init__(self, name: str):
+    def __init__(self, name: str, chunk_size: Optional[int] = None):
         self.name = name
         self.buffer = AudioBuffer()
         self.volume = 1.0
         self.active = True
+        self.chunk_size = chunk_size
+        self._remainder = np.array([], dtype=np.int16)
+
+    def resize_chunk(self, audio_data: np.ndarray) -> List[np.ndarray]:
+        """Resize audio chunk to desired size, handling remainder samples"""
+        if self.chunk_size is None:
+            return [audio_data]
+            
+        if len(self._remainder) > 0:
+            audio_data = np.concatenate([self._remainder, audio_data])
+            
+        chunks = []
+        num_complete_chunks = len(audio_data) // self.chunk_size
+        for i in range(num_complete_chunks):
+            start = i * self.chunk_size
+            end = start + self.chunk_size
+            chunks.append(audio_data[start:end])
+            
+        remainder_start = num_complete_chunks * self.chunk_size
+        self._remainder = audio_data[remainder_start:]
+        
+        return chunks
+
+    def apply_volume(self, audio_data: np.ndarray) -> np.ndarray:
+        """Apply volume control to int16 audio data"""
+        if self.volume == 1.0:
+            return audio_data
+        # Convert to float32 temporarily for volume adjustment to prevent integer overflow
+        audio_float = audio_data.astype(np.float32) * self.volume
+        # Clip to int16 range and convert back
+        return np.clip(audio_float, -32768, 32767).astype(np.int16)
 
 class AudioManager:
     """Manages audio resources and provides thread-safe access"""
@@ -95,9 +127,9 @@ class AudioManager:
         self._consumers_lock = threading.Lock()
         self._producers_lock = threading.Lock()
         
-    def add_consumer(self, callback: Callable[[np.ndarray], None]) -> AudioConsumer:
+    def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
-        consumer = AudioConsumer(callback)
+        consumer = AudioConsumer(callback, chunk_size)
         with self._consumers_lock:
             self._consumers.append(consumer)
         return consumer
@@ -109,9 +141,9 @@ class AudioManager:
                 consumer.active = False
                 self._consumers.remove(consumer)
                 
-    def add_producer(self, name: str) -> AudioProducer:
+    def add_producer(self, name: str, chunk_size: Optional[int] = None) -> AudioProducer:
         """Add a new audio producer"""
-        producer = AudioProducer(name)
+        producer = AudioProducer(name, chunk_size)
         with self._producers_lock:
             self._producers[name] = producer
         return producer
@@ -137,23 +169,29 @@ class AudioManager:
         """Start audio processing"""
         with self._lock:
             if self._running:
+                logging.info("AudioManager already running")
                 return
                 
             try:
+                logging.info("Initializing PyAudio...")
                 self._py_audio = pyaudio.PyAudio()
+                
+                logging.info("Setting up audio streams...")
                 self._setup_streams()
                 self._running = True
                 
                 # Start input and output threads
+                logging.info("Starting audio threads...")
                 self._input_thread = threading.Thread(target=self._input_loop, name="AudioInputThread")
                 self._output_thread = threading.Thread(target=self._output_loop, name="AudioOutputThread")
                 self._input_thread.daemon = True
                 self._output_thread.daemon = True
                 self._input_thread.start()
                 self._output_thread.start()
+                logging.info("AudioManager started successfully")
                 
             except Exception as e:
-                logging.error(f"Failed to start audio: {e}")
+                logging.error(f"Failed to start audio: {e}", exc_info=True)
                 self.stop()
                 raise
                 
@@ -185,28 +223,43 @@ class AudioManager:
     def _setup_streams(self):
         """Setup audio streams"""
         if not self._py_audio:
+            logging.error("PyAudio not initialized")
             return
             
-        # Setup input stream
-        self._input_stream = self._py_audio.open(
-            format=self.config.format,
-            channels=self.config.channels,
-            rate=self.config.rate,
-            input=True,
-            input_device_index=self.config.input_device_index,
-            frames_per_buffer=self.config.chunk
-        )
-        
-        # Setup output stream
-        self._output_stream = self._py_audio.open(
-            format=self.config.format,
-            channels=self.config.channels,
-            rate=self.config.rate,
-            output=True,
-            output_device_index=self.config.output_device_index,
-            frames_per_buffer=self.config.chunk
-        )
-        
+        try:
+            # Log available devices
+            input_devices = self.get_input_devices()
+            output_devices = self.get_output_devices()
+            logging.info(f"Available input devices: {input_devices}")
+            logging.info(f"Available output devices: {output_devices}")
+            
+            # Setup input stream
+            logging.info("Opening input stream...")
+            self._input_stream = self._py_audio.open(
+                format=self.config.format,
+                channels=self.config.channels,
+                rate=self.config.rate,
+                input=True,
+                input_device_index=self.config.input_device_index,
+                frames_per_buffer=self.config.chunk
+            )
+            
+            # Setup output stream
+            logging.info("Opening output stream...")
+            self._output_stream = self._py_audio.open(
+                format=self.config.format,
+                channels=self.config.channels,
+                rate=self.config.rate,
+                output=True,
+                output_device_index=self.config.output_device_index,
+                frames_per_buffer=self.config.chunk
+            )
+            logging.info("Audio streams setup successfully")
+            
+        except Exception as e:
+            logging.error(f"Error setting up audio streams: {e}", exc_info=True)
+            raise
+            
     def _cleanup_streams(self):
         """Cleanup audio streams"""
         if self._input_stream:
@@ -227,23 +280,32 @@ class AudioManager:
             
     def _input_loop(self):
         """Main input processing loop"""
+        logging.info("Input processing loop started")
         while self._running:
             try:
                 # Read from input stream
                 data = self._input_stream.read(self.config.chunk, exception_on_overflow=False)
-                audio_data = np.frombuffer(data, dtype=np.float32)
+                audio_data = np.frombuffer(data, dtype=np.int16)
                 
                 # Distribute to all active consumers
                 with self._consumers_lock:
                     for consumer in self._consumers:
                         if consumer.active:
-                            consumer.callback(audio_data)
+                            if consumer.chunk_size and consumer.chunk_size != len(audio_data):
+                                resized_chunks = AudioProducer("temp", consumer.chunk_size).resize_chunk(audio_data)
+                                for chunk in resized_chunks:
+                                    consumer.callback(chunk)
+                            else:
+                                consumer.callback(audio_data)
                             
             except Exception as e:
-                logging.error(f"Error in audio input loop: {e}")
+                if self._running:  # Only log if we haven't stopped intentionally
+                    logging.error(f"Error in audio input loop: {e}", exc_info=True)
+        logging.info("Input processing loop stopped")
                 
     def _output_loop(self):
         """Main output processing loop"""
+        logging.info("Output processing loop started")
         while self._running:
             try:
                 # Mix audio from all active producers
@@ -255,19 +317,38 @@ class AudioManager:
                         if producer.active:
                             data = producer.buffer.get()
                             if data is not None:
-                                mixed_audio += data * producer.volume
-                                active_producers += 1
+                                if producer.chunk_size and producer.chunk_size != self.config.chunk:
+                                    resized_chunks = producer.resize_chunk(data)
+                                    if resized_chunks:
+                                        data = resized_chunks[0]
+                                        for chunk in resized_chunks[1:]:
+                                            producer.buffer.put(chunk)
+                                    else:
+                                        continue
+                                
+                                if len(data) == self.config.chunk:
+                                    # Convert to float32 for mixing to prevent integer overflow
+                                    audio_float = data.astype(np.float32)
+                                    if producer.volume != 1.0:
+                                        audio_float *= producer.volume
+                                    mixed_audio += audio_float
+                                    active_producers += 1
                     
                     # Normalize if we have multiple producers
                     if active_producers > 1:
                         mixed_audio /= active_producers
+                        
+                    # Convert back to int16 and clip to prevent overflow
+                    mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
                         
                 # Write to output stream
                 if active_producers > 0:
                     self._output_stream.write(mixed_audio.tobytes())
                     
             except Exception as e:
-                logging.error(f"Error in audio output loop: {e}")
+                if self._running:  # Only log if we haven't stopped intentionally
+                    logging.error(f"Error in output loop: {e}", exc_info=True)
+        logging.info("Output processing loop stopped")
                 
     def play_audio(self, audio_data: np.ndarray, producer_name: str = "default"):
         """Play audio data through a specific producer"""
@@ -279,6 +360,9 @@ class AudioManager:
                 self.add_producer(producer_name)
             producer = self._producers[producer_name]
             if producer.active:
+                # Ensure audio data is int16
+                if audio_data.dtype != np.int16:
+                    audio_data = np.clip(audio_data * 32767, -32768, 32767).astype(np.int16)
                 producer.buffer.put(audio_data)
                 
     @contextmanager

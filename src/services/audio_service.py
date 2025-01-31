@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, Any
-from .base import BaseService
+from .service import BaseService
 from .audio_manager import AudioManager, AudioConfig
 
 class AudioService(BaseService):
@@ -18,10 +18,10 @@ class AudioService(BaseService):
             config = AudioConfig()
             self.audio_manager = AudioManager.get_instance(config)
             self.audio_manager.start()
-            logging.info("Audio service started successfully")
+            self.logger.info("Audio service started successfully")
             
         except Exception as e:
-            logging.error(f"Failed to start audio service: {e}")
+            self.logger.error(f"Failed to start audio service: {e}")
             raise
             
     async def stop(self):
@@ -29,9 +29,9 @@ class AudioService(BaseService):
         if self.audio_manager:
             try:
                 self.audio_manager.stop()
-                logging.info("Audio service stopped successfully")
+                self.logger.info("Audio service stopped successfully")
             except Exception as e:
-                logging.error(f"Error stopping audio service: {e}")
+                self.logger.error(f"Error stopping audio service: {e}")
                 
         await super().stop()
         

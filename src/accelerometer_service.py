@@ -1,11 +1,12 @@
 import logging
 import asyncio
-from typing import Tuple
 import board
-import adafruit_mpu6050
 import busio
+import adafruit_mpu6050
+from typing import Dict, Any
+from services.service import BaseService
 
-class AccelerometerService:
+class AccelerometerService(BaseService):
     """Service for reading accelerometer data"""
     def __init__(self, manager, update_interval=0.1):
         super().__init__(manager)
@@ -23,9 +24,9 @@ class AccelerometerService:
             self.mpu = adafruit_mpu6050.MPU6050(self.i2c)
             # Start continuous reading
             self.read_task = asyncio.create_task(self._read_loop())
-            logging.info("Accelerometer service started")
+            self.logger.info("Accelerometer service started")
         except Exception as e:
-            logging.error(f"Failed to initialize accelerometer: {e}")
+            self.logger.error(f"Failed to initialize accelerometer: {e}")
             raise
             
     async def stop(self):
@@ -49,7 +50,7 @@ class AccelerometerService:
                 temperature = self.mpu.temperature
                 
                 # Publish sensor data event
-                await self.manager.publish_event({
+                await self.publish({
                     "type": "sensor_data",
                     "sensor": "accelerometer",
                     "data": {
@@ -63,9 +64,14 @@ class AccelerometerService:
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logging.error(f"Error reading accelerometer: {e}")
+            self.logger.error(f"Error reading accelerometer: {e}")
             raise
             
+    async def handle_event(self, event: Dict[str, Any]):
+        """Handle events from other services"""
+        # Currently no events to handle
+        pass
+
     async def get_acceleration(self) -> Tuple[float, float, float]:
         """Get current acceleration values (x, y, z)"""
         if self.mpu:

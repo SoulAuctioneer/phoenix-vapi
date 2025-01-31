@@ -72,16 +72,19 @@ class WakeWordDetector:
             return
             
         try:
-            # Process with Porcupine
+            # Audio is already in int16 format, just pass it through
             keyword_index = self.porcupine.process(audio_data)
             
             # If wake word detected (keyword_index >= 0)
             if keyword_index >= 0:
                 logging.info(f"Wake word '{self.wake_word}' detected!")
-                self.callback_fn()
+                self.callback_fn()  # This will publish the wake_word_detected event
+                
         except Exception as e:
-            if self.running:  # Only log error if we're not intentionally stopping
+            if self.running:  # Only log if we're not intentionally stopping
                 logging.error(f"Error processing audio: {e}")
+                if logging.getLogger().isEnabledFor(logging.DEBUG):
+                    logging.debug(f"Audio data shape: {audio_data.shape}, dtype: {audio_data.dtype}, range: [{audio_data.min()}, {audio_data.max()}]")
 
     def start(self):
         """Start listening for wake word"""
@@ -90,8 +93,11 @@ class WakeWordDetector:
             
         try:
             self.running = True
-            # Register as an audio consumer
-            self._audio_consumer = self.audio_manager.add_consumer(self.process_audio)
+            # Register as an audio consumer with specific chunk size
+            self._audio_consumer = self.audio_manager.add_consumer(
+                self.process_audio,
+                chunk_size=self.porcupine.frame_length
+            )
             logging.info("Wake word detection started")
             
         except Exception as e:

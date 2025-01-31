@@ -1,23 +1,22 @@
 from enum import Enum
 import asyncio
 import logging
-from typing import Optional, Callable, Dict, Any
+from typing import Dict, Any, Callable, Optional
 
 class CallState(Enum):
+    """Possible states for a call"""
     INITIALIZING = "initializing"
     CONNECTING = "connecting"
     CONNECTED = "connected"
-    ACTIVE = "active"
-    DISCONNECTING = "disconnecting"
+    DISCONNECTED = "disconnected"
     ERROR = "error"
-    CLOSED = "closed"
 
 class StateManager:
     """Manages state transitions and notifications"""
-    def __init__(self, event_publisher: Optional[Callable[[Dict[str, Any]], None]] = None):
+    def __init__(self, service: 'BaseService'):
         self.state = CallState.INITIALIZING
         self.state_lock = asyncio.Lock()
-        self.event_publisher = event_publisher
+        self.service = service
         self._state_handlers: Dict[CallState, Callable] = {}
         
     def register_handler(self, state: CallState, handler: Callable):
@@ -31,22 +30,21 @@ class StateManager:
             self.state = new_state
             
             # Log the transition
-            logging.info(f"Call state transition: {old_state.value} -> {new_state.value}")
+            self.service.logger.info(f"Call state transition: {old_state.value} -> {new_state.value}")
             
-            # Publish event if we have a publisher
-            if self.event_publisher:
-                await self.event_publisher({
-                    "type": "call_state_changed",
-                    "old_state": old_state.value,
-                    "new_state": new_state.value
-                })
+            # Publish event
+            await self.service.publish({
+                "type": "call_state_changed",
+                "old_state": old_state.value,
+                "new_state": new_state.value
+            })
             
             # Execute state handler if one exists
             if new_state in self._state_handlers:
                 try:
                     await self._state_handlers[new_state]()
                 except Exception as e:
-                    logging.error(f"Error in state handler for {new_state.value}: {e}")
+                    self.service.logger.error(f"Error in state handler for {new_state.value}: {e}")
                     await self.transition_to(CallState.ERROR)
     
     @property

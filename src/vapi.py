@@ -61,7 +61,6 @@ class Vapi:
 
         logging.info('Joining call... ' + call_id)
 
-        # self.__client = DailyCall(on_session_end=self.__on_session_end)
         self.__client = DailyCall(manager=self.manager)
         self.__client.join(web_call_url)
 
@@ -69,9 +68,6 @@ class Vapi:
         if self.__client:
             self.__client.leave()
             self.__client = None
-            # Call the session end callback if it exists
-            # if self.__on_session_end:
-            #     self.__on_session_end()
 
     def send(self, message):
         """

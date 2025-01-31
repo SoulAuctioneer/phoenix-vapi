@@ -123,9 +123,15 @@ class DailyCall:
         )
         daily.Daily.select_speaker_device("my-speaker")
         
-        # Register as audio consumer and producer
-        self._audio_consumer = self.audio_manager.add_consumer(self.handle_input_audio)
-        self._audio_producer = self.audio_manager.add_producer("daily_call")
+        # Register as audio consumer and producer with specific chunk sizes
+        self._audio_consumer = self.audio_manager.add_consumer(
+            self.handle_input_audio,
+            chunk_size=CHUNK_SIZE
+        )
+        self._audio_producer = self.audio_manager.add_producer(
+            "daily_call",
+            chunk_size=CHUNK_SIZE
+        )
         # Set initial volume
         self.audio_manager.set_producer_volume("daily_call", self.__volume)
         
@@ -133,9 +139,8 @@ class DailyCall:
         """Handle input audio from audio manager"""
         if not self.__app_quit and self.__mic_device:
             try:
-                # Convert float32 to int16 for Daily
-                audio_int16 = (audio_data * 32767).astype(np.int16)
-                self.__mic_device.write_frames(audio_int16.tobytes())
+                # Audio is already in int16 format, just pass it through
+                self.__mic_device.write_frames(audio_data.tobytes())
             except Exception as e:
                 logging.error(f"Error writing to mic device: {e}")
 
@@ -143,9 +148,9 @@ class DailyCall:
         """Handle output audio from Daily"""
         if not self.__app_quit and self._audio_producer:
             try:
-                # Convert int16 to float32
-                audio_np = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32767.0
-                # Volume control is handled by the AudioManager
+                # Convert bytes to int16 numpy array
+                audio_np = np.frombuffer(audio_data, dtype=np.int16)
+                # Pass through to audio manager (already in int16 format)
                 self._audio_producer.buffer.put(audio_np)
             except Exception as e:
                 logging.error(f"Error processing output audio: {e}")
@@ -161,12 +166,12 @@ class DailyCall:
         
         if self.manager:
             if state == "joined":
-                await self.manager.publish_event({
+                await self.manager.publish({
                     "type": "call_state",
                     "state": "started"
                 })
             elif state == "left":
-                await self.manager.publish_event({
+                await self.manager.publish({
                     "type": "call_state",
                     "state": "ended"
                 })
@@ -180,7 +185,7 @@ class DailyCall:
             # If the leaving participant was the assistant, publish event
             if "userName" in participant["info"] and participant["info"]["userName"] == "Vapi Speaker":
                 if self.manager and self.__call_state != "left":  # Only if we haven't already left
-                    await self.manager.publish_event({
+                    await self.manager.publish({
                         "type": "call_state",
                         "state": "ended"
                     })
@@ -209,7 +214,7 @@ class DailyCall:
             self.__app_joined = True
             logging.info("Joined call")
             if self.manager:
-                await self.manager.publish_event({"type": "conversation_started"})
+                await self.manager.publish({"type": "conversation_started"})
         self.maybe_start()
 
     def join(self, meeting_url):
