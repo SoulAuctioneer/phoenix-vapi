@@ -104,9 +104,9 @@ class DailyCall:
         if "local" in self.__participants:
             del self.__participants["local"]
             
-        # Setup audio devices and consumers/producers
+        # Setup audio devices and threads
         self.setup_audio()
-
+        
     def setup_audio(self):
         """Initialize audio components"""
         # Create Daily devices
@@ -123,37 +123,77 @@ class DailyCall:
         )
         daily.Daily.select_speaker_device("my-speaker")
         
-        # Register as audio consumer and producer with specific chunk sizes
+        # Start audio threads
+        self.__receive_bot_audio_thread = threading.Thread(
+            target=self.__receive_bot_audio,
+            name="DailyReceiveAudioThread"
+        )
+        self.__send_user_audio_thread = threading.Thread(
+            target=self.__send_user_audio,
+            name="DailySendAudioThread"
+        )
+        
+        # Register with audio manager
         self._audio_consumer = self.audio_manager.add_consumer(
-            self.handle_input_audio,
+            self.__handle_input_audio,
             chunk_size=CHUNK_SIZE
         )
         self._audio_producer = self.audio_manager.add_producer(
             "daily_call",
             chunk_size=CHUNK_SIZE
         )
+        
         # Set initial volume
         self.audio_manager.set_producer_volume("daily_call", self.__volume)
         
-    def handle_input_audio(self, audio_data: np.ndarray):
+        # Start the threads
+        self.__receive_bot_audio_thread.daemon = True
+        self.__send_user_audio_thread.daemon = True
+        self.__receive_bot_audio_thread.start()
+        self.__send_user_audio_thread.start()
+        
+    def __handle_input_audio(self, audio_data: np.ndarray):
         """Handle input audio from audio manager"""
-        if not self.__app_quit and self.__mic_device:
+        if not self.__app_quit and self.__mic_device and self.__app_joined:
             try:
-                # Audio is already in int16 format, just pass it through
                 self.__mic_device.write_frames(audio_data.tobytes())
             except Exception as e:
                 logging.error(f"Error writing to mic device: {e}")
 
-    def handle_output_audio(self, audio_data: bytes):
-        """Handle output audio from Daily"""
-        if not self.__app_quit and self._audio_producer:
+    def __send_user_audio(self):
+        """Thread for sending user audio to Daily"""
+        self.__start_event.wait()
+        if self.__app_error:
+            logging.error("Unable to send user audio due to error state")
+            return
+            
+        logging.info("Started sending user audio")
+        while not self.__app_quit:
             try:
-                # Convert bytes to int16 numpy array
-                audio_np = np.frombuffer(audio_data, dtype=np.int16)
-                # Pass through to audio manager (already in int16 format)
-                self._audio_producer.buffer.put(audio_np)
+                # Audio is handled by the audio manager consumer callback
+                time.sleep(0.1)  # Small sleep to prevent busy waiting
             except Exception as e:
-                logging.error(f"Error processing output audio: {e}")
+                if not self.__app_quit:
+                    logging.error(f"Error in send audio thread: {e}")
+
+    def __receive_bot_audio(self):
+        """Thread for receiving bot audio from Daily"""
+        self.__start_event.wait()
+        if self.__app_error:
+            logging.error("Unable to receive bot audio due to error state")
+            return
+            
+        logging.info("Started receiving bot audio")
+        while not self.__app_quit:
+            try:
+                buffer = self.__speaker_device.read_frames(CHUNK_SIZE)
+                if len(buffer) > 0 and self._audio_producer and self._audio_producer.active:
+                    # Convert bytes to numpy array and send to audio manager
+                    audio_np = np.frombuffer(buffer, dtype=np.int16)
+                    self._audio_producer.buffer.put(audio_np)
+            except Exception as e:
+                if not self.__app_quit:
+                    logging.error(f"Error in receive audio thread: {e}")
 
     async def handle_call_state_updated(self, state):
         """Handle call state changes and publish events"""
@@ -192,21 +232,25 @@ class DailyCall:
                     self.leave()
 
     async def handle_participant_joined(self, participant):
+        """Handle participant joining"""
         logging.info(f"Participant joined: {participant}")
         self.__participants[participant["id"]] = participant
 
     async def handle_participant_updated(self, participant):
+        """Handle participant updates"""
         logging.debug(f"Participant updated: {participant}")
         self.__participants[participant["id"]] = participant
         if is_playable_speaker(participant):
             self.__call_client.send_app_message("playable")
 
     async def handle_inputs_updated(self, input_settings):
+        """Handle input settings updates"""
         logging.debug(f"Inputs updated: {input_settings}")
         self.__app_inputs_updated = True
         self.maybe_start()
 
     async def handle_joined(self, data, error):
+        """Handle call join result"""
         if error:
             logging.error(f"Unable to join call: {error}")
             self.__app_error = error
@@ -239,6 +283,13 @@ class DailyCall:
             return
             
         self.__app_quit = True
+        self.__start_event.set()  # Unblock threads if they're waiting
+        
+        # Wait for audio threads to finish
+        if hasattr(self, '__receive_bot_audio_thread') and self.__receive_bot_audio_thread.is_alive():
+            self.__receive_bot_audio_thread.join(timeout=1.0)
+        if hasattr(self, '__send_user_audio_thread') and self.__send_user_audio_thread.is_alive():
+            self.__send_user_audio_thread.join(timeout=1.0)
         
         # Remove audio consumer and producer
         if hasattr(self, '_audio_consumer'):

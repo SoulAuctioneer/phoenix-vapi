@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Any
+import asyncio
 from .service import BaseService
 from .audio_manager import AudioManager, AudioConfig
 
@@ -37,5 +38,19 @@ class AudioService(BaseService):
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
-        # Currently no events to handle, but we could add volume control events etc.
-        pass 
+        event_type = event.get("type")
+        
+        if event_type == "play_sound":
+            wav_path = event.get("wav_path")
+            producer_name = event.get("producer_name", "sound_effect")
+            if wav_path and self.audio_manager:
+                # Run the audio playback in the event loop's executor to avoid blocking
+                loop = asyncio.get_event_loop()
+                success = await loop.run_in_executor(
+                    None, 
+                    self.audio_manager.play_wav_file,
+                    wav_path,
+                    producer_name
+                )
+                if not success:
+                    self.logger.error(f"Failed to play sound: {wav_path}") 
