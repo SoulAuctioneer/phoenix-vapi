@@ -9,7 +9,7 @@ from services.audio_manager import AudioManager
 
 SAMPLE_RATE = 16000
 NUM_CHANNELS = 1
-CHUNK_SIZE = 640
+CHUNK_SIZE = 512
 
 
 def is_playable_speaker(participant):

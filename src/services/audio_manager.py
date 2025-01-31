@@ -425,7 +425,6 @@ class AudioManager:
                 logging.info(f"Converting audio data from {audio_data.dtype} to int16")
                 audio_data = np.clip(audio_data * 32767, -32768, 32767).astype(np.int16)
                 
-            print("DEBUG: Starting chunking process", flush=True)
             logging.info("Starting chunking process...")
             
             # Split audio data into chunks matching the configured chunk size
@@ -433,12 +432,10 @@ class AudioManager:
             chunk_size = self.config.chunk  # Always use config.chunk since output loop expects this
             num_chunks = (num_samples + chunk_size - 1) // chunk_size  # Round up division
             
-            print(f"DEBUG: Will split {num_samples} samples into {num_chunks} chunks", flush=True)
             logging.info(f"Starting to split {num_samples} samples into {num_chunks} chunks of {chunk_size} samples each")
             
             chunks_added = 0
             for i in range(num_chunks):
-                print(f"DEBUG: Processing chunk {i+1}/{num_chunks}", flush=True)
                 start = i * chunk_size
                 end = min(start + chunk_size, num_samples)
                 chunk = audio_data[start:end]
@@ -458,11 +455,9 @@ class AudioManager:
                     logging.warning(f"Buffer full for producer '{producer_name}', chunk {i+1}/{num_chunks} dropped")
                     break  # Stop if buffer is full
                     
-            print(f"DEBUG: Finished adding chunks: {chunks_added}/{num_chunks}", flush=True)
             logging.info(f"Finished adding chunks: {chunks_added}/{num_chunks} chunks added to producer '{producer_name}' buffer")
             
         except Exception as e:
-            print(f"DEBUG: Error in play_audio: {e}", flush=True)
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
                 
     def play_wav_file(self, wav_path: str, producer_name: str = "sound_effect") -> bool:
