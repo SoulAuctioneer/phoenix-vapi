@@ -5,9 +5,9 @@ import os
 from dotenv import load_dotenv
 import time
 import threading
-from services.audio_manager import AudioManager
+from managers.audio_manager import AudioManager
 
-class WakeWordDetector:
+class WakeWordManager:
     def __init__(self, callback_fn=None, access_key=None, keyword=None, keyword_path=None):
         """
         Initialize the wake word detector using Porcupine.

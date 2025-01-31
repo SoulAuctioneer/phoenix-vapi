@@ -3,8 +3,8 @@ import logging
 import signal
 from services.service import ServiceManager
 from services.audio_service import AudioService
-from services.wake_word import WakeWordService
-from services.conversation import ConversationService
+from services.wakeword_service import WakeWordService
+from services.conversation_service import ConversationService
 from services.led_service import LEDService
 
 # Configure logging with more detail

@@ -1,5 +1,5 @@
 from services import BaseService
-from led_control import LEDController
+from managers.led_manager import LEDManager
 from config import PLATFORM
 import logging
 
@@ -12,7 +12,7 @@ class LEDService(BaseService):
     async def start(self):
         """Initialize and start the LED service"""
         try:
-            self.led_controller = LEDController()
+            self.led_controller = LEDManager()
             # Start with breathing effect
             self.led_controller.start_idle_pattern()
             if self.platform == "raspberry-pi":

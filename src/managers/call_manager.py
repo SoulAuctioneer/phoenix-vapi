@@ -7,7 +7,7 @@ import asyncio
 import time
 import requests
 from enum import Enum
-from services.audio_manager import AudioManager
+from managers.audio_manager import AudioManager
 from config import CallConfig
 
 class CallState(Enum):

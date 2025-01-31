@@ -16,7 +16,7 @@ except (ImportError, NotImplementedError):
     LEDS_AVAILABLE = False
     logging.info("LED libraries not available. Won't use LEDs")
 
-class LEDController:
+class LEDManager:
     def __init__(self):
         self._effect_thread = None
         self._stop_event = Event()
@@ -222,7 +222,7 @@ class LEDController:
 
 # Example usage:
 if __name__ == "__main__":
-    led = LEDController()
+    led = LEDManager()
     try:
         print("Testing LED effects...")
         print("1. Idle pattern")
