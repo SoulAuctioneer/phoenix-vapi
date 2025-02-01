@@ -512,23 +512,22 @@ class CallManager:
             
             logging.info(f"Handling tool call: {name} with arguments {arguments}")
             
-            if name == 'playSoundEffect':
-                effect_names = arguments.get('EffectName', [])
-                if effect_names and self.manager:
-                    effect_name = effect_names[0]  # Get the first effect name
+            if name == 'showLightingEffect':
+                effect_name = arguments.get('effectName')
+                if effect_name and self.manager:
+                    await self.manager.publish({
+                        "type": "start_led_effect",
+                        "data": {
+                            "effectName": effect_name
+                        }
+                    })
+            elif name == 'playSoundEffect':
+                effect_name = arguments.get('effectName', None)
+                if effect_name and self.manager:
                     await self.manager.publish({
                         "type": "play_sound",
                         "effect_name": effect_name,
                         "volume": 1.0
-                    })
-            elif name == 'SetLEDPattern':
-                pattern = arguments.get('Pattern')
-                if pattern and self.manager:
-                    await self.manager.publish({
-                        "type": "led_command",
-                        "data": {
-                            "command": f"start_{pattern.lower()}_pattern"
-                        }
                     })
             else:
                 logging.warning(f"Unknown tool call: {name}")

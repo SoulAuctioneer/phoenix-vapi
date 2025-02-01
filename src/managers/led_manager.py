@@ -192,37 +192,24 @@ class LEDManager:
         self._effect_thread.daemon = True
         self._effect_thread.start()
 
-    def start_effect(self, effect_str, speed=0.05):
-        """Start an effect based on the effect string"""
-        if effect_str == "blue_breathing":
-            self._start_effect(self._blue_breathing_effect, speed)
-        elif effect_str == "green_breathing":
-            self._start_effect(self._green_breathing_effect, speed)
-        elif effect_str == "rotating_rainbow":
-            self._start_effect(self._rotating_rainbow_effect, speed)
-        elif effect_str == "pink_blue_cycle":
-            self._start_effect(self._pink_blue_rotation_effect, speed)
-        elif effect_str == "random_twinkle":
-            self._start_effect(self._random_twinkling_effect, speed)
+    def start_blue_breathing_effect(self, speed=0.05):
+        """Start the blue breathing effect"""
+        self._start_effect(self._blue_breathing_effect, speed)
 
-    def start_idle_pattern(self, speed=0.05):
+    def start_green_breathing_effect(self, speed=0.05):
+        """Start the green breathing effect"""
+        self._start_effect(self._green_breathing_effect, speed)
+
+    def start_rotating_pink_blue_effect(self, speed=0.05):
         """Start the breathing effect"""
         self._start_effect(self._pink_blue_rotation_effect, speed)
 
-    def start_listening_pattern(self, speed=0.02):
+    def start_rotating_rainbow_effect(self, speed=0.02):
         """Start the rainbow effect"""
         self._start_effect(self._rotating_rainbow_effect, speed)
 
-    def start_conversation_pattern(self, speed=0.03):
+    def start_random_twinkling_effect(self, speed=0.03):
         """Start the conversation effect"""
-        self._start_effect(self._random_twinkling_effect, speed)
-
-    def start_pink_blue_rotation(self, speed=0.05):
-        """Start the pink to blue rotation effect"""
-        self._start_effect(self._pink_blue_rotation_effect, speed)
-
-    def start_random_twinkling(self, speed=0.02):
-        """Start the random twinkling effect"""
         self._start_effect(self._random_twinkling_effect, speed)
 
     def stop_effect(self):
@@ -239,13 +226,13 @@ if __name__ == "__main__":
     try:
         print("Testing LED effects...")
         print("1. Idle pattern")
-        led.start_idle_pattern()
+        led.start_rotating_pink_blue_effect()
         time.sleep(5)
         print("2. Listening pattern")
-        led.start_listening_pattern()
+        led.start_rotating_rainbow_effect()
         time.sleep(5)
         print("3. Conversation pattern")
-        led.start_conversation_pattern()
+        led.start_random_twinkling_effect()
         time.sleep(5)
         led.stop_effect()
     except KeyboardInterrupt:

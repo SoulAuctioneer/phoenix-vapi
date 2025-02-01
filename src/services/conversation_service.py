@@ -40,7 +40,7 @@ class ConversationService(BaseService):
         # Request sound effect playback
         await self.manager.publish({
             "type": "play_sound",
-            "wav_path": "assets/mmhmm.wav",
+            "effect_name": "MMHMM",
             "producer_name": "sfx",
             "volume": 0.1  # Set volume to 10%
         })
@@ -79,7 +79,7 @@ class ConversationService(BaseService):
             # Request sound effect playback
             await self.manager.publish({
                 "type": "play_sound",
-                "wav_path": "assets/yawn.wav",
+                "effect_name": "YAWN",
                 "producer_name": "sfx",
                 "volume": 0.1  # Set volume to 10%
             })

@@ -54,7 +54,7 @@ class PhoenixApp:
         # Request sound effect playback
         await self.manager.publish({
             "type": "play_sound",
-            "wav_path": "assets/startup.wav",
+            "effect_name": "RISING_TONE",
             "producer_name": "sfx",
             "volume": 0.1  # Set volume to 10%
         })
