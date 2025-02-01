@@ -17,7 +17,7 @@ class AudioConfig:
     format: int = pyaudio.paInt16
     channels: int = 1
     rate: int = 16000
-    chunk: int = 1024
+    chunk: int = 2048
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
     default_volume: float = AUDIO_DEFAULT_VOLUME

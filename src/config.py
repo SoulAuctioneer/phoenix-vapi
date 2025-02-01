@@ -129,7 +129,7 @@ class CallConfig:
         """Audio-specific configuration"""
         SAMPLE_RATE = 16000
         NUM_CHANNELS = 1
-        CHUNK_SIZE = 1024
+        CHUNK_SIZE = 2048
         DEFAULT_VOLUME = 0.3
     
     class Vapi:
