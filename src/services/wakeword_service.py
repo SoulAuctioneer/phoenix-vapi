@@ -29,9 +29,7 @@ class WakeWordService(BaseService):
             
             # Create and initialize the detector
             self.detector = await WakeWordManager.create(
-                manager=self.manager,  # Pass the manager for direct event publishing
-                access_key=PICOVOICE_ACCESS_KEY,
-                keyword_path=WAKE_WORD_PATH
+                manager=self.manager  # Pass the manager for direct event publishing
             )
             
             logging.info("Wake word detector initialized successfully")

@@ -2,88 +2,50 @@ import logging
 import pvporcupine
 import numpy as np
 import os
-from dotenv import load_dotenv
 import asyncio
 from managers.audio_manager import AudioManager
+import threading
+from config import PICOVOICE_ACCESS_KEY, WAKE_WORD_BUILTIN, WAKE_WORD_PATH
 
 class WakeWordManager:
     """Handles wake word detection using Porcupine"""
-    def __init__(self, *, manager=None, access_key=None, keyword=None, keyword_path=None):
-        # Core attributes
+    def __init__(self, audio_manager, manager=None):
+        self.audio_manager = audio_manager
         self.manager = manager
-        self.access_key = access_key
-        self.keyword = keyword
-        self.keyword_path = keyword_path
-        
-        # Runtime state
-        self.porcupine = None
         self.running = False
-        self.audio_manager = None
         self._audio_consumer = None
-        self.wake_word = None
+        self._lock = threading.Lock()
+        self._remainder = np.array([], dtype=np.int16)  # Store remainder samples
         self._loop = None  # Store event loop reference
-
-    @classmethod
-    async def create(cls, *, manager=None, access_key=None, keyword=None, keyword_path=None):
-        """Factory method to create and initialize a WakeWordManager instance"""
-        instance = cls(
-            manager=manager,
-            access_key=access_key,
-            keyword=keyword,
-            keyword_path=keyword_path
-        )
-        await instance.initialize()
-        return instance
-
-    async def initialize(self):
-        """Initialize the wake word detector"""
+        
+        # Initialize Porcupine
         try:
-            # Store the event loop reference
-            self._loop = asyncio.get_running_loop()
-            
-            # Load environment variables
-            load_dotenv()
-            
-            # Get access key from environment or parameter
-            self.access_key = self.access_key or os.getenv('PICOVOICE_ACCESS_KEY')
-            if not self.access_key:
-                raise ValueError(
-                    "Picovoice access key is required. Get one from console.picovoice.ai\n"
-                    "Then either:\n"
-                    "1. Set it in your .env file as PICOVOICE_ACCESS_KEY=your_key_here\n"
-                    "2. Pass it directly to WakeWordManager(access_key='your_key_here')"
-                )
-
-            # Initialize Porcupine
-            if self.keyword_path is not None:
-                if not os.path.exists(self.keyword_path):
-                    raise ValueError(f"Custom keyword file not found: {self.keyword_path}")
-                self.wake_word = os.path.basename(self.keyword_path)
+            access_key = PICOVOICE_ACCESS_KEY
+            if not access_key:
+                raise ValueError("Picovoice access key not found in environment")
+                
+            if WAKE_WORD_BUILTIN:
                 self.porcupine = pvporcupine.create(
-                    access_key=self.access_key,
-                    keyword_paths=[self.keyword_path]
+                    access_key=access_key,
+                    keywords=[WAKE_WORD_BUILTIN]
                 )
             else:
-                self.keyword = self.keyword or "porcupine"
-                if self.keyword not in pvporcupine.KEYWORDS:
-                    available_keywords = ", ".join(sorted(pvporcupine.KEYWORDS))
-                    raise ValueError(
-                        f"Keyword '{self.keyword}' not found. Available keywords:\n{available_keywords}"
-                    )
-                self.wake_word = self.keyword
                 self.porcupine = pvporcupine.create(
-                    access_key=self.access_key,
-                    keywords=[self.keyword]
+                    access_key=access_key,
+                    keyword_paths=[WAKE_WORD_PATH]
                 )
-
-            # Get audio manager instance
-            self.audio_manager = AudioManager.get_instance()
-            logging.info("WakeWordManager initialized successfully")
-
+            logging.info("Porcupine initialized successfully")
         except Exception as e:
-            logging.error(f"Failed to initialize WakeWordManager: {e}")
-            await self.cleanup()
+            logging.error(f"Failed to initialize Porcupine: {e}")
             raise
+
+    @classmethod
+    async def create(cls, *, audio_manager=None, manager=None):
+        """Factory method to create and initialize a WakeWordManager instance"""
+        if audio_manager is None:
+            audio_manager = AudioManager.get_instance()
+        instance = cls(audio_manager, manager=manager)
+        return instance
 
     async def start(self):
         """Start wake word detection"""
@@ -92,10 +54,11 @@ class WakeWordManager:
 
         try:
             self.running = True
-            # Register as an audio consumer with specific chunk size
+            # Store the event loop reference from the main thread
+            self._loop = asyncio.get_running_loop()
+            # Register as an audio consumer without specifying chunk size
             self._audio_consumer = self.audio_manager.add_consumer(
-                self._process_audio,
-                chunk_size=self.porcupine.frame_length
+                self._process_audio
             )
             logging.info("Wake word detection started")
 
@@ -108,25 +71,32 @@ class WakeWordManager:
         """Process audio data from the audio manager"""
         if not self.running:
             return
-
-        try:
-            # Process audio through Porcupine
-            keyword_index = self.porcupine.process(audio_data)
             
-            # If wake word detected (keyword_index >= 0)
-            if keyword_index >= 0:
-                logging.info(f"Wake word '{self.wake_word}' detected!")
-                # Schedule the event publishing using stored event loop
-                if self.manager and self._loop:
-                    self._loop.call_soon_threadsafe(
-                        lambda: asyncio.create_task(
-                            self.manager.publish({"type": "wake_word_detected"})
-                        )
-                    )
-
+        try:
+            # Combine with any remainder from last time
+            if len(self._remainder) > 0:
+                audio_data = np.concatenate([self._remainder, audio_data])
+                
+            # Process complete frames
+            frame_length = self.porcupine.frame_length
+            num_complete_frames = len(audio_data) // frame_length
+            
+            for i in range(num_complete_frames):
+                start = i * frame_length
+                end = start + frame_length
+                frame = audio_data[start:end]
+                
+                # Process the frame
+                result = self.porcupine.process(frame)
+                if result >= 0:
+                    self._handle_wake_word_detected()
+                    
+            # Store remainder samples for next time
+            remainder_start = num_complete_frames * frame_length
+            self._remainder = audio_data[remainder_start:]
+            
         except Exception as e:
-            if self.running:  # Only log if we're not intentionally stopping
-                logging.error(f"Error processing audio: {e}")
+            logging.error(f"Error processing audio in wake word detection: {e}")
 
     async def stop(self):
         """Stop wake word detection"""
@@ -165,4 +135,15 @@ class WakeWordManager:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
-        await self.cleanup() 
+        await self.cleanup()
+
+    def _handle_wake_word_detected(self):
+        """Handle wake word detection event"""
+        logging.info("Wake word detected!")
+        # Schedule the event publishing in a thread-safe way using the stored loop reference
+        if self.manager and self._loop is not None:
+            self._loop.call_soon_threadsafe(
+                lambda: asyncio.create_task(
+                    self.manager.publish({"type": "wake_word_detected"})
+                )
+            ) 
