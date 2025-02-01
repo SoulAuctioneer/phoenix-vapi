@@ -1,0 +1,9 @@
+{
+    "code-runner.executorMap": {
+        "python": "python -u",
+    },
+    "code-runner.fileDirectoryAsCwd": true,
+    "code-runner.runInTerminal": true,
+    "code-runner.defaultLanguage": "python",
+    "code-runner.customCommand": "python -u '${workspaceFolder}/src/main.py'"
+} 
