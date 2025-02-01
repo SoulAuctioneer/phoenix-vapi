@@ -895,36 +895,19 @@ class CallManager:
                 return
                 
             logging.info("Started sending user audio")
-            chunk_duration = CallConfig.Audio.CHUNK_SIZE / CallConfig.Audio.SAMPLE_RATE
-            sleep_duration = chunk_duration / 4  # Sleep for 1/4 of chunk duration
-            
             while self.state_manager.state.can_receive_audio:
-                try:
-                    await asyncio.sleep(sleep_duration)
-                except Exception as e:
-                    if self.state_manager.state != CallState.ERROR:
-                        logging.error(f"Error in send audio task: {e}")
-                    await asyncio.sleep(0.001)
+                await asyncio.sleep(0.001)  # Minimal sleep to prevent CPU spinning
         except asyncio.CancelledError:
             logging.info("Send user audio task cancelled")
             raise
 
     def _handle_input_audio(self, audio_data: np.ndarray):
         """Handle input audio from audio manager"""
-        # First check if we even have a mic device
-        if not self._mic_device:
-            return
-            
-        if not self.state_manager.state.can_receive_audio:
-            # Don't log error during transitional states
-            if self.state_manager.state not in (CallState.JOINING, CallState.LEAVING):
-                logging.error("Unable to receive audio - call not in JOINED state")
+        if not self._mic_device or not self.state_manager.state.can_receive_audio:
             return
             
         try:
-            # Pre-convert to bytes to avoid doing it in the write operation
-            audio_bytes = audio_data.tobytes()
-            self._mic_device.write_frames(audio_bytes)
+            self._mic_device.write_frames(audio_data.tobytes())
         except Exception as e:
             logging.error(f"Error writing to mic device: {e}")
 

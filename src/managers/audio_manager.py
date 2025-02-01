@@ -24,48 +24,32 @@ class AudioConfig:
 
 
 class AudioBuffer:
-    """Thread-safe circular buffer for audio data"""
+    """Minimal thread-safe audio buffer"""
     def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE):
-        logging.info(f"Creating AudioBuffer with maxsize={maxsize}")
         self.buffer = queue.Queue(maxsize=maxsize)
-        self._lock = threading.Lock()
         
     def put(self, data: np.ndarray) -> bool:
-        """Put data into buffer, returns False if buffer is full"""
+        """Put data into buffer, dropping if full"""
         try:
             self.buffer.put_nowait(data)
             return True
         except queue.Full:
-            # Instead of dropping data, try to remove oldest chunk and add new one
-            try:
-                self.buffer.get_nowait()  # Remove oldest chunk
-                self.buffer.put_nowait(data)  # Add new chunk
-                logging.debug("Replaced oldest audio chunk with new data")
-                return True
-            except (queue.Empty, queue.Full):
-                logging.warning("Buffer overflow, dropping audio chunk")
-                return False
+            return False
             
     def get(self) -> Optional[np.ndarray]:
-        """Get data from buffer, returns None if buffer is empty"""
+        """Get data from buffer"""
         try:
-            data = self.buffer.get_nowait()
-            return data
+            return self.buffer.get_nowait()
         except queue.Empty:
             return None
             
     def clear(self):
         """Clear the buffer"""
-        with self._lock:
-            count = 0
-            while not self.buffer.empty():
-                try:
-                    self.buffer.get_nowait()
-                    count += 1
-                except queue.Empty:
-                    break
-            if count > 0:
-                logging.debug(f"Cleared {count} items from buffer")
+        while not self.buffer.empty():
+            try:
+                self.buffer.get_nowait()
+            except queue.Empty:
+                break
 
 class AudioConsumer:
     """Represents a consumer of audio input data"""
