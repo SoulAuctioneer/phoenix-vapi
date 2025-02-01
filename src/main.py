@@ -51,19 +51,17 @@ class PhoenixApp:
         self.services = services
         logging.info("All services initialized and started")
 
-        # Request sound effect playback
-        await self.manager.publish({
-            "type": "play_sound",
-            "effect_name": "RISING_TONE",
-            "producer_name": "sfx",
-            "volume": 0.1  # Set volume to 10%
-        })
-
     async def run(self):
         """Main application loop"""
         try:
             await self.initialize_services()
             
+            # Notify that application startup is complete
+            await self.manager.publish({
+                "type": "application_startup_completed",
+                "producer_name": "main"
+            })
+
             # Keep the main task running
             while self._should_run:
                 await asyncio.sleep(1)

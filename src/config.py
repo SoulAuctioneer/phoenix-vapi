@@ -94,7 +94,10 @@ LED_COUNT = 24  # Number of NeoPixels in the ring
 LED_BRIGHTNESS = 0.05  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 
-# Audio Configuration for Calls
+# Audio Configuration
+AUDIO_DEFAULT_VOLUME = 0.3
+
+# Sound Effects
 class SoundEffect(str, Enum):
     """Available sound effects and their corresponding filenames"""
     RISING_TONE = "rising_tone.wav"
@@ -117,6 +120,7 @@ class SoundEffect(str, Enum):
                     return effect.value
             return None
 
+# Audio Configuration for Calls
 class CallConfig:
     """Unified configuration for call-related settings"""
     

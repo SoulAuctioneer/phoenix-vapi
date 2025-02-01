@@ -526,8 +526,7 @@ class CallManager:
                 if effect_name and self.manager:
                     await self.manager.publish({
                         "type": "play_sound",
-                        "effect_name": effect_name,
-                        "volume": 1.0
+                        "effect_name": effect_name
                     })
             else:
                 logging.warning(f"Unknown tool call: {name}")
@@ -575,7 +574,9 @@ class CallManager:
             # logging.info("Model output: " + message.get("output", ""))
             pass
         elif msg_type == "voice-input":
-            logging.info("Voice input: " + message.get("input", ""))
+            # Too noisy
+            # logging.info("Voice input: " + message.get("input", ""))
+            pass
         elif msg_type == "call_state":
             old_state = message.get("old_state", "")
             new_state = message.get("new_state", "")

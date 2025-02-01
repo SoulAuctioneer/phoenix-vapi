@@ -37,14 +37,6 @@ class ConversationService(BaseService):
         self.logger.info("Starting new conversation")
         self.is_active = True
 
-        # Request sound effect playback
-        await self.manager.publish({
-            "type": "play_sound",
-            "effect_name": "MMHMM",
-            "producer_name": "sfx",
-            "volume": 0.1  # Set volume to 10%
-        })
-        
         try:
             self.logger.info("Initializing call connection")
             await self.publish({"type": "conversation_starting"})
@@ -75,14 +67,6 @@ class ConversationService(BaseService):
             self.is_active = False
             self._is_stopping = False
             await self.publish({"type": "conversation_ended"})
-
-            # Request sound effect playback
-            await self.manager.publish({
-                "type": "play_sound",
-                "effect_name": "YAWN",
-                "producer_name": "sfx",
-                "volume": 0.1  # Set volume to 10%
-            })
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""

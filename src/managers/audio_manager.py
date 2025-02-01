@@ -9,7 +9,7 @@ import os
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
-from config import SoundEffect
+from config import SoundEffect, AUDIO_DEFAULT_VOLUME
 
 @dataclass
 class AudioConfig:
@@ -20,6 +20,8 @@ class AudioConfig:
     chunk: int = 512
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
+    default_volume: float = AUDIO_DEFAULT_VOLUME
+
 
 class AudioBuffer:
     """Thread-safe circular buffer for audio data"""
@@ -73,7 +75,7 @@ class AudioProducer:
     def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100):
         self.name = name
         self.buffer = AudioBuffer(maxsize=buffer_size)
-        self.volume = 1.0
+        self.volume = AUDIO_DEFAULT_VOLUME
         self.active = True
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
@@ -462,12 +464,11 @@ class AudioManager:
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
                 
-    def play_sound_effect(self, effect_name: str, volume: float = 1.0) -> bool:
+    def play_sound(self, effect_name: str) -> bool:
         """
         Play a sound effect by name.
         Args:
             effect_name: Name of the sound effect (case-insensitive)
-            volume: Volume level between 0.0 and 1.0
         Returns:
             bool: True if the sound effect was found and playback started, False otherwise
         """
@@ -481,11 +482,11 @@ class AudioManager:
             logging.error(f"Sound effect file not found: {wav_path}")
             return False
             
-        return self.play_wav_file(wav_path, producer_name="sound_effect", volume=volume) 
+        return self._play_wav_file(wav_path, producer_name="sound_effect") 
         
-    def play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", volume: float = 1.0) -> bool:
+    def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect") -> bool:
         """Play a WAV file through the audio system"""
-        logging.info(f"play_wav_file called: path='{wav_path}', producer='{producer_name}', volume={volume}")
+        logging.info(f"play_wav_file called: path='{wav_path}', producer='{producer_name}'")
 
         if not self._running:
             logging.error("Cannot play WAV file - AudioManager not running")
@@ -525,7 +526,6 @@ class AudioManager:
                             producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000)
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
-                        producer.volume = max(0.0, min(1.0, volume))  # Clamp volume between 0 and 1
                     
                     logging.info("Sending audio data to play_audio")
                     self.play_audio(audio_array, producer_name)
