@@ -36,6 +36,14 @@ class ConversationService(BaseService):
             
         self.logger.info("Starting new conversation")
         self.is_active = True
+
+        # Request sound effect playback
+        await self.manager.publish({
+            "type": "play_sound",
+            "wav_path": "assets/mmhmm.wav",
+            "producer_name": "sfx",
+            "volume": 0.1  # Set volume to 10%
+        })
         
         try:
             self.logger.info("Initializing call connection")
@@ -67,6 +75,14 @@ class ConversationService(BaseService):
             self.is_active = False
             self._is_stopping = False
             await self.publish({"type": "conversation_ended"})
+
+            # Request sound effect playback
+            await self.manager.publish({
+                "type": "play_sound",
+                "wav_path": "assets/yawn.wav",
+                "producer_name": "sfx",
+                "volume": 0.1  # Set volume to 10%
+            })
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
@@ -76,13 +92,6 @@ class ConversationService(BaseService):
             self.logger.info("Wake word detected event received")
             if not self.is_active:  # Only start a new conversation if one isn't already active
                 self.logger.info("Starting new conversation in response to wake word")
-                # Request yawn sound effect playback
-                await self.publish({
-                    "type": "play_sound",
-                    "wav_path": "assets/yawn.wav",
-                    "producer_name": "yawn",
-                    "volume": 0.1  # Set volume to 30%
-                })
                 await self.start_conversation()
             else:
                 self.logger.info("Conversation already active, ignoring wake word")

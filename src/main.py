@@ -51,6 +51,14 @@ class PhoenixApp:
         self.services = services
         logging.info("All services initialized and started")
 
+        # Request sound effect playback
+        await self.manager.publish({
+            "type": "play_sound",
+            "wav_path": "assets/startup.wav",
+            "producer_name": "sfx",
+            "volume": 0.1  # Set volume to 10%
+        })
+
     async def run(self):
         """Main application loop"""
         try:
