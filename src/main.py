@@ -32,23 +32,20 @@ class PhoenixApp:
     async def initialize_services(self):
         """Initialize and start all services in the correct order"""
         # Create services in order
-        services = [
-            AudioService(self.manager),        # Initialize audio first
-            WakeWordService(self.manager),     # Then wake word detection
-            ConversationService(self.manager), # Then conversation handling
-            LEDService(self.manager),          # Finally LED control
-        ]
+        self.services = {
+            'audio': AudioService(self.manager),        # Initialize audio first
+            #'wakeword': WakeWordService(self.manager),  # Then wake word detection
+            'conversation': ConversationService(self.manager), # Then conversation handling
+            'led': LEDService(self.manager),            # Finally LED control
+        }
         
-        # Start audio service first
-        await self.manager.start_service(services[0].__class__.__name__.lower(), services[0])
-        
-        # Start remaining services in parallel
+        # Start audio service first, then the remaining services in parallel
+        await self.manager.start_service('audio', self.services['audio'])
         await asyncio.gather(
-            *[self.manager.start_service(service.__class__.__name__.lower(), service)
-              for service in services[1:]]
+            *[self.manager.start_service(service_name, service)
+              for service_name, service in self.services.items() if service_name != 'audio']
         )
         
-        self.services = services
         logging.info("All services initialized and started")
 
     async def run(self):
@@ -61,6 +58,9 @@ class PhoenixApp:
                 "type": "application_startup_completed",
                 "producer_name": "main"
             })
+
+            # TEMP FOR TESTING - START THE CONVERSATION
+            await self.services['conversation'].start_conversation()
 
             # Keep the main task running
             while self._should_run:
