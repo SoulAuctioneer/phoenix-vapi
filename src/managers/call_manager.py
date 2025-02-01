@@ -499,6 +499,40 @@ class CallManager:
             await self.state_manager.transition_to(CallState.JOINED)
         self.maybe_start()
 
+    async def _handle_tool_calls(self, tool_calls):
+        """Handle tool calls from the assistant"""
+        for tool_call in tool_calls:
+            if tool_call.get('type') != 'function':
+                logging.warning(f"Unknown tool call type: {tool_call.get('type')}")
+                continue
+                
+            function = tool_call.get('function', {})
+            name = function.get('name')
+            arguments = function.get('arguments', {})
+            
+            logging.info(f"Handling tool call: {name} with arguments {arguments}")
+            
+            if name == 'playSoundEffect':
+                effect_names = arguments.get('EffectName', [])
+                if effect_names and self.manager:
+                    effect_name = effect_names[0]  # Get the first effect name
+                    await self.manager.publish({
+                        "type": "play_sound",
+                        "effect_name": effect_name,
+                        "volume": 1.0
+                    })
+            elif name == 'SetLEDPattern':
+                pattern = arguments.get('Pattern')
+                if pattern and self.manager:
+                    await self.manager.publish({
+                        "type": "led_command",
+                        "data": {
+                            "command": f"start_{pattern.lower()}_pattern"
+                        }
+                    })
+            else:
+                logging.warning(f"Unknown tool call: {name}")
+
     async def handle_app_message(self, message, sender):
         """Handle app messages"""
         # Convert string messages to dict if needed
@@ -506,7 +540,7 @@ class CallManager:
             try:
                 message = json.loads(message)
             except json.JSONDecodeError:
-                logging.error(f"Failed to parse message as JSON: {message}")
+                logging.warn(f"Failed to parse message as JSON: {message}")
                 return
                 
         # Extract message type
@@ -538,11 +572,11 @@ class CallManager:
         elif msg_type == "user-interrupted":
             logging.info("User interrupted the assistant")
         elif msg_type == "model-output":
-            # Skip logging individual model outputs - these will be captured in the final transcript
+            # Too noisy
+            # logging.info("Model output: " + message.get("output", ""))
             pass
         elif msg_type == "voice-input":
-            # Skip logging voice inputs as they will appear in transcripts
-            pass
+            logging.info("Voice input: " + message.get("input", ""))
         elif msg_type == "call_state":
             old_state = message.get("old_state", "")
             new_state = message.get("new_state", "")
@@ -552,13 +586,8 @@ class CallManager:
             username = info.get("userName", "Unknown")
             reason = message.get("reason", "")
             logging.info(f"Participant left: {username} ({reason})")
-        elif msg_type == "tool_calls":
-            function = message.get("function", {})
-            logging.debug(f"Tool call: {function.get('name', 'unknown')}")
-        elif msg_type == "tool_call_result":
-            name = message.get("name", "")
-            result = message.get("result", "")
-            logging.debug(f"Tool call result: {name} = {result}")
+        elif msg_type == "tool-calls":
+            await self._handle_tool_calls(message.get('toolCalls', []))
         elif msg_type == "ERROR":
             error_message = message.get("message", "")
             target = message.get("target", "")
