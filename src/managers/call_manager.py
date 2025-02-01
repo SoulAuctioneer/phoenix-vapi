@@ -637,9 +637,11 @@ class CallManager:
         # Wait for the left state update from Daily
         # If we don't receive it within a timeout, force the transition
         try:
-            async with asyncio.timeout(2.0):  # 2 second timeout
+            async def wait_for_left_state():
                 while not self.state_manager.state == CallState.LEFT:
                     await asyncio.sleep(0.1)
+                    
+            await asyncio.wait_for(wait_for_left_state(), timeout=2.0)  # 2 second timeout
         except asyncio.TimeoutError:
             logging.warning("Timeout waiting for LEFT state from Daily, forcing transition")
             await self.state_manager.transition_to(CallState.LEFT)
