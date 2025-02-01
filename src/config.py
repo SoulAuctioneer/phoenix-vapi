@@ -120,6 +120,7 @@ class CallConfig:
         NUM_CHANNELS = AudioBaseConfig.NUM_CHANNELS
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         DEFAULT_VOLUME = 0.3
+        BUFFER_SIZE = 500  # Added buffer size from working implementation
     
     class Vapi:
         """Vapi API configuration"""

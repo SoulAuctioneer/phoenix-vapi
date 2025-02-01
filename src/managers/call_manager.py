@@ -293,7 +293,8 @@ class CallManager:
             )
             self._audio_producer = self.audio_manager.add_producer(
                 "daily_call",
-                chunk_size=CallConfig.Audio.CHUNK_SIZE
+                chunk_size=CallConfig.Audio.CHUNK_SIZE,
+                buffer_size=CallConfig.Audio.BUFFER_SIZE
             )
             # Clear any existing data in the buffer
             self._audio_producer.buffer.clear()
@@ -870,6 +871,10 @@ class CallManager:
                 return
                 
             logging.info("Started receiving bot audio")
+            # Calculate sleep time based on chunk size
+            chunk_duration = CallConfig.Audio.CHUNK_SIZE / CallConfig.Audio.SAMPLE_RATE
+            sleep_duration = chunk_duration / 2  # Sleep for half chunk duration
+            
             while self.state_manager.state.can_receive_audio:
                 try:
                     buffer = self._speaker_device.read_frames(CallConfig.Audio.CHUNK_SIZE)
@@ -877,11 +882,13 @@ class CallManager:
                         # Convert bytes to numpy array and send to audio manager
                         audio_np = np.frombuffer(buffer, dtype=np.int16)
                         self._audio_producer.buffer.put(audio_np)
-                    await asyncio.sleep(0.01)  # Small sleep to prevent busy waiting
+                    
+                    # Always sleep a consistent amount to maintain timing
+                    await asyncio.sleep(sleep_duration)
                 except Exception as e:
                     if self.state_manager.state != CallState.ERROR:
                         logging.error(f"Error in receive audio task: {e}")
-                    await asyncio.sleep(0.01)  # Ensure we don't busy-wait if state changes
+                    await asyncio.sleep(0.001)
         except asyncio.CancelledError:
             logging.info("Receive bot audio task cancelled")
             raise
@@ -896,7 +903,7 @@ class CallManager:
                 
             logging.info("Started sending user audio")
             while self.state_manager.state.can_receive_audio:
-                await asyncio.sleep(0.001)  # Minimal sleep to prevent CPU spinning
+                await asyncio.sleep(0.1)  # Match original implementation's timing
         except asyncio.CancelledError:
             logging.info("Send user audio task cancelled")
             raise

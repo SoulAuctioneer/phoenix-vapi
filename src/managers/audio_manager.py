@@ -27,6 +27,7 @@ class AudioBuffer:
     """Minimal thread-safe audio buffer"""
     def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE):
         self.buffer = queue.Queue(maxsize=maxsize)
+        self._lock = threading.Lock()
         
     def put(self, data: np.ndarray) -> bool:
         """Put data into buffer, dropping if full"""
@@ -45,11 +46,12 @@ class AudioBuffer:
             
     def clear(self):
         """Clear the buffer"""
-        while not self.buffer.empty():
-            try:
-                self.buffer.get_nowait()
-            except queue.Empty:
-                break
+        with self._lock:
+            while not self.buffer.empty():
+                try:
+                    self.buffer.get_nowait()
+                except queue.Empty:
+                    break
 
 class AudioConsumer:
     """Represents a consumer of audio input data"""
