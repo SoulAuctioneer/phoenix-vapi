@@ -192,6 +192,19 @@ class LEDManager:
         self._effect_thread.daemon = True
         self._effect_thread.start()
 
+    def start_effect(self, effect_str, speed=0.05):
+        """Start an effect based on the effect string"""
+        if effect_str == "blue_breathing":
+            self._start_effect(self._blue_breathing_effect, speed)
+        elif effect_str == "green_breathing":
+            self._start_effect(self._green_breathing_effect, speed)
+        elif effect_str == "rotating_rainbow":
+            self._start_effect(self._rotating_rainbow_effect, speed)
+        elif effect_str == "pink_blue_cycle":
+            self._start_effect(self._pink_blue_rotation_effect, speed)
+        elif effect_str == "random_twinkle":
+            self._start_effect(self._random_twinkling_effect, speed)
+
     def start_idle_pattern(self, speed=0.05):
         """Start the breathing effect"""
         self._start_effect(self._pink_blue_rotation_effect, speed)
