@@ -183,6 +183,78 @@ class LEDManager:
             self.pixels.show()
             time.sleep(wait)
 
+    def _rain_effect(self, wait):
+        """Create a rain effect with droplets falling inward on the LED ring"""
+        # Track raindrops - each is a dict with position (0.0 to 1.0) and intensity
+        raindrops = []
+        
+        while not self._stop_event.is_set():
+            # Chance to create new raindrop
+            if random.random() < 0.1:  # 10% chance each cycle
+                # Position is now an angle (0.0 to 1.0, representing 0 to 360 degrees)
+                raindrops.append({
+                    'position': random.random(),  # Random position around the ring
+                    'radius': 0.0,  # Start at outer edge (0.0) and move inward (to 1.0)
+                    'intensity': random.uniform(0.5, 1.0),
+                    'speed': random.uniform(0.05, 0.15)  # Speed of inward movement
+                })
+            
+            # Clear all pixels
+            self.pixels.fill((0, 0, 0))
+            
+            # Update existing raindrops
+            new_raindrops = []
+            for drop in raindrops:
+                # Update radius (moving inward)
+                drop['radius'] += drop['speed']
+                
+                # If not yet fully moved to center, draw and keep the drop
+                if drop['radius'] < 1.0:
+                    # Calculate which LED to light based on position around ring
+                    led_position = int(drop['position'] * LED_COUNT) % LED_COUNT
+                    intensity = drop['intensity'] * (1.0 - drop['radius'])  # Fade as it moves inward
+                    
+                    # Create a blue-white color for the raindrop
+                    blue = int(255 * intensity)
+                    white = int(100 * intensity)
+                    color = (white, white, blue)
+                    
+                    # Draw main drop pixel
+                    self.pixels[led_position] = color
+                    
+                    # Draw fade trail on neighboring pixels
+                    trail_length = 2
+                    for i in range(1, trail_length + 1):
+                        # Calculate trail positions (both clockwise and counter-clockwise)
+                        trail_pos_cw = (led_position + i) % LED_COUNT
+                        trail_pos_ccw = (led_position - i) % LED_COUNT
+                        
+                        # Calculate trail intensity
+                        trail_intensity = intensity * (1 - (i / (trail_length + 1))) * 0.7
+                        trail_blue = int(255 * trail_intensity)
+                        trail_white = int(100 * trail_intensity)
+                        trail_color = (trail_white, trail_white, trail_blue)
+                        
+                        # Apply trail colors
+                        self.pixels[trail_pos_cw] = self._blend_colors(
+                            self.pixels[trail_pos_cw], trail_color)
+                        self.pixels[trail_pos_ccw] = self._blend_colors(
+                            self.pixels[trail_pos_ccw], trail_color)
+                    
+                    new_raindrops.append(drop)
+            
+            raindrops = new_raindrops
+            self.pixels.show()
+            time.sleep(wait)
+
+    def _blend_colors(self, color1, color2):
+        """Blend two colors by taking the maximum of each component"""
+        return (
+            max(color1[0], color2[0]),
+            max(color1[1], color2[1]),
+            max(color1[2], color2[2])
+        )
+
     def _start_effect(self, effect_func, speed):
         """Helper method to start an effect"""
         if self._effect_thread is not None:
@@ -211,6 +283,10 @@ class LEDManager:
     def start_random_twinkling_effect(self, speed=0.03):
         """Start the conversation effect"""
         self._start_effect(self._random_twinkling_effect, speed)
+
+    def start_rain_effect(self, speed=0.05):
+        """Start the rain effect"""
+        self._start_effect(self._rain_effect, speed)
 
     def stop_effect(self):
         """Stop any running effect"""
