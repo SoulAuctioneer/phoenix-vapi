@@ -97,29 +97,13 @@ LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 # Audio Configuration
 AUDIO_DEFAULT_VOLUME = 0.2
 
-# Sound Effects
-class SoundEffect(str, Enum):
-    """Available sound effects and their corresponding filenames"""
-    RISING_TONE = "rising_tone.wav"
-    MMHMM = "mmhmm.wav"
-    YAWN = "yawn.wav"
-    MAGICAL_SPELL = "magical_spell.wav"
-    LIGHTNING = "lightning.wav"
-    RAIN = "rain.wav"
-    
-    @classmethod
-    def get_filename(cls, effect_name: str) -> Union[str, None]:
-        """Get the filename for a sound effect by its name (case-insensitive)"""
-        try:
-            # Try to match the name directly to an enum member
-            return cls[effect_name.upper()].value
-        except KeyError:
-            # If not found, try to match against the values
-            effect_name_lower = effect_name.lower()
-            for effect in cls:
-                if effect.value.lower().removesuffix('.wav') == effect_name_lower:
-                    return effect.value
-            return None
+# Base Audio Configuration (used by both CallConfig and AudioConfig)
+class AudioBaseConfig:
+    """Base audio configuration that all audio components should use"""
+    SAMPLE_RATE = 16000
+    NUM_CHANNELS = 1
+    CHUNK_SIZE = 512  # Optimized for echo cancellation
+    FORMAT = 'int16'  # numpy/pyaudio compatible format
 
 # Audio Configuration for Calls
 class CallConfig:
@@ -127,9 +111,9 @@ class CallConfig:
     
     class Audio:
         """Audio-specific configuration"""
-        SAMPLE_RATE = 16000
-        NUM_CHANNELS = 1
-        CHUNK_SIZE = 2048
+        SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
+        NUM_CHANNELS = AudioBaseConfig.NUM_CHANNELS
+        CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         DEFAULT_VOLUME = 0.3
     
     class Vapi:
@@ -153,3 +137,27 @@ class CallConfig:
                 "microphone": "subscribed"
             }
         }
+
+# Sound Effects
+class SoundEffect(str, Enum):
+    """Available sound effects and their corresponding filenames"""
+    RISING_TONE = "rising_tone.wav"
+    MMHMM = "mmhmm.wav"
+    YAWN = "yawn.wav"
+    MAGICAL_SPELL = "magical_spell.wav"
+    LIGHTNING = "lightning.wav"
+    RAIN = "rain.wav"
+    
+    @classmethod
+    def get_filename(cls, effect_name: str) -> Union[str, None]:
+        """Get the filename for a sound effect by its name (case-insensitive)"""
+        try:
+            # Try to match the name directly to an enum member
+            return cls[effect_name.upper()].value
+        except KeyError:
+            # If not found, try to match against the values
+            effect_name_lower = effect_name.lower()
+            for effect in cls:
+                if effect.value.lower().removesuffix('.wav') == effect_name_lower:
+                    return effect.value
+            return None

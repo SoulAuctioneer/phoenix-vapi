@@ -9,15 +9,15 @@ import os
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
-from config import SoundEffect, AUDIO_DEFAULT_VOLUME
+from config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
 
 @dataclass
 class AudioConfig:
     """Audio configuration parameters"""
-    format: int = pyaudio.paInt16
-    channels: int = 1
-    rate: int = 16000
-    chunk: int = 2048
+    format: int = pyaudio.paInt16  # Matches AudioBaseConfig.FORMAT='int16'
+    channels: int = AudioBaseConfig.NUM_CHANNELS
+    rate: int = AudioBaseConfig.SAMPLE_RATE
+    chunk: int = AudioBaseConfig.CHUNK_SIZE
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
     default_volume: float = AUDIO_DEFAULT_VOLUME
@@ -141,6 +141,10 @@ class AudioManager:
         self._producers: Dict[str, AudioProducer] = {}
         self._consumers_lock = threading.Lock()
         self._producers_lock = threading.Lock()
+        
+        # Reusable chunk resizer
+        self._chunk_resizer: Optional[AudioProducer] = None
+        self._chunk_resizer_lock = threading.Lock()
         
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
@@ -305,6 +309,16 @@ class AudioManager:
                 logging.error(f"Error closing output stream: {e}")
             self._output_stream = None
             
+    def _get_chunk_resizer(self, chunk_size: int) -> AudioProducer:
+        """Get or create a reusable chunk resizer with the specified chunk size"""
+        with self._chunk_resizer_lock:
+            if self._chunk_resizer is None or self._chunk_resizer.chunk_size != chunk_size:
+                if self._chunk_resizer is not None:
+                    # Clear any existing data
+                    self._chunk_resizer.buffer.clear()
+                self._chunk_resizer = AudioProducer("chunk_resizer", chunk_size=chunk_size)
+            return self._chunk_resizer
+
     def _input_loop(self):
         """Main input processing loop"""
         logging.info("Input processing loop started")
@@ -319,7 +333,8 @@ class AudioManager:
                     for consumer in self._consumers:
                         if consumer.active:
                             if consumer.chunk_size and consumer.chunk_size != len(audio_data):
-                                resized_chunks = AudioProducer("temp", consumer.chunk_size).resize_chunk(audio_data)
+                                chunk_resizer = self._get_chunk_resizer(consumer.chunk_size)
+                                resized_chunks = chunk_resizer.resize_chunk(audio_data)
                                 for chunk in resized_chunks:
                                     consumer.callback(chunk)
                             else:
