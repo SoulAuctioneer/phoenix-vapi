@@ -895,14 +895,16 @@ class CallManager:
                 return
                 
             logging.info("Started sending user audio")
+            chunk_duration = CallConfig.Audio.CHUNK_SIZE / CallConfig.Audio.SAMPLE_RATE
+            sleep_duration = chunk_duration / 4  # Sleep for 1/4 of chunk duration
+            
             while self.state_manager.state.can_receive_audio:
                 try:
-                    # Audio is handled by the audio manager consumer callback
-                    await asyncio.sleep(0.1)  # Small sleep to prevent busy waiting
+                    await asyncio.sleep(sleep_duration)
                 except Exception as e:
                     if self.state_manager.state != CallState.ERROR:
                         logging.error(f"Error in send audio task: {e}")
-                    await asyncio.sleep(0.01)  # Ensure we don't busy-wait if state changes
+                    await asyncio.sleep(0.001)
         except asyncio.CancelledError:
             logging.info("Send user audio task cancelled")
             raise
@@ -920,7 +922,9 @@ class CallManager:
             return
             
         try:
-            self._mic_device.write_frames(audio_data.tobytes())
+            # Pre-convert to bytes to avoid doing it in the write operation
+            audio_bytes = audio_data.tobytes()
+            self._mic_device.write_frames(audio_bytes)
         except Exception as e:
             logging.error(f"Error writing to mic device: {e}")
 

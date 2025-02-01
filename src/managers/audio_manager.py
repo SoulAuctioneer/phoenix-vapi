@@ -25,7 +25,7 @@ class AudioConfig:
 
 class AudioBuffer:
     """Thread-safe circular buffer for audio data"""
-    def __init__(self, maxsize: int = 100):
+    def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE):
         logging.info(f"Creating AudioBuffer with maxsize={maxsize}")
         self.buffer = queue.Queue(maxsize=maxsize)
         self._lock = threading.Lock()
@@ -34,17 +34,22 @@ class AudioBuffer:
         """Put data into buffer, returns False if buffer is full"""
         try:
             self.buffer.put_nowait(data)
-            logging.debug(f"Put {len(data)} samples into buffer (size now: {self.buffer.qsize()})")
             return True
         except queue.Full:
-            logging.warning("Buffer is full, dropping data")
-            return False
+            # Instead of dropping data, try to remove oldest chunk and add new one
+            try:
+                self.buffer.get_nowait()  # Remove oldest chunk
+                self.buffer.put_nowait(data)  # Add new chunk
+                logging.debug("Replaced oldest audio chunk with new data")
+                return True
+            except (queue.Empty, queue.Full):
+                logging.warning("Buffer overflow, dropping audio chunk")
+                return False
             
     def get(self) -> Optional[np.ndarray]:
         """Get data from buffer, returns None if buffer is empty"""
         try:
             data = self.buffer.get_nowait()
-            logging.debug(f"Got {len(data)} samples from buffer (size now: {self.buffer.qsize()})")
             return data
         except queue.Empty:
             return None

@@ -102,8 +102,9 @@ class AudioBaseConfig:
     """Base audio configuration that all audio components should use"""
     SAMPLE_RATE = 16000
     NUM_CHANNELS = 1
-    CHUNK_SIZE = 512  # Optimized for echo cancellation
+    CHUNK_SIZE = 2048  # Increased from 512 to 2048 for better real-time performance
     FORMAT = 'int16'  # numpy/pyaudio compatible format
+    BUFFER_SIZE = 10  # Number of chunks to buffer
 
 # Audio Configuration for Calls
 class CallConfig:
