@@ -1,6 +1,7 @@
 import os
 import platform
 from dotenv import load_dotenv
+from enum import Enum, auto
 
 load_dotenv()
 
@@ -93,6 +94,28 @@ LED_BRIGHTNESS = 0.05  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 
 # Audio Configuration for Calls
+class SoundEffect(str, Enum):
+    """Available sound effects and their corresponding filenames"""
+    RISING_TONE = "rising_tone.wav"
+    MMHMM = "mmhmm.wav"
+    YAWN = "yawn.wav"
+    MAGICAL_SPELL = "magical_spell.wav"
+    LIGHTNING = "lightning.wav"
+    
+    @classmethod
+    def get_filename(cls, effect_name: str) -> str | None:
+        """Get the filename for a sound effect by its name (case-insensitive)"""
+        try:
+            # Try to match the name directly to an enum member
+            return cls[effect_name.upper()].value
+        except KeyError:
+            # If not found, try to match against the values
+            effect_name_lower = effect_name.lower()
+            for effect in cls:
+                if effect.value.lower().removesuffix('.wav') == effect_name_lower:
+                    return effect.value
+            return None
+
 class CallConfig:
     """Unified configuration for call-related settings"""
     

@@ -5,9 +5,11 @@ import threading
 import queue
 import logging
 import time
+import os
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
+from config import SoundEffect
 
 @dataclass
 class AudioConfig:
@@ -460,6 +462,27 @@ class AudioManager:
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
                 
+    def play_sound_effect(self, effect_name: str, volume: float = 1.0) -> bool:
+        """
+        Play a sound effect by name.
+        Args:
+            effect_name: Name of the sound effect (case-insensitive)
+            volume: Volume level between 0.0 and 1.0
+        Returns:
+            bool: True if the sound effect was found and playback started, False otherwise
+        """
+        filename = SoundEffect.get_filename(effect_name)
+        if not filename:
+            logging.error(f"Unknown sound effect: {effect_name}")
+            return False
+            
+        wav_path = os.path.join("assets", filename)
+        if not os.path.exists(wav_path):
+            logging.error(f"Sound effect file not found: {wav_path}")
+            return False
+            
+        return self.play_wav_file(wav_path, producer_name="sound_effect", volume=volume) 
+        
     def play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", volume: float = 1.0) -> bool:
         """Play a WAV file through the audio system"""
         logging.info(f"play_wav_file called: path='{wav_path}', producer='{producer_name}', volume={volume}")
@@ -555,4 +578,4 @@ class AudioManager:
                 device_info = self._py_audio.get_device_info_by_index(i)
                 if device_info['maxOutputChannels'] > 0:
                     devices[i] = device_info['name']
-        return devices 
+        return devices
