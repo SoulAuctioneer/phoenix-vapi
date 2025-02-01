@@ -2,6 +2,7 @@ import os
 import platform
 from dotenv import load_dotenv
 from enum import Enum, auto
+from typing import Union
 
 load_dotenv()
 
@@ -103,7 +104,7 @@ class SoundEffect(str, Enum):
     LIGHTNING = "lightning.wav"
     
     @classmethod
-    def get_filename(cls, effect_name: str) -> str | None:
+    def get_filename(cls, effect_name: str) -> Union[str, None]:
         """Get the filename for a sound effect by its name (case-insensitive)"""
         try:
             # Try to match the name directly to an enum member
