@@ -44,6 +44,9 @@ class LEDManager:
                     self._pixels[index] = color
                     #logging.info(f"Mock: LED {index} set to color {color}")
 
+                def __getitem__(self, index):
+                    return self._pixels[index]
+
                 def fill(self, color):
                     self._pixels = [color] * self.n
                     #logging.info(f"Mock: All LEDs set to color {color}")
@@ -255,38 +258,61 @@ class LEDManager:
             max(color1[2], color2[2])
         )
 
-    def _start_effect(self, effect_func, speed):
-        """Helper method to start an effect"""
+    def _start_effect(self, effect_func, speed, duration=None):
+        """Helper method to start an effect
+        
+        Args:
+            effect_func: The effect function to run
+            speed: Speed of the effect
+            duration: Duration in milliseconds before reverting to previous effect. None for no duration.
+        """
+        # Store the current effect function and speed before changing
+        previous_effect = None
         if self._effect_thread is not None:
+            previous_effect = {
+                'func': self._effect_thread._target,
+                'speed': speed  # This is an approximation as we don't store previous speed
+            }
             self.stop_effect()
+            
         self._stop_event.clear()
         self._effect_thread = Thread(target=effect_func, args=(speed,))
         self._effect_thread.daemon = True
         self._effect_thread.start()
+        
+        if duration is not None:
+            def revert_after_duration():
+                time.sleep(duration / 1000)  # Convert ms to seconds
+                if previous_effect and not self._stop_event.is_set():
+                    self._start_effect(previous_effect['func'], previous_effect['speed'])
+                    
+            revert_thread = Thread(target=revert_after_duration)
+            revert_thread.daemon = True
+            revert_thread.start()
 
-    def start_blue_breathing_effect(self, speed=0.05):
+    def start_blue_breathing_effect(self, speed=0.05, duration=None):
         """Start the blue breathing effect"""
-        self._start_effect(self._blue_breathing_effect, speed)
+        self._start_effect(self._blue_breathing_effect, speed, duration)
 
-    def start_green_breathing_effect(self, speed=0.05):
+    def start_green_breathing_effect(self, speed=0.05, duration=None):
         """Start the green breathing effect"""
-        self._start_effect(self._green_breathing_effect, speed)
+        self._start_effect(self._green_breathing_effect, speed, duration)
 
-    def start_rotating_pink_blue_effect(self, speed=0.05):
+    def start_rotating_pink_blue_effect(self, speed=0.05, duration=None):
         """Start the breathing effect"""
-        self._start_effect(self._pink_blue_rotation_effect, speed)
+        self._start_effect(self._pink_blue_rotation_effect, speed, duration)
 
-    def start_rotating_rainbow_effect(self, speed=0.02):
+    def start_rotating_rainbow_effect(self, speed=0.02, duration=None):
         """Start the rainbow effect"""
-        self._start_effect(self._rotating_rainbow_effect, speed)
+        self._start_effect(self._rotating_rainbow_effect, speed, duration)
 
-    def start_random_twinkling_effect(self, speed=0.03):
+    def start_random_twinkling_effect(self, speed=0.03, duration=None):
         """Start the conversation effect"""
-        self._start_effect(self._random_twinkling_effect, speed)
+        self._start_effect(self._random_twinkling_effect, speed, duration)
 
-    def start_rain_effect(self, speed=0.05):
+    def start_rain_effect(self, speed=0.05, duration=None):
         """Start the rain effect"""
-        self._start_effect(self._rain_effect, speed)
+        self._start_effect(self._rain_effect, speed, duration)
 
     def _lightning_effect(self, wait):
         """Create a dramatic lightning flash effect with afterglow"""
@@ -317,9 +343,9 @@ class LEDManager:
             # Random wait between lightning flashes
             time.sleep(random.uniform(0.5, 3.0))
 
-    def start_lightning_effect(self, speed=0.05):
+    def start_lightning_effect(self, speed=0.05, duration=None):
         """Start the lightning effect"""
-        self._start_effect(self._lightning_effect, speed)
+        self._start_effect(self._lightning_effect, speed, duration)
 
     def stop_effect(self):
         """Stop any running effect"""
