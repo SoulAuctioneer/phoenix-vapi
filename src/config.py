@@ -102,9 +102,10 @@ class AudioBaseConfig:
     """Base audio configuration that all audio components should use"""
     SAMPLE_RATE = 16000
     NUM_CHANNELS = 1
-    CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
+    CHUNK_SIZE = 500  # Optimized for WebRTC echo cancellation without stuttering
     FORMAT = 'int16'  # numpy/pyaudio compatible format
-    BUFFER_SIZE = 4   # Minimal buffering to reduce latency
+    BUFFER_SIZE = 100   # Minimal buffering to reduce latency
+    DEFAULT_VOLUME = 0.3
     
     # Time-based calculations
     CHUNK_DURATION_MS = (CHUNK_SIZE / SAMPLE_RATE) * 1000  # Duration of each chunk in milliseconds
@@ -119,8 +120,8 @@ class CallConfig:
         SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
         NUM_CHANNELS = AudioBaseConfig.NUM_CHANNELS
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
-        DEFAULT_VOLUME = 0.3
-        BUFFER_SIZE = 100  # Reduced from 500 to minimize latency
+        DEFAULT_VOLUME = AudioBaseConfig.DEFAULT_VOLUME
+        BUFFER_SIZE = AudioBaseConfig.BUFFER_SIZE
     
     class Vapi:
         """Vapi API configuration"""
