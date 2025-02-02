@@ -69,6 +69,16 @@ class AudioService(BaseService):
             return False
             
         try:
+            # Check if there's an active call by looking for the daily_call producer
+            with self.audio_manager._producers_lock:
+                has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
+                
+            # Set sound effect volume to half if there's an active call
+            if has_active_call:
+                self.audio_manager.set_producer_volume("sound_effect", 0.5)
+            else:
+                self.audio_manager.set_producer_volume("sound_effect", 1.0)
+                
             loop = asyncio.get_event_loop()
             success = await loop.run_in_executor(
                 None,
