@@ -134,7 +134,7 @@ class CallConfig:
         MIC_DEVICE_ID = "my-mic"
         SPEAKER_DEVICE_ID = "my-speaker"
         MIC_CONSTRAINTS = {
-            "autoGainControl": {"exact": True},
+            "autoGainControl": {"exact": False},
             "noiseSuppression": {"exact": True},
             "echoCancellation": {"exact": True},
         }
