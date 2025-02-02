@@ -365,7 +365,8 @@ class AudioManager:
                             if data is not None:
                                 no_data_count = 0  # Reset no-data counter
                                 if len(data) == self.config.chunk:
-                                    audio_float = data.astype(np.float32)
+                                    # Pre-scale each producer's audio to prevent clipping when mixing
+                                    audio_float = data.astype(np.float32) * 0.8  # Scale down slightly to prevent clipping
                                     if producer.volume != 1.0:
                                         audio_float *= producer.volume
                                     mixed_audio += audio_float
@@ -380,17 +381,6 @@ class AudioManager:
                                     if no_data_count % 100 == 0:  # Log every 100th no-data iteration
                                         logging.debug(f"No data available from producer '{name}' for {no_data_count} iterations")
                     
-                    # Log producer states periodically or when we have producers but no data
-                    # current_time = time.time()
-                    # if producer_states and (current_time - last_producer_log >= 2 or  # Log every 2000s
-                    #                       (len(producer_states) > 0 and active_producers == 0)):
-                    #     logging.info(f"Producer states: {producer_states}")
-                    #     last_producer_log = current_time
-                    
-                    # Normalize if we have multiple producers
-                    if active_producers > 1:
-                        mixed_audio /= active_producers
-                        
                     # Convert back to int16 and clip to prevent overflow
                     mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
                         
