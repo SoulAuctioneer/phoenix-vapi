@@ -136,7 +136,7 @@ class CallConfig:
         MIC_CONSTRAINTS = {
             "autoGainControl": {"exact": False},
             "noiseSuppression": {"exact": True},
-            "echoCancellation": {"exact": True},
+            "echoCancellation": {"exact": False},
         }
         SUBSCRIPTION_PROFILES = {
             "base": {
