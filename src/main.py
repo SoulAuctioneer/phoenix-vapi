@@ -34,7 +34,7 @@ class PhoenixApp:
         # Create services in order
         self.services = {
             'audio': AudioService(self.manager),        # Initialize audio first
-            #'wakeword': WakeWordService(self.manager),  # Then wake word detection
+            'wakeword': WakeWordService(self.manager),  # Then wake word detection
             'conversation': ConversationService(self.manager), # Then conversation handling
             'led': LEDService(self.manager),            # Finally LED control
         }
@@ -58,9 +58,6 @@ class PhoenixApp:
                 "type": "application_startup_completed",
                 "producer_name": "main"
             })
-
-            # TEMP FOR TESTING - START THE CONVERSATION
-            await self.services['conversation'].start_conversation()
 
             # Keep the main task running
             while self._should_run:
