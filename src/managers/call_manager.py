@@ -9,6 +9,7 @@ import requests
 from enum import Enum
 from managers.audio_manager import AudioManager
 from config import CallConfig
+import queue
 
 class CallState(Enum):
     """Possible states for a call, matching Daily's API states"""
@@ -282,9 +283,18 @@ class CallManager:
     async def _initialize_call_audio(self):
         """Initialize audio components needed for a specific call"""
         try:
-            # Create and start audio tasks
+            # Create the input thread first
+            self._input_thread = threading.Thread(
+                target=self._input_audio_thread,
+                name="DailyInputAudioThread"
+            )
+            self._input_thread.daemon = True
+            
+            # Create the receive audio task
             self._receive_bot_audio_task = asyncio.create_task(self._receive_bot_audio())
-            self._send_user_audio_task = asyncio.create_task(self._send_user_audio())
+            
+            # Create minimal input buffer
+            self._input_buffer = queue.Queue(maxsize=4)  # Minimal buffer size
             
             # Register with audio manager for this call
             self._audio_consumer = self.audio_manager.add_consumer(
@@ -301,6 +311,10 @@ class CallManager:
             
             # Set initial volume for this call
             self.audio_manager.set_producer_volume("daily_call", self.state_manager.get_volume())
+            
+            # Start the input thread
+            self._input_thread.start()
+            
         except Exception as e:
             logging.error(f"Failed to initialize call audio: {e}")
             raise
@@ -763,13 +777,10 @@ class CallManager:
                 pass
             self._receive_bot_audio_task = None
             
-        if hasattr(self, '_send_user_audio_task') and self._send_user_audio_task is not None:
-            self._send_user_audio_task.cancel()
-            try:
-                await self._send_user_audio_task
-            except asyncio.CancelledError:
-                pass
-            self._send_user_audio_task = None
+        # Wait for input thread to finish
+        if hasattr(self, '_input_thread') and self._input_thread is not None:
+            self._input_thread.join(timeout=1.0)
+            self._input_thread = None
             
         # Remove audio consumer and producer for this call
         if hasattr(self, '_audio_consumer') and self._audio_consumer is not None:
@@ -881,10 +892,12 @@ class CallManager:
                     if len(buffer) > 0 and self._audio_producer and self._audio_producer.active:
                         # Convert bytes to numpy array and send to audio manager
                         audio_np = np.frombuffer(buffer, dtype=np.int16)
+                        # Important - do not change this line
                         self._audio_producer.buffer.put(audio_np)
                     
                     # Always sleep a consistent amount to maintain timing
-                    await asyncio.sleep(sleep_duration)
+                    # Important - do not change this line
+                    await asyncio.sleep(0.001)
                 except Exception as e:
                     if self.state_manager.state != CallState.ERROR:
                         logging.error(f"Error in receive audio task: {e}")
@@ -908,13 +921,38 @@ class CallManager:
             logging.info("Send user audio task cancelled")
             raise
 
-    def _handle_input_audio(self, audio_data: np.ndarray):
-        """Handle input audio from audio manager"""
-        if not self._mic_device or not self.state_manager.state.can_receive_audio:
-            return
-            
+    def _input_audio_thread(self):
+        """Dedicated thread for handling input audio"""
         try:
-            self._mic_device.write_frames(audio_data.tobytes())
+            while self.state_manager.state.can_receive_audio:
+                try:
+                    # Get audio data from the buffer with short timeout
+                    audio_data = self._input_buffer.get(timeout=0.01)  # Reduced timeout for lower latency
+                    if audio_data is not None and self._mic_device:
+                        self._mic_device.write_frames(audio_data.tobytes())
+                except queue.Empty:
+                    time.sleep(0.001)  # Minimal sleep when no data
+                    continue
+                except Exception as e:
+                    if self.state_manager.state.can_receive_audio:
+                        logging.error(f"Error in input audio thread: {e}")
+                    time.sleep(0.001)
         except Exception as e:
-            logging.error(f"Error writing to mic device: {e}")
+            logging.error(f"Input audio thread error: {e}")
+
+    def _handle_input_audio(self, audio_data: np.ndarray):
+        """Queue audio data from audio manager"""
+        try:
+            if self.state_manager.state.can_receive_audio:
+                try:
+                    self._input_buffer.put_nowait(audio_data)
+                except queue.Full:
+                    # Try to remove old data and add new
+                    try:
+                        self._input_buffer.get_nowait()
+                        self._input_buffer.put_nowait(audio_data)
+                    except (queue.Empty, queue.Full):
+                        pass  # If still can't add, drop the frame
+        except Exception as e:
+            logging.error(f"Error queuing input audio: {e}")
 
