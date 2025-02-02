@@ -288,6 +288,39 @@ class LEDManager:
         """Start the rain effect"""
         self._start_effect(self._rain_effect, speed)
 
+    def _lightning_effect(self, wait):
+        """Create a dramatic lightning flash effect with afterglow"""
+        while not self._stop_event.is_set():
+            # Initial bright white flash
+            self.pixels.fill((255, 255, 255))
+            self.pixels.show()
+            time.sleep(0.05)  # Short bright flash
+            
+            # First afterglow - bluish white
+            self.pixels.fill((100, 100, 150))
+            self.pixels.show()
+            time.sleep(0.05)
+            
+            # Second afterglow - dimmer blue
+            self.pixels.fill((50, 50, 100))
+            self.pixels.show()
+            time.sleep(0.1)
+            
+            # Final dim glow
+            self.pixels.fill((20, 20, 40))
+            self.pixels.show()
+            
+            # Dark period
+            self.pixels.fill((0, 0, 0))
+            self.pixels.show()
+            
+            # Random wait between lightning flashes
+            time.sleep(random.uniform(0.5, 3.0))
+
+    def start_lightning_effect(self, speed=0.05):
+        """Start the lightning effect"""
+        self._start_effect(self._lightning_effect, speed)
+
     def stop_effect(self):
         """Stop any running effect"""
         self._stop_event.set()
