@@ -104,7 +104,7 @@ class AudioBaseConfig:
     NUM_CHANNELS = 1
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
-    BUFFER_SIZE = 50   # Minimal buffering to reduce latency
+    BUFFER_SIZE = 10   # Minimal buffering to reduce latency
     DEFAULT_VOLUME = 0.3
 
 # Audio Configuration for Calls
