@@ -424,39 +424,28 @@ class AudioManager:
             if audio_data.dtype != np.int16:
                 logging.info(f"Converting audio data from {audio_data.dtype} to int16")
                 audio_data = np.clip(audio_data * 32767, -32768, 32767).astype(np.int16)
-                
-            logging.info("Starting chunking process...")
             
             # Split audio data into chunks matching the configured chunk size
             num_samples = len(audio_data)
             chunk_size = self.config.chunk  # Always use config.chunk since output loop expects this
             num_chunks = (num_samples + chunk_size - 1) // chunk_size  # Round up division
             
-            logging.info(f"Starting to split {num_samples} samples into {num_chunks} chunks of {chunk_size} samples each")
-            
             chunks_added = 0
             for i in range(num_chunks):
                 start = i * chunk_size
                 end = min(start + chunk_size, num_samples)
                 chunk = audio_data[start:end]
-                logging.debug(f"Created chunk {i+1}/{num_chunks}: {len(chunk)} samples (start={start}, end={end})")
-                
                 # Pad the last chunk with zeros if needed
                 if len(chunk) < chunk_size:
-                    logging.debug(f"Padding last chunk from {len(chunk)} to {chunk_size} samples")
                     chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
-                    logging.debug(f"Padded chunk size: {len(chunk)}")
                 
                 success = producer.buffer.put(chunk)
                 if success:
                     chunks_added += 1
-                    logging.debug(f"Successfully added chunk {i+1}/{num_chunks} to producer '{producer_name}' buffer")
                 else:
                     logging.warning(f"Buffer full for producer '{producer_name}', chunk {i+1}/{num_chunks} dropped")
                     break  # Stop if buffer is full
                     
-            logging.info(f"Finished adding chunks: {chunks_added}/{num_chunks} chunks added to producer '{producer_name}' buffer")
-            
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
                 
@@ -482,11 +471,14 @@ class AudioManager:
         
     def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect") -> bool:
         """Play a WAV file through the audio system"""
-        logging.info(f"play_wav_file called: path='{wav_path}', producer='{producer_name}'")
-
         if not self._running:
             logging.error("Cannot play WAV file - AudioManager not running")
             return False
+
+        # Clear any existing sound effect first
+        with self._producers_lock:
+            if producer_name in self._producers:
+                self._producers[producer_name].buffer.clear()
 
         def _play_in_thread():
             try:
@@ -497,7 +489,6 @@ class AudioManager:
                     width = wf.getsampwidth()
                     rate = wf.getframerate()
                     frames = wf.getnframes()
-                    logging.info(f"WAV properties: channels={channels}, width={width}, rate={rate}, frames={frames}")
                     
                     # Verify WAV format matches our configuration
                     if channels != self.config.channels:
@@ -509,13 +500,7 @@ class AudioManager:
                     if width != self._py_audio.get_sample_size(self.config.format):
                         logging.error(f"WAV width ({width}) doesn't match config format")
                         return False
-                    
-                    audio_data = wf.readframes(frames)
-                    logging.info(f"Read {len(audio_data)} bytes of audio data")
-                    
-                    audio_array = np.frombuffer(audio_data, dtype=np.int16)
-                    logging.info(f"Converted to numpy array: shape={audio_array.shape}, dtype={audio_array.dtype}")
-                    
+                                        
                     # Create or get producer and set volume
                     with self._producers_lock:
                         if producer_name not in self._producers:
@@ -523,9 +508,9 @@ class AudioManager:
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
                     
-                    logging.info("Sending audio data to play_audio")
+                    audio_data = wf.readframes(frames)
+                    audio_array = np.frombuffer(audio_data, dtype=np.int16)
                     self.play_audio(audio_array, producer_name)
-                    logging.info("Audio data sent to play_audio successfully")
                     
             except FileNotFoundError:
                 logging.error(f"WAV file not found: {wav_path}")
@@ -539,7 +524,6 @@ class AudioManager:
         # Start playback in a separate thread
         thread = threading.Thread(target=_play_in_thread, name=f"wav_player_{producer_name}")
         thread.daemon = True
-        logging.info(f"Starting WAV player thread: {thread.name}")
         thread.start()
         return True
                 
