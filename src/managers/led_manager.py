@@ -320,8 +320,13 @@ class LEDManager:
             # Initial bright white flash
             self.pixels.fill((255, 255, 255))
             self.pixels.show()
-            time.sleep(0.05)  # Short bright flash
-            
+            time.sleep(0.01)  # Short bright flash
+
+            # Second bright white flash
+            self.pixels.fill((255, 255, 255))
+            self.pixels.show()
+            time.sleep(0.03)  # Short bright flash
+
             # First afterglow - bluish white
             self.pixels.fill((100, 100, 150))
             self.pixels.show()

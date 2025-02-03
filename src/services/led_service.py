@@ -89,7 +89,7 @@ class LEDService(BaseService):
                 logging.info(f"Started rain effect with speed {speed}")
             elif effect_name == "lightning":
                 speed = event.get('data', {}).get('speed', 0.05)
-                self.led_controller.start_lightning_effect(speed=speed, duration=3000)  # 3 seconds
+                self.led_controller.start_lightning_effect(speed=speed, duration=4000)  # 3 seconds
                 logging.info(f"Started lightning effect with speed {speed} for 3 seconds")
             elif effect_name == "stop":
                 self.led_controller.stop_effect()
