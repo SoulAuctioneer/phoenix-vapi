@@ -48,7 +48,7 @@ class AudioService(BaseService):
         
         elif event_type == "application_startup_completed":
             # Play rising tone when application starts up
-            await self._play_sound("RISING_TONE")
+            await self._play_sound("TADA")
                 
         elif event_type == "conversation_starting":
             # Play acknowledgment sound when conversation starts
