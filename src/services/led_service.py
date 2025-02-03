@@ -13,10 +13,8 @@ class LEDService(BaseService):
         """Initialize and start the LED service"""
         try:
             self.led_controller = LEDManager()
-            # Start with breathing effect
-            self.led_controller.start_rotating_pink_blue_effect()
             if self.platform == "raspberry-pi":
-                logging.info("LED service started with breathing effect on Raspberry Pi")
+                logging.info("LED service started")
             else:
                 logging.info("LED service started in simulation mode")
         except Exception as e:
@@ -59,6 +57,10 @@ class LEDService(BaseService):
             # Conversation ended - return to breathing effect
             self.led_controller.start_rotating_pink_blue_effect()
             logging.info("Conversation ended - switched to rotating pink blue effect")
+
+        elif event_type == "application_startup_completed":
+            self.led_controller.start_rotating_pink_blue_effect()
+            logging.info("Application startup completed - switched to rotating pink blue effect")
 
         elif event_type == "start_led_effect":
             # Handle manual LED commands

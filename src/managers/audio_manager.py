@@ -70,7 +70,6 @@ class AudioProducer:
         self.active = True
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
-        logging.info(f"Created AudioProducer '{name}' with chunk_size={chunk_size}, buffer_size={buffer_size}")
 
     def resize_chunk(self, audio_data: np.ndarray) -> List[np.ndarray]:
         """Resize audio chunk to desired size, handling remainder samples"""
