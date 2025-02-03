@@ -95,7 +95,7 @@ LED_BRIGHTNESS = 1.0  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 
 # Audio Configuration
-AUDIO_DEFAULT_VOLUME = 0.2
+AUDIO_DEFAULT_VOLUME = 0.35
 
 # Base Audio Configuration (used by both CallConfig and AudioConfig)
 class AudioBaseConfig:
@@ -105,7 +105,7 @@ class AudioBaseConfig:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
     BUFFER_SIZE = 5   # Minimal buffering to reduce latency
-    DEFAULT_VOLUME = 0.3
+    DEFAULT_VOLUME = 0.5
     # Calculate time-based values
     CHUNK_DURATION_MS = (CHUNK_SIZE / SAMPLE_RATE) * 1000  # Duration of each chunk in milliseconds
     LIKELY_LATENCY_MS = CHUNK_DURATION_MS * BUFFER_SIZE  # Calculate probable latency in milliseconds
