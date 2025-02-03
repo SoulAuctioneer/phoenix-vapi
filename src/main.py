@@ -3,6 +3,7 @@ import logging
 import signal
 from services.service import ServiceManager
 from services.audio_service import AudioService
+from services.special_effect_service import SpecialEffectService
 from services.wakeword_service import WakeWordService
 from services.conversation_service import ConversationService
 from services.led_service import LEDService
@@ -33,10 +34,11 @@ class PhoenixApp:
         """Initialize and start all services in the correct order"""
         # Create services in order
         self.services = {
-            'audio': AudioService(self.manager),        # Initialize audio first
-            'wakeword': WakeWordService(self.manager),  # Then wake word detection
-            'conversation': ConversationService(self.manager), # Then conversation handling
-            'led': LEDService(self.manager),            # Finally LED control
+            'audio': AudioService(self.manager),
+            'wakeword': WakeWordService(self.manager),
+            'conversation': ConversationService(self.manager),
+            'led': LEDService(self.manager),
+            'special_effect': SpecialEffectService(self.manager),
         }
         
         # Start audio service first, then the remaining services in parallel

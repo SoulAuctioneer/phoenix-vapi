@@ -95,7 +95,7 @@ LED_BRIGHTNESS = 1.0  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 
 # Audio Configuration
-AUDIO_DEFAULT_VOLUME = 0.35
+AUDIO_DEFAULT_VOLUME = 0.3
 
 # Base Audio Configuration (used by both CallConfig and AudioConfig)
 class AudioBaseConfig:

@@ -13,6 +13,7 @@ class SpecialEffect(str, Enum):
     # Sound-only effects
     YAWN = "yawn"
     WHOOSH = "whoosh"
+    MYSTERY = "mystery"
 
     # LED-only effects
     BLUE_BREATHING = "blue_breathing"
@@ -28,7 +29,7 @@ class SpecialEffect(str, Enum):
             cls.MAGICAL_SPELL: "magical_spell",
             cls.LIGHTNING: "lightning",
             cls.RAIN: "rain",
-            cls.RAINBOW: "rainbow",
+            cls.RAINBOW: "mystery",
             # Below sounds don't have corresponding LED effects
             cls.YAWN: "yawn",
             cls.WHOOSH: "whoosh",
