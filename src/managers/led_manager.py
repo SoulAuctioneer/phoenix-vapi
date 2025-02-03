@@ -217,9 +217,9 @@ class LEDManager:
                     led_position = int(drop['position'] * LED_COUNT) % LED_COUNT
                     intensity = drop['intensity'] * (1.0 - drop['radius'])  # Fade as it moves inward
                     
-                    # Create a blue-white color for the raindrop
+                    # Create a more blue color for the raindrop
                     blue = int(255 * intensity)
-                    white = int(100 * intensity)
+                    white = int(50 * intensity)  # Reduced white to make it more blue
                     color = (white, white, blue)
                     
                     # Draw main drop pixel
@@ -235,7 +235,7 @@ class LEDManager:
                         # Calculate trail intensity
                         trail_intensity = intensity * (1 - (i / (trail_length + 1))) * 0.7
                         trail_blue = int(255 * trail_intensity)
-                        trail_white = int(100 * trail_intensity)
+                        trail_white = int(50 * trail_intensity)  # Reduced white for trail
                         trail_color = (trail_white, trail_white, trail_blue)
                         
                         # Apply trail colors
