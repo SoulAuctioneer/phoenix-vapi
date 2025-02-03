@@ -68,12 +68,12 @@ class LEDService(BaseService):
             if effect_name == "blue_breathing":
                 speed = event.get('data', {}).get('speed', 0.02)
                 self.led_controller.start_blue_breathing_effect(speed=speed)
-                logging.info(f"Started rainbow effect with speed {speed}")
+                logging.info(f"Started blue breathing effect with speed {speed}")
             elif effect_name == "green_breathing":
                 speed = event.get('data', {}).get('speed', 0.05)
                 self.led_controller.start_green_breathing_effect(speed=speed)
-                logging.info(f"Started breathing effect with speed {speed}")
-            elif effect_name == "rotating_rainbow":
+                logging.info(f"Started green breathing effect with speed {speed}")
+            elif effect_name == "rainbow":
                 speed = event.get('data', {}).get('speed', 0.03)
                 self.led_controller.start_rotating_rainbow_effect(speed=speed)
                 logging.info(f"Started rainbow effect with speed {speed}")
@@ -81,7 +81,7 @@ class LEDService(BaseService):
                 speed = event.get('data', {}).get('speed', 0.05)
                 self.led_controller.start_rotating_pink_blue_effect(speed=speed)
                 logging.info(f"Started pink blue cycle effect with speed {speed}")
-            elif effect_name == "random_twinkle":
+            elif effect_name == "magical_spell":
                 speed = event.get('data', {}).get('speed', 0.01)
                 self.led_controller.start_random_twinkling_effect(speed=speed, duration=3000)
                 logging.info(f"Started random twinkling effect with speed {speed}")
