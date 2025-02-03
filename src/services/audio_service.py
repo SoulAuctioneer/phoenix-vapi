@@ -52,7 +52,7 @@ class AudioService(BaseService):
                 
         elif event_type == "conversation_starting":
             # Play acknowledgment sound when conversation starts
-            await self._play_sound("MMHMM")
+            await self._play_sound("YAWN")
                 
         elif event_type == "conversation_ended":
             # Play yawn sound when conversation ends
