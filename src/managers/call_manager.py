@@ -527,8 +527,8 @@ class CallManager:
             
             logging.info(f"Handling tool call: {name} with arguments {arguments}")
             
-            if name == 'showLightingEffect':
-                effect_name = arguments.get('effectName')
+            if name == 'show_lighting_effect':
+                effect_name = arguments.get('effect_name')
                 if effect_name and self.manager:
                     await self.manager.publish({
                         "type": "start_led_effect",
@@ -536,11 +536,18 @@ class CallManager:
                             "effectName": effect_name
                         }
                     })
-            elif name == 'playSoundEffect':
-                effect_name = arguments.get('effectName', None)
+            elif name == 'play_sound_effect':
+                effect_name = arguments.get('effect_name', None)
                 if effect_name and self.manager:
                     await self.manager.publish({
                         "type": "play_sound",
+                        "effect_name": effect_name
+                    })
+            elif name == 'play_special_effect':
+                effect_name = arguments.get('effect_name', None)
+                if effect_name and self.manager:
+                    await self.manager.publish({
+                        "type": "play_special_effect",
                         "effect_name": effect_name
                     })
             else:
