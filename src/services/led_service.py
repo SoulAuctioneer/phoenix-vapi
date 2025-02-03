@@ -47,7 +47,7 @@ class LEDService(BaseService):
 
         if event_type == "wake_word_detected":
             # Wake word detected - switch to rainbow effect
-            self.led_controller.start_random_twinkling_effect(0.01)
+            self.led_controller.start_random_twinkling_effect(0.06)
             logging.info("Wake word detected - switched to rotating rainbow effect")
 
         elif event_type == "conversation_started":
@@ -80,7 +80,7 @@ class LEDService(BaseService):
                 self.led_controller.start_rotating_pink_blue_effect(speed=speed)
                 logging.info(f"Started pink blue cycle effect with speed {speed}")
             elif effect_name == "random_twinkle":
-                speed = event.get('data', {}).get('speed', 0.02)
+                speed = event.get('data', {}).get('speed', 0.01)
                 self.led_controller.start_random_twinkling_effect(speed=speed)
                 logging.info(f"Started random twinkling effect with speed {speed}")
             elif effect_name == "rain":
