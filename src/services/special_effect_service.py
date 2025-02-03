@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Union
 from services.service import BaseService
 import logging
 
@@ -23,7 +24,7 @@ class SpecialEffect(str, Enum):
     RANDOM_TWINKLE = "random_twinkle"
     
     @classmethod
-    def get_sound_effect(cls, effect: str) -> str | None:
+    def get_sound_effect(cls, effect: str) -> Union[str, None]:
         """Get the corresponding sound effect name for a special effect"""
         sound_effect_map = {
             cls.MAGICAL_SPELL: "magical_spell",
@@ -38,7 +39,7 @@ class SpecialEffect(str, Enum):
         return sound_effect_map.get(cls(effect))
     
     @classmethod
-    def get_led_effect(cls, effect: str) -> str | None:
+    def get_led_effect(cls, effect: str) -> Union[str, None]:
         """Get the corresponding LED effect name for a special effect"""
         led_effect_map = {
             cls.MAGICAL_SPELL: "random_twinkle",
