@@ -20,6 +20,7 @@ class LEDManager:
     def __init__(self):
         self._effect_thread = None
         self._stop_event = Event()
+        self._current_speed = None
         
         # Initialize the NeoPixel object only on Raspberry Pi
         if LEDS_AVAILABLE:
