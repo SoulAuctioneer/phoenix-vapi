@@ -131,6 +131,7 @@ class LocationManager:
             if not self._scanner:
                 # Configure scanner with our settings
                 try:
+                    self.logger.debug(f"Creating BLE scanner on interface {BLEConfig.BLUETOOTH_INTERFACE}...")
                     self._scanner = BleakScanner(
                         adapter=BLEConfig.BLUETOOTH_INTERFACE,  # Use configured interface
                         detection_callback=None,  # We'll process devices after scan
@@ -143,14 +144,12 @@ class LocationManager:
             # Scan for devices
             try:
                 async with self._scanning_lock:  # Use lock to prevent concurrent scans
-
-
-                    self.logger.debug("Starting beacon scan...")
+                    self.logger.debug(f"Starting beacon scan with duration {BLEConfig.SCAN_DURATION}s...")
                     devices = await self._scanner.discover(
                         timeout=BLEConfig.SCAN_DURATION,
                         return_adv=True  # Get advertisement data
                     )
-                    self.logger.debug(f"Found {len(devices)} devices in beacon scan")
+                    self.logger.debug(f"Raw scan complete, found {len(devices)} devices")
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
@@ -161,6 +160,7 @@ class LocationManager:
                 return []
                 
             smoothed_devices = []
+            ibeacon_count = 0
             
             for device, adv in devices.values():
                 try:
@@ -178,6 +178,7 @@ class LocationManager:
                             continue
                             
                         uuid, major, minor = beacon_info
+                        ibeacon_count += 1
                         self.logger.debug(f"Found iBeacon - UUID: {uuid}, Major: {major}, Minor: {minor}, RSSI: {adv.rssi}")
                         
                         # Check if this is one of our beacons
@@ -190,13 +191,15 @@ class LocationManager:
                             smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", adv.rssi))
                             smoothed_devices.append((beacon_key, smoothed_rssi))
                             self.logger.debug(
-                                f"Beacon {major}:{minor} ({BLEConfig.BEACON_LOCATIONS[beacon_key]}): Raw RSSI={adv.rssi}, Smoothed={smoothed_rssi}"
+                                f"Matched beacon {major}:{minor} ({BLEConfig.BEACON_LOCATIONS[beacon_key]}): Raw RSSI={adv.rssi}, Smoothed={smoothed_rssi}"
                             )
+                        else:
+                            self.logger.debug(f"Unknown beacon location for Major: {major}, Minor: {minor}")
                 except Exception as e:
                     self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
             
-            self.logger.debug(f"Found {len(smoothed_devices)} valid beacons")
+            self.logger.debug(f"Scan processing complete - Found {ibeacon_count} iBeacons, {len(smoothed_devices)} valid beacons")
             return smoothed_devices
             
         except Exception as e:

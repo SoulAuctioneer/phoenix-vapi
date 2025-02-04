@@ -207,8 +207,8 @@ class BLEConfig:
 
 
     # Scan intervals and timeouts (in seconds)
-    SCAN_DURATION = 1.0          # Duration for BLE hardware to scan for devices
-    SCAN_TIMEOUT = 2.0           # Total timeout for scan operation including processing
+    SCAN_DURATION = 2.0          # Duration for BLE hardware to scan for devices
+    SCAN_TIMEOUT = 3.0           # Total timeout for scan operation including processing
     SCAN_INTERVAL = 5.0          # Time between periodic scans
     LOW_POWER_SCAN_INTERVAL = 30.0  # Scan interval when no activity
     ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
