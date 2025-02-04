@@ -89,13 +89,22 @@ class ConversationService(BaseService):
             if self.is_active and self.call_manager:
                 location = event["data"]["location"]
                 previous_location = event["data"]["previous_location"]
+                
+                # Skip if either location is unknown
+                if location == "unknown" or previous_location == "unknown":
+                    self.logger.debug("Skipping location change involving unknown location")
+                    return
+                    
                 self.logger.debug(f"Sending location change to assistant: {previous_location} -> {location}")
-                self.call_manager.add_message(
-                    "system",
-                    f"""Your companion has moved from {previous_location} to {location}. 
-                    If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
-                    If it's not really relevant to the conversation, just ignore it for now."""
-                )
+                try:
+                    self.call_manager.add_message(
+                        "system",
+                        f"""Your companion has moved from {previous_location} to {location}. 
+                        If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
+                        If it's not really relevant to the conversation, just ignore it for now."""
+                    )
+                except Exception as e:
+                    self.logger.error(f"Failed to send location change to assistant: {e}")
                 
         # Enable later when we have a good way to engage with the proximity changes
         # elif event_type == "proximity_changed":
