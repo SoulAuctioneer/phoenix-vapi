@@ -3,6 +3,7 @@ import time
 import logging
 import struct
 import asyncio
+import subprocess
 from typing import Dict, Optional, List, Tuple, Any, Union
 from collections import defaultdict
 from config import BLEConfig, PLATFORM, Distance
@@ -21,6 +22,53 @@ class LocationManager:
         # Initialize RSSI smoothing
         self._rssi_ema = defaultdict(lambda: None)  # Stores EMA for each beacon
         
+    def _ensure_bluetooth_powered(self) -> bool:
+        """Ensures Bluetooth adapter is powered on
+        
+        Returns:
+            bool: True if adapter is powered on, False otherwise
+        """
+        if PLATFORM != "raspberry-pi":
+            return True
+            
+        try:
+            # Check adapter status
+            result = subprocess.run(
+                ['hciconfig', BLEConfig.BLUETOOTH_INTERFACE], 
+                capture_output=True, 
+                text=True
+            )
+            
+            if "UP RUNNING" not in result.stdout:
+                self.logger.info("Bluetooth adapter is down, attempting to power on...")
+                # Try to power on the adapter
+                subprocess.run(
+                    ['sudo', 'hciconfig', BLEConfig.BLUETOOTH_INTERFACE, 'up'],
+                    check=True
+                )
+                # Wait a moment for the adapter to initialize
+                time.sleep(1)
+                
+                # Check again
+                result = subprocess.run(
+                    ['hciconfig', BLEConfig.BLUETOOTH_INTERFACE], 
+                    capture_output=True, 
+                    text=True
+                )
+                if "UP RUNNING" not in result.stdout:
+                    self.logger.error("Failed to power on Bluetooth adapter")
+                    return False
+                    
+                self.logger.info("Successfully powered on Bluetooth adapter")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Error managing Bluetooth adapter: {e}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Unexpected error managing Bluetooth adapter: {e}")
+            return False
+            
     def _update_rssi_ema(self, addr: str, rssi: int) -> float:
         """Updates and returns the exponential moving average for a beacon's RSSI"""
         current_ema = self._rssi_ema[addr]
@@ -72,6 +120,10 @@ class LocationManager:
             return []
             
         try:
+            # Ensure Bluetooth is powered on
+            if not self._ensure_bluetooth_powered():
+                return []
+                
             # Create scanner if needed
             if not self._scanner:
                 # Configure scanner with our settings
@@ -147,6 +199,11 @@ class LocationManager:
             return
             
         try:
+            # Ensure Bluetooth is powered on
+            if not self._ensure_bluetooth_powered():
+                self.logger.error("Cannot perform discovery scan: Bluetooth adapter is not powered on")
+                return
+                
             # Create scanner if needed
             if not self._scanner:
                 try:
@@ -300,6 +357,11 @@ class LocationManager:
         """Starts the location manager"""
         if PLATFORM != "raspberry-pi":
             self.logger.info("Location tracking not available on this platform")
+            return
+            
+        # Ensure Bluetooth is powered on before starting
+        if not self._ensure_bluetooth_powered():
+            self.logger.error("Failed to start location manager: Bluetooth adapter is not powered on")
             return
             
         self._is_running = True
