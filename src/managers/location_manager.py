@@ -139,7 +139,10 @@ class LocationManager:
             
             # Scan for devices
             try:
-                devices = await self._scanner.discover(timeout=BLEConfig.SCAN_DURATION)
+                devices = await self._scanner.discover(
+                    timeout=BLEConfig.SCAN_DURATION,
+                    return_adv=True  # Get advertisement data
+                )
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
@@ -151,14 +154,14 @@ class LocationManager:
                 
             smoothed_devices = []
             
-            for device in devices:
+            for device, adv in devices.values():
                 try:
-                    # Get advertisement data from device
-                    if not device.metadata or not device.metadata.manufacturer_data:
+                    # Get manufacturer data from advertisement data
+                    if not adv.manufacturer_data:
                         continue
                         
                     # Process manufacturer data
-                    for company_id, data in device.metadata.manufacturer_data.items():
+                    for company_id, data in adv.manufacturer_data.items():
                         if company_id != 0x004C:  # Apple's company ID
                             continue
                             
@@ -174,13 +177,13 @@ class LocationManager:
                             
                         beacon_key = (major, minor)
                         if beacon_key in BLEConfig.BEACON_LOCATIONS:
-                            smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", device.rssi))
+                            smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", adv.rssi))
                             smoothed_devices.append((beacon_key, smoothed_rssi))
                             self.logger.debug(
-                                f"Beacon {major}:{minor}: Raw RSSI={device.rssi}, Smoothed={smoothed_rssi}"
+                                f"Beacon {major}:{minor}: Raw RSSI={adv.rssi}, Smoothed={smoothed_rssi}"
                             )
                 except Exception as e:
-                    self.logger.warning(f"Error processing device: {e}")
+                    self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
             
             return smoothed_devices
@@ -216,7 +219,10 @@ class LocationManager:
             
             self.logger.info("Starting discovery scan for all BLE devices (10 second scan)...")
             try:
-                devices = await self._scanner.discover(timeout=10.0)
+                devices = await self._scanner.discover(
+                    timeout=10.0,
+                    return_adv=True  # Get advertisement data
+                )
             except asyncio.TimeoutError:
                 self.logger.warning("Discovery scan timed out")
                 return
@@ -232,16 +238,20 @@ class LocationManager:
             self.logger.info(f"\nFound {len(devices)} BLE devices:")
             ibeacon_count = 0
             
-            for device in devices:
+            for device, adv in devices.values():
                 try:
                     # Basic device info
                     self.logger.info(f"\nDevice: {device.address}")
-                    self.logger.info(f"  Name: {device.name or 'Unknown'}")
-                    self.logger.info(f"  RSSI: {device.rssi} dB")
+                    self.logger.info(f"  Name: {device.name or adv.local_name or 'Unknown'}")
+                    self.logger.info(f"  RSSI: {adv.rssi} dB")
+                    
+                    # Connection info if available
+                    if hasattr(adv, 'connectable'):
+                        self.logger.info(f"  Connectable: {adv.connectable}")
                     
                     # Manufacturer Data
-                    if device.metadata and device.metadata.manufacturer_data:
-                        for company_id, data in device.metadata.manufacturer_data.items():
+                    if adv.manufacturer_data:
+                        for company_id, data in adv.manufacturer_data.items():
                             self.logger.info(f"  Manufacturer 0x{company_id:04x}: {data.hex()}")
                             
                             # Try parsing as iBeacon if it's Apple's company ID
@@ -262,23 +272,23 @@ class LocationManager:
                                     )
                     
                     # Service Data
-                    if device.metadata and device.metadata.service_data:
+                    if adv.service_data:
                         self.logger.info("  Service Data:")
-                        for uuid, data in device.metadata.service_data.items():
+                        for uuid, data in adv.service_data.items():
                             self.logger.info(f"    {uuid}: {data.hex()}")
                     
                     # Service UUIDs
-                    if device.metadata and device.metadata.service_uuids:
+                    if adv.service_uuids:
                         self.logger.info("  Service UUIDs:")
-                        for uuid in device.metadata.service_uuids:
+                        for uuid in adv.service_uuids:
                             self.logger.info(f"    {uuid}")
                             
                     # TX Power Level if available
-                    if device.metadata and hasattr(device.metadata, 'tx_power'):
-                        self.logger.info(f"  TX Power: {device.metadata.tx_power} dBm")
+                    if adv.tx_power is not None:
+                        self.logger.info(f"  TX Power: {adv.tx_power} dBm")
                         
                 except Exception as e:
-                    self.logger.warning(f"Error processing device: {e}")
+                    self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
                     
             # Summary
