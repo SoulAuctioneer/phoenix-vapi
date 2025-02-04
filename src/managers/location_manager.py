@@ -4,12 +4,10 @@ import logging
 import struct
 import asyncio
 import subprocess
-from typing import Dict, Optional, List, Tuple, Any, Union
+from typing import Dict, Optional, List, Tuple, Any
 from collections import defaultdict
 from config import BLEConfig, PLATFORM, Distance
 from bleak import BleakScanner
-from bleak.backends.device import BLEDevice
-from bleak.backends.scanner import AdvertisementData
 
 class LocationManager:
     """Manages BLE scanning and location tracking"""
@@ -387,8 +385,8 @@ class LocationManager:
         self._is_running = True
         
         # Start discovery scan in background
-        self.logger.info("Starting initial discovery scan in background...")
-        asyncio.create_task(self._run_initial_discovery())
+        # self.logger.info("Starting initial discovery scan in background...")
+        # asyncio.create_task(self._run_initial_discovery())
             
         self.logger.info("Location manager started")
         
