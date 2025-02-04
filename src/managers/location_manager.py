@@ -143,20 +143,19 @@ class LocationManager:
             
             # Scan for devices
             try:
-                async with self._scanning_lock:  # Use lock to prevent concurrent scans
-                    self.logger.debug(f"Starting beacon scan with duration {BLEConfig.SCAN_DURATION}s...")
-                    devices = await self._scanner.discover(
-                        timeout=BLEConfig.SCAN_DURATION,
-                        return_adv=True  # Get advertisement data
-                    )
-                    self.logger.debug(f"Raw scan complete, found {len(devices)} devices")
-                    # Log details about each device found
-                    for addr, (device, adv) in devices.items():
-                        mfg_data = "No mfg data"
-                        if adv.manufacturer_data:
-                            mfg_ids = [f"0x{id:04x}" for id in adv.manufacturer_data.keys()]
-                            mfg_data = f"Mfg IDs: {', '.join(mfg_ids)}"
-                        self.logger.debug(f"  Device {addr}: RSSI={adv.rssi}dB, {mfg_data}")
+                self.logger.debug(f"Starting beacon scan with duration {BLEConfig.SCAN_DURATION}s...")
+                devices = await self._scanner.discover(
+                    timeout=BLEConfig.SCAN_DURATION,
+                    return_adv=True  # Get advertisement data
+                )
+                self.logger.debug(f"Raw scan complete, found {len(devices)} devices")
+                # Log details about each device found
+                for addr, (device, adv) in devices.items():
+                    mfg_data = "No mfg data"
+                    if adv.manufacturer_data:
+                        mfg_ids = [f"0x{id:04x}" for id in adv.manufacturer_data.keys()]
+                        mfg_data = f"Mfg IDs: {', '.join(mfg_ids)}"
+                    self.logger.debug(f"  Device {addr}: RSSI={adv.rssi}dB, {mfg_data}")
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
