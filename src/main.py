@@ -22,6 +22,8 @@ for logger_name in [
     'services.wake_word',
     'services.conversation',
     'services.service',
+    'managers.location_manager',
+    'services.location_service'
 ]:
     logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
