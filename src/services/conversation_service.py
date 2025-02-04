@@ -90,8 +90,8 @@ class ConversationService(BaseService):
                 location = event["data"]["location"]
                 previous_location = event["data"]["previous_location"]
                 
-                # Skip if either location is unknown
-                if location == "unknown" or previous_location == "unknown":
+                # Skip if location is unknown
+                if location == "unknown":
                     self.logger.debug("Skipping location change involving unknown location")
                     return
                     
