@@ -150,6 +150,7 @@ class LocationManager:
             # Create scanner if needed
             if not self._scanner:
                 try:
+                    self.logger.info(f"Creating BLE scanner on interface {BLEConfig.BLUETOOTH_INTERFACE}...")
                     self._scanner = BleakScanner(
                         adapter=BLEConfig.BLUETOOTH_INTERFACE,
                         detection_callback=None,
@@ -159,9 +160,12 @@ class LocationManager:
                     self.logger.error(f"Failed to create BLE scanner for discovery: {e}")
                     return
             
-            self.logger.info("Starting discovery scan for all BLE devices...")
+            self.logger.info("Starting discovery scan for all BLE devices (10 second scan)...")
             try:
-                devices = await self._scanner.discover(timeout=5.0, return_adv=True)
+                devices = await self._scanner.discover(
+                    timeout=10.0,  # Longer scan for initial discovery
+                    return_adv=True
+                )
             except asyncio.TimeoutError:
                 self.logger.warning("Discovery scan timed out")
                 return
@@ -170,7 +174,13 @@ class LocationManager:
                 self._scanner = None
                 return
             
+            if not devices:
+                self.logger.info("No BLE devices found during discovery scan")
+                return
+                
             self.logger.info(f"\nFound {len(devices)} BLE devices:")
+            ibeacon_count = 0
+            
             for device in devices:
                 try:
                     # Basic device info
@@ -194,12 +204,14 @@ class LocationManager:
                                 )
                                 if beacon_info:
                                     uuid, major, minor = beacon_info
+                                    ibeacon_count += 1
                                     self.logger.info(
                                         f"  iBeacon Data:"
                                         f"\n    UUID: {uuid}"
                                         f"\n    Major: {major}"
                                         f"\n    Minor: {minor}"
                                         f"\n    Matches our UUID: {'Yes' if uuid == BLEConfig.BEACON_UUID else 'No'}"
+                                        f"\n    Location Name: {BLEConfig.BEACON_LOCATIONS.get((major, minor), 'Unknown')}"
                                     )
                     
                     # Service Data
@@ -227,6 +239,13 @@ class LocationManager:
                 except Exception as e:
                     self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
+                    
+            # Summary
+            self.logger.info(f"\nDiscovery scan summary:")
+            self.logger.info(f"  Total devices found: {len(devices)}")
+            self.logger.info(f"  iBeacons found: {ibeacon_count}")
+            if ibeacon_count > 0:
+                self.logger.info(f"  Our configured locations: {list(BLEConfig.BEACON_LOCATIONS.values())}")
                     
         except Exception as e:
             self.logger.error(f"Error during discovery scan: {e}")
@@ -286,8 +305,14 @@ class LocationManager:
         self._is_running = True
         
         # Do an initial discovery scan
-        await self.scan_discovery()
-        
+        self.logger.info("Starting initial discovery scan...")
+        try:
+            await self.scan_discovery()
+            self.logger.info("Initial discovery scan complete")
+        except Exception as e:
+            self.logger.error(f"Error during initial discovery scan: {e}")
+            # Continue anyway as this is not critical
+            
         self.logger.info("Location manager started")
         
     async def stop(self) -> None:
