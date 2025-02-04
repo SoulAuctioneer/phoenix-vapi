@@ -1,16 +1,20 @@
-import asyncio
+import time
 import logging
+import asyncio
 from typing import Dict, Any, Optional, Union
 from services.service import BaseService
 from managers.location_manager import LocationManager
 from config import BLEConfig, PLATFORM, Distance
 
 class LocationService(BaseService):
-    """Service for tracking location using BLE beacons"""
+    """Service for managing location tracking and updates"""
     def __init__(self, manager):
         super().__init__(manager)
-        self.location_manager = LocationManager()
-        self._scan_task = None
+        self.logger = logging.getLogger(__name__)
+        self._location_manager = LocationManager()
+        self._scanning_task: Optional[asyncio.Task] = None
+        self._is_running = False
+        self._last_unknown_publish = 0
         self._last_location: Optional[str] = None
         self._last_distances: Dict[str, Dict[str, Union[Distance, int]]] = {}
         
@@ -85,76 +89,79 @@ class LocationService(BaseService):
                 self.logger.debug(f"Lost visibility of beacon: {location}")
                 del self._last_distances[location]
         
-    async def start(self):
-        """Start the location service"""
-        await super().start()
-        self.location_manager.start()
-        
-        if PLATFORM == "raspberry-pi":
-            # Start the scanning loop
-            self._scan_task = asyncio.create_task(self._scanning_loop())
-            self.logger.info("Location service started")
-        else:
-            self.logger.info("Location service started in simulation mode")
-            
-    async def stop(self):
-        """Stop the location service"""
-        if self._scan_task:
-            self._scan_task.cancel()
+    async def _scanning_loop(self) -> None:
+        """Main scanning loop that periodically checks location"""
+        while self._is_running:
             try:
-                await self._scan_task
-            except asyncio.CancelledError:
-                pass
+                # Get current scan interval based on activity
+                scan_interval = self._location_manager.get_scan_interval()
                 
-        self.location_manager.stop()
-        await super().stop()
-        self.logger.info("Location service stopped")
-        
-    async def _scanning_loop(self):
-        """Main scanning loop that runs continuously"""
-        last_unknown_publish = 0  # Track last time we published an unknown location
-        
-        while True:
-            try:
-                # Perform a scan
-                location_info = self.location_manager.scan_once()
-                current_time = asyncio.get_event_loop().time()
-                
+                # Perform scan
+                location_info = await self._location_manager.scan_once()
                 new_location = location_info["location"]
                 all_beacons = location_info["all_beacons"]
                 
                 # Handle location updates
+                should_publish = True
                 if new_location == "unknown":
-                    # Only publish unknown location if:
-                    # 1. We had a known location before (actual change to unknown)
-                    # 2. Or it's been a while since our last unknown publish AND our last location wasn't unknown
-                    should_publish = (
-                        (self._last_location is not None and self._last_location != "unknown") or
-                        (current_time - last_unknown_publish >= BLEConfig.LOW_POWER_SCAN_INTERVAL and
-                         self._last_location != "unknown")
-                    )
-                    
-                    if should_publish:
-                        await self._publish_location_change(new_location)
-                        last_unknown_publish = current_time
+                    current_time = time.time()
+                    if current_time - self._last_unknown_publish < BLEConfig.UNKNOWN_PUBLISH_INTERVAL:
+                        should_publish = False
+                    else:
+                        self._last_unknown_publish = current_time
                         
-                elif self._location_changed(new_location):
-                    # Publish location change for known locations
+                if should_publish and self._location_changed(new_location):
                     await self._publish_location_change(new_location)
-                
+                    
                 # Handle proximity updates for all beacons
                 await self._handle_beacon_updates(all_beacons)
                 
-                # Get adaptive scan interval
-                scan_interval = self.location_manager.get_scan_interval()
+                # Sleep until next scan
                 await asyncio.sleep(scan_interval)
                 
-            except asyncio.CancelledError:
-                raise
             except Exception as e:
-                self.logger.error(f"Error in scanning loop: {e}", exc_info=True)
-                await asyncio.sleep(BLEConfig.SCAN_INTERVAL)
+                self.logger.error(f"Error in scanning loop: {e}")
+                await asyncio.sleep(BLEConfig.ERROR_RETRY_INTERVAL)
                 
+    async def start(self) -> None:
+        """Starts the location service"""
+        if self._is_running:
+            self.logger.warning("Location service is already running")
+            return
+            
+        self._is_running = True
+        await self._location_manager.start()
+        
+        # Start scanning loop in background task
+        self._scanning_task = asyncio.create_task(self._scanning_loop())
+        self.logger.info("Location service started")
+        
+    async def stop(self) -> None:
+        """Stops the location service"""
+        if not self._is_running:
+            return
+            
+        self._is_running = False
+        if self._scanning_task:
+            self._scanning_task.cancel()
+            try:
+                await self._scanning_task
+            except asyncio.CancelledError:
+                pass
+            self._scanning_task = None
+            
+        await self._location_manager.stop()
+        self.logger.info("Location service stopped")
+        
+    def get_current_location(self) -> Dict[str, Any]:
+        """Returns the current location information"""
+        return self._location_manager.get_current_location()
+        
+    @property
+    def is_running(self) -> bool:
+        """Returns whether the location service is running"""
+        return self._is_running
+        
     async def handle_event(self, event: Dict[str, Any]):
         """Handle incoming events"""
         event_type = event.get("type")
@@ -175,11 +182,22 @@ class LocationService(BaseService):
         elif event_type == "force_scan":
             # Force an immediate scan
             if PLATFORM == "raspberry-pi":
-                location_info = self.location_manager.scan_once()
-                new_location = location_info["location"]
-                all_beacons = location_info["all_beacons"]
-                
-                # Publish location change
-                await self._publish_location_change(new_location)
-                # Process all beacons
-                await self._handle_beacon_updates(all_beacons) 
+                try:
+                    location_info = await self._location_manager.scan_once()
+                    new_location = location_info["location"]
+                    all_beacons = location_info["all_beacons"]
+                    
+                    # Only publish if there's a change
+                    if self._location_changed(new_location):
+                        await self._publish_location_change(new_location)
+                    # Process all beacons
+                    await self._handle_beacon_updates(all_beacons)
+                except Exception as e:
+                    self.logger.error(f"Error during forced scan: {e}")
+                    # Respond with error
+                    await self.publish({
+                        "type": "scan_error",
+                        "data": {"error": str(e)},
+                        "producer_name": "location_service",
+                        "request_id": event.get("request_id")
+                    }) 

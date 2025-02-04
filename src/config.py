@@ -173,47 +173,50 @@ class SoundEffect(str, Enum):
             return None
 
 # BLE and Location Configuration
-class Distance(str, Enum):
-    """Distance categories for BLE beacon proximity"""
-    TOUCHING = "touching"
-    NEAR = "near"
-    MEDIUM = "medium"
-    FAR = "far"
-    UNKNOWN = "unknown"
-    
-    def __str__(self) -> str:
-        """Return the string value of the enum"""
-        return self.value
+class Distance(Enum):
+    """Enum for distance categories"""
+    IMMEDIATE = auto()  # < 1m
+    NEAR = auto()      # 1-3m
+    FAR = auto()       # > 3m
+    UNKNOWN = auto()   # No signal
 
 class BLEConfig:
-    """Configuration for BLE scanning and location tracking"""
-    # Scanning settings
-    SCAN_INTERVAL = 2  # Default scan interval (seconds)
-    SCAN_DURATION = 1  # How long to scan each time (seconds)
-    NO_ACTIVITY_THRESHOLD = 5  # After 5 cycles of no beacons, slow scanning
-    LOW_POWER_SCAN_INTERVAL = 10  # Max slow scanning interval (seconds)
+    """Configuration for BLE scanning and beacons"""
+    # Bluetooth interface (usually hci0)
+    BLUETOOTH_INTERFACE = "hci0"
     
-    # RSSI smoothing settings
-    RSSI_EMA_ALPHA = 0.3  # Exponential moving average alpha (0-1, higher = more weight to new values)
-    RSSI_HYSTERESIS = 5  # Required RSSI difference to switch locations (dB)
-    
-    # Known beacon locations - Using iBeacon format
+    # iBeacon UUID for our beacons
     BEACON_UUID = "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6"
+    
+    # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
-        # major: minor: location
         (1, 1): "kitchen",
         (1, 2): "bedroom",
         (1, 3): "library"
     }
     
-    # RSSI thresholds for distance estimation
-    RSSI_THRESHOLD_TOUCHING = -45  # Extremely close, likely touching or within a few cm
-    RSSI_THRESHOLD_NEAR = -60  # Very close but not touching (within ~1m)
-    RSSI_THRESHOLD_MEDIUM = -75  # Medium distance (~1-3m)
-    # Anything below medium is considered "far" (>3m)
+    # RSSI thresholds for distance estimation (in dB)
+    RSSI_IMMEDIATE = -50  # Stronger than -50 dB = IMMEDIATE
+    RSSI_NEAR = -70      # Between -70 and -50 dB = NEAR
+    RSSI_FAR = -85       # Between -85 and -70 dB = FAR
+                         # Weaker than -85 dB = UNKNOWN
     
-    # Platform-specific settings
-    if PLATFORM == "raspberry-pi":
-        BLUETOOTH_INTERFACE = "hci0"
-    else:
-        BLUETOOTH_INTERFACE = None  # Not used on non-Raspberry Pi platforms
+    # RSSI hysteresis to prevent location flapping
+    RSSI_HYSTERESIS = 5  # Required RSSI difference to switch locations (dB)
+    
+    # Scan intervals (in seconds)
+    SCAN_DURATION = 1.0          # How long each scan lasts
+    SCAN_INTERVAL = 5.0          # Normal scan interval
+    LOW_POWER_SCAN_INTERVAL = 30.0  # Scan interval when no activity
+    ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
+    UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
+    
+    # RSSI smoothing
+    RSSI_EMA_ALPHA = 0.3  # Exponential moving average alpha (0-1)
+                          # Higher = more weight to recent readings
+    
+    # Activity thresholds
+    NO_ACTIVITY_THRESHOLD = 5  # Number of empty scans before switching to low power
+    
+    # Distance change thresholds (in meters)
+    DISTANCE_CHANGE_THRESHOLD = 1.0  # Minimum change to trigger proximity update

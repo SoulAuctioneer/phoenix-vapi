@@ -48,7 +48,9 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     sudo apt-get update
     sudo apt-get install -y python3-pyaudio portaudio19-dev \
         libglib2.0-dev \
-        libbluetooth-dev
+        dbus \
+        libdbus-1-dev \
+        pkg-config
     
     # Add user to bluetooth group
     if ! groups $USER | grep -q "bluetooth"; then

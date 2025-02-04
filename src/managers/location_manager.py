@@ -2,89 +2,25 @@ import os
 import time
 import logging
 import struct
+import asyncio
 from typing import Dict, Optional, List, Tuple, Any, Union
 from collections import defaultdict
 from config import BLEConfig, PLATFORM, Distance
-
-# Only import bluepy on Raspberry Pi
-if PLATFORM == "raspberry-pi":
-    from bluepy.btle import Scanner, DefaultDelegate, ScanEntry
-else:
-    Scanner = None
-    DefaultDelegate = object
-    ScanEntry = object
-
-class ScanDelegate(DefaultDelegate):
-    """Delegate class for handling BLE scan callbacks"""
-    def __init__(self):
-        DefaultDelegate.__init__(self)
-        
-    def handleDiscovery(self, dev, isNewDev, isNewData):
-        """Called when a new device is discovered"""
-        pass  # We'll handle the device data in the main scanning loop
-
-def parse_ibeacon_data(mfg_data: bytes) -> Optional[Tuple[str, int, int]]:
-    """Parse manufacturer data to extract iBeacon information"""
-    try:
-        # iBeacon format:
-        # bytes 0-1: Company ID (0x004C for Apple)
-        # byte 2: iBeacon type (0x02)
-        # byte 3: iBeacon length (0x15)
-        # bytes 4-19: UUID (16 bytes)
-        # bytes 20-21: Major (2 bytes)
-        # bytes 22-23: Minor (2 bytes)
-        # byte 24: Tx Power
-        
-        if len(mfg_data) < 25:
-            return None
-            
-        company_id = struct.unpack("<H", mfg_data[0:2])[0]
-        ibeacon_type = mfg_data[2]
-        ibeacon_length = mfg_data[3]
-        
-        if company_id != 0x004C or ibeacon_type != 0x02 or ibeacon_length != 0x15:
-            return None
-            
-        uuid_bytes = mfg_data[4:20]
-        uuid = "-".join([
-            uuid_bytes[0:4].hex(),
-            uuid_bytes[4:6].hex(),
-            uuid_bytes[6:8].hex(),
-            uuid_bytes[8:10].hex(),
-            uuid_bytes[10:16].hex()
-        ])
-        
-        major = struct.unpack(">H", mfg_data[20:22])[0]
-        minor = struct.unpack(">H", mfg_data[22:24])[0]
-        
-        return uuid, major, minor
-    except Exception:
-        return None
+from bleak import BleakScanner
+from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
 
 class LocationManager:
     """Manages BLE scanning and location tracking"""
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self._scanner = None if PLATFORM != "raspberry-pi" else Scanner().withDelegate(ScanDelegate())
+        self._scanner = None
         self._last_location = None
         self._no_activity_count = 0
         self._is_running = False
         # Initialize RSSI smoothing
         self._rssi_ema = defaultdict(lambda: None)  # Stores EMA for each beacon
         
-    def _toggle_bluetooth(self, state: bool) -> None:
-        """Turns Bluetooth ON or OFF"""
-        if PLATFORM != "raspberry-pi":
-            return
-            
-        interface = BLEConfig.BLUETOOTH_INTERFACE
-        action = "up" if state else "down"
-        try:
-            os.system(f"sudo hciconfig {interface} {action}")
-            self.logger.debug(f"Bluetooth interface {interface} turned {action}")
-        except Exception as e:
-            self.logger.error(f"Failed to toggle Bluetooth {action}: {e}")
-            
     def _update_rssi_ema(self, addr: str, rssi: int) -> float:
         """Updates and returns the exponential moving average for a beacon's RSSI"""
         current_ema = self._rssi_ema[addr]
@@ -100,42 +36,103 @@ class LocationManager:
         self._rssi_ema[addr] = new_ema
         return new_ema
         
-    def _scan_beacons(self) -> List[Tuple[Tuple[int, int], int]]:
+    def parse_ibeacon_data(self, mfg_data: bytes) -> Optional[Tuple[str, int, int]]:
+        """Parse manufacturer data to extract iBeacon information"""
+        try:
+            if len(mfg_data) < 25:
+                return None
+                
+            company_id = int.from_bytes(mfg_data[0:2], byteorder='little')
+            ibeacon_type = mfg_data[2]
+            ibeacon_length = mfg_data[3]
+            
+            if company_id != 0x004C or ibeacon_type != 0x02 or ibeacon_length != 0x15:
+                return None
+                
+            uuid_bytes = mfg_data[4:20]
+            uuid = "-".join([
+                uuid_bytes[0:4].hex(),
+                uuid_bytes[4:6].hex(),
+                uuid_bytes[6:8].hex(),
+                uuid_bytes[8:10].hex(),
+                uuid_bytes[10:16].hex()
+            ])
+            
+            major = int.from_bytes(mfg_data[20:22], byteorder='big')
+            minor = int.from_bytes(mfg_data[22:24], byteorder='big')
+            
+            return uuid, major, minor
+        except Exception:
+            return None
+            
+    async def _scan_beacons(self) -> List[Tuple[Tuple[int, int], int]]:
         """Scans for BLE devices and returns list of ((major, minor), smoothed RSSI) tuples"""
         if PLATFORM != "raspberry-pi":
             self.logger.debug("BLE scanning not available on this platform")
             return []
             
         try:
-            devices = self._scanner.scan(BLEConfig.SCAN_DURATION)
+            # Create scanner if needed
+            if not self._scanner:
+                # Configure scanner with our settings
+                try:
+                    self._scanner = BleakScanner(
+                        adapter=BLEConfig.BLUETOOTH_INTERFACE,  # Use configured interface
+                        detection_callback=None,  # We'll process devices after scan
+                        scanning_mode="active"  # Active scanning to get more data
+                    )
+                except Exception as e:
+                    self.logger.error(f"Failed to create BLE scanner: {e}")
+                    return []
+            
+            # Scan for devices
+            try:
+                devices = await self._scanner.discover(
+                    timeout=BLEConfig.SCAN_DURATION,
+                    return_adv=True  # Get full advertisement data
+                )
+            except asyncio.TimeoutError:
+                self.logger.warning("BLE scan timed out")
+                return []
+            except Exception as e:
+                self.logger.error(f"Error during BLE scan: {e}")
+                # Try to recreate scanner on next scan
+                self._scanner = None
+                return []
+                
             smoothed_devices = []
             
-            for dev in devices:
-                # Get manufacturer specific data
-                mfg_data = dev.getValueText(ScanEntry.MANUFACTURER) or ""
-                if not mfg_data:
+            for device in devices:
+                try:
+                    # Get manufacturer data
+                    if not device.metadata or not device.metadata.manufacturer_data:
+                        continue
+                        
+                    # Bleak provides manufacturer data as a dict with company ID as key
+                    for company_id, data in device.metadata.manufacturer_data.items():
+                        if company_id != 0x004C:  # Apple's company ID
+                            continue
+                            
+                        beacon_info = self.parse_ibeacon_data(bytes([company_id & 0xFF, company_id >> 8]) + data)
+                        if not beacon_info:
+                            continue
+                            
+                        uuid, major, minor = beacon_info
+                        
+                        # Check if this is one of our beacons
+                        if uuid != BLEConfig.BEACON_UUID:
+                            continue
+                            
+                        beacon_key = (major, minor)
+                        if beacon_key in BLEConfig.BEACON_LOCATIONS:
+                            smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", device.rssi))
+                            smoothed_devices.append((beacon_key, smoothed_rssi))
+                            self.logger.debug(
+                                f"Beacon {major}:{minor}: Raw RSSI={device.rssi}, Smoothed={smoothed_rssi}"
+                            )
+                except Exception as e:
+                    self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
-                    
-                # Convert hex string to bytes
-                mfg_bytes = bytes.fromhex(mfg_data)
-                beacon_info = parse_ibeacon_data(mfg_bytes)
-                
-                if not beacon_info:
-                    continue
-                    
-                uuid, major, minor = beacon_info
-                
-                # Check if this is one of our beacons
-                if uuid != BLEConfig.BEACON_UUID:
-                    continue
-                    
-                beacon_key = (major, minor)
-                if beacon_key in BLEConfig.BEACON_LOCATIONS:
-                    smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", dev.rssi))
-                    smoothed_devices.append((beacon_key, smoothed_rssi))
-                    self.logger.debug(
-                        f"Beacon {major}:{minor}: Raw RSSI={dev.rssi}, Smoothed={smoothed_rssi}"
-                    )
             
             return smoothed_devices
             
@@ -143,64 +140,101 @@ class LocationManager:
             self.logger.error(f"Error scanning for BLE devices: {e}")
             return []
             
-    def _estimate_distance(self, rssi: int) -> Distance:
-        """Estimates distance category based on RSSI value"""
-        if rssi >= BLEConfig.RSSI_THRESHOLD_TOUCHING:
-            return Distance.TOUCHING
-        elif rssi >= BLEConfig.RSSI_THRESHOLD_NEAR:
-            return Distance.NEAR
-        elif rssi >= BLEConfig.RSSI_THRESHOLD_MEDIUM:
-            return Distance.MEDIUM
-        else:
-            return Distance.FAR
+    async def scan_discovery(self) -> None:
+        """Perform a discovery scan for all nearby BLE devices"""
+        if PLATFORM != "raspberry-pi":
+            self.logger.info("Discovery scan not available in simulation mode")
+            return
             
-    def _get_strongest_beacon(self, devices: List[Tuple[Tuple[int, int], int]]) -> Optional[Tuple[Tuple[int, int], int]]:
-        """Returns the known beacon with strongest smoothed signal"""
-        if not devices:
-            return None
+        try:
+            # Create scanner if needed
+            if not self._scanner:
+                try:
+                    self._scanner = BleakScanner(
+                        adapter=BLEConfig.BLUETOOTH_INTERFACE,
+                        detection_callback=None,
+                        scanning_mode="active"
+                    )
+                except Exception as e:
+                    self.logger.error(f"Failed to create BLE scanner for discovery: {e}")
+                    return
             
-        # Add hysteresis to prevent rapid switching
-        current_location = self._last_location.get("location") if self._last_location else None
-        
-        if current_location:
-            # Find current beacon's address
-            current_addr = next(
-                (addr for addr, loc in BLEConfig.BEACON_LOCATIONS.items() 
-                 if loc == current_location), 
-                None
-            )
+            self.logger.info("Starting discovery scan for all BLE devices...")
+            try:
+                devices = await self._scanner.discover(timeout=5.0, return_adv=True)
+            except asyncio.TimeoutError:
+                self.logger.warning("Discovery scan timed out")
+                return
+            except Exception as e:
+                self.logger.error(f"Error during discovery scan: {e}")
+                self._scanner = None
+                return
             
-            if current_addr:
-                # Find current beacon in devices
-                current_beacon = next(
-                    ((addr, rssi) for addr, rssi in devices if addr == current_addr),
-                    None
-                )
-                
-                if current_beacon:
-                    # Check all other beacons
-                    for addr, rssi in devices:
-                        if addr != current_addr:
-                            # Only switch if another beacon is significantly stronger
-                            if rssi > (current_beacon[1] + BLEConfig.RSSI_HYSTERESIS):
-                                return max(devices, key=lambda x: x[1])
-                    # If no significantly stronger beacon found, stick with current
-                    return current_beacon
-        
-        # If no current location or current beacon not found, simply return strongest
-        return max(devices, key=lambda x: x[1])
-        
-    def get_current_location(self) -> Dict[str, Union[str, Distance]]:
-        """Returns the current location information"""
-        if not self._last_location:
-            return {"location": "unknown", "distance": Distance.UNKNOWN}
-        return self._last_location
-        
-    def scan_once(self) -> Dict[str, Any]:
+            self.logger.info(f"\nFound {len(devices)} BLE devices:")
+            for device in devices:
+                try:
+                    # Basic device info
+                    self.logger.info(f"\nDevice: {device.address}")
+                    self.logger.info(f"  Name: {device.name or 'Unknown'}")
+                    self.logger.info(f"  RSSI: {device.rssi} dB")
+                    
+                    # Connection info if available
+                    if device.metadata and hasattr(device.metadata, 'connectable'):
+                        self.logger.info(f"  Connectable: {device.metadata.connectable}")
+                    
+                    # Manufacturer Data
+                    if device.metadata and device.metadata.manufacturer_data:
+                        for company_id, data in device.metadata.manufacturer_data.items():
+                            self.logger.info(f"  Manufacturer 0x{company_id:04x}: {data.hex()}")
+                            
+                            # Try parsing as iBeacon if it's Apple's company ID
+                            if company_id == 0x004C:
+                                beacon_info = self.parse_ibeacon_data(
+                                    bytes([company_id & 0xFF, company_id >> 8]) + data
+                                )
+                                if beacon_info:
+                                    uuid, major, minor = beacon_info
+                                    self.logger.info(
+                                        f"  iBeacon Data:"
+                                        f"\n    UUID: {uuid}"
+                                        f"\n    Major: {major}"
+                                        f"\n    Minor: {minor}"
+                                        f"\n    Matches our UUID: {'Yes' if uuid == BLEConfig.BEACON_UUID else 'No'}"
+                                    )
+                    
+                    # Service Data
+                    if device.metadata and device.metadata.service_data:
+                        self.logger.info("  Service Data:")
+                        for uuid, data in device.metadata.service_data.items():
+                            self.logger.info(f"    {uuid}: {data.hex()}")
+                    
+                    # Service UUIDs
+                    if device.metadata and device.metadata.service_uuids:
+                        self.logger.info("  Service UUIDs:")
+                        for uuid in device.metadata.service_uuids:
+                            self.logger.info(f"    {uuid}")
+                            
+                    # Advertisement Data
+                    if device.metadata and device.metadata.platform_data:
+                        self.logger.info("  Platform Data:")
+                        for key, value in device.metadata.platform_data.items():
+                            self.logger.info(f"    {key}: {value}")
+                            
+                    # TX Power Level if available
+                    if device.metadata and hasattr(device.metadata, 'tx_power'):
+                        self.logger.info(f"  TX Power: {device.metadata.tx_power} dBm")
+                        
+                except Exception as e:
+                    self.logger.warning(f"Error processing device {device.address}: {e}")
+                    continue
+                    
+        except Exception as e:
+            self.logger.error(f"Error during discovery scan: {e}")
+            self._scanner = None
+            
+    async def scan_once(self) -> Dict[str, Any]:
         """Performs a single scan cycle and returns location info"""
-        self._toggle_bluetooth(True)
-        devices = self._scan_beacons()
-        self._toggle_bluetooth(False)
+        devices = await self._scan_beacons()
         
         if not devices:
             self._no_activity_count += 1
@@ -243,95 +277,7 @@ class LocationManager:
         
         return self._last_location
         
-    def get_scan_interval(self) -> int:
-        """Returns the current scan interval based on activity"""
-        return (BLEConfig.LOW_POWER_SCAN_INTERVAL 
-                if self._no_activity_count >= BLEConfig.NO_ACTIVITY_THRESHOLD 
-                else BLEConfig.SCAN_INTERVAL)
-        
-    def scan_discovery(self) -> None:
-        """Perform a discovery scan for all nearby BLE devices"""
-        if PLATFORM != "raspberry-pi":
-            self.logger.info("Discovery scan not available in simulation mode")
-            return
-            
-        try:
-            self._toggle_bluetooth(True)
-            
-            # Perform a longer scan to discover all devices
-            self.logger.info("Starting discovery scan for all BLE devices...")
-            devices = self._scanner.scan(5.0)  # 5 second scan
-            
-            self.logger.info(f"\nFound {len(devices)} BLE devices:")
-            for dev in devices:
-                # Basic device info
-                self.logger.info(f"\nDevice: {dev.addr}")
-                self.logger.info(f"  RSSI: {dev.rssi} dB")
-                
-                # Get all available names
-                complete_name = dev.getValueText(ScanEntry.COMPLETE_LOCAL_NAME)
-                short_name = dev.getValueText(ScanEntry.SHORTENED_LOCAL_NAME)
-                if complete_name:
-                    self.logger.info(f"  Complete Name: {complete_name}")
-                if short_name:
-                    self.logger.info(f"  Short Name: {short_name}")
-                    
-                # Service Data
-                for adtype in range(0, 255):
-                    value = dev.getValueText(adtype)
-                    if value:
-                        self.logger.info(f"  AD Type 0x{adtype:02x}: {value}")
-                
-                # Manufacturer Data
-                mfg_data = dev.getValueText(ScanEntry.MANUFACTURER)
-                if mfg_data:
-                    self.logger.info(f"  Manufacturer Data (hex): {mfg_data}")
-                    try:
-                        mfg_bytes = bytes.fromhex(mfg_data)
-                        
-                        # Try parsing as iBeacon
-                        ibeacon_info = parse_ibeacon_data(mfg_bytes)
-                        if ibeacon_info:
-                            uuid, major, minor = ibeacon_info
-                            self.logger.info(
-                                f"  iBeacon Data:"
-                                f"\n    UUID: {uuid}"
-                                f"\n    Major: {major}"
-                                f"\n    Minor: {minor}"
-                                f"\n    Matches our UUID: {'Yes' if uuid == BLEConfig.BEACON_UUID else 'No'}"
-                            )
-                            
-                        # Could add other beacon format parsing here
-                        # Example: Eddystone, AltBeacon, etc.
-                        
-                    except Exception as e:
-                        self.logger.debug(f"  Could not parse manufacturer data: {e}")
-                
-                # Service UUIDs
-                service_uuids = []
-                if dev.getValueText(ScanEntry.COMPLETE_16B_SERVICES):
-                    service_uuids.extend(dev.getValueText(ScanEntry.COMPLETE_16B_SERVICES).split(','))
-                if dev.getValueText(ScanEntry.COMPLETE_32B_SERVICES):
-                    service_uuids.extend(dev.getValueText(ScanEntry.COMPLETE_32B_SERVICES).split(','))
-                if dev.getValueText(ScanEntry.COMPLETE_128B_SERVICES):
-                    service_uuids.extend(dev.getValueText(ScanEntry.COMPLETE_128B_SERVICES).split(','))
-                    
-                if service_uuids:
-                    self.logger.info("  Service UUIDs:")
-                    for uuid in service_uuids:
-                        self.logger.info(f"    {uuid}")
-                        
-                # TX Power Level
-                tx_power = dev.getValueText(ScanEntry.TX_POWER)
-                if tx_power:
-                    self.logger.info(f"  TX Power Level: {tx_power} dBm")
-                
-        except Exception as e:
-            self.logger.error(f"Error during discovery scan: {e}")
-        finally:
-            self._toggle_bluetooth(False)
-            
-    def start(self) -> None:
+    async def start(self) -> None:
         """Starts the location manager"""
         if PLATFORM != "raspberry-pi":
             self.logger.info("Location tracking not available on this platform")
@@ -340,14 +286,22 @@ class LocationManager:
         self._is_running = True
         
         # Do an initial discovery scan
-        self.scan_discovery()
+        await self.scan_discovery()
         
         self.logger.info("Location manager started")
         
-    def stop(self) -> None:
+    async def stop(self) -> None:
         """Stops the location manager"""
         self._is_running = False
-        self._toggle_bluetooth(False)
+        if self._scanner:
+            try:
+                # Stop any ongoing scan
+                await self._scanner.stop()
+            except Exception as e:
+                self.logger.error(f"Error stopping scanner: {e}")
+            finally:
+                self._scanner = None
+                
         # Clear RSSI history
         self._rssi_ema.clear()
         self.logger.info("Location manager stopped")
@@ -356,3 +310,74 @@ class LocationManager:
     def is_running(self) -> bool:
         """Returns whether the location manager is running"""
         return self._is_running 
+
+    def _estimate_distance(self, rssi: int) -> Distance:
+        """Estimates distance category based on RSSI value"""
+        if rssi >= BLEConfig.RSSI_IMMEDIATE:
+            return Distance.IMMEDIATE
+        elif rssi >= BLEConfig.RSSI_NEAR:
+            return Distance.NEAR
+        elif rssi >= BLEConfig.RSSI_FAR:
+            return Distance.FAR
+        else:
+            return Distance.UNKNOWN
+            
+    def _get_strongest_beacon(self, devices: List[Tuple[Tuple[int, int], int]]) -> Optional[Tuple[Tuple[int, int], int]]:
+        """Returns the known beacon with strongest smoothed signal
+        
+        Args:
+            devices: List of ((major, minor), rssi) tuples
+            
+        Returns:
+            Optional tuple of ((major, minor), rssi) for the strongest beacon,
+            considering hysteresis if there's a current location
+        """
+        if not devices:
+            return None
+            
+        # Add hysteresis to prevent rapid switching
+        current_location = self._last_location.get("location") if self._last_location else None
+        
+        if current_location and current_location != "unknown":
+            # Find current beacon's address
+            current_addr = next(
+                (addr for addr, loc in BLEConfig.BEACON_LOCATIONS.items() 
+                 if loc == current_location), 
+                None
+            )
+            
+            if current_addr:
+                # Find current beacon in devices
+                current_beacon = next(
+                    ((addr, rssi) for addr, rssi in devices if addr == current_addr),
+                    None
+                )
+                
+                if current_beacon:
+                    # Check all other beacons
+                    for addr, rssi in devices:
+                        if addr != current_addr:
+                            # Only switch if another beacon is significantly stronger
+                            if rssi > (current_beacon[1] + BLEConfig.RSSI_HYSTERESIS):
+                                return max(devices, key=lambda x: x[1])
+                    # If no significantly stronger beacon found, stick with current
+                    return current_beacon
+        
+        # If no current location or current beacon not found, simply return strongest
+        return max(devices, key=lambda x: x[1])
+        
+    def get_current_location(self) -> Dict[str, Any]:
+        """Returns the current location information"""
+        if not self._last_location:
+            return {
+                "location": "unknown",
+                "distance": Distance.UNKNOWN,
+                "all_beacons": {}
+            }
+        return self._last_location
+        
+    def get_scan_interval(self) -> int:
+        """Returns the current scan interval based on activity"""
+        return (BLEConfig.LOW_POWER_SCAN_INTERVAL 
+                if self._no_activity_count >= BLEConfig.NO_ACTIVITY_THRESHOLD 
+                else BLEConfig.SCAN_INTERVAL) 
