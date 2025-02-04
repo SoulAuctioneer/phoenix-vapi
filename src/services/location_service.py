@@ -105,12 +105,12 @@ class LocationService(BaseService):
                 
                 # Handle location updates
                 should_publish = True
-                if new_location == "unknown":
-                    current_time = time.time()
-                    if current_time - self._last_unknown_publish < BLEConfig.UNKNOWN_PUBLISH_INTERVAL:
-                        should_publish = False
-                    else:
-                        self._last_unknown_publish = current_time
+                # if new_location == "unknown":
+                #     current_time = time.time()
+                #     if current_time - self._last_unknown_publish < BLEConfig.UNKNOWN_PUBLISH_INTERVAL:
+                #         should_publish = False
+                #     else:
+                #         self._last_unknown_publish = current_time
                         
                 if should_publish and self._location_changed(new_location):
                     await self._publish_location_change(new_location)
