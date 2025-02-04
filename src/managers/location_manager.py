@@ -337,10 +337,7 @@ class LocationManager:
             try:
                 async with self._scanning_lock:
                     self.logger.debug("Starting beacon scan...")
-                    devices = await asyncio.wait_for(
-                        self._scan_beacons(),
-                        timeout=BLEConfig.SCAN_TIMEOUT  # Use configured timeout
-                    )
+                    devices = await self._scan_beacons()
                     self.logger.debug(f"Beacon scan complete, found {len(devices)} devices")
             except asyncio.TimeoutError:
                 self.logger.debug("Skipping scan - operation timed out")
