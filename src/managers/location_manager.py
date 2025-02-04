@@ -312,15 +312,24 @@ class LocationManager:
     async def scan_once(self) -> Dict[str, Any]:
         """Performs a single scan cycle and returns location info"""
         try:
-            # Try to get the lock, but don't wait too long
-            async with asyncio.timeout(0.1):  # 100ms timeout
-                if self._scanning_lock.locked():
-                    self.logger.debug("Skipping scan - another scan is in progress")
-                    return self._last_location
-                    
-                devices = await self._scan_beacons()
-        except asyncio.TimeoutError:
-            self.logger.debug("Skipping scan - could not acquire lock")
+            # Check if a scan is already in progress
+            if self._scanning_lock.locked():
+                self.logger.debug("Skipping scan - another scan is in progress")
+                return self._last_location
+                
+            # Try to get the lock with a timeout
+            try:
+                async with self._scanning_lock:
+                    devices = await asyncio.wait_for(
+                        self._scan_beacons(),
+                        timeout=0.1  # 100ms timeout
+                    )
+            except asyncio.TimeoutError:
+                self.logger.debug("Skipping scan - operation timed out")
+                return self._last_location
+            
+        except Exception as e:
+            self.logger.debug(f"Skipping scan - {str(e)}")
             return self._last_location
             
         if not devices:
