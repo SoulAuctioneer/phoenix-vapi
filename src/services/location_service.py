@@ -15,7 +15,7 @@ class LocationService(BaseService):
         self._scanning_task: Optional[asyncio.Task] = None
         self._is_running = False
         self._last_unknown_publish = 0
-        self._last_location: Optional[str] = None
+        self._last_location: str = "unknown"
         self._last_distances: Dict[str, Dict[str, Union[Distance, int]]] = {}
         
     def _location_changed(self, new_location: str) -> bool:
