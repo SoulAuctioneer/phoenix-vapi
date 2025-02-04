@@ -143,10 +143,14 @@ class LocationManager:
             # Scan for devices
             try:
                 async with self._scanning_lock:  # Use lock to prevent concurrent scans
+
+
+                    self.logger.debug("Starting beacon scan...")
                     devices = await self._scanner.discover(
                         timeout=BLEConfig.SCAN_DURATION,
                         return_adv=True  # Get advertisement data
                     )
+                    self.logger.debug(f"Found {len(devices)} devices in beacon scan")
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
@@ -174,9 +178,11 @@ class LocationManager:
                             continue
                             
                         uuid, major, minor = beacon_info
+                        self.logger.debug(f"Found iBeacon - UUID: {uuid}, Major: {major}, Minor: {minor}, RSSI: {adv.rssi}")
                         
                         # Check if this is one of our beacons
                         if uuid.lower() != BLEConfig.BEACON_UUID.lower():
+                            self.logger.debug(f"UUID mismatch - Found: {uuid}, Expected: {BLEConfig.BEACON_UUID}")
                             continue
                             
                         beacon_key = (major, minor)
@@ -184,12 +190,13 @@ class LocationManager:
                             smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", adv.rssi))
                             smoothed_devices.append((beacon_key, smoothed_rssi))
                             self.logger.debug(
-                                f"Beacon {major}:{minor}: Raw RSSI={adv.rssi}, Smoothed={smoothed_rssi}"
+                                f"Beacon {major}:{minor} ({BLEConfig.BEACON_LOCATIONS[beacon_key]}): Raw RSSI={adv.rssi}, Smoothed={smoothed_rssi}"
                             )
                 except Exception as e:
                     self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
             
+            self.logger.debug(f"Found {len(smoothed_devices)} valid beacons")
             return smoothed_devices
             
         except Exception as e:
@@ -309,6 +316,7 @@ class LocationManager:
             
     async def scan_once(self) -> Dict[str, Any]:
         """Performs a single scan cycle and returns location info"""
+        self.logger.debug("Starting scan cycle...")
         try:
             # Check if a scan is already in progress
             if self._scanning_lock.locked():
@@ -318,10 +326,12 @@ class LocationManager:
             # Try to get the lock with a timeout
             try:
                 async with self._scanning_lock:
+                    self.logger.debug("Starting beacon scan...")
                     devices = await asyncio.wait_for(
                         self._scan_beacons(),
-                        timeout=0.1  # 100ms timeout
+                        timeout=BLEConfig.SCAN_TIMEOUT  # Use configured timeout
                     )
+                    self.logger.debug(f"Beacon scan complete, found {len(devices)} devices")
             except asyncio.TimeoutError:
                 self.logger.debug("Skipping scan - operation timed out")
                 return self._last_location
@@ -331,6 +341,7 @@ class LocationManager:
             return self._last_location
             
         if not devices:
+            self.logger.debug("No devices found in scan")
             self._no_activity_count += 1
             return {
                 "location": "unknown",
@@ -340,6 +351,7 @@ class LocationManager:
             
         strongest_beacon = self._get_strongest_beacon(devices)
         if not strongest_beacon:
+            self.logger.debug("No valid beacons found in scan results")
             self._no_activity_count += 1
             return {
                 "location": "unknown",
@@ -356,6 +368,7 @@ class LocationManager:
                 "distance": distance,
                 "rssi": rssi
             }
+            self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Distance={distance}")
             
         # Get primary location from strongest beacon
         addr, rssi = strongest_beacon
@@ -369,6 +382,7 @@ class LocationManager:
             "all_beacons": all_beacons
         }
         
+        self.logger.debug(f"Scan complete - Location: {location}, Distance: {distance}, Beacons: {len(all_beacons)}")
         return self._last_location
         
     async def start(self) -> None:
