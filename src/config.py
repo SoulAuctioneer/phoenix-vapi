@@ -197,11 +197,13 @@ class BLEConfig:
     RSSI_EMA_ALPHA = 0.3  # Exponential moving average alpha (0-1, higher = more weight to new values)
     RSSI_HYSTERESIS = 5  # Required RSSI difference to switch locations (dB)
     
-    # Known beacon locations - MAC addresses should be lowercase
+    # Known beacon locations - Using iBeacon format
+    BEACON_UUID = "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6"
     BEACON_LOCATIONS = {
-        "aa:bb:cc:11:22:33": "kitchen",
-        "aa:bb:cc:44:55:66": "bedroom",
-        "aa:bb:cc:77:88:99": "library"
+        # major: minor: location
+        (1, 1): "kitchen",
+        (1, 2): "bedroom",
+        (1, 3): "library"
     }
     
     # RSSI thresholds for distance estimation

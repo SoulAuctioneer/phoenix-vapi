@@ -1,16 +1,18 @@
 import os
 import time
 import logging
+import struct
 from typing import Dict, Optional, List, Tuple, Any, Union
 from collections import defaultdict
 from config import BLEConfig, PLATFORM, Distance
 
 # Only import bluepy on Raspberry Pi
 if PLATFORM == "raspberry-pi":
-    from bluepy.btle import Scanner, DefaultDelegate
+    from bluepy.btle import Scanner, DefaultDelegate, ScanEntry
 else:
     Scanner = None
     DefaultDelegate = object
+    ScanEntry = object
 
 class ScanDelegate(DefaultDelegate):
     """Delegate class for handling BLE scan callbacks"""
@@ -20,6 +22,44 @@ class ScanDelegate(DefaultDelegate):
     def handleDiscovery(self, dev, isNewDev, isNewData):
         """Called when a new device is discovered"""
         pass  # We'll handle the device data in the main scanning loop
+
+def parse_ibeacon_data(mfg_data: bytes) -> Optional[Tuple[str, int, int]]:
+    """Parse manufacturer data to extract iBeacon information"""
+    try:
+        # iBeacon format:
+        # bytes 0-1: Company ID (0x004C for Apple)
+        # byte 2: iBeacon type (0x02)
+        # byte 3: iBeacon length (0x15)
+        # bytes 4-19: UUID (16 bytes)
+        # bytes 20-21: Major (2 bytes)
+        # bytes 22-23: Minor (2 bytes)
+        # byte 24: Tx Power
+        
+        if len(mfg_data) < 25:
+            return None
+            
+        company_id = struct.unpack("<H", mfg_data[0:2])[0]
+        ibeacon_type = mfg_data[2]
+        ibeacon_length = mfg_data[3]
+        
+        if company_id != 0x004C or ibeacon_type != 0x02 or ibeacon_length != 0x15:
+            return None
+            
+        uuid_bytes = mfg_data[4:20]
+        uuid = "-".join([
+            uuid_bytes[0:4].hex(),
+            uuid_bytes[4:6].hex(),
+            uuid_bytes[6:8].hex(),
+            uuid_bytes[8:10].hex(),
+            uuid_bytes[10:16].hex()
+        ])
+        
+        major = struct.unpack(">H", mfg_data[20:22])[0]
+        minor = struct.unpack(">H", mfg_data[22:24])[0]
+        
+        return uuid, major, minor
+    except Exception:
+        return None
 
 class LocationManager:
     """Manages BLE scanning and location tracking"""
@@ -60,8 +100,8 @@ class LocationManager:
         self._rssi_ema[addr] = new_ema
         return new_ema
         
-    def _scan_beacons(self) -> List[Tuple[str, int]]:
-        """Scans for BLE devices and returns list of (address, smoothed RSSI) tuples"""
+    def _scan_beacons(self) -> List[Tuple[Tuple[int, int], int]]:
+        """Scans for BLE devices and returns list of ((major, minor), smoothed RSSI) tuples"""
         if PLATFORM != "raspberry-pi":
             self.logger.debug("BLE scanning not available on this platform")
             return []
@@ -71,12 +111,31 @@ class LocationManager:
             smoothed_devices = []
             
             for dev in devices:
-                addr = dev.addr.lower()
-                # Only process known beacons
-                if addr in BLEConfig.BEACON_LOCATIONS:
-                    smoothed_rssi = int(self._update_rssi_ema(addr, dev.rssi))
-                    smoothed_devices.append((addr, smoothed_rssi))
-                    self.logger.debug(f"Beacon {addr}: Raw RSSI={dev.rssi}, Smoothed={smoothed_rssi}")
+                # Get manufacturer specific data
+                mfg_data = dev.getValueText(ScanEntry.MANUFACTURER) or ""
+                if not mfg_data:
+                    continue
+                    
+                # Convert hex string to bytes
+                mfg_bytes = bytes.fromhex(mfg_data)
+                beacon_info = parse_ibeacon_data(mfg_bytes)
+                
+                if not beacon_info:
+                    continue
+                    
+                uuid, major, minor = beacon_info
+                
+                # Check if this is one of our beacons
+                if uuid != BLEConfig.BEACON_UUID:
+                    continue
+                    
+                beacon_key = (major, minor)
+                if beacon_key in BLEConfig.BEACON_LOCATIONS:
+                    smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", dev.rssi))
+                    smoothed_devices.append((beacon_key, smoothed_rssi))
+                    self.logger.debug(
+                        f"Beacon {major}:{minor}: Raw RSSI={dev.rssi}, Smoothed={smoothed_rssi}"
+                    )
             
             return smoothed_devices
             
@@ -95,7 +154,7 @@ class LocationManager:
         else:
             return Distance.FAR
             
-    def _get_strongest_beacon(self, devices: List[Tuple[str, int]]) -> Optional[Tuple[str, int]]:
+    def _get_strongest_beacon(self, devices: List[Tuple[Tuple[int, int], int]]) -> Optional[Tuple[Tuple[int, int], int]]:
         """Returns the known beacon with strongest smoothed signal"""
         if not devices:
             return None
