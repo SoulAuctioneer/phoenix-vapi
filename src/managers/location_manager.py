@@ -172,7 +172,7 @@ class LocationManager:
                         uuid, major, minor = beacon_info
                         
                         # Check if this is one of our beacons
-                        if uuid != BLEConfig.BEACON_UUID:
+                        if uuid.lower() != BLEConfig.BEACON_UUID.lower():
                             continue
                             
                         beacon_key = (major, minor)
@@ -267,7 +267,7 @@ class LocationManager:
                                         f"\n    UUID: {uuid}"
                                         f"\n    Major: {major}"
                                         f"\n    Minor: {minor}"
-                                        f"\n    Matches our UUID: {'Yes' if uuid == BLEConfig.BEACON_UUID else 'No'}"
+                                        f"\n    Matches our UUID: {'Yes' if uuid.lower() == BLEConfig.BEACON_UUID.lower() else 'No'}"
                                         f"\n    Location Name: {BLEConfig.BEACON_LOCATIONS.get((major, minor), 'Unknown')}"
                                     )
                     
