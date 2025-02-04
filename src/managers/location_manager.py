@@ -149,7 +149,7 @@ class LocationManager:
                         timeout=BLEConfig.SCAN_DURATION,
                         return_adv=True  # Get advertisement data
                     )
-                    self.logger.debug(f"Raw scan complete, found {len(devices)} devices:")
+                    self.logger.debug(f"Raw scan complete, found {len(devices)} devices")
                     # Log details about each device found
                     for addr, (device, adv) in devices.items():
                         mfg_data = "No mfg data"
