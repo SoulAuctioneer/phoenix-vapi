@@ -20,14 +20,16 @@ class LocationService(BaseService):
         
     def _location_changed(self, new_location: str) -> bool:
         """Check if location has changed"""
-        return new_location != self._last_location
-        
+        #return new_location != self._last_location
+        return True
+
     def _distance_changed(self, location: str, new_info: Dict[str, Any]) -> bool:
         """Check if distance to a location has changed"""
-        if location not in self._last_distances:
-            return True
+        return True
+        # if location not in self._last_distances:
+        #     return True
             
-        return self._last_distances[location]["distance"] != new_info["distance"]
+        # return self._last_distances[location]["distance"] != new_info["distance"]
         
     async def _publish_location_change(self, new_location: str):
         """Publish a location change event"""
