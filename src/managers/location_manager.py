@@ -16,7 +16,11 @@ class LocationManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self._scanner = None
-        self._last_location = None
+        self._last_location = {
+            "location": "unknown",
+            "distance": Distance.UNKNOWN,
+            "all_beacons": {}
+        }
         self._no_activity_count = 0
         self._is_running = False
         # Initialize RSSI smoothing
@@ -360,16 +364,20 @@ class LocationManager:
             
         self._is_running = True
         
-        # Do an initial discovery scan
-        self.logger.info("Starting initial discovery scan...")
+        # Start discovery scan in background
+        self.logger.info("Starting initial discovery scan in background...")
+        asyncio.create_task(self._run_initial_discovery())
+            
+        self.logger.info("Location manager started")
+        
+    async def _run_initial_discovery(self) -> None:
+        """Runs the initial discovery scan in the background"""
         try:
             await self.scan_discovery()
             self.logger.info("Initial discovery scan complete")
         except Exception as e:
             self.logger.error(f"Error during initial discovery scan: {e}")
             # Continue anyway as this is not critical
-            
-        self.logger.info("Location manager started")
         
     async def stop(self) -> None:
         """Stops the location manager"""
