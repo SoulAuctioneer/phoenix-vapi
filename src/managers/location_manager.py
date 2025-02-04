@@ -139,10 +139,7 @@ class LocationManager:
             
             # Scan for devices
             try:
-                devices = await self._scanner.discover(
-                    timeout=BLEConfig.SCAN_DURATION,
-                    return_adv=True  # Get full advertisement data
-                )
+                devices = await self._scanner.discover(timeout=BLEConfig.SCAN_DURATION)
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
@@ -154,17 +151,14 @@ class LocationManager:
                 
             smoothed_devices = []
             
-            for device_info in devices.values():
+            for device in devices:
                 try:
-                    # Get advertisement data
-                    advertisement_data = device_info.advertisement
-                    
-                    # Get manufacturer data
-                    if not advertisement_data.manufacturer_data:
+                    # Get advertisement data from device
+                    if not device.metadata or not device.metadata.manufacturer_data:
                         continue
                         
-                    # Bleak provides manufacturer data as a dict with company ID as key
-                    for company_id, data in advertisement_data.manufacturer_data.items():
+                    # Process manufacturer data
+                    for company_id, data in device.metadata.manufacturer_data.items():
                         if company_id != 0x004C:  # Apple's company ID
                             continue
                             
@@ -180,10 +174,10 @@ class LocationManager:
                             
                         beacon_key = (major, minor)
                         if beacon_key in BLEConfig.BEACON_LOCATIONS:
-                            smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", advertisement_data.rssi))
+                            smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", device.rssi))
                             smoothed_devices.append((beacon_key, smoothed_rssi))
                             self.logger.debug(
-                                f"Beacon {major}:{minor}: Raw RSSI={advertisement_data.rssi}, Smoothed={smoothed_rssi}"
+                                f"Beacon {major}:{minor}: Raw RSSI={device.rssi}, Smoothed={smoothed_rssi}"
                             )
                 except Exception as e:
                     self.logger.warning(f"Error processing device: {e}")
@@ -222,10 +216,7 @@ class LocationManager:
             
             self.logger.info("Starting discovery scan for all BLE devices (10 second scan)...")
             try:
-                devices = await self._scanner.discover(
-                    timeout=10.0,  # Longer scan for initial discovery
-                    return_adv=True
-                )
+                devices = await self._scanner.discover(timeout=10.0)
             except asyncio.TimeoutError:
                 self.logger.warning("Discovery scan timed out")
                 return
@@ -241,23 +232,16 @@ class LocationManager:
             self.logger.info(f"\nFound {len(devices)} BLE devices:")
             ibeacon_count = 0
             
-            for device_info in devices.values():  # devices is now a dict
+            for device in devices:
                 try:
                     # Basic device info
-                    device = device_info.device  # Get BLEDevice instance
-                    advertisement_data = device_info.advertisement  # Get AdvertisementData
-                    
                     self.logger.info(f"\nDevice: {device.address}")
-                    self.logger.info(f"  Name: {device.name or advertisement_data.local_name or 'Unknown'}")
-                    self.logger.info(f"  RSSI: {advertisement_data.rssi} dB")
-                    
-                    # Connection info if available
-                    if hasattr(advertisement_data, 'connectable'):
-                        self.logger.info(f"  Connectable: {advertisement_data.connectable}")
+                    self.logger.info(f"  Name: {device.name or 'Unknown'}")
+                    self.logger.info(f"  RSSI: {device.rssi} dB")
                     
                     # Manufacturer Data
-                    if advertisement_data.manufacturer_data:
-                        for company_id, data in advertisement_data.manufacturer_data.items():
+                    if device.metadata and device.metadata.manufacturer_data:
+                        for company_id, data in device.metadata.manufacturer_data.items():
                             self.logger.info(f"  Manufacturer 0x{company_id:04x}: {data.hex()}")
                             
                             # Try parsing as iBeacon if it's Apple's company ID
@@ -278,20 +262,20 @@ class LocationManager:
                                     )
                     
                     # Service Data
-                    if advertisement_data.service_data:
+                    if device.metadata and device.metadata.service_data:
                         self.logger.info("  Service Data:")
-                        for uuid, data in advertisement_data.service_data.items():
+                        for uuid, data in device.metadata.service_data.items():
                             self.logger.info(f"    {uuid}: {data.hex()}")
                     
                     # Service UUIDs
-                    if advertisement_data.service_uuids:
+                    if device.metadata and device.metadata.service_uuids:
                         self.logger.info("  Service UUIDs:")
-                        for uuid in advertisement_data.service_uuids:
+                        for uuid in device.metadata.service_uuids:
                             self.logger.info(f"    {uuid}")
                             
                     # TX Power Level if available
-                    if advertisement_data.tx_power is not None:
-                        self.logger.info(f"  TX Power: {advertisement_data.tx_power} dBm")
+                    if device.metadata and hasattr(device.metadata, 'tx_power'):
+                        self.logger.info(f"  TX Power: {device.metadata.tx_power} dBm")
                         
                 except Exception as e:
                     self.logger.warning(f"Error processing device: {e}")
