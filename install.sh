@@ -46,7 +46,16 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     # Linux
     echo "Installing audio dependencies for Linux..."
     sudo apt-get update
-    sudo apt-get install -y python3-pyaudio portaudio19-dev
+    sudo apt-get install -y python3-pyaudio portaudio19-dev \
+        libglib2.0-dev \
+        libbluetooth-dev
+    
+    # Add user to bluetooth group
+    if ! groups $USER | grep -q "bluetooth"; then
+        echo "Adding user to bluetooth group..."
+        sudo usermod -a -G bluetooth $USER
+        echo "Bluetooth group permissions will take effect after logout/login"
+    fi
     
     # Raspberry Pi specific setup
     if is_raspberry_pi; then
@@ -54,6 +63,17 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         
         # Install additional dependencies
         sudo apt-get install -y python3-pip python3-dev
+        
+        # Enable Bluetooth interface
+        if ! grep -q "^dtparam=bluetooth=on" /boot/config.txt; then
+            echo "Enabling Bluetooth interface..."
+            sudo sh -c 'echo "dtparam=bluetooth=on" >> /boot/config.txt'
+            echo "Bluetooth interface will be enabled after reboot"
+        fi
+
+        # Start and enable Bluetooth service
+        sudo systemctl enable bluetooth
+        sudo systemctl start bluetooth
         
         # # Enable SPI interface
         # if ! grep -q "dtparam=spi=on" /boot/config.txt; then
@@ -98,8 +118,9 @@ echo "4. Run the example: python src/example_wake_word.py"
 if is_raspberry_pi; then
     echo ""
     echo "Raspberry Pi specific notes:"
-    echo "- If this is your first install, please REBOOT to enable SPI"
-    echo "- Log out and back in for GPIO group changes to take effect"
+    echo "- If this is your first install, please REBOOT to enable SPI and Bluetooth"
+    echo "- Log out and back in for GPIO and Bluetooth group changes to take effect"
     echo "- Connect NeoPixel data line to GPIO21 (pin 40 on the board) - we use this pin instead of GPIO18 to avoid conflicts with audio"
     echo "- To test LED ring: python src/led_control.py"
+    echo "- To verify Bluetooth is working: sudo hciconfig"
 fi 
