@@ -171,3 +171,47 @@ class SoundEffect(str, Enum):
                 if effect.value.lower().removesuffix('.wav') == effect_name_lower:
                     return effect.value
             return None
+
+# BLE and Location Configuration
+class Distance(str, Enum):
+    """Distance categories for BLE beacon proximity"""
+    TOUCHING = "touching"
+    NEAR = "near"
+    MEDIUM = "medium"
+    FAR = "far"
+    UNKNOWN = "unknown"
+    
+    def __str__(self) -> str:
+        """Return the string value of the enum"""
+        return self.value
+
+class BLEConfig:
+    """Configuration for BLE scanning and location tracking"""
+    # Scanning settings
+    SCAN_INTERVAL = 2  # Default scan interval (seconds)
+    SCAN_DURATION = 1  # How long to scan each time (seconds)
+    NO_ACTIVITY_THRESHOLD = 5  # After 5 cycles of no beacons, slow scanning
+    LOW_POWER_SCAN_INTERVAL = 10  # Max slow scanning interval (seconds)
+    
+    # RSSI smoothing settings
+    RSSI_EMA_ALPHA = 0.3  # Exponential moving average alpha (0-1, higher = more weight to new values)
+    RSSI_HYSTERESIS = 5  # Required RSSI difference to switch locations (dB)
+    
+    # Known beacon locations - MAC addresses should be lowercase
+    BEACON_LOCATIONS = {
+        "aa:bb:cc:11:22:33": "kitchen",
+        "aa:bb:cc:44:55:66": "bedroom",
+        "aa:bb:cc:77:88:99": "library"
+    }
+    
+    # RSSI thresholds for distance estimation
+    RSSI_THRESHOLD_TOUCHING = -45  # Extremely close, likely touching or within a few cm
+    RSSI_THRESHOLD_NEAR = -60  # Very close but not touching (within ~1m)
+    RSSI_THRESHOLD_MEDIUM = -75  # Medium distance (~1-3m)
+    # Anything below medium is considered "far" (>3m)
+    
+    # Platform-specific settings
+    if PLATFORM == "raspberry-pi":
+        BLUETOOTH_INTERFACE = "hci0"
+    else:
+        BLUETOOTH_INTERFACE = None  # Not used on non-Raspberry Pi platforms

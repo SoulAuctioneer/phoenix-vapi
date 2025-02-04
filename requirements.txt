@@ -8,3 +8,4 @@ pvporcupine
 rpi_ws281x
 adafruit-circuitpython-neopixel
 # adafruit-circuitpython-mpu6050
+bluepy

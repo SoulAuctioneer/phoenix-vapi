@@ -79,7 +79,32 @@ class ConversationService(BaseService):
                 await self.start_conversation()
             else:
                 self.logger.info("Conversation already active, ignoring wake word")
+                
         elif event_type == "call_state":
             if event.get("state") == "ended" and self.is_active:
                 self.logger.info("Call ended event received, stopping conversation")
-                await self.stop_conversation() 
+                await self.stop_conversation()
+
+        elif event_type == "location_changed":
+            if self.is_active and self.call_manager:
+                location = event["data"]["location"]
+                previous_location = event["data"]["previous_location"]
+                self.logger.debug(f"Sending location change to assistant: {previous_location} -> {location}")
+                self.call_manager.add_message(
+                    "system",
+                    f"""Your companion has moved from {previous_location} to {location}. 
+                    If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
+                    If it's not really relevant to the conversation, just ignore it for now."""
+                )
+                
+        # Enable later when we have a good way to engage with the proximity changes
+        # elif event_type == "proximity_changed":
+            # if self.is_active and self.call_manager:
+            #     location = event["data"]["location"]
+            #     distance = event["data"]["distance"]
+            #     previous_distance = event["data"]["previous_distance"]
+            #     self.logger.debug(f"Sending proximity change to assistant: {location} {previous_distance} -> {distance}")
+            #     self.call_manager.add_message(
+            #         "system",
+            #         f"User's distance to {location} changed from {previous_distance} to {distance}"
+            #     )
