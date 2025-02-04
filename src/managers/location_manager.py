@@ -149,7 +149,14 @@ class LocationManager:
                         timeout=BLEConfig.SCAN_DURATION,
                         return_adv=True  # Get advertisement data
                     )
-                    self.logger.debug(f"Raw scan complete, found {len(devices)} devices")
+                    self.logger.debug(f"Raw scan complete, found {len(devices)} devices:")
+                    # Log details about each device found
+                    for addr, (device, adv) in devices.items():
+                        mfg_data = "No mfg data"
+                        if adv.manufacturer_data:
+                            mfg_ids = [f"0x{id:04x}" for id in adv.manufacturer_data.keys()]
+                            mfg_data = f"Mfg IDs: {', '.join(mfg_ids)}"
+                        self.logger.debug(f"  Device {addr}: RSSI={adv.rssi}dB, {mfg_data}")
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
@@ -161,6 +168,7 @@ class LocationManager:
                 
             smoothed_devices = []
             ibeacon_count = 0
+            apple_device_count = 0
             
             for device, adv in devices.values():
                 try:
@@ -170,36 +178,35 @@ class LocationManager:
                         
                     # Process manufacturer data
                     for company_id, data in adv.manufacturer_data.items():
-                        if company_id != 0x004C:  # Apple's company ID
-                            continue
+                        if company_id == 0x004C:  # Apple's company ID
+                            apple_device_count += 1
+                            beacon_info = self.parse_ibeacon_data(bytes([company_id & 0xFF, company_id >> 8]) + data)
+                            if not beacon_info:
+                                continue
+                                
+                            uuid, major, minor = beacon_info
+                            ibeacon_count += 1
+                            self.logger.debug(f"Found iBeacon - UUID: {uuid}, Major: {major}, Minor: {minor}, RSSI: {adv.rssi}")
                             
-                        beacon_info = self.parse_ibeacon_data(bytes([company_id & 0xFF, company_id >> 8]) + data)
-                        if not beacon_info:
-                            continue
-                            
-                        uuid, major, minor = beacon_info
-                        ibeacon_count += 1
-                        self.logger.debug(f"Found iBeacon - UUID: {uuid}, Major: {major}, Minor: {minor}, RSSI: {adv.rssi}")
-                        
-                        # Check if this is one of our beacons
-                        if uuid.lower() != BLEConfig.BEACON_UUID.lower():
-                            self.logger.debug(f"UUID mismatch - Found: {uuid}, Expected: {BLEConfig.BEACON_UUID}")
-                            continue
-                            
-                        beacon_key = (major, minor)
-                        if beacon_key in BLEConfig.BEACON_LOCATIONS:
-                            smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", adv.rssi))
-                            smoothed_devices.append((beacon_key, smoothed_rssi))
-                            self.logger.debug(
-                                f"Matched beacon {major}:{minor} ({BLEConfig.BEACON_LOCATIONS[beacon_key]}): Raw RSSI={adv.rssi}, Smoothed={smoothed_rssi}"
-                            )
-                        else:
-                            self.logger.debug(f"Unknown beacon location for Major: {major}, Minor: {minor}")
+                            # Check if this is one of our beacons
+                            if uuid.lower() != BLEConfig.BEACON_UUID.lower():
+                                self.logger.debug(f"UUID mismatch - Found: {uuid}, Expected: {BLEConfig.BEACON_UUID}")
+                                continue
+                                
+                            beacon_key = (major, minor)
+                            if beacon_key in BLEConfig.BEACON_LOCATIONS:
+                                smoothed_rssi = int(self._update_rssi_ema(f"{major}:{minor}", adv.rssi))
+                                smoothed_devices.append((beacon_key, smoothed_rssi))
+                                self.logger.debug(
+                                    f"Matched beacon {major}:{minor} ({BLEConfig.BEACON_LOCATIONS[beacon_key]}): Raw RSSI={adv.rssi}, Smoothed={smoothed_rssi}"
+                                )
+                            else:
+                                self.logger.debug(f"Unknown beacon location for Major: {major}, Minor: {minor}")
                 except Exception as e:
                     self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
             
-            self.logger.debug(f"Scan processing complete - Found {ibeacon_count} iBeacons, {len(smoothed_devices)} valid beacons")
+            self.logger.debug(f"Scan processing complete - Found {len(devices)} total devices, {apple_device_count} Apple devices, {ibeacon_count} iBeacons, {len(smoothed_devices)} valid beacons")
             return smoothed_devices
             
         except Exception as e:
