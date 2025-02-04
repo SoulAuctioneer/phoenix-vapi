@@ -249,6 +249,88 @@ class LocationManager:
                 if self._no_activity_count >= BLEConfig.NO_ACTIVITY_THRESHOLD 
                 else BLEConfig.SCAN_INTERVAL)
         
+    def scan_discovery(self) -> None:
+        """Perform a discovery scan for all nearby BLE devices"""
+        if PLATFORM != "raspberry-pi":
+            self.logger.info("Discovery scan not available in simulation mode")
+            return
+            
+        try:
+            self._toggle_bluetooth(True)
+            
+            # Perform a longer scan to discover all devices
+            self.logger.info("Starting discovery scan for all BLE devices...")
+            devices = self._scanner.scan(5.0)  # 5 second scan
+            
+            self.logger.info(f"\nFound {len(devices)} BLE devices:")
+            for dev in devices:
+                # Basic device info
+                self.logger.info(f"\nDevice: {dev.addr}")
+                self.logger.info(f"  RSSI: {dev.rssi} dB")
+                
+                # Get all available names
+                complete_name = dev.getValueText(ScanEntry.COMPLETE_LOCAL_NAME)
+                short_name = dev.getValueText(ScanEntry.SHORTENED_LOCAL_NAME)
+                if complete_name:
+                    self.logger.info(f"  Complete Name: {complete_name}")
+                if short_name:
+                    self.logger.info(f"  Short Name: {short_name}")
+                    
+                # Service Data
+                for adtype in range(0, 255):
+                    value = dev.getValueText(adtype)
+                    if value:
+                        self.logger.info(f"  AD Type 0x{adtype:02x}: {value}")
+                
+                # Manufacturer Data
+                mfg_data = dev.getValueText(ScanEntry.MANUFACTURER)
+                if mfg_data:
+                    self.logger.info(f"  Manufacturer Data (hex): {mfg_data}")
+                    try:
+                        mfg_bytes = bytes.fromhex(mfg_data)
+                        
+                        # Try parsing as iBeacon
+                        ibeacon_info = parse_ibeacon_data(mfg_bytes)
+                        if ibeacon_info:
+                            uuid, major, minor = ibeacon_info
+                            self.logger.info(
+                                f"  iBeacon Data:"
+                                f"\n    UUID: {uuid}"
+                                f"\n    Major: {major}"
+                                f"\n    Minor: {minor}"
+                                f"\n    Matches our UUID: {'Yes' if uuid == BLEConfig.BEACON_UUID else 'No'}"
+                            )
+                            
+                        # Could add other beacon format parsing here
+                        # Example: Eddystone, AltBeacon, etc.
+                        
+                    except Exception as e:
+                        self.logger.debug(f"  Could not parse manufacturer data: {e}")
+                
+                # Service UUIDs
+                service_uuids = []
+                if dev.getValueText(ScanEntry.COMPLETE_16B_SERVICES):
+                    service_uuids.extend(dev.getValueText(ScanEntry.COMPLETE_16B_SERVICES).split(','))
+                if dev.getValueText(ScanEntry.COMPLETE_32B_SERVICES):
+                    service_uuids.extend(dev.getValueText(ScanEntry.COMPLETE_32B_SERVICES).split(','))
+                if dev.getValueText(ScanEntry.COMPLETE_128B_SERVICES):
+                    service_uuids.extend(dev.getValueText(ScanEntry.COMPLETE_128B_SERVICES).split(','))
+                    
+                if service_uuids:
+                    self.logger.info("  Service UUIDs:")
+                    for uuid in service_uuids:
+                        self.logger.info(f"    {uuid}")
+                        
+                # TX Power Level
+                tx_power = dev.getValueText(ScanEntry.TX_POWER)
+                if tx_power:
+                    self.logger.info(f"  TX Power Level: {tx_power} dBm")
+                
+        except Exception as e:
+            self.logger.error(f"Error during discovery scan: {e}")
+        finally:
+            self._toggle_bluetooth(False)
+            
     def start(self) -> None:
         """Starts the location manager"""
         if PLATFORM != "raspberry-pi":
@@ -256,6 +338,10 @@ class LocationManager:
             return
             
         self._is_running = True
+        
+        # Do an initial discovery scan
+        self.scan_discovery()
+        
         self.logger.info("Location manager started")
         
     def stop(self) -> None:

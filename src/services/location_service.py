@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, Union
 from services.service import BaseService
 from managers.location_manager import LocationManager
 from config import BLEConfig, PLATFORM, Distance
+from pybluez import ScanEntry
 
 class LocationService(BaseService):
     """Service for tracking location using BLE beacons"""
@@ -125,12 +126,21 @@ class LocationService(BaseService):
                 
                 # Handle location updates
                 if new_location == "unknown":
-                    # For unknown locations, publish periodically
-                    if (current_time - last_unknown_publish) >= BLEConfig.LOW_POWER_SCAN_INTERVAL:
+                    # Only publish unknown location if:
+                    # 1. We had a known location before (actual change to unknown)
+                    # 2. Or it's been a while since our last unknown publish AND our last location wasn't unknown
+                    should_publish = (
+                        (self._last_location is not None and self._last_location != "unknown") or
+                        (current_time - last_unknown_publish >= BLEConfig.LOW_POWER_SCAN_INTERVAL and
+                         self._last_location != "unknown")
+                    )
+                    
+                    if should_publish:
                         await self._publish_location_change(new_location)
                         last_unknown_publish = current_time
+                        
                 elif self._location_changed(new_location):
-                    # Publish location change
+                    # Publish location change for known locations
                     await self._publish_location_change(new_location)
                 
                 # Handle proximity updates for all beacons
