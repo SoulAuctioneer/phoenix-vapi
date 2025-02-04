@@ -186,8 +186,9 @@ class BLEConfig:
     BLUETOOTH_INTERFACE = "hci0"
     
     # iBeacon UUID for our beacons
-    BEACON_UUID = "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6"
-    
+    # BEACON_UUID = "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6"
+    BEACON_UUID = "8E77A3BF-9497-4D6F-8D22-26B815007B15"
+
     # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
         (1, 1): "kitchen",
