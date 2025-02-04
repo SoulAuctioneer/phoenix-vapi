@@ -4,7 +4,6 @@ from typing import Dict, Any, Optional, Union
 from services.service import BaseService
 from managers.location_manager import LocationManager
 from config import BLEConfig, PLATFORM, Distance
-from pybluez import ScanEntry
 
 class LocationService(BaseService):
     """Service for tracking location using BLE beacons"""
