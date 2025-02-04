@@ -23,6 +23,7 @@ class LocationManager:
         }
         self._no_activity_count = 0
         self._is_running = False
+        self._scanning_lock = asyncio.Lock()  # Add lock for scan coordination
         # Initialize RSSI smoothing
         self._rssi_ema = defaultdict(lambda: None)  # Stores EMA for each beacon
         
@@ -143,10 +144,11 @@ class LocationManager:
             
             # Scan for devices
             try:
-                devices = await self._scanner.discover(
-                    timeout=BLEConfig.SCAN_DURATION,
-                    return_adv=True  # Get advertisement data
-                )
+                async with self._scanning_lock:  # Use lock to prevent concurrent scans
+                    devices = await self._scanner.discover(
+                        timeout=BLEConfig.SCAN_DURATION,
+                        return_adv=True  # Get advertisement data
+                    )
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
@@ -223,10 +225,11 @@ class LocationManager:
             
             self.logger.info("Starting discovery scan for all BLE devices (10 second scan)...")
             try:
-                devices = await self._scanner.discover(
-                    timeout=10.0,
-                    return_adv=True  # Get advertisement data
-                )
+                async with self._scanning_lock:  # Use lock to prevent concurrent scans
+                    devices = await self._scanner.discover(
+                        timeout=10.0,
+                        return_adv=True  # Get advertisement data
+                    )
             except asyncio.TimeoutError:
                 self.logger.warning("Discovery scan timed out")
                 return
@@ -308,8 +311,18 @@ class LocationManager:
             
     async def scan_once(self) -> Dict[str, Any]:
         """Performs a single scan cycle and returns location info"""
-        devices = await self._scan_beacons()
-        
+        try:
+            # Try to get the lock, but don't wait too long
+            async with asyncio.timeout(0.1):  # 100ms timeout
+                if self._scanning_lock.locked():
+                    self.logger.debug("Skipping scan - another scan is in progress")
+                    return self._last_location
+                    
+                devices = await self._scan_beacons()
+        except asyncio.TimeoutError:
+            self.logger.debug("Skipping scan - could not acquire lock")
+            return self._last_location
+            
         if not devices:
             self._no_activity_count += 1
             return {
