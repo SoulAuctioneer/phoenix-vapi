@@ -218,9 +218,9 @@ class LEDManager:
                     led_position = int(drop['position'] * LED_COUNT) % LED_COUNT
                     intensity = drop['intensity'] * (1.0 - drop['radius'])  # Fade as it moves inward
                     
-                    # Create a more blue color for the raindrop
+                    # Blue color for the raindrop
                     blue = int(255 * intensity)
-                    white = int(50 * intensity)  # Reduced white to make it more blue
+                    white = int(20 * intensity)
                     color = (white, white, blue)
                     
                     # Draw main drop pixel
@@ -317,38 +317,78 @@ class LEDManager:
         self._start_effect(self._rain_effect, speed, duration)
 
     def _lightning_effect(self, wait):
-        """Create a dramatic lightning flash effect with afterglow"""
+        """Create a realistic lightning effect that arcs across the LED ring"""
         while not self._stop_event.is_set():
-            # Initial bright white flash
-            self.pixels.fill((255, 255, 255))
-            self.pixels.show()
-            time.sleep(0.01)  # Short bright flash
-
-            # Second bright white flash
-            self.pixels.fill((255, 255, 255))
-            self.pixels.show()
-            time.sleep(0.03)  # Short bright flash
-
-            # First afterglow - bluish white
-            self.pixels.fill((100, 100, 150))
-            self.pixels.show()
-            time.sleep(0.05)
+            # Determine direction of the lightning (clockwise or counterclockwise)
+            clockwise = random.choice([True, False])
             
-            # Second afterglow - dimmer blue
-            self.pixels.fill((50, 50, 100))
-            self.pixels.show()
-            time.sleep(0.1)
+            # Choose random starting point
+            start_led = random.randint(0, LED_COUNT - 1)
             
-            # Final dim glow
-            self.pixels.fill((20, 20, 40))
-            self.pixels.show()
+            # Main lightning strike
+            for intensity in [1.0, 0.8]:  # Two quick flashes
+                # Clear all pixels first
+                self.pixels.fill((0, 0, 0))
+                
+                # Calculate arc length (between 1/3 and 2/3 of the ring)
+                arc_length = random.randint(LED_COUNT // 3, (LED_COUNT * 2) // 3)
+                
+                # Create the main lightning arc
+                for i in range(arc_length):
+                    if self._stop_event.is_set():
+                        return
+                        
+                    current_pos = (start_led + (i if clockwise else -i)) % LED_COUNT
+                    
+                    # Add some randomness to the arc path
+                    if random.random() < 0.3:  # 30% chance to create a branch
+                        branch_length = random.randint(2, 5)
+                        branch_direction = random.choice([1, -1])
+                        for j in range(branch_length):
+                            branch_pos = (current_pos + (j * branch_direction)) % LED_COUNT
+                            # Dimmer branch
+                            brightness = (1 - (j / branch_length)) * intensity * 0.7
+                            self.pixels[branch_pos] = (
+                                int(255 * brightness),  # White with slight blue tint
+                                int(255 * brightness),
+                                int(255 * brightness * 1.2)
+                            )
+                    
+                    # Main arc - bright white with slight blue tint
+                    brightness = intensity * (1 - (i / arc_length) * 0.3)  # Fade slightly along the arc
+                    self.pixels[current_pos] = (
+                        int(255 * brightness),
+                        int(255 * brightness),
+                        int(255 * brightness * 1.2)
+                    )
+                
+                self.pixels.show()
+                time.sleep(0.02)  # Quick flash
             
-            # Dark period
+            # Afterglow effect
+            afterglow_steps = [
+                (0.5, (100, 100, 150)),  # Bluish white
+                (0.3, (50, 50, 100)),    # Dimmer blue
+                (0.2, (20, 20, 40))      # Very dim blue
+            ]
+            
+            for brightness, color in afterglow_steps:
+                if self._stop_event.is_set():
+                    return
+                    
+                # Apply afterglow only to the pixels that were part of the lightning
+                for i in range(arc_length):
+                    current_pos = (start_led + (i if clockwise else -i)) % LED_COUNT
+                    self.pixels[current_pos] = tuple(int(c * brightness) for c in color)
+                self.pixels.show()
+                time.sleep(0.05)
+            
+            # Clear and wait for next strike
             self.pixels.fill((0, 0, 0))
             self.pixels.show()
             
-            # Random wait between lightning flashes
-            time.sleep(random.uniform(0.5, 3.0))
+            # Random wait between lightning strikes
+            time.sleep(random.uniform(0.3, 2.0))
 
     def start_lightning_effect(self, speed=0.05, duration=None):
         """Start the lightning effect"""
