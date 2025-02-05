@@ -347,29 +347,27 @@ class LEDManager:
                         for j in range(branch_length):
                             branch_pos = (current_pos + (j * branch_direction)) % LED_COUNT
                             # Dimmer branch
-                            brightness = (1 - (j / branch_length)) * intensity * 0.7
-                            self.pixels[branch_pos] = (
-                                int(255 * brightness),  # White with slight blue tint
-                                int(255 * brightness),
-                                int(255 * brightness * 1.2)
-                            )
+                            brightness = min(1.0, (1 - (j / branch_length)) * intensity * 0.7)
+                            # Ensure blue tint doesn't exceed 255
+                            white_val = int(255 * brightness)
+                            blue_val = min(255, int(255 * brightness * 1.1))  # Reduced blue tint multiplier
+                            self.pixels[branch_pos] = (white_val, white_val, blue_val)
                     
                     # Main arc - bright white with slight blue tint
-                    brightness = intensity * (1 - (i / arc_length) * 0.3)  # Fade slightly along the arc
-                    self.pixels[current_pos] = (
-                        int(255 * brightness),
-                        int(255 * brightness),
-                        int(255 * brightness * 1.2)
-                    )
+                    brightness = min(1.0, intensity * (1 - (i / arc_length) * 0.3))  # Ensure brightness doesn't exceed 1.0
+                    # Ensure blue tint doesn't exceed 255
+                    white_val = int(255 * brightness)
+                    blue_val = min(255, int(255 * brightness * 1.1))  # Reduced blue tint multiplier
+                    self.pixels[current_pos] = (white_val, white_val, blue_val)
                 
                 self.pixels.show()
                 time.sleep(0.02)  # Quick flash
             
-            # Afterglow effect
+            # Afterglow effect - ensure values stay within range
             afterglow_steps = [
-                (0.5, (100, 100, 150)),  # Bluish white
-                (0.3, (50, 50, 100)),    # Dimmer blue
-                (0.2, (20, 20, 40))      # Very dim blue
+                (0.5, (100, 100, min(255, 120))),  # Bluish white
+                (0.3, (50, 50, min(255, 80))),     # Dimmer blue
+                (0.2, (20, 20, min(255, 35)))      # Very dim blue
             ]
             
             for brightness, color in afterglow_steps:
@@ -379,7 +377,9 @@ class LEDManager:
                 # Apply afterglow only to the pixels that were part of the lightning
                 for i in range(arc_length):
                     current_pos = (start_led + (i if clockwise else -i)) % LED_COUNT
-                    self.pixels[current_pos] = tuple(int(c * brightness) for c in color)
+                    # Ensure color values stay within range
+                    safe_color = tuple(min(255, int(c * brightness)) for c in color)
+                    self.pixels[current_pos] = safe_color
                 self.pixels.show()
                 time.sleep(0.05)
             
