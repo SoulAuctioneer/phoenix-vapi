@@ -79,7 +79,7 @@ class LEDService(BaseService):
                 self.led_controller.start_rotating_pink_blue_effect(speed=speed)
                 logging.info(f"Started pink blue cycle effect with speed {speed}")
             elif effect_name == "magical_spell":
-                speed = event.get('data', {}).get('speed', 0.01)
+                speed = event.get('data', {}).get('speed', 0.005)
                 self.led_controller.start_random_twinkling_effect(speed=speed, duration=3000)
                 logging.info(f"Started random twinkling effect with speed {speed}")
             elif effect_name == "rain":
