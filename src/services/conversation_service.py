@@ -99,7 +99,7 @@ class ConversationService(BaseService):
                 try:
                     self.call_manager.add_message(
                         "system",
-                        f"""Your companion has moved from {previous_location} to {location}. 
+                        f"""You and your companion have moved from {previous_location} to {location}. 
                         If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
                         If it's not really relevant to the conversation, just ignore it for now."""
                     )
