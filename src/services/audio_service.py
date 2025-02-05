@@ -41,21 +41,22 @@ class AudioService(BaseService):
         """Handle events from other services"""
         event_type = event.get("type")
         
+        # Handle direct play_sound requests
         if event_type == "play_sound":
-            # Handle direct play_sound requests
             effect_name = event.get("effect_name")
             await self._play_sound(effect_name)
         
-        elif event_type == "application_startup_completed":
-            # Play rising tone when application starts up
-            await self._play_sound("TADA")
+        # Play tadaaa when application starts up
+        # Turned off for now, getting annoying
+        # elif event_type == "application_startup_completed":
+            # await self._play_sound("TADA")
                 
+        # Play acknowledgment sound when conversation starts
         elif event_type == "conversation_starting":
-            # Play acknowledgment sound when conversation starts
             await self._play_sound("YAWN")
                 
+        # Play yawn sound when conversation ends
         elif event_type == "conversation_ended":
-            # Play yawn sound when conversation ends
             await self._play_sound("YAWN") 
 
     async def _play_sound(self, effect_name: str) -> bool:
