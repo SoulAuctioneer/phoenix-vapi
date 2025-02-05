@@ -272,11 +272,12 @@ class LEDManager:
         if self._effect_thread is not None:
             previous_effect = {
                 'func': self._effect_thread._target,
-                'speed': speed  # This is an approximation as we don't store previous speed
+                'speed': self._current_speed  # Use stored current_speed instead of new speed
             }
             self.stop_effect()
             
         self._stop_event.clear()
+        self._current_speed = speed  # Store the current speed
         self._effect_thread = Thread(target=effect_func, args=(speed,))
         self._effect_thread.daemon = True
         self._effect_thread.start()
