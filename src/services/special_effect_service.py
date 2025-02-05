@@ -42,7 +42,7 @@ class SpecialEffect(str, Enum):
     def get_led_effect(cls, effect: str) -> Union[str, None]:
         """Get the corresponding LED effect name for a special effect"""
         led_effect_map = {
-            cls.MAGICAL_SPELL: "random_twinkle",
+            cls.MAGICAL_SPELL: "magical_spell",
             cls.LIGHTNING: "lightning",
             cls.RAIN: "rain",
             cls.RAINBOW: "rainbow",
