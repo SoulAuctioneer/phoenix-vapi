@@ -44,23 +44,20 @@ class LEDService(BaseService):
         event_type = event.get('type')
 
         if event_type == "wake_word_detected":
-            # Wake word detected - switch to rainbow effect
-            self.led_controller.start_random_twinkling_effect(0.06)
             logging.info("Wake word detected - switched to rotating rainbow effect")
+            self.led_controller.start_random_twinkling_effect(0.06)
 
         elif event_type == "conversation_started":
-            # Conversation started - switch to conversation effect
-            self.led_controller.start_random_twinkling_effect()
             logging.info("Conversation started - switched to random twinkling effect")
+            self.led_controller.start_random_twinkling_effect()
 
         elif event_type == "conversation_ended":
-            # Conversation ended - return to breathing effect
-            self.led_controller.start_rotating_pink_blue_effect()
             logging.info("Conversation ended - switched to rotating pink blue effect")
+            self.led_controller.start_rotating_pink_blue_effect()
 
         elif event_type == "application_startup_completed":
-            self.led_controller.start_rotating_pink_blue_effect()
             logging.info("Application startup completed - switched to rotating pink blue effect")
+            self.led_controller.start_rotating_pink_blue_effect()
 
         elif event_type == "start_led_effect":
             # Handle manual LED commands
