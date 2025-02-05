@@ -265,12 +265,12 @@ class CallManager:
             self._mic_device = daily.Daily.create_microphone_device(
                 CallConfig.Daily.MIC_DEVICE_ID,
                 sample_rate=CallConfig.Audio.SAMPLE_RATE,
-                channels=CallConfig.Audio.NUM_CHANNELS
+                channels=CallConfig.Daily.MIC_CHANNELS  # Use stereo for ReSpeaker
             )
             self._speaker_device = daily.Daily.create_speaker_device(
                 CallConfig.Daily.SPEAKER_DEVICE_ID,
                 sample_rate=CallConfig.Audio.SAMPLE_RATE,
-                channels=CallConfig.Audio.NUM_CHANNELS
+                channels=CallConfig.Audio.NUM_CHANNELS  # Keep output mono
             )
             daily.Daily.select_speaker_device(CallConfig.Daily.SPEAKER_DEVICE_ID)
             
@@ -952,6 +952,14 @@ class CallManager:
         try:
             if self.state_manager.state.can_receive_audio:
                 try:
+                    # Reshape stereo data into a 2D array if needed
+                    if len(audio_data.shape) == 1 and CallConfig.Daily.MIC_CHANNELS == 2:
+                        audio_data = audio_data.reshape(-1, 2)
+                    
+                    # Select the processed channel from ReSpeaker
+                    if len(audio_data.shape) == 2 and audio_data.shape[1] == 2:
+                        audio_data = audio_data[:, CallConfig.Daily.MIC_CHANNEL_IDX]
+                    
                     self._input_buffer.put_nowait(audio_data)
                 except queue.Full:
                     # Try to remove old data and add new

@@ -133,6 +133,9 @@ class CallConfig:
         """Daily.co specific configuration"""
         MIC_DEVICE_ID = "my-mic"
         SPEAKER_DEVICE_ID = "my-speaker"
+        # Special configuration for ReSpeaker 2-mic array
+        MIC_CHANNELS = 2  # Use stereo input for ReSpeaker
+        MIC_CHANNEL_IDX = 1  # Use second channel which contains the processed audio
         MIC_CONSTRAINTS = {
             "autoGainControl": {"exact": False},
             "noiseSuppression": {"exact": True},
