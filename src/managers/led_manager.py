@@ -226,24 +226,29 @@ class LEDManager:
                     # Draw main drop pixel
                     self.pixels[led_position] = color
                     
-                    # Draw fade trail on neighboring pixels
-                    trail_length = 2
-                    for i in range(1, trail_length + 1):
-                        # Calculate trail positions (both clockwise and counter-clockwise)
-                        trail_pos_cw = (led_position + i) % LED_COUNT
-                        trail_pos_ccw = (led_position - i) % LED_COUNT
-                        
-                        # Calculate trail intensity
-                        trail_intensity = intensity * (1 - (i / (trail_length + 1))) * 0.7
-                        trail_blue = int(255 * trail_intensity)
-                        trail_white = int(50 * trail_intensity)  # Reduced white for trail
-                        trail_color = (trail_white, trail_white, trail_blue)
-                        
-                        # Apply trail colors
-                        self.pixels[trail_pos_cw] = self._blend_colors(
-                            self.pixels[trail_pos_cw], trail_color)
-                        self.pixels[trail_pos_ccw] = self._blend_colors(
-                            self.pixels[trail_pos_ccw], trail_color)
+                    # Calculate splash size based on how far inward the drop has moved
+                    # No splash at start, maximum splash when halfway in
+                    splash_progress = min(1.0, drop['radius'] * 2)  # Reaches max at radius 0.5
+                    trail_length = int(splash_progress * 3)  # Maximum trail length of 3
+                    
+                    # Only draw trail if we've moved inward enough to start splashing
+                    if trail_length > 0:
+                        for i in range(1, trail_length + 1):
+                            # Calculate trail positions (both clockwise and counter-clockwise)
+                            trail_pos_cw = (led_position + i) % LED_COUNT
+                            trail_pos_ccw = (led_position - i) % LED_COUNT
+                            
+                            # Calculate trail intensity - reduces with distance and overall drop intensity
+                            trail_intensity = intensity * (1 - (i / (trail_length + 1))) * splash_progress * 0.7
+                            trail_blue = int(255 * trail_intensity)
+                            trail_white = int(50 * trail_intensity)  # Reduced white for trail
+                            trail_color = (trail_white, trail_white, trail_blue)
+                            
+                            # Apply trail colors
+                            self.pixels[trail_pos_cw] = self._blend_colors(
+                                self.pixels[trail_pos_cw], trail_color)
+                            self.pixels[trail_pos_ccw] = self._blend_colors(
+                                self.pixels[trail_pos_ccw], trail_color)
                     
                     new_raindrops.append(drop)
             
