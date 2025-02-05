@@ -35,7 +35,7 @@ class PhoenixApp:
 
     async def initialize_services(self):
         """Initialize and start all services in the correct order"""
-        # Create services in order
+        # Initialize services
         self.services = {
             'audio': AudioService(self.manager),
             'wakeword': WakeWordService(self.manager),
