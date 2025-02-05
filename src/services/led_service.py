@@ -49,7 +49,7 @@ class LEDService(BaseService):
 
         elif event_type == "conversation_started":
             logging.info("Conversation started - switched to random twinkling effect")
-            self.led_controller.start_random_twinkling_effect()
+            self.led_controller.start_random_twinkling_effect(0.1)
 
         elif event_type == "conversation_ended":
             logging.info("Conversation ended - switched to rotating pink blue effect")
@@ -88,7 +88,7 @@ class LEDService(BaseService):
                 logging.info(f"Started rain effect with speed {speed}")
             elif effect_name == "lightning":
                 speed = event.get('data', {}).get('speed', 0.05)
-                self.led_controller.start_lightning_effect(speed=speed, duration=4000)  # 3 seconds
+                self.led_controller.start_lightning_effect(speed=speed, duration=3500)
                 logging.info(f"Started lightning effect with speed {speed} for 3 seconds")
             elif effect_name == "stop":
                 self.led_controller.stop_effect()
