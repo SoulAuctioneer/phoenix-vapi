@@ -560,7 +560,7 @@ class CallManager:
             try:
                 message = json.loads(message)
             except json.JSONDecodeError:
-                logging.warn(f"Failed to parse message as JSON: {message}")
+                logging.debug(f"Plain text message: {message}")
                 return
                 
         # Extract message type
@@ -588,16 +588,16 @@ class CallManager:
                 role = "Assistant" if last_message.get('role') == 'bot' else last_message.get('role', '').title()
                 msg = last_message.get('message', '')
                 if msg:  # Only log if there's actual message content
-                    logging.info(f"Message | {role}: {msg}")
+                    logging.debug(f"Message | {role}: {msg}")
         elif msg_type == "user-interrupted":
             logging.info("User interrupted the assistant")
         elif msg_type == "model-output":
             # Too noisy
-            # logging.info("Model output: " + message.get("output", ""))
+            logging.debug("Model output: " + message.get("output", ""))
             pass
         elif msg_type == "voice-input":
             # Too noisy
-            # logging.info("Voice input: " + message.get("input", ""))
+            logging.debug("Voice input: " + message.get("input", ""))
             pass
         elif msg_type == "call_state":
             old_state = message.get("old_state", "")

@@ -10,6 +10,7 @@ from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
 from config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
+from processors.audio_processor import AudioProcessorPool
 
 @dataclass
 class AudioConfig:
@@ -21,6 +22,7 @@ class AudioConfig:
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
     default_volume: float = AUDIO_DEFAULT_VOLUME
+    num_processors: Optional[int] = None  # Number of audio processors to use
 
 
 class AudioBuffer:
@@ -71,34 +73,19 @@ class AudioProducer:
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
 
-    def resize_chunk(self, audio_data: np.ndarray) -> List[np.ndarray]:
+    def resize_chunk(self, audio_data: np.ndarray, processor_pool: AudioProcessorPool) -> List[np.ndarray]:
         """Resize audio chunk to desired size, handling remainder samples"""
         if self.chunk_size is None:
             return [audio_data]
             
-        if len(self._remainder) > 0:
-            audio_data = np.concatenate([self._remainder, audio_data])
-            
-        chunks = []
-        num_complete_chunks = len(audio_data) // self.chunk_size
-        for i in range(num_complete_chunks):
-            start = i * self.chunk_size
-            end = start + self.chunk_size
-            chunks.append(audio_data[start:end])
-            
-        remainder_start = num_complete_chunks * self.chunk_size
-        self._remainder = audio_data[remainder_start:]
-        
+        chunks, self._remainder = processor_pool.process_audio("resize", (self.chunk_size, audio_data, self._remainder))
         return chunks
 
-    def apply_volume(self, audio_data: np.ndarray) -> np.ndarray:
+    def apply_volume(self, audio_data: np.ndarray, processor_pool: AudioProcessorPool) -> np.ndarray:
         """Apply volume control to int16 audio data"""
         if self.volume == 1.0:
             return audio_data
-        # Convert to float32 temporarily for volume adjustment to prevent integer overflow
-        audio_float = audio_data.astype(np.float32) * self.volume
-        # Clip to int16 range and convert back
-        return np.clip(audio_float, -32768, 32767).astype(np.int16)
+        return processor_pool.process_audio("volume", (audio_data, self.volume))
 
 class AudioManager:
     """Manages audio resources and provides thread-safe access"""
@@ -131,6 +118,9 @@ class AudioManager:
         self._producers: Dict[str, AudioProducer] = {}
         self._consumers_lock = threading.Lock()
         self._producers_lock = threading.Lock()
+        
+        # Initialize audio processor pool
+        self._processor_pool = AudioProcessorPool(num_processors=config.num_processors)
         
         # Reusable chunk resizer
         self._chunk_resizer: Optional[AudioProducer] = None
@@ -197,6 +187,9 @@ class AudioManager:
                 logging.info("Initializing PyAudio...")
                 self._py_audio = pyaudio.PyAudio()
                 
+                logging.info("Starting audio processor pool...")
+                self._processor_pool.start()
+                
                 logging.info("Setting up audio streams...")
                 self._setup_streams()
                 self._running = True
@@ -235,12 +228,16 @@ class AudioManager:
             if self._output_thread and self._output_thread.is_alive():
                 self._output_thread.join(timeout=1.0)
                 
+            # Stop processor pool
+            if hasattr(self, '_processor_pool'):
+                self._processor_pool.stop()
+                
             self._cleanup_streams()
             
             if self._py_audio:
                 self._py_audio.terminate()
                 self._py_audio = None
-                
+
     def _setup_streams(self):
         """Setup audio streams"""
         if not self._py_audio:
@@ -324,7 +321,7 @@ class AudioManager:
                         if consumer.active:
                             if consumer.chunk_size and consumer.chunk_size != len(audio_data):
                                 chunk_resizer = self._get_chunk_resizer(consumer.chunk_size)
-                                resized_chunks = chunk_resizer.resize_chunk(audio_data)
+                                resized_chunks = chunk_resizer.resize_chunk(audio_data, self._processor_pool)
                                 for chunk in resized_chunks:
                                     consumer.callback(chunk)
                             else:
@@ -343,60 +340,33 @@ class AudioManager:
         
         while self._running:
             try:
-                # Mix audio from all active producers
-                mixed_audio = np.zeros(self.config.chunk, dtype=np.float32)
-                active_producers = 0
-                
+                # Collect audio from all active producers
+                chunks = []
                 with self._producers_lock:
-                    producer_states = []  # For logging
-                    for name, producer in self._producers.items():
-                        state = {
-                            'name': name,
-                            'active': producer.active,
-                            'buffer_empty': producer.buffer.buffer.empty(),
-                            'chunk_size': producer.chunk_size,
-                            'buffer_size': producer.buffer.buffer.qsize()
-                        }
-                        producer_states.append(state)
-                        
-                        if producer.active:
-                            data = producer.buffer.get()
-                            if data is not None:
-                                no_data_count = 0  # Reset no-data counter
-                                if len(data) == self.config.chunk:
-                                    # Pre-scale each producer's audio to prevent clipping when mixing
-                                    audio_float = data.astype(np.float32) * 0.8  # Scale down slightly to prevent clipping
-                                    if producer.volume != 1.0:
-                                        audio_float *= producer.volume
-                                    mixed_audio += audio_float
-                                    active_producers += 1
-                                    state['had_data'] = True
-                                    logging.debug(f"Mixed data from producer '{name}'")
-                                else:
-                                    logging.warning(f"Skipped chunk from '{name}': expected {self.config.chunk} samples, got {len(data)}")
-                            else:
-                                if producer.buffer.buffer.empty():
-                                    no_data_count += 1
-                                    if no_data_count % 100 == 0:  # Log every 100th no-data iteration
-                                        logging.debug(f"No data available from producer '{name}' for {no_data_count} iterations")
-                    
-                    # Convert back to int16 and clip to prevent overflow
-                    mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
-                        
-                # Write to output stream
-                if active_producers > 0:
-                    logging.debug(f"Writing {len(mixed_audio)} samples to output stream")
-                    self._output_stream.write(mixed_audio.tobytes())
-                else:
-                    # Small sleep to prevent spinning too fast when no data
-                    time.sleep(0.001)  # 1ms sleep
+                    for producer in self._producers.values():
+                        if not producer.active:
+                            continue
+                        chunk = producer.buffer.get()
+                        if chunk is not None:
+                            # Apply volume control
+                            chunk = producer.apply_volume(chunk, self._processor_pool)
+                            chunks.append(chunk)
+                
+                if not chunks:
+                    # No audio to process, sleep briefly
+                    time.sleep(0.001)
+                    continue
+                
+                # Mix audio chunks using processor pool
+                mixed_chunk = self._processor_pool.process_audio("mix", chunks)
+                
+                if len(mixed_chunk) > 0:
+                    self._output_stream.write(mixed_chunk.tobytes())
                     
             except Exception as e:
-                if self._running:  # Only log if we haven't stopped intentionally
-                    logging.error(f"Error in output loop: {e}", exc_info=True)
-                    
-        logging.info("Output processing loop stopped")
-                
+                logging.error(f"Error in output loop: {e}", exc_info=True)
+                continue
+
     def play_audio(self, audio_data: np.ndarray, producer_name: str = "default"):
         """Play audio data through a specific producer"""
         print(f"DEBUG: Entering play_audio with {len(audio_data)} samples", flush=True)
