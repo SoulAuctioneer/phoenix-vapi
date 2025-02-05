@@ -22,6 +22,7 @@ for logger_name in [
     'services.wake_word',
     'services.conversation',
     'services.service',
+    # Too noisy, disable for now
     # 'managers.location_manager',
     # 'services.location_service'
 ]:
@@ -42,7 +43,7 @@ class PhoenixApp:
             'conversation': ConversationService(self.manager),
             'led': LEDService(self.manager),
             'special_effect': SpecialEffectService(self.manager),
-            # 'location': LocationService(self.manager),
+            #'location': LocationService(self.manager),
         }
         
         # Start audio service first, then the remaining services in parallel
