@@ -22,6 +22,7 @@ for logger_name in [
     'services.wake_word',
     'services.conversation',
     'services.service',
+    # Too noisy, disable for now
     # 'managers.location_manager',
     # 'services.location_service'
 ]:

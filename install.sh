@@ -77,27 +77,27 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         sudo systemctl enable bluetooth
         sudo systemctl start bluetooth
         
-        # # Enable SPI interface
-        # if ! grep -q "dtparam=spi=on" /boot/config.txt; then
-        #     echo "Enabling SPI interface..."
-        #     sudo sh -c 'echo "dtparam=spi=on" >> /boot/config.txt'
-        #     echo "SPI interface will be enabled after reboot"
-        # fi
+        # Enable SPI interface
+        if ! grep -q "dtparam=spi=on" /boot/config.txt; then
+            echo "Enabling SPI interface..."
+            sudo sh -c 'echo "dtparam=spi=on" >> /boot/config.txt'
+            echo "SPI interface will be enabled after reboot"
+        fi
         
-        # # Add user to gpio group if not already added
-        # if ! groups $USER | grep -q "gpio"; then
-        #     echo "Adding user to gpio group..."
-        #     sudo usermod -a -G gpio $USER
-        #     echo "Group permissions will take effect after logout/login"
-        # fi
+        # Add user to gpio group if not already added
+        if ! groups $USER | grep -q "gpio"; then
+            echo "Adding user to gpio group..."
+            sudo usermod -a -G gpio $USER
+            echo "Group permissions will take effect after logout/login"
+        fi
         
-        # # Create udev rule for NeoPixel access if it doesn't exist
-        # if [ ! -f "/etc/udev/rules.d/99-neopixel.rules" ]; then
-        #     echo "Setting up NeoPixel permissions..."
-        #     sudo sh -c 'echo "SUBSYSTEM==\"gpio*\", PROGRAM=\"/bin/sh -c '\''chown -R root:gpio /sys/class/gpio && chmod -R 770 /sys/class/gpio; chown -R root:gpio /sys/devices/virtual/gpio && chmod -R 770 /sys/devices/virtual/gpio; chown -R root:gpio /sys/devices/platform/soc/*.gpio/gpio && chmod -R 770 /sys/devices/platform/soc/*.gpio/gpio'\''\"\nSUBSYSTEM==\"spi*\", PROGRAM=\"/bin/sh -c '\''chown -R root:gpio /sys/bus/spi/devices/spi0.0 && chmod -R 770 /sys/bus/spi/devices/spi0.0'\''"' > /etc/udev/rules.d/99-neopixel.rules'
-        #     sudo udevadm control --reload-rules
-        #     sudo udevadm trigger
-        # fi
+        # Create udev rule for NeoPixel access if it doesn't exist
+        if [ ! -f "/etc/udev/rules.d/99-neopixel.rules" ]; then
+            echo "Setting up NeoPixel permissions..."
+            sudo sh -c 'echo "SUBSYSTEM==\"gpio*\", PROGRAM=\"/bin/sh -c '\''chown -R root:gpio /sys/class/gpio && chmod -R 770 /sys/class/gpio; chown -R root:gpio /sys/devices/virtual/gpio && chmod -R 770 /sys/devices/virtual/gpio; chown -R root:gpio /sys/devices/platform/soc/*.gpio/gpio && chmod -R 770 /sys/devices/platform/soc/*.gpio/gpio'\''\"\nSUBSYSTEM==\"spi*\", PROGRAM=\"/bin/sh -c '\''chown -R root:gpio /sys/bus/spi/devices/spi0.0 && chmod -R 770 /sys/bus/spi/devices/spi0.0'\''"' > /etc/udev/rules.d/99-neopixel.rules'
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger
+        fi
 
         sudo python3 -m pip install --force-reinstall adafruit-blinka        
         echo ""
