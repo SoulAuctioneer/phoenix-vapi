@@ -72,20 +72,61 @@ class AudioProducer:
         self.active = True
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
+        self._resize_lock = threading.Lock()
+        self._volume_lock = threading.Lock()
+        self._processing = threading.Event()
 
     def resize_chunk(self, audio_data: np.ndarray, processor_pool: AudioProcessorPool) -> List[np.ndarray]:
         """Resize audio chunk to desired size, handling remainder samples"""
         if self.chunk_size is None:
             return [audio_data]
             
-        chunks, self._remainder = processor_pool.process_audio("resize", (self.chunk_size, audio_data, self._remainder))
-        return chunks
+        # Store remainder locally to prevent race conditions
+        with self._resize_lock:
+            current_remainder = self._remainder
+            self._remainder = np.array([], dtype=np.int16)  # Clear remainder while processing
+            
+        chunks_result = []
+        resize_complete = threading.Event()
+        
+        def resize_callback(result):
+            chunks, new_remainder = result
+            with self._resize_lock:
+                self._remainder = new_remainder
+            chunks_result.append(chunks)
+            resize_complete.set()
+            
+        # Process with high priority since this blocks the input pipeline
+        processor_pool.process_audio_async(
+            "resize",
+            (self.chunk_size, audio_data, current_remainder),
+            resize_callback,
+            priority=2
+        )
+        
+        # Wait for result with timeout
+        if not resize_complete.wait(timeout=0.05):  # Reduced timeout since this blocks input
+            logging.warning(f"Resize operation timed out for producer {self.name}")
+            return [audio_data]
+            
+        return chunks_result[0]
 
-    def apply_volume(self, audio_data: np.ndarray, processor_pool: AudioProcessorPool) -> np.ndarray:
-        """Apply volume control to int16 audio data"""
+    def process_volume(self, audio_data: np.ndarray, processor_pool: AudioProcessorPool, callback: Callable[[np.ndarray], None]):
+        """Process volume asynchronously without blocking"""
         if self.volume == 1.0:
-            return audio_data
-        return processor_pool.process_audio("volume", (audio_data, self.volume))
+            callback(audio_data)
+            return
+            
+        with self._volume_lock:
+            current_volume = self.volume
+            
+        # Process with normal priority since we handle results asynchronously
+        processor_pool.process_audio_async(
+            "volume",
+            (audio_data, current_volume),
+            callback,
+            priority=1
+        )
 
 class AudioManager:
     """Manages audio resources and provides thread-safe access"""
@@ -334,34 +375,88 @@ class AudioManager:
                 
     def _output_loop(self):
         """Main output processing loop"""
-        logging.info("Output processing loop started")
-        last_producer_log = 0  # Track when we last logged producer states
-        no_data_count = 0  # Track consecutive no-data iterations
-        
         while self._running:
             try:
                 # Collect audio from all active producers
                 chunks = []
-                with self._producers_lock:
-                    for producer in self._producers.values():
-                        if not producer.active:
-                            continue
-                        chunk = producer.buffer.get()
-                        if chunk is not None:
-                            # Apply volume control
-                            chunk = producer.apply_volume(chunk, self._processor_pool)
-                            chunks.append(chunk)
+                volume_processed = []
+                chunks_ready = threading.Event()
                 
-                if not chunks:
-                    # No audio to process, sleep briefly
+                with self._producers_lock:
+                    active_producers = [p for p in self._producers.values() if p.active]
+                    
+                if not active_producers:
                     time.sleep(0.001)
                     continue
+                    
+                # Process all producers in parallel
+                for producer in active_producers:
+                    chunk = producer.buffer.get()
+                    if chunk is not None:
+                        chunks.append(chunk)
+                        
+                        def make_volume_callback(idx):
+                            def callback(processed_chunk):
+                                volume_processed.append((idx, processed_chunk))
+                                if len(volume_processed) == len(chunks):
+                                    chunks_ready.set()
+                            return callback
+                            
+                        producer.process_volume(
+                            chunk,
+                            self._processor_pool,
+                            make_volume_callback(len(chunks) - 1)
+                        )
                 
-                # Mix audio chunks using processor pool
-                mixed_chunk = self._processor_pool.process_audio("mix", chunks)
+                if not chunks:
+                    time.sleep(0.001)
+                    continue
+                    
+                # Wait for all volume processing to complete
+                if not chunks_ready.wait(timeout=0.1):
+                    logging.warning("Volume processing timed out")
+                    continue
+                    
+                # Sort processed chunks back into original order
+                volume_processed.sort(key=lambda x: x[0])
+                processed_chunks = [chunk for _, chunk in volume_processed]
                 
-                if len(mixed_chunk) > 0:
-                    self._output_stream.write(mixed_chunk.tobytes())
+                # Mix audio chunks asynchronously
+                mix_ready = threading.Event()
+                mixed_result = []
+                
+                def mix_callback(result):
+                    mixed_result.append(result)
+                    mix_ready.set()
+                    
+                # Process mixing with high priority
+                self._processor_pool.process_audio_async(
+                    "mix",
+                    processed_chunks,
+                    mix_callback,
+                    priority=2
+                )
+                
+                # Wait for mixing to complete
+                if not mix_ready.wait(timeout=0.1):
+                    logging.warning("Mix processing timed out")
+                    continue
+                    
+                # Write mixed audio to output
+                if mixed_result and len(mixed_result[0]) > 0:
+                    self._output_stream.write(mixed_result[0].tobytes())
+                    
+                # Log performance stats periodically
+                if self._stats_counter % 100 == 0:  # Every 100 iterations
+                    stats = self._processor_pool.get_stats()
+                    logging.info(
+                        f"Audio processing stats: "
+                        f"processed={stats.tasks_processed}, "
+                        f"timeouts={stats.tasks_timed_out}, "
+                        f"avg_time={stats.avg_processing_time:.3f}ms, "
+                        f"avg_queue={stats.avg_queue_size:.1f}"
+                    )
+                self._stats_counter += 1
                     
             except Exception as e:
                 logging.error(f"Error in output loop: {e}", exc_info=True)
