@@ -150,12 +150,13 @@ class LocationManager:
                 )
                 self.logger.debug(f"Raw scan complete, found {len(devices)} devices")
                 # Log details about each device found
-                for addr, (device, adv) in devices.items():
-                    mfg_data = "No mfg data"
-                    if adv.manufacturer_data:
-                        mfg_ids = [f"0x{id:04x}" for id in adv.manufacturer_data.keys()]
-                        mfg_data = f"Mfg IDs: {', '.join(mfg_ids)}"
-                    self.logger.debug(f"  Device {addr}: RSSI={adv.rssi}dB, {mfg_data}")
+                # Too noisy, disable for now
+                # for addr, (device, adv) in devices.items():
+                #     mfg_data = "No mfg data"
+                #     if adv.manufacturer_data:
+                #         mfg_ids = [f"0x{id:04x}" for id in adv.manufacturer_data.keys()]
+                #         mfg_data = f"Mfg IDs: {', '.join(mfg_ids)}"
+                #     self.logger.debug(f"  Device {addr}: RSSI={adv.rssi}dB, {mfg_data}")
             except asyncio.TimeoutError:
                 self.logger.warning("BLE scan timed out")
                 return []
@@ -204,8 +205,9 @@ class LocationManager:
                 except Exception as e:
                     self.logger.warning(f"Error processing device {device.address}: {e}")
                     continue
-            
-            self.logger.debug(f"Scan processing complete - Found {len(devices)} total devices, {apple_device_count} Apple devices, {ibeacon_count} iBeacons, {len(smoothed_devices)} valid beacons")
+
+            # Too noisy, disable for now
+            # self.logger.debug(f"Scan processing complete - Found {len(devices)} total devices, {apple_device_count} Apple devices, {ibeacon_count} iBeacons, {len(smoothed_devices)} valid beacons")
             return smoothed_devices
             
         except Exception as e:
