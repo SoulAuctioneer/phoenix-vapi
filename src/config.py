@@ -219,7 +219,7 @@ class BLEConfig:
     UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
     
     # RSSI smoothing
-    RSSI_EMA_ALPHA = 0.15  # Exponential moving average alpha (0-1) (was 0.2)
+    RSSI_EMA_ALPHA = 0.2  # Exponential moving average alpha (0-1) (was 0.2)
                           # Higher = more weight to recent readings
     
     # Activity thresholds
@@ -241,7 +241,7 @@ class BLEConfig:
     MIN_EMPTY_SCANS_FOR_UNKNOWN = 6  # Require multiple empty scans (was 4)
     
     # Add preference for maintaining current location
-    CURRENT_LOCATION_RSSI_BONUS = 8  # Add virtual dB to current location (was 5)
+    CURRENT_LOCATION_RSSI_BONUS = 5  # Add virtual dB to current location (was 5)
     
     # Minimum time between location changes
-    MIN_TIME_BETWEEN_CHANGES = 20.0  # Minimum seconds between location changes (was 15.0)
+    MIN_TIME_BETWEEN_CHANGES = 10.0  # Minimum seconds between location changes (was 15.0)
