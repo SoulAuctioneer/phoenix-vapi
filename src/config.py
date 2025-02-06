@@ -212,8 +212,8 @@ class BLEConfig:
     RSSI_HYSTERESIS = 12  # Required RSSI difference to switch locations (dB) (was 8)
     
     # Scan intervals and timeouts (in seconds)
-    SCAN_DURATION = 2.0          # Duration for BLE hardware to scan for devices
-    SCAN_INTERVAL = 4.0          # Time between periodic scans (was 3.0)
+    SCAN_DURATION = 3.0          # Duration for BLE hardware to scan for devices
+    SCAN_INTERVAL = 5.0          # Time between periodic scans (was 3.0)
     LOW_POWER_SCAN_INTERVAL = 30.0  # Scan interval when no activity
     ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
     UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
