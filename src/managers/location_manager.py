@@ -343,7 +343,7 @@ class LocationManager:
                 async with self._scanning_lock:
                     self.logger.debug("Starting beacon scan...")
                     devices = await self._scan_beacons()
-                    self.logger.debug(f"Beacon scan complete, found {len(devices)} devices")
+                    self.logger.debug(f"Beacon scan complete, found {len(devices)} location beacons. Current location: {self._last_location.get('location')}")
             except asyncio.TimeoutError:
                 self.logger.debug("Skipping scan - operation timed out")
                 return self._last_location
@@ -473,64 +473,51 @@ class LocationManager:
             return Distance.UNKNOWN
             
     def _get_strongest_beacon(self, devices: List[Tuple[Tuple[int, int], int]]) -> Optional[Tuple[Tuple[int, int], int]]:
-        """Returns the known beacon with strongest smoothed signal"""
-        # Filter out weak signals
-        valid_devices = [(addr, rssi) for addr, rssi in devices 
-                        if rssi >= BLEConfig.MIN_RSSI_THRESHOLD]
-        
-        if not valid_devices:
+        """Returns the strongest beacon considering hysteresis and equidistant cases"""
+        if not devices:
             return None
             
-        current_time = time.time()
-        # Check minimum time between changes
-        if (current_time - self._last_location_change_time) < BLEConfig.MIN_TIME_BETWEEN_CHANGES:
-            # Return current beacon if available
-            current_location = self._last_location.get("location")
-            if current_location and current_location != "unknown":
-                current_addr = next(
-                    (addr for addr, loc in BLEConfig.BEACON_LOCATIONS.items() 
-                     if loc == current_location), 
-                    None
-                )
-                if current_addr:
-                    current_beacon = next(
-                        ((addr, rssi) for addr, rssi in valid_devices 
-                         if addr == current_addr),
-                        None
-                    )
-                    if current_beacon:
-                        return current_beacon
+        # Sort by RSSI
+        sorted_devices = sorted(devices, key=lambda x: x[1], reverse=True)
         
-        # Add hysteresis to prevent rapid switching
-        current_location = self._last_location.get("location") if self._last_location else None
-        
+        # Add bonus to current location if it exists
+        current_location = self._last_location.get("location")
         if current_location and current_location != "unknown":
-            # Find current beacon's address
             current_addr = next(
                 (addr for addr, loc in BLEConfig.BEACON_LOCATIONS.items() 
                  if loc == current_location), 
                 None
             )
-            
             if current_addr:
-                # Find current beacon in devices
-                current_beacon = next(
-                    ((addr, rssi) for addr, rssi in valid_devices if addr == current_addr),
-                    None
-                )
-                
-                if current_beacon:
-                    # Check all other beacons
-                    for addr, rssi in valid_devices:
-                        if addr != current_addr:
-                            # Only switch if another beacon is significantly stronger
-                            if rssi > (current_beacon[1] + BLEConfig.RSSI_HYSTERESIS):
-                                return max(valid_devices, key=lambda x: x[1])
-                    # If no significantly stronger beacon found, stick with current
-                    return current_beacon
+                sorted_devices = [(addr, rssi + (BLEConfig.CURRENT_LOCATION_RSSI_BONUS if addr == current_addr else 0))
+                                for addr, rssi in sorted_devices]
+                sorted_devices.sort(key=lambda x: x[1], reverse=True)
         
-        # If no current location or current beacon not found, simply return strongest
-        return max(valid_devices, key=lambda x: x[1])
+        # Check if top beacons are within equality threshold
+        if len(sorted_devices) >= 2:
+            rssi_diff = abs(sorted_devices[0][1] - sorted_devices[1][1])
+            if rssi_diff <= BLEConfig.RSSI_EQUALITY_THRESHOLD:
+                # If equidistant, maintain current location if it's one of them
+                if current_location and current_location != "unknown":
+                    current_addr = next(
+                        (addr for addr, loc in BLEConfig.BEACON_LOCATIONS.items() 
+                         if loc == current_location), 
+                        None
+                    )
+                    if current_addr in [addr for addr, _ in sorted_devices[:2]]:
+                        return next(
+                            device for device in sorted_devices 
+                            if device[0] == current_addr
+                        )
+                
+                # Otherwise, maintain previous strongest if it's one of them
+                if self._last_strongest and self._last_strongest[0] in [addr for addr, _ in sorted_devices[:2]]:
+                    return next(
+                        device for device in sorted_devices 
+                        if device[0] == self._last_strongest[0]
+                    )
+        
+        return sorted_devices[0]
         
     def get_current_location(self) -> Dict[str, Any]:
         """Returns the current location information"""
