@@ -186,14 +186,12 @@ class BLEConfig:
     BLUETOOTH_INTERFACE = "hci0"
     
     # iBeacon UUID for our beacons
-    # BEACON_UUID = "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6"
-    BEACON_UUID = "8E77A3BF-9497-4D6F-8D22-26B815007B15"
+    BEACON_UUID = "426C7565-4368-6172-6D42-656163F6E73"
 
     # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
-        (1, 1): "kitchen",
-        (1, 2): "bedroom",
-        (1, 3): "library"
+        (1, 1): "library",
+        (1, 2): "bedroom"
     }
     
     # RSSI thresholds for distance estimation (in dB)
@@ -205,8 +203,6 @@ class BLEConfig:
     # RSSI hysteresis to prevent location flapping
     RSSI_HYSTERESIS = 5  # Required RSSI difference to switch locations (dB)
     
-
-
     # Scan intervals and timeouts (in seconds)
     SCAN_DURATION = 1.0          # Duration for BLE hardware to scan for devices
     SCAN_INTERVAL = 3.0          # Time between periodic scans
