@@ -203,17 +203,17 @@ class BLEConfig:
                          # Weaker than -85 dB = UNKNOWN
     
     # RSSI hysteresis to prevent location flapping
-    RSSI_HYSTERESIS = 5  # Required RSSI difference to switch locations (dB)
+    RSSI_HYSTERESIS = 8  # Required RSSI difference to switch locations (dB)
     
     # Scan intervals and timeouts (in seconds)
-    SCAN_DURATION = 1.0          # Duration for BLE hardware to scan for devices
+    SCAN_DURATION = 2.0          # Duration for BLE hardware to scan for devices
     SCAN_INTERVAL = 3.0          # Time between periodic scans
     LOW_POWER_SCAN_INTERVAL = 30.0  # Scan interval when no activity
     ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
     UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
     
     # RSSI smoothing
-    RSSI_EMA_ALPHA = 0.3  # Exponential moving average alpha (0-1)
+    RSSI_EMA_ALPHA = 0.2  # Exponential moving average alpha (0-1)
                           # Higher = more weight to recent readings
     
     # Activity thresholds
@@ -221,3 +221,9 @@ class BLEConfig:
     
     # Distance change thresholds (in meters)
     DISTANCE_CHANGE_THRESHOLD = 1.0  # Minimum change to trigger proximity update
+
+    # Add minimum consecutive readings before location change
+    MIN_READINGS_FOR_CHANGE = 2  # Require multiple consistent readings
+    
+    # Add timeout before declaring location unknown
+    BEACON_TIMEOUT_SEC = 6.0     # Wait for multiple missed scans before going unknown

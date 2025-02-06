@@ -24,6 +24,8 @@ class LocationManager:
         self._scanning_lock = asyncio.Lock()  # Add lock for scan coordination
         # Initialize RSSI smoothing
         self._rssi_ema = defaultdict(lambda: None)  # Stores EMA for each beacon
+        self._consecutive_readings = defaultdict(int)
+        self._last_seen_timestamps = defaultdict(float)
         
     def _ensure_bluetooth_powered(self) -> bool:
         """Ensures Bluetooth adapter is powered on
@@ -349,7 +351,14 @@ class LocationManager:
             return self._last_location
             
         if not devices:
-            self.logger.debug("No devices found in scan")
+            # Check timeout before declaring unknown
+            current_time = time.time()
+            for location in self._last_location.get("all_beacons", {}):
+                if (current_time - self._last_seen_timestamps[location]) < BLEConfig.BEACON_TIMEOUT_SEC:
+                    # Keep last known state if within timeout
+                    return self._last_location
+            
+            self._consecutive_readings.clear()
             self._no_activity_count += 1
             return {
                 "location": "unknown",
@@ -357,41 +366,46 @@ class LocationManager:
                 "all_beacons": {}
             }
             
-        strongest_beacon = self._get_strongest_beacon(devices)
-        if not strongest_beacon:
-            self.logger.debug("No valid beacons found in scan results")
-            self._no_activity_count += 1
-            return {
-                "location": "unknown",
-                "distance": Distance.UNKNOWN,
-                "all_beacons": {}
-            }
-            
-        # Process all visible beacons
-        all_beacons = {}
+        # Update last seen timestamps for detected beacons
+        current_time = time.time()
         for addr, rssi in devices:
             location = BLEConfig.BEACON_LOCATIONS[addr]
-            distance = self._estimate_distance(rssi)
-            all_beacons[location] = {
-                "distance": distance,
-                "rssi": rssi
-            }
-            self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Distance={distance}")
+            self._last_seen_timestamps[location] = current_time
             
-        # Get primary location from strongest beacon
-        addr, rssi = strongest_beacon
-        location = BLEConfig.BEACON_LOCATIONS[addr]
-        distance = self._estimate_distance(rssi)
-        
-        self._no_activity_count = 0
-        self._last_location = {
-            "location": location,
-            "distance": distance,
-            "all_beacons": all_beacons
-        }
-        
-        self.logger.debug(f"Scan complete - Location: {location}, Distance: {distance}, Beacons: {len(all_beacons)}")
-        return self._last_location
+        # Get strongest beacon considering consecutive readings
+        strongest = self._get_strongest_beacon(devices)
+        if strongest:
+            addr, rssi = strongest
+            location = BLEConfig.BEACON_LOCATIONS[addr]
+            self._consecutive_readings[location] += 1
+            
+            # Only change location after minimum consecutive readings
+            if self._consecutive_readings[location] >= BLEConfig.MIN_READINGS_FOR_CHANGE:
+                # Process all visible beacons
+                all_beacons = {}
+                for addr, rssi in devices:
+                    location = BLEConfig.BEACON_LOCATIONS[addr]
+                    distance = self._estimate_distance(rssi)
+                    all_beacons[location] = {
+                        "distance": distance,
+                        "rssi": rssi
+                    }
+                    self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Distance={distance}")
+                
+                self._no_activity_count = 0
+                self._last_location = {
+                    "location": location,
+                    "distance": self._estimate_distance(rssi),
+                    "all_beacons": all_beacons
+                }
+                
+                self.logger.debug(f"Scan complete - Location: {location}, Distance: {self._estimate_distance(rssi)}, Beacons: {len(all_beacons)}")
+                return self._last_location
+            else:
+                # Keep previous location until minimum readings reached
+                return self._last_location
+                
+        # ... rest of method ...
         
     async def start(self) -> None:
         """Starts the location manager"""
