@@ -200,26 +200,26 @@ class BLEConfig:
     }
     
     # RSSI thresholds for distance estimation (in dB)
-    RSSI_IMMEDIATE = -50  # Stronger than -50 dB = IMMEDIATE
-    RSSI_NEAR = -70      # Between -70 and -50 dB = NEAR
-    RSSI_FAR = -85       # Between -85 and -70 dB = FAR
-                         # Weaker than -85 dB = UNKNOWN
+    RSSI_IMMEDIATE = -55  # Stronger than -55 dB = IMMEDIATE (was -50)
+    RSSI_NEAR = -75      # Between -75 and -55 dB = NEAR (was -70)
+    RSSI_FAR = -90      # Between -90 and -75 dB = FAR (was -85)
+                         # Weaker than -90 dB = UNKNOWN
     
     # Minimum RSSI threshold for considering a beacon signal valid
-    MIN_RSSI_THRESHOLD = -90  # Signals weaker than -90 dB are ignored
+    MIN_RSSI_THRESHOLD = -95  # Signals weaker than -95 dB are ignored (was -90)
     
     # RSSI hysteresis to prevent location flapping
-    RSSI_HYSTERESIS = 8  # Required RSSI difference to switch locations (dB)
+    RSSI_HYSTERESIS = 12  # Required RSSI difference to switch locations (dB) (was 8)
     
     # Scan intervals and timeouts (in seconds)
     SCAN_DURATION = 2.0          # Duration for BLE hardware to scan for devices
-    SCAN_INTERVAL = 3.0          # Time between periodic scans
+    SCAN_INTERVAL = 4.0          # Time between periodic scans (was 3.0)
     LOW_POWER_SCAN_INTERVAL = 30.0  # Scan interval when no activity
     ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
     UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
     
     # RSSI smoothing
-    RSSI_EMA_ALPHA = 0.2  # Exponential moving average alpha (0-1)
+    RSSI_EMA_ALPHA = 0.15  # Exponential moving average alpha (0-1) (was 0.2)
                           # Higher = more weight to recent readings
     
     # Activity thresholds
@@ -229,19 +229,19 @@ class BLEConfig:
     DISTANCE_CHANGE_THRESHOLD = 1.0  # Minimum change to trigger proximity update
 
     # Add minimum consecutive readings before location change
-    MIN_READINGS_FOR_CHANGE = 2  # Require multiple consistent readings
+    MIN_READINGS_FOR_CHANGE = 3  # Require multiple consistent readings (was 2)
 
     # Define threshold for considering beacons as equidistant
-    RSSI_EQUALITY_THRESHOLD = 8  # If RSSI difference is less than this, consider equal
+    RSSI_EQUALITY_THRESHOLD = 10  # If RSSI difference is less than this, consider equal (was 8)
     
-    # Increase beacon timeout significantly
-    BEACON_TIMEOUT_SEC = 15.0    # Wait longer before declaring unknown
+    # Beacon timeout significantly increased
+    BEACON_TIMEOUT_SEC = 12.0    # Wait longer before declaring unknown (was 6.0)
     
     # Add minimum consecutive empty scans before unknown
-    MIN_EMPTY_SCANS_FOR_UNKNOWN = 4  # Require multiple empty scans
+    MIN_EMPTY_SCANS_FOR_UNKNOWN = 6  # Require multiple empty scans (was 4)
     
     # Add preference for maintaining current location
-    CURRENT_LOCATION_RSSI_BONUS = 5  # Add virtual dB to current location
+    CURRENT_LOCATION_RSSI_BONUS = 8  # Add virtual dB to current location (was 5)
     
     # Minimum time between location changes
-    MIN_TIME_BETWEEN_CHANGES = 15.0  # Minimum seconds between location changes
+    MIN_TIME_BETWEEN_CHANGES = 20.0  # Minimum seconds between location changes (was 15.0)
