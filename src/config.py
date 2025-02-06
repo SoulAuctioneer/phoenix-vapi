@@ -235,7 +235,7 @@ class BLEConfig:
     RSSI_EQUALITY_THRESHOLD = 8  # If RSSI difference is less than this, consider equal
     
     # Increase beacon timeout significantly
-    BEACON_TIMEOUT_SEC = 15.0    # Wait longer before declaring unknown (was 9.0)
+    BEACON_TIMEOUT_SEC = 15.0    # Wait longer before declaring unknown
     
     # Add minimum consecutive empty scans before unknown
     MIN_EMPTY_SCANS_FOR_UNKNOWN = 4  # Require multiple empty scans
@@ -243,5 +243,5 @@ class BLEConfig:
     # Add preference for maintaining current location
     CURRENT_LOCATION_RSSI_BONUS = 5  # Add virtual dB to current location
     
-    # Add timeout before declaring location unknown
-    BEACON_TIMEOUT_SEC = 6.0     # Wait for multiple missed scans before going unknown
+    # Minimum time between location changes
+    MIN_TIME_BETWEEN_CHANGES = 15.0  # Minimum seconds between location changes
