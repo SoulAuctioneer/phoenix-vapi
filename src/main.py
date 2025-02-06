@@ -23,8 +23,8 @@ for logger_name in [
     'services.conversation',
     'services.service',
     # Too noisy, disable for now
-    # 'managers.location_manager',
-    # 'services.location_service'
+    'managers.location_manager',
+    'services.location_service'
 ]:
     logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
