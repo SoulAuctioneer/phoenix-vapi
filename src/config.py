@@ -205,6 +205,9 @@ class BLEConfig:
     RSSI_FAR = -85       # Between -85 and -70 dB = FAR
                          # Weaker than -85 dB = UNKNOWN
     
+    # Minimum RSSI threshold for considering a beacon signal valid
+    MIN_RSSI_THRESHOLD = -90  # Signals weaker than -90 dB are ignored
+    
     # RSSI hysteresis to prevent location flapping
     RSSI_HYSTERESIS = 8  # Required RSSI difference to switch locations (dB)
     
