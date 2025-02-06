@@ -403,12 +403,13 @@ class LocationManager:
             return
             
         self._is_running = True
-        
-        # Start discovery scan in background
-        # self.logger.info("Starting initial discovery scan in background...")
-        # asyncio.create_task(self._run_initial_discovery())
             
         self.logger.info("Location manager started")
+        
+        # Start discovery scan in background
+        if BLEConfig.RUN_STARTUP_SCAN:
+            self.logger.info("Starting initial discovery scan in background...")
+            asyncio.create_task(self._run_initial_discovery())
         
     async def _run_initial_discovery(self) -> None:
         """Runs the initial discovery scan in the background"""

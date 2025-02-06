@@ -182,6 +182,8 @@ class Distance(Enum):
 
 class BLEConfig:
     """Configuration for BLE scanning and beacons"""
+    RUN_STARTUP_SCAN = True
+
     # Bluetooth interface (usually hci0)
     BLUETOOTH_INTERFACE = "hci0"
     
