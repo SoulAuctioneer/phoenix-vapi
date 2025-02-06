@@ -26,6 +26,8 @@ class LocationManager:
         self._rssi_ema = defaultdict(lambda: None)  # Stores EMA for each beacon
         self._consecutive_readings = defaultdict(int)
         self._last_seen_timestamps = defaultdict(float)
+        self._empty_scan_count = 0
+        self._last_location_change_time = 0.0
         
     def _ensure_bluetooth_powered(self) -> bool:
         """Ensures Bluetooth adapter is powered on
@@ -380,7 +382,9 @@ class LocationManager:
             self._consecutive_readings[location] += 1
             
             # Only change location after minimum consecutive readings
-            if self._consecutive_readings[location] >= BLEConfig.MIN_READINGS_FOR_CHANGE:
+            if (self._consecutive_readings[location] >= BLEConfig.MIN_READINGS_FOR_CHANGE and
+                location != self._last_location.get("location")):
+                self._last_location_change_time = time.time()
                 # Process all visible beacons
                 all_beacons = {}
                 for addr, rssi in devices:
@@ -469,18 +473,34 @@ class LocationManager:
             return Distance.UNKNOWN
             
     def _get_strongest_beacon(self, devices: List[Tuple[Tuple[int, int], int]]) -> Optional[Tuple[Tuple[int, int], int]]:
-        """Returns the known beacon with strongest smoothed signal
+        """Returns the known beacon with strongest smoothed signal"""
+        # Filter out weak signals
+        valid_devices = [(addr, rssi) for addr, rssi in devices 
+                        if rssi >= BLEConfig.MIN_RSSI_THRESHOLD]
         
-        Args:
-            devices: List of ((major, minor), rssi) tuples
-            
-        Returns:
-            Optional tuple of ((major, minor), rssi) for the strongest beacon,
-            considering hysteresis if there's a current location
-        """
-        if not devices:
+        if not valid_devices:
             return None
             
+        current_time = time.time()
+        # Check minimum time between changes
+        if (current_time - self._last_location_change_time) < BLEConfig.MIN_TIME_BETWEEN_CHANGES:
+            # Return current beacon if available
+            current_location = self._last_location.get("location")
+            if current_location and current_location != "unknown":
+                current_addr = next(
+                    (addr for addr, loc in BLEConfig.BEACON_LOCATIONS.items() 
+                     if loc == current_location), 
+                    None
+                )
+                if current_addr:
+                    current_beacon = next(
+                        ((addr, rssi) for addr, rssi in valid_devices 
+                         if addr == current_addr),
+                        None
+                    )
+                    if current_beacon:
+                        return current_beacon
+        
         # Add hysteresis to prevent rapid switching
         current_location = self._last_location.get("location") if self._last_location else None
         
@@ -495,22 +515,22 @@ class LocationManager:
             if current_addr:
                 # Find current beacon in devices
                 current_beacon = next(
-                    ((addr, rssi) for addr, rssi in devices if addr == current_addr),
+                    ((addr, rssi) for addr, rssi in valid_devices if addr == current_addr),
                     None
                 )
                 
                 if current_beacon:
                     # Check all other beacons
-                    for addr, rssi in devices:
+                    for addr, rssi in valid_devices:
                         if addr != current_addr:
                             # Only switch if another beacon is significantly stronger
                             if rssi > (current_beacon[1] + BLEConfig.RSSI_HYSTERESIS):
-                                return max(devices, key=lambda x: x[1])
+                                return max(valid_devices, key=lambda x: x[1])
                     # If no significantly stronger beacon found, stick with current
                     return current_beacon
         
         # If no current location or current beacon not found, simply return strongest
-        return max(devices, key=lambda x: x[1])
+        return max(valid_devices, key=lambda x: x[1])
         
     def get_current_location(self) -> Dict[str, Any]:
         """Returns the current location information"""

@@ -182,6 +182,9 @@ class Distance(Enum):
 
 class BLEConfig:
     """Configuration for BLE scanning and beacons"""
+
+    # NOTE: For reference, the beacons are broadcasting every 200ms.
+
     RUN_STARTUP_SCAN = False
 
     # Bluetooth interface (usually hci0)
@@ -224,6 +227,18 @@ class BLEConfig:
 
     # Add minimum consecutive readings before location change
     MIN_READINGS_FOR_CHANGE = 2  # Require multiple consistent readings
+
+    # Define threshold for considering beacons as equidistant
+    RSSI_EQUALITY_THRESHOLD = 8  # If RSSI difference is less than this, consider equal
+    
+    # Increase beacon timeout significantly
+    BEACON_TIMEOUT_SEC = 15.0    # Wait longer before declaring unknown (was 9.0)
+    
+    # Add minimum consecutive empty scans before unknown
+    MIN_EMPTY_SCANS_FOR_UNKNOWN = 4  # Require multiple empty scans
+    
+    # Add preference for maintaining current location
+    CURRENT_LOCATION_RSSI_BONUS = 5  # Add virtual dB to current location
     
     # Add timeout before declaring location unknown
     BEACON_TIMEOUT_SEC = 6.0     # Wait for multiple missed scans before going unknown
