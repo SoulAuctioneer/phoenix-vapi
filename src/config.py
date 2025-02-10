@@ -121,7 +121,7 @@ class CallConfig:
         SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         BUFFER_SIZE = AudioBaseConfig.BUFFER_SIZE
-        DEFAULT_VOLUME = AudioBaseConfig.DEFAULT_VOLUME
+        DEFAULT_VOLUME = 0.3
     
     class Vapi:
         """Vapi API configuration"""
@@ -134,7 +134,7 @@ class CallConfig:
         MIC_DEVICE_ID = "my-mic"
         SPEAKER_DEVICE_ID = "my-speaker"
         MIC_CONSTRAINTS = {
-            "autoGainControl": {"exact": False},
+            "autoGainControl": {"exact": True},
             "noiseSuppression": {"exact": True},
             "echoCancellation": {"exact": True},
         }
