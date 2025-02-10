@@ -114,6 +114,8 @@ class AudioBaseConfig:
 # Audio Configuration for Calls
 class CallConfig:
     """Unified configuration for call-related settings"""
+
+    MUTE_WHEN_ASSISTANT_SPEAKING = True
     
     class Audio:
         """Audio-specific configuration"""

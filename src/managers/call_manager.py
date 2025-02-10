@@ -11,6 +11,9 @@ from managers.audio_manager import AudioManager
 from config import CallConfig
 import queue
 
+logger = logging.getLogger('call_manager')
+logger.setLevel(logging.DEBUG)
+
 class CallState(Enum):
     """Possible states for a call, matching Daily's API states"""
     INITIALIZED = "initialized"  # Initial state, ready to start a call
@@ -55,6 +58,9 @@ class CallStateManager:
         self._participants = {}
         self._volume = CallConfig.Audio.DEFAULT_VOLUME
         self._start_event = asyncio.Event()
+        self._is_muted = False  # Track microphone mute state
+        self._user_speaking = False  # Track if user is currently speaking
+        self._assistant_speaking = False  # Track if assistant is currently speaking
         
     @property
     def state(self) -> CallState:
@@ -65,6 +71,21 @@ class CallStateManager:
     def start_event(self) -> asyncio.Event:
         """Event used for synchronizing call start"""
         return self._start_event
+        
+    @property
+    def is_muted(self) -> bool:
+        """Get the current mute state"""
+        return self._is_muted
+        
+    @property 
+    def user_speaking(self) -> bool:
+        """Whether the user is currently speaking"""
+        return self._user_speaking
+        
+    @property
+    def assistant_speaking(self) -> bool:
+        """Whether the assistant is currently speaking"""
+        return self._assistant_speaking
         
     def register_handler(self, state: CallState, handler):
         """Register a handler for a specific state"""
@@ -134,6 +155,7 @@ class CallStateManager:
         self._start_event.clear()
         self._participants.clear()
         self._volume = CallConfig.Audio.DEFAULT_VOLUME
+        self._is_muted = False  # Reset mute state
         self._state = CallState.INITIALIZED  # Reset to initialized state
         logging.info(f"Reset state from {old_state} to {self._state}")
     
@@ -160,6 +182,23 @@ class CallStateManager:
     def get_participants(self) -> dict:
         """Get all participants"""
         return self._participants.copy()
+
+    def set_muted(self, muted: bool):
+        """Set the mute state"""
+        self._is_muted = muted
+
+    def set_speaking_state(self, role: str, is_speaking: bool):
+        """Update the speaking state for a given role"""
+        if role.lower() == "user":
+            self._user_speaking = is_speaking
+        elif role.lower() == "assistant":
+            self._assistant_speaking = is_speaking
+        # Toggle the mute state if the assistant is speaking
+        if CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
+            if self._assistant_speaking:
+                self._is_muted = True
+            else:
+                self._is_muted = False
 
 
 def thread_safe_event(func):
@@ -346,16 +385,18 @@ class CallManager:
         self._event_handler = CallEventHandler(self)
         self._call_client = daily.CallClient(event_handler=self._event_handler)
         
+        # Initialize with microphone enabled (unmuted)
         self._call_client.update_inputs({
             "camera": False,
             "microphone": {
-                "isEnabled": True,
+                "isEnabled": True,  # Start unmuted
                 "settings": {
                     "deviceId": CallConfig.Daily.MIC_DEVICE_ID,
                     "customConstraints": CallConfig.Daily.MIC_CONSTRAINTS
                 }
             }
         })
+        self.state_manager.set_muted(False)  # Initialize mute state
         
         self._call_client.update_subscription_profiles(CallConfig.Daily.SUBSCRIPTION_PROFILES)
         
@@ -555,6 +596,7 @@ class CallManager:
 
     async def handle_app_message(self, message, sender):
         """Handle app messages"""
+
         # Convert string messages to dict if needed
         if isinstance(message, str):
             try:
@@ -569,11 +611,14 @@ class CallManager:
         # Handle different message types
         if msg_type == "status-update":
             status = message.get("status", "")
-            logging.debug(f"Status update: {status}")
+            logging.info(f"Status update: {status}")
         elif msg_type == "speech-update":
             status = message.get("status", "")
             role = message.get("role", "")
-            logging.debug(f"Speech update - Status: {status}, Role: {role}")
+            # Update speaking state based on status
+            is_speaking = status == "started"
+            self.state_manager.set_speaking_state(role, is_speaking)
+            logging.info(f"Speech update - Status: {status}, Role: {role}")
         elif msg_type == "transcript":
             role = message.get("role", "")
             transcript_type = message.get("transcriptType", "")
@@ -870,7 +915,10 @@ class CallManager:
             logging.error(f"Failed to send message: {e}")
 
     def add_message(self, role, content):
-        """Send text messages with specific parameters"""
+        """ Adds the message to the conversation history.
+            role: system (Ensures the addition is unobtrusive) | user | assistant | tool | function
+            content: Actual message content.
+        """
         message = {
             'type': 'add-message',
             'message': {
@@ -879,6 +927,11 @@ class CallManager:
             }
         }
         self.send_message(message)
+
+    def interrupt_assistant(self):
+        """Stop the assistant from speaking if it's speaking"""
+        if self.state_manager.assistant_speaking and CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
+            self.add_message("user", "Wait, I want to talk. Respond only with 'Yes?'.")
 
     async def _receive_bot_audio(self):
         """Task for receiving bot audio from Daily"""
@@ -935,7 +988,9 @@ class CallManager:
                 try:
                     # Get audio data from the buffer with short timeout
                     audio_data = self._input_buffer.get(timeout=0.01)  # Reduced timeout for lower latency
-                    if audio_data is not None and self._mic_device:
+                    # TODO: We're muting just by throwing away the audio data.
+                    #       We should (also?) be muting the mic device and/or pausing the audio producer.
+                    if audio_data is not None and self._mic_device and not self.state_manager.is_muted:
                         self._mic_device.write_frames(audio_data.tobytes())
                 except queue.Empty:
                     time.sleep(0.001)  # Minimal sleep when no data
@@ -962,4 +1017,61 @@ class CallManager:
                         pass  # If still can't add, drop the frame
         except Exception as e:
             logging.error(f"Error queuing input audio: {e}")
+
+    async def mute(self):
+        """Mute the local participant's microphone"""
+        if not self._call_client or not self.state_manager.state.can_receive_audio:
+            logging.warning("Cannot mute - call not active")
+            return False
+            
+        try:
+            self._call_client.update_inputs({
+                "microphone": {
+                    "isEnabled": False,
+                    "settings": {
+                        "deviceId": CallConfig.Daily.MIC_DEVICE_ID,
+                        "customConstraints": CallConfig.Daily.MIC_CONSTRAINTS
+                    }
+                }
+            })
+            self.state_manager.set_muted(True)
+            logging.info("Microphone muted")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to mute microphone: {e}")
+            return False
+
+    async def unmute(self):
+        """Unmute the local participant's microphone"""
+        if not self._call_client or not self.state_manager.state.can_receive_audio:
+            logging.warning("Cannot unmute - call not active")
+            return False
+            
+        try:
+            self._call_client.update_inputs({
+                "microphone": {
+                    "isEnabled": True,
+                    "settings": {
+                        "deviceId": CallConfig.Daily.MIC_DEVICE_ID,
+                        "customConstraints": CallConfig.Daily.MIC_CONSTRAINTS
+                    }
+                }
+            })
+            self.state_manager.set_muted(False)
+            logging.info("Microphone unmuted")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to unmute microphone: {e}")
+            return False
+
+    async def toggle_mute(self):
+        """Toggle the mute state of the local participant's microphone"""
+        if self.state_manager.is_muted:
+            return await self.unmute()
+        else:
+            return await self.mute()
+
+    def is_muted(self) -> bool:
+        """Get the current mute state"""
+        return self.state_manager.is_muted
 

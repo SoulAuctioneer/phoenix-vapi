@@ -16,15 +16,16 @@ logging.basicConfig(
     force=True  # Override any existing logging configuration
 )
 
-# Enable debug logging for our modules
+# Enable debug logging for our services
 for logger_name in [
-    'services.audio_manager',
+    'services.service',
+    'services.audio',
     'services.wake_word',
     'services.conversation',
-    'services.service',
+    'services.led',
+    'services.special_effect',
     # Too noisy, disable for now
-    # 'managers.location_manager',
-    # 'services.location_service'
+    # 'services.location'
 ]:
     logging.getLogger(logger_name).setLevel(logging.DEBUG)
 

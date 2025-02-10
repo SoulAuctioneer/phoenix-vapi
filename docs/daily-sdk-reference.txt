@@ -1,0 +1,153 @@
+Daily Python SDK API Reference Excerpts 
+
+
+CallClient (Daily.CallClient) functions and types
+
+
+
+inputs()
+Returns the current client inputs. The inputs define the call client video and audio sources (i.e. cameras and microphones).
+
+Returns
+:
+See InputSettings
+
+Return type
+:
+Mapping[str, Any]
+
+
+
+MediaDeviceInfo:
+Key
+
+Value
+
+“deviceId”
+
+string
+
+“groupId”
+
+string
+
+“kind”
+
+string
+
+“label”
+
+string
+
+
+
+MicrophoneInputSettings:
+Key
+
+Value
+
+“isEnabled”
+
+bool
+
+“settings”
+
+AudioInputSettings
+
+
+MicrophonePublishingSettings:
+Key
+
+Value
+
+“isPublishing”
+
+bool
+
+“sendSettings”
+
+“speech” | “music” | AudioPublishingSettings
+
+
+AudioPublishingSettings:
+Key
+
+Value
+
+“channelConfig”
+
+“mono” | “stereo”
+
+“bitrate”
+
+number
+
+AvailableDevices:
+Key
+
+Value
+
+“audio”
+
+[ MediaDeviceInfo ]
+
+“camera”
+
+[ MediaDeviceInfo ]
+
+“microphone”
+
+[ MediaDeviceInfo ]
+
+“speaker”
+
+[ MediaDeviceInfo ]
+
+
+MicrophonePublishingSettings:
+Key
+
+Value
+
+“isPublishing”
+
+bool
+
+“sendSettings”
+
+“speech” | “music” | AudioPublishingSettings
+
+
+PublishingSettings:
+Key
+
+Value
+
+“camera”
+
+CameraPublishingSettings
+
+“microphone”
+
+MicrophonePublishingSettings
+
+
+update_publishing(publishing_settings, completion=None):
+Updates publishing settings. This function allows you to update the call client video and audio publishing settings.
+
+Parameters:
+publishing_settings (Mapping[str, Any]) - See PublishingSettings
+
+completion (Optional[func]) - An optional completion callback with one parameter: (CallClientError)
+
+
+
+update_inputs(input_settings, completion=None)
+Updates input settings. This function allows you to update the call client video and audio inputs.
+
+Parameters:
+input_settings (Mapping[str, Any]) - See InputSettings
+
+completion (Optional[func]) - An optional completion callback with one parameter: (CallClientError)
+
+

@@ -74,11 +74,13 @@ class ConversationService(BaseService):
         
         if event_type == "wake_word_detected":
             self.logger.info("Wake word detected event received")
-            if not self.is_active:  # Only start a new conversation if one isn't already active
+            # Start a new conversation if one isn't already active
+            if not self.is_active:
                 self.logger.info("Starting new conversation in response to wake word")
                 await self.start_conversation()
             else:
-                self.logger.info("Conversation already active, ignoring wake word")
+                self.logger.info("Conversation already active, sending interrupt message")
+                self.call_manager.interrupt_assistant()
                 
         elif event_type == "call_state":
             if event.get("state") == "ended" and self.is_active:
