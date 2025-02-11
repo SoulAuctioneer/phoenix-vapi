@@ -136,6 +136,10 @@ class AudioManager:
         self._chunk_resizer: Optional[AudioProducer] = None
         self._chunk_resizer_lock = threading.Lock()
         
+        # Pre-allocated buffers for audio mixing
+        self._mixed_buffer = np.zeros(self.config.chunk, dtype=np.float32)  # Using float32 for mixing
+        self._output_buffer = np.zeros(self.config.chunk, dtype=np.int16)  # Final output buffer
+        
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
         consumer = AudioConsumer(callback, chunk_size)
@@ -343,8 +347,8 @@ class AudioManager:
         
         while self._running:
             try:
-                # Mix audio from all active producers
-                mixed_audio = np.zeros(self.config.chunk, dtype=np.float32)
+                # Reset the mixed buffer (faster than creating new array)
+                self._mixed_buffer.fill(0)
                 active_producers = 0
                 
                 with self._producers_lock:
@@ -364,11 +368,11 @@ class AudioManager:
                             if data is not None:
                                 no_data_count = 0  # Reset no-data counter
                                 if len(data) == self.config.chunk:
-                                    # Pre-scale each producer's audio to prevent clipping when mixing
-                                    audio_float = data.astype(np.float32) * 0.8  # Scale down slightly to prevent clipping
+                                    # Simple mixing with volume adjustment
+                                    audio_float = data.astype(np.float32) * 0.8  # Scale down to prevent clipping
                                     if producer.volume != 1.0:
                                         audio_float *= producer.volume
-                                    mixed_audio += audio_float
+                                    self._mixed_buffer += audio_float
                                     active_producers += 1
                                     state['had_data'] = True
                                     logging.debug(f"Mixed data from producer '{name}'")
@@ -380,16 +384,16 @@ class AudioManager:
                                     if no_data_count % 100 == 0:  # Log every 100th no-data iteration
                                         logging.debug(f"No data available from producer '{name}' for {no_data_count} iterations")
                     
-                    # Convert back to int16 and clip to prevent overflow
-                    mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
-                        
-                # Write to output stream
-                if active_producers > 0:
-                    logging.debug(f"Writing {len(mixed_audio)} samples to output stream")
-                    self._output_stream.write(mixed_audio.tobytes())
-                else:
-                    # Small sleep to prevent spinning too fast when no data
-                    time.sleep(0.001)  # 1ms sleep
+                    # Convert mixed float32 back to int16
+                    if active_producers > 0:
+                        # Clip in float32 first
+                        np.clip(self._mixed_buffer, -32768, 32767, out=self._mixed_buffer)
+                        # Then convert to int16
+                        self._output_buffer[:] = self._mixed_buffer.astype(np.int16)
+                        self._output_stream.write(self._output_buffer.tobytes())
+                    else:
+                        # Small sleep to prevent spinning too fast when no data
+                        time.sleep(0.001)  # 1ms sleep
                     
             except Exception as e:
                 if self._running:  # Only log if we haven't stopped intentionally
@@ -411,7 +415,7 @@ class AudioManager:
             with self._producers_lock:
                 if producer_name not in self._producers:
                     logging.info(f"Creating new producer '{producer_name}'")
-                    producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000)
+                    producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=AudioBaseConfig.BUFFER_SIZE)
                     self._producers[producer_name] = producer
                 producer = self._producers[producer_name]
                 
@@ -503,7 +507,7 @@ class AudioManager:
                     # Create or get producer and set volume
                     with self._producers_lock:
                         if producer_name not in self._producers:
-                            producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000)
+                            producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=AudioBaseConfig.BUFFER_SIZE)
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
                     
