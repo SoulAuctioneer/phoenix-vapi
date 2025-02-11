@@ -6,11 +6,19 @@ import queue
 import logging
 import time
 import os
+import sys
+from pathlib import Path
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
-from src.config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
-from src.core.audio_core import AudioCore
+
+# Handle imports for both main app and tests
+try:
+    from config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
+    from core.audio_core import AudioCore
+except ImportError:
+    from src.config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
+    from src.core.audio_core import AudioCore
 
 @dataclass
 class AudioConfig:
