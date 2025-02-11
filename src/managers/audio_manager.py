@@ -511,9 +511,41 @@ class AudioManager:
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
                     
-                    audio_data = wf.readframes(frames)
-                    audio_array = np.frombuffer(audio_data, dtype=np.int16)
-                    self.play_audio(audio_array, producer_name)
+                    # Calculate timing for chunk playback
+                    chunk_frames = self.config.chunk
+                    chunk_duration = chunk_frames / rate  # Duration of each chunk in seconds
+                    
+                    # Read and play in chunks
+                    next_chunk_time = time.time()
+                    
+                    while self._running and producer.active:
+                        # Read a chunk of frames
+                        data = wf.readframes(chunk_frames)
+                        if not data:
+                            break  # End of file
+                            
+                        # Convert to numpy array
+                        audio_chunk = np.frombuffer(data, dtype=np.int16)
+                        
+                        # If we got a partial chunk at the end, pad with zeros
+                        if len(audio_chunk) < chunk_frames:
+                            audio_chunk = np.pad(audio_chunk, (0, chunk_frames - len(audio_chunk)), mode='constant')
+                            
+                        # Wait until it's time for the next chunk
+                        wait_time = next_chunk_time - time.time()
+                        if wait_time > 0:
+                            time.sleep(wait_time)
+                            
+                        # Try to add to buffer once
+                        if not producer.buffer.put(audio_chunk):
+                            logging.warning("Buffer full, dropping audio chunk")
+                            # Skip ahead in timing to catch up
+                            next_chunk_time = time.time()
+                        
+                        # Update next chunk time
+                        next_chunk_time += chunk_duration
+                            
+                    logging.debug(f"Finished playing WAV file: {wav_path}")
                     
             except FileNotFoundError:
                 logging.error(f"WAV file not found: {wav_path}")
