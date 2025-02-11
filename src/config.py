@@ -1,25 +1,23 @@
 import os
 import platform
+import pyaudio
+from enum import Enum
+from typing import Union
 from dotenv import load_dotenv
 from enum import Enum, auto
 from typing import Union
 
-load_dotenv()
-
-# Determine platform
+# Get platform information
 system = platform.system().lower()
 machine = platform.machine().lower()
-if system == "darwin":
-    PLATFORM = "macos"
-elif system == "linux" and ("arm" in machine or "aarch" in machine):
-    PLATFORM = "raspberry-pi"
-else:
-    raise ValueError(f"Unsupported platform: {system} {machine}")
+PLATFORM = "raspberry-pi" if system == "linux" and machine in ("arm64", "aarch64", "armv7l") else "macos"
 
-# API keys
-VAPI_API_KEY = os.getenv('VAPI_API_KEY')
-PICOVOICE_ACCESS_KEY = os.getenv('PICOVOICE_ACCESS_KEY')
+# Load environment variables
+load_dotenv()
 
+# API Keys
+PICOVOICE_ACCESS_KEY = os.getenv("PICOVOICE_ACCESS_KEY")
+VAPI_API_KEY = os.getenv("VAPI_API_KEY")
 
 # AI Assistant Configuration
 ASSISTANT_CONFIG = {
@@ -100,7 +98,7 @@ AUDIO_DEFAULT_VOLUME = 0.2
 # Base Audio Configuration (used by both CallConfig and AudioConfig)
 class AudioBaseConfig:
     """Base audio configuration that all audio components should use"""
-    FORMAT = 'int16'  # numpy/pyaudio compatible format
+    FORMAT = pyaudio.paInt16  # Using PyAudio's integer constant instead of string
     NUM_CHANNELS = 1
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering

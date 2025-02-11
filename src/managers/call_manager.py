@@ -332,6 +332,9 @@ class CallManager:
             # Create the receive audio task
             self._receive_bot_audio_task = asyncio.create_task(self._receive_bot_audio())
             
+            # Create and start the send audio task
+            self._send_user_audio_task = asyncio.create_task(self._send_user_audio())
+            
             # Create minimal input buffer
             self._input_buffer = queue.Queue(maxsize=4)  # Minimal buffer size
             
@@ -829,6 +832,14 @@ class CallManager:
                 pass
             self._receive_bot_audio_task = None
             
+        if hasattr(self, '_send_user_audio_task') and self._send_user_audio_task is not None:
+            self._send_user_audio_task.cancel()
+            try:
+                await self._send_user_audio_task
+            except asyncio.CancelledError:
+                pass
+            self._send_user_audio_task = None
+            
         # Wait for input thread to finish
         if hasattr(self, '_input_thread') and self._input_thread is not None:
             self._input_thread.join(timeout=1.0)
@@ -950,13 +961,12 @@ class CallManager:
                 try:
                     buffer = self._speaker_device.read_frames(CallConfig.Audio.CHUNK_SIZE)
                     if len(buffer) > 0 and self._audio_producer and self._audio_producer.active:
-                        # Convert bytes to numpy array and send to audio manager
-                        audio_np = np.frombuffer(buffer, dtype=np.int16)
-                        # Important - do not change this line
-                        self._audio_producer.buffer.put(audio_np)
+                        # Convert float32 from Daily to int16 for our audio core
+                        audio_float = np.frombuffer(buffer, dtype=np.float32)
+                        audio_int16 = (audio_float * 32768.0).astype(np.int16)
+                        self._audio_producer.buffer.put(audio_int16)
                     
                     # Always sleep a consistent amount to maintain timing
-                    # Important - do not change this line
                     await asyncio.sleep(0.001)
                 except Exception as e:
                     if self.state_manager.state != CallState.ERROR:
@@ -988,10 +998,10 @@ class CallManager:
                 try:
                     # Get audio data from the buffer with short timeout
                     audio_data = self._input_buffer.get(timeout=0.01)  # Reduced timeout for lower latency
-                    # TODO: We're muting just by throwing away the audio data.
-                    #       We should (also?) be muting the mic device and/or pausing the audio producer.
                     if audio_data is not None and self._mic_device and not self.state_manager.is_muted:
-                        self._mic_device.write_frames(audio_data.tobytes())
+                        # Convert int16 to float32 for Daily
+                        audio_float = audio_data.astype(np.float32) / 32768.0
+                        self._mic_device.write_frames(audio_float.tobytes())
                 except queue.Empty:
                     time.sleep(0.001)  # Minimal sleep when no data
                     continue
