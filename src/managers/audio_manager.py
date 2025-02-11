@@ -9,12 +9,13 @@ import os
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
-from config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
+from src.config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
+from src.core.audio_core import AudioCore
 
 @dataclass
 class AudioConfig:
     """Audio configuration parameters"""
-    format: int = pyaudio.paInt16  # Matches AudioBaseConfig.FORMAT='int16'
+    format: int = AudioBaseConfig.FORMAT
     channels: int = AudioBaseConfig.NUM_CHANNELS
     rate: int = AudioBaseConfig.SAMPLE_RATE
     chunk: int = AudioBaseConfig.CHUNK_SIZE
@@ -63,42 +64,11 @@ class AudioConsumer:
 
 class AudioProducer:
     """Represents a producer of audio output data"""
-    def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100):
+    def __init__(self, name: str, producer_id: int):
         self.name = name
-        self.buffer = AudioBuffer(maxsize=buffer_size)
+        self.producer_id = producer_id
         self.volume = AUDIO_DEFAULT_VOLUME
         self.active = True
-        self.chunk_size = chunk_size
-        self._remainder = np.array([], dtype=np.int16)
-
-    def resize_chunk(self, audio_data: np.ndarray) -> List[np.ndarray]:
-        """Resize audio chunk to desired size, handling remainder samples"""
-        if self.chunk_size is None:
-            return [audio_data]
-            
-        if len(self._remainder) > 0:
-            audio_data = np.concatenate([self._remainder, audio_data])
-            
-        chunks = []
-        num_complete_chunks = len(audio_data) // self.chunk_size
-        for i in range(num_complete_chunks):
-            start = i * self.chunk_size
-            end = start + self.chunk_size
-            chunks.append(audio_data[start:end])
-            
-        remainder_start = num_complete_chunks * self.chunk_size
-        self._remainder = audio_data[remainder_start:]
-        
-        return chunks
-
-    def apply_volume(self, audio_data: np.ndarray) -> np.ndarray:
-        """Apply volume control to int16 audio data"""
-        if self.volume == 1.0:
-            return audio_data
-        # Convert to float32 temporarily for volume adjustment to prevent integer overflow
-        audio_float = audio_data.astype(np.float32) * self.volume
-        # Clip to int16 range and convert back
-        return np.clip(audio_float, -32768, 32767).astype(np.int16)
 
 class AudioManager:
     """Manages audio resources and provides thread-safe access"""
@@ -140,6 +110,8 @@ class AudioManager:
         self._mixed_buffer = np.zeros(self.config.chunk, dtype=np.float32)  # Using float32 for mixing
         self._output_buffer = np.zeros(self.config.chunk, dtype=np.int16)  # Final output buffer
         
+        self._audio_core = None
+        
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
         consumer = AudioConsumer(callback, chunk_size)
@@ -154,37 +126,36 @@ class AudioManager:
                 consumer.active = False
                 self._consumers.remove(consumer)
                 
-    def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100) -> AudioProducer:
-        """Create a new producer instance without adding it to the producers dictionary"""
-        print(f"DEBUG: Creating producer '{name}' with chunk_size={chunk_size}, buffer_size={buffer_size}", flush=True)
-        logging.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}")
-        
-        producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size)
-        producer.active = True
+    def _create_producer(self, name: str, buffer_size: int = 32768) -> AudioProducer:
+        """Create a new producer instance with a larger default buffer size"""
+        producer_id = self._audio_core.create_producer(buffer_size)
+        if producer_id < 0:
+            raise RuntimeError("Failed to create audio producer")
+            
+        producer = AudioProducer(name, producer_id)
         return producer
         
-    def add_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100) -> AudioProducer:
-        """Add a new audio producer"""
-        producer = self._create_producer(name, chunk_size, buffer_size)
-        
-        with self._producers_lock:
-            self._producers[name] = producer
-            logging.info(f"Producer '{name}' added and activated")
-            
+    def add_producer(self, name: str, buffer_size: int = 32768) -> AudioProducer:
+        """Add a new audio producer with a larger default buffer size"""
+        producer = self._create_producer(name, buffer_size)
+        self._producers[name] = producer
+        logging.info(f"Producer '{name}' added and activated")
         return producer
         
     def remove_producer(self, name: str):
         """Remove an audio producer"""
-        with self._producers_lock:
-            if name in self._producers:
-                self._producers[name].active = False
-                del self._producers[name]
+        if name in self._producers:
+            producer = self._producers[name]
+            producer.active = False
+            self._audio_core.set_active(producer.producer_id, False)
+            del self._producers[name]
                 
     def set_producer_volume(self, name: str, volume: float):
         """Set volume for a specific producer"""
-        with self._producers_lock:
-            if name in self._producers:
-                self._producers[name].volume = max(0.0, min(1.0, volume))
+        if name in self._producers:
+            producer = self._producers[name]
+            producer.volume = max(0.0, min(1.0, volume))
+            self._audio_core.set_volume(producer.producer_id, producer.volume)
                 
     @property
     def is_running(self) -> bool:
@@ -192,58 +163,26 @@ class AudioManager:
         
     def start(self):
         """Start audio processing"""
-        with self._lock:
-            if self._running:
-                logging.info("AudioManager already running")
-                return
-                
-            try:
-                logging.info("Initializing PyAudio...")
-                self._py_audio = pyaudio.PyAudio()
-                
-                logging.info("Setting up audio streams...")
-                self._setup_streams()
-                self._running = True
-                
-                # Start input and output threads
-                logging.info("Starting audio threads...")
-                self._input_thread = threading.Thread(target=self._input_loop, name="AudioInputThread")
-                self._output_thread = threading.Thread(target=self._output_loop, name="AudioOutputThread")
-                self._input_thread.daemon = True
-                self._output_thread.daemon = True
-                self._input_thread.start()
-                self._output_thread.start()
-                logging.info("AudioManager started successfully")
-                
-            except Exception as e:
-                logging.error(f"Failed to start audio: {e}", exc_info=True)
-                self.stop()
-                raise
+        if self._running:
+            logging.info("AudioManager already running")
+            return
+            
+        try:
+            logging.info("Initializing audio core...")
+            self._audio_core = AudioCore()
+            self._running = True
+            logging.info("AudioManager started successfully")
+            
+        except Exception as e:
+            logging.error(f"Failed to start audio: {e}", exc_info=True)
+            self.stop()
+            raise
                 
     def stop(self):
         """Stop audio processing and cleanup resources"""
-        with self._lock:
-            self._running = False
-            
-            # Stop all consumers and producers
-            with self._consumers_lock:
-                for consumer in self._consumers:
-                    consumer.active = False
-            with self._producers_lock:
-                for producer in self._producers.values():
-                    producer.active = False
-            
-            # Wait for threads to finish
-            if self._input_thread and self._input_thread.is_alive():
-                self._input_thread.join(timeout=1.0)
-            if self._output_thread and self._output_thread.is_alive():
-                self._output_thread.join(timeout=1.0)
-                
-            self._cleanup_streams()
-            
-            if self._py_audio:
-                self._py_audio.terminate()
-                self._py_audio = None
+        self._running = False
+        self._audio_core = None
+        self._producers.clear()
                 
     def _setup_streams(self):
         """Setup audio streams"""
@@ -403,7 +342,6 @@ class AudioManager:
                 
     def play_audio(self, audio_data: np.ndarray, producer_name: str = "default"):
         """Play audio data through a specific producer"""
-        print(f"DEBUG: Entering play_audio with {len(audio_data)} samples", flush=True)
         logging.info(f"play_audio called for producer '{producer_name}' with {len(audio_data)} samples")
         
         try:
@@ -412,42 +350,26 @@ class AudioManager:
                 return
                 
             # Create producer if needed
-            with self._producers_lock:
-                if producer_name not in self._producers:
-                    logging.info(f"Creating new producer '{producer_name}'")
-                    producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=AudioBaseConfig.BUFFER_SIZE)
-                    self._producers[producer_name] = producer
+            if producer_name not in self._producers:
+                logging.info(f"Creating new producer '{producer_name}'")
+                producer = self.add_producer(producer_name)
+            else:
                 producer = self._producers[producer_name]
                 
-                if not producer.active:
-                    logging.warning(f"Producer '{producer_name}' is not active")
-                    return
+            if not producer.active:
+                logging.warning(f"Producer '{producer_name}' is not active")
+                return
                     
-            # Ensure audio data is int16
-            if audio_data.dtype != np.int16:
-                logging.info(f"Converting audio data from {audio_data.dtype} to int16")
-                audio_data = np.clip(audio_data * 32767, -32768, 32767).astype(np.int16)
-            
-            # Split audio data into chunks matching the configured chunk size
-            num_samples = len(audio_data)
-            chunk_size = self.config.chunk  # Always use config.chunk since output loop expects this
-            num_chunks = (num_samples + chunk_size - 1) // chunk_size  # Round up division
-            
-            chunks_added = 0
-            for i in range(num_chunks):
-                start = i * chunk_size
-                end = min(start + chunk_size, num_samples)
-                chunk = audio_data[start:end]
-                # Pad the last chunk with zeros if needed
-                if len(chunk) < chunk_size:
-                    chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
-                
-                success = producer.buffer.put(chunk)
-                if success:
-                    chunks_added += 1
-                else:
-                    logging.warning(f"Buffer full for producer '{producer_name}', chunk {i+1}/{num_chunks} dropped")
-                    break  # Stop if buffer is full
+            # Convert to float32 and normalize
+            if audio_data.dtype != np.float32:
+                audio_data = audio_data.astype(np.float32)
+                if audio_data.dtype == np.int16:
+                    audio_data /= 32768.0
+                    
+            # Write to audio core
+            samples_written = self._audio_core.write_samples(producer.producer_id, audio_data)
+            if samples_written < len(audio_data):
+                logging.warning(f"Buffer full for producer '{producer_name}', {len(audio_data) - samples_written} samples dropped")
                     
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
@@ -478,72 +400,52 @@ class AudioManager:
             logging.error("Cannot play WAV file - AudioManager not running")
             return False
 
-        # Clear any existing sound effect first
-        with self._producers_lock:
-            if producer_name in self._producers:
-                self._producers[producer_name].buffer.clear()
-
         def _play_in_thread():
             try:
                 logging.info(f"Opening WAV file: {wav_path}")
                 with wave.open(wav_path, "rb") as wf:
-                    # Log WAV file properties
-                    channels = wf.getnchannels()
-                    width = wf.getsampwidth()
-                    rate = wf.getframerate()
-                    frames = wf.getnframes()
-                    
                     # Verify WAV format matches our configuration
-                    if channels != self.config.channels:
-                        logging.error(f"WAV channels ({channels}) doesn't match config ({self.config.channels})")
+                    if wf.getnchannels() != self.config.channels:
+                        logging.error(f"WAV channels ({wf.getnchannels()}) doesn't match config ({self.config.channels})")
                         return False
-                    if rate != self.config.rate:
-                        logging.error(f"WAV rate ({rate}) doesn't match config ({self.config.rate})")
+                    if wf.getframerate() != self.config.rate:
+                        logging.error(f"WAV rate ({wf.getframerate()}) doesn't match config ({self.config.rate})")
                         return False
-                    if width != self._py_audio.get_sample_size(self.config.format):
-                        logging.error(f"WAV width ({width}) doesn't match config format")
+                    if wf.getsampwidth() != 2:  # We expect 16-bit audio
+                        logging.error(f"WAV sample width ({wf.getsampwidth()}) doesn't match expected (2)")
                         return False
                                         
-                    # Create or get producer and set volume
-                    with self._producers_lock:
-                        if producer_name not in self._producers:
-                            producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=AudioBaseConfig.BUFFER_SIZE)
-                            self._producers[producer_name] = producer
+                    # Create producer if needed
+                    if producer_name not in self._producers:
+                        producer = self.add_producer(producer_name)
+                    else:
                         producer = self._producers[producer_name]
-                    
-                    # Calculate timing for chunk playback
-                    chunk_frames = self.config.chunk
-                    chunk_duration = chunk_frames / rate  # Duration of each chunk in seconds
-                    
+                        
                     # Read and play in chunks
-                    next_chunk_time = time.time()
+                    chunk_frames = self.config.chunk
+                    chunk_bytes = chunk_frames * wf.getnchannels() * wf.getsampwidth()
                     
                     while self._running and producer.active:
-                        # Read a chunk of frames
                         data = wf.readframes(chunk_frames)
                         if not data:
-                            break  # End of file
+                            break
                             
-                        # Convert to numpy array
-                        audio_chunk = np.frombuffer(data, dtype=np.int16)
+                        # Pad the last chunk if needed
+                        if len(data) < chunk_bytes:
+                            data = data + b'\x00' * (chunk_bytes - len(data))
+                            
+                        # Convert to float32 (-1.0 to 1.0 range)
+                        audio_chunk = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
                         
-                        # If we got a partial chunk at the end, pad with zeros
-                        if len(audio_chunk) < chunk_frames:
-                            audio_chunk = np.pad(audio_chunk, (0, chunk_frames - len(audio_chunk)), mode='constant')
-                            
-                        # Wait until it's time for the next chunk
-                        wait_time = next_chunk_time - time.time()
-                        if wait_time > 0:
-                            time.sleep(wait_time)
-                            
-                        # Try to add to buffer once
-                        if not producer.buffer.put(audio_chunk):
-                            logging.warning("Buffer full, dropping audio chunk")
-                            # Skip ahead in timing to catch up
-                            next_chunk_time = time.time()
-                        
-                        # Update next chunk time
-                        next_chunk_time += chunk_duration
+                        # Write to audio core with retries
+                        max_retries = 3
+                        for _ in range(max_retries):
+                            samples_written = self._audio_core.write_samples(producer.producer_id, audio_chunk)
+                            if samples_written == len(audio_chunk):
+                                break
+                            time.sleep(chunk_frames / self.config.rate)  # Wait for one chunk duration
+                        else:
+                            logging.warning("Buffer full after retries, dropping audio chunk")
                             
                     logging.debug(f"Finished playing WAV file: {wav_path}")
                     
@@ -557,6 +459,7 @@ class AudioManager:
             return True
 
         # Start playback in a separate thread
+        import threading
         thread = threading.Thread(target=_play_in_thread, name=f"wav_player_{producer_name}")
         thread.daemon = True
         thread.start()
