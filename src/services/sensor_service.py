@@ -28,7 +28,7 @@ class SensorService(BaseService):
         self.touch_manager.on_position(self._handle_touch_position)
         self.touch_manager.on_stroke(self._handle_touch_stroke)
         self.touch_manager.on_touch(self._handle_touch_state)
-        self.touch_manager.on_stroke_intensity(self._handle_touch_intensity)
+        self.touch_manager.on_stroke_intensity(self._handle_stroke_intensity)
         
         # Start the touch manager
         await self.touch_manager.start()
@@ -71,13 +71,13 @@ class SensorService(BaseService):
         #     "is_touching": is_touching
         # })
         
-    async def _handle_touch_intensity(self, intensity: float):
+    async def _handle_stroke_intensity(self, intensity: float):
         """Handle stroke intensity updates from TouchManager - only publish on change"""
         # Only publish if intensity has changed significantly
         if abs(intensity - self._last_intensity) >= 0.001:
             self._last_intensity = intensity
             await self.publish({
-                "type": "touch_intensity",
+                "type": "touch_stroke_intensity",
                 "producer_name": "sensor_service",
                 "intensity": intensity
             })
