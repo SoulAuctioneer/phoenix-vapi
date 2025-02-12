@@ -178,6 +178,19 @@ class AudioManager:
         try:
             logging.info("Initializing audio core...")
             self._audio_core = AudioCore()
+            
+            # Initialize PyAudio
+            logging.info("Initializing PyAudio...")
+            self._py_audio = pyaudio.PyAudio()
+            
+            # Setup audio streams
+            self._setup_streams()
+            
+            # Start input processing thread
+            self._input_thread = threading.Thread(target=self._input_loop)
+            self._input_thread.daemon = True
+            self._input_thread.start()
+            
             self._running = True
             logging.info("AudioManager started successfully")
             
@@ -189,6 +202,20 @@ class AudioManager:
     def stop(self):
         """Stop audio processing and cleanup resources"""
         self._running = False
+        
+        # Stop and cleanup streams
+        self._cleanup_streams()
+        
+        # Wait for input thread to finish
+        if hasattr(self, '_input_thread') and self._input_thread is not None:
+            self._input_thread.join(timeout=1.0)
+            self._input_thread = None
+        
+        # Cleanup PyAudio
+        if self._py_audio:
+            self._py_audio.terminate()
+            self._py_audio = None
+            
         self._audio_core = None
         self._producers.clear()
                 
@@ -265,8 +292,17 @@ class AudioManager:
         logging.info("Input processing loop started")
         while self._running:
             try:
+                if not self._input_stream:
+                    logging.error("Input stream not initialized")
+                    time.sleep(0.1)
+                    continue
+
                 # Read from input stream
                 data = self._input_stream.read(self.config.chunk, exception_on_overflow=False)
+                if not data:
+                    continue
+                    
+                # Convert to numpy array
                 audio_data = np.frombuffer(data, dtype=np.int16)
                 
                 # Distribute to all active consumers
@@ -274,16 +310,18 @@ class AudioManager:
                     for consumer in self._consumers:
                         if consumer.active:
                             if consumer.chunk_size and consumer.chunk_size != len(audio_data):
-                                chunk_resizer = self._get_chunk_resizer(consumer.chunk_size)
-                                resized_chunks = chunk_resizer.resize_chunk(audio_data)
-                                for chunk in resized_chunks:
-                                    consumer.callback(chunk)
+                                # Resize audio data if needed
+                                resized_data = np.resize(audio_data, (consumer.chunk_size,))
+                                if len(resized_data) == consumer.chunk_size:
+                                    consumer.callback(resized_data)
                             else:
                                 consumer.callback(audio_data)
                             
             except Exception as e:
                 if self._running:  # Only log if we haven't stopped intentionally
                     logging.error(f"Error in audio input loop: {e}", exc_info=True)
+                time.sleep(0.1)  # Sleep on error to prevent tight loop
+                
         logging.info("Input processing loop stopped")
                 
     def _output_loop(self):
@@ -368,14 +406,15 @@ class AudioManager:
                 logging.warning(f"Producer '{producer_name}' is not active")
                 return
                     
-            # Convert to float32 and normalize
-            if audio_data.dtype != np.float32:
-                audio_data = audio_data.astype(np.float32)
-                if audio_data.dtype == np.int16:
-                    audio_data /= 32768.0
+            # Write samples based on data type
+            if audio_data.dtype == np.int16:
+                samples_written = self._audio_core.write_samples_int16(producer.producer_id, audio_data)
+            else:
+                # For float32 or other types, convert to float32 if needed
+                if audio_data.dtype != np.float32:
+                    audio_data = audio_data.astype(np.float32)
+                samples_written = self._audio_core.write_samples(producer.producer_id, audio_data)
                     
-            # Write to audio core
-            samples_written = self._audio_core.write_samples(producer.producer_id, audio_data)
             if samples_written < len(audio_data):
                 logging.warning(f"Buffer full for producer '{producer_name}', {len(audio_data) - samples_written} samples dropped")
                     

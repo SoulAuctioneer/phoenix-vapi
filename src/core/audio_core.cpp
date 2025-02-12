@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <stdint.h>
 
 namespace py = pybind11;
 
@@ -9,6 +10,7 @@ extern "C" {
     void audio_core_cleanup(void);
     int audio_core_create_producer(int buffer_size);
     int audio_core_write_samples(int producer_id, const float* samples, int num_samples);
+    int audio_core_write_samples_int16(int producer_id, const int16_t* samples, int num_samples);
     void audio_core_set_volume(int producer_id, float volume);
     void audio_core_set_active(int producer_id, int active);
 }
@@ -36,6 +38,13 @@ public:
                                       static_cast<const float*>(buf.ptr),
                                       buf.size);
     }
+
+    int write_samples_int16(int producer_id, py::array_t<int16_t> samples) {
+        auto buf = samples.request();
+        return audio_core_write_samples_int16(producer_id,
+                                            static_cast<const int16_t*>(buf.ptr),
+                                            buf.size);
+    }
     
     void set_volume(int producer_id, float volume) {
         audio_core_set_volume(producer_id, volume);
@@ -51,6 +60,7 @@ PYBIND11_MODULE(audio_core, m) {
         .def(py::init<>())
         .def("create_producer", &AudioCore::create_producer)
         .def("write_samples", &AudioCore::write_samples)
+        .def("write_samples_int16", &AudioCore::write_samples_int16)
         .def("set_volume", &AudioCore::set_volume)
         .def("set_active", &AudioCore::set_active);
 } 

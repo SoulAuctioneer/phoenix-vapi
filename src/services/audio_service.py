@@ -48,8 +48,8 @@ class AudioService(BaseService):
         
         # Play tadaaa when application starts up
         # Turned off for now, getting annoying
-        # elif event_type == "application_startup_completed":
-            # await self._play_sound("TADA")
+        elif event_type == "application_startup_completed":
+            await self._play_sound("TADA")
                 
         # Play acknowledgment sound when conversation starts
         elif event_type == "conversation_starting":

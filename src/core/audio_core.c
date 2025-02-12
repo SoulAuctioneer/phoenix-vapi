@@ -152,6 +152,29 @@ int audio_core_create_producer(int buffer_size) {
     return idx;
 }
 
+int audio_core_write_samples_int16(int producer_id, const int16_t* samples, int num_samples) {
+    if (!g_engine || producer_id >= g_engine->num_producers) return -1;
+    
+    AudioProducer* producer = &g_engine->producers[producer_id];
+    if (!producer->active) return -1;
+    
+    // Calculate available space
+    int space_available = producer->buffer_size - producer->samples_available;
+    if (space_available <= 0) return 0;  // Buffer is full
+    
+    // Write as many samples as we can
+    int samples_to_write = (num_samples < space_available) ? num_samples : space_available;
+    
+    // Convert int16 to float32 during write
+    for (int i = 0; i < samples_to_write; i++) {
+        producer->buffer[producer->write_pos] = samples[i] / 32768.0f;  // Convert to -1.0 to 1.0 range
+        producer->write_pos = (producer->write_pos + 1) % producer->buffer_size;
+        producer->samples_available++;
+    }
+    
+    return samples_to_write;
+}
+
 int audio_core_write_samples(int producer_id, const float* samples, int num_samples) {
     if (!g_engine || producer_id >= g_engine->num_producers) return -1;
     
@@ -165,6 +188,7 @@ int audio_core_write_samples(int producer_id, const float* samples, int num_samp
     // Write as many samples as we can
     int samples_to_write = (num_samples < space_available) ? num_samples : space_available;
     
+    // Copy float samples directly
     for (int i = 0; i < samples_to_write; i++) {
         producer->buffer[producer->write_pos] = samples[i];
         producer->write_pos = (producer->write_pos + 1) % producer->buffer_size;
