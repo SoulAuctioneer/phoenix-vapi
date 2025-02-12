@@ -149,15 +149,15 @@ class TouchManager:
         Args:
             sample_rate_hz: Sampling rate in Hz (defaults to config.SAMPLE_RATE_HZ)
         """
-        if self.running:
-            return
+        # if self.running:
+        #     return
             
         self.running = True
-        interval = 1.0 / sample_rate_hz
+        # interval = 1.0 / sample_rate_hz
         
         try:
             while self.running:
-                try:
+                # try:
                 #     value = self.chan.value
                 #     was_touching = self.touch_state.is_touching
                 #     is_touching = self.touch_state.update(value)
@@ -198,10 +198,10 @@ class TouchManager:
                         
                 #         # Notify stroke detection
                 #         await self._execute_callbacks(self.stroke_callbacks, direction)
-                    pass
+                    # pass
                     
-                except Exception as e:
-                    logging.error(f"Error reading sensor: {str(e)}")
+                # except Exception as e:
+                #     logging.error(f"Error reading sensor: {str(e)}")
                 
                 await asyncio.sleep(1000)
         except asyncio.CancelledError:
