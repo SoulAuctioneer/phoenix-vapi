@@ -11,9 +11,7 @@ import random
 from typing import Callable, Optional, List, Awaitable, Union
 
 # Only import hardware-specific libraries on Raspberry Pi
-TOUCH_HARDWARE_AVAILABLE = platform.system().lower() == 'linux' and platform.machine().startswith('arm')
-
-if TOUCH_HARDWARE_AVAILABLE:
+if config.platform == "raspberry-pi":
     import board
     import busio
     import adafruit_ads1x15.ads1115 as ADS
@@ -40,7 +38,7 @@ class TouchManager:
         self.stroke_intensity_level = 0.0  # 0.0 to 1.0
         self.last_stroke_intensity_update = time.time()
 
-        if TOUCH_HARDWARE_AVAILABLE:
+        if config.PLATFORM == "raspberry-pi":
             self.ads, self.chan = self._setup_adc()
         else:
             # Mock ADC for non-Raspberry Pi platforms
