@@ -75,7 +75,7 @@ class LEDService(BaseService):
                     # Map intensity to brightness (0.05-1.0)
                     # CURVE_RATIO = 1.0 for linear, > 1.0 for slower initial increase, < 1.0 for faster initial increase
                     CURVE_RATIO = 1.0  # Linear by default
-                    min_brightness = 0.05  # Start very dim
+                    min_brightness = 0.01  # Start very dim
                     brightness_range = 1.0 - min_brightness
                     # Apply curve ratio to intensity for optional non-linear scaling
                     curved_intensity = pow(intensity, CURVE_RATIO)
