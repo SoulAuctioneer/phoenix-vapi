@@ -46,7 +46,8 @@ class AudioService(BaseService):
         if event_type == "play_sound":
             effect_name = event.get("effect_name")
             loop = event.get("loop", False)  # Get loop parameter with default False
-            await self._play_sound(effect_name, loop=loop)
+            volume = event.get("volume", None)  # Allow specifying custom volume
+            await self._play_sound(effect_name, loop=loop, volume=volume)
         
         # Play tadaaa when application starts up
         # Turned off for now, getting annoying
@@ -76,24 +77,24 @@ class AudioService(BaseService):
                     # Start or update purring sound with new volume
                     self.logger.info(f"Starting or updating purring sound with volume {volume:.3f} based on intensity {intensity:.2f}")
                     
-                    # Set volume before starting sound if not already purring
-                    self.audio_manager.set_producer_volume("sound_effect", volume)
+                    # Set volume and play/update sound
                     if not self._purring_active:
                         self._purring_active = True
-                        # Ensure volume is set before playing
-                        await asyncio.sleep(0.1)  # Small delay to ensure volume takes effect
-                        await self._play_sound("PURRING", loop=True)  # Always loop purring sound
+                        await self._play_sound("PURRING", loop=True, volume=volume)
+                    else:
+                        self.audio_manager.set_producer_volume("sound_effect", volume)
                 else:
                     # When intensity drops to 0, stop the purring sound
                     self._purring_active = False
                     self.logger.info("Touch intensity ended, stopping purring sound")
                     self.audio_manager.stop_sound()
 
-    async def _play_sound(self, effect_name: str, loop: bool = False) -> bool:
+    async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
         """Helper method to play a sound effect with error handling
         Args:
             effect_name: Name of the sound effect to play
             loop: Whether to loop the sound effect (default: False)
+            volume: Optional specific volume to use (default: None, uses default volume)
         Returns:
             bool: True if sound played successfully, False otherwise
         """
@@ -102,10 +103,14 @@ class AudioService(BaseService):
             return False
             
         try:
-            # Set sound effect volume to half if there's an active call
+            # Determine appropriate volume
             with self.audio_manager._producers_lock:
                 has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
-            if has_active_call:
+            
+            # Use provided volume if specified, otherwise use default logic
+            if volume is not None:
+                self.audio_manager.set_producer_volume("sound_effect", volume)
+            elif has_active_call:
                 self.logger.info("Active call detected, setting sound effect volume to 0.1")
                 self.audio_manager.set_producer_volume("sound_effect", 0.1)
             else:
