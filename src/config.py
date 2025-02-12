@@ -216,8 +216,10 @@ DIRECTION_REVERSAL_TOLERANCE = 0.05  # Tolerance for small direction reversals
 
 # Stroke intensity tracking parameters
 STROKE_INTENSITY_DECAY_RATE = 0.03   # Level lost per second
-STROKE_INTENSITY_SPEED_FACTOR = 3.5  # Higher speeds reduce intensity gain (divisor)
+STROKE_INTENSITY_SPEED_FACTOR = 2.2  # Higher speeds reduce intensity gain (divisor)
 STROKE_INTENSITY_DISTANCE_FACTOR = 0.6  # Multiplier for distance contribution
+STROKE_INTENSITY_MIN_SPEED = 0.5  # Minimum speed threshold to prevent large increases from very slow strokes
+STROKE_INTENSITY_MAX_INCREASE = 0.2  # Maximum intensity increase per stroke (0-1)
 
 # Sensor sampling configuration
 SAMPLE_RATE_HZ = 100  # Default sampling rate in Hz

@@ -161,12 +161,15 @@ class TouchManager:
         Returns:
             float: Amount to increase stroke intensity (0-1 range)
         """
+        # Ensure minimum speed to prevent very slow strokes from causing large increases
+        speed = max(config.STROKE_INTENSITY_MIN_SPEED, speed)
+        
         # Increase is proportional to distance and inversely proportional to speed
         # Add a small constant (0.1) to speed to prevent division by very small numbers
         increase = (distance * config.STROKE_INTENSITY_DISTANCE_FACTOR) / ((speed * config.STROKE_INTENSITY_SPEED_FACTOR) + 0.1)
         
-        # Clamp the increase to a reasonable range (0-0.5)
-        return min(0.5, max(0.0, increase))
+        # Clamp the increase to configured maximum
+        return min(config.STROKE_INTENSITY_MAX_INCREASE, max(0.0, increase))
     
     async def start(self, sample_rate_hz: float = config.SAMPLE_RATE_HZ):
         """Start the sensor reading loop
