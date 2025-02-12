@@ -67,8 +67,8 @@ class AudioService(BaseService):
                 intensity = event.get('intensity', 0.0)
                 if intensity > 0:
                     # Map intensity (0-1) to volume (0.05-0.3)
-                    min_volume = 0.05  # Minimum volume
-                    max_volume = 0.3   # Maximum volume
+                    min_volume = 0.0  # Minimum volume
+                    max_volume = 0.5   # Maximum volume
                     volume_range = max_volume - min_volume
                     volume = min_volume + (intensity * volume_range)
                     
