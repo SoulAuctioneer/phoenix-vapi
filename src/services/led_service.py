@@ -1,6 +1,6 @@
 from services.service import BaseService
-from managers.led_manager import LEDManager
-from config import PLATFORM
+from managers.led_manager import LEDManager, LEDEffect
+from config import PLATFORM, LED_BRIGHTNESS
 import logging
 
 class LEDService(BaseService):
@@ -45,19 +45,19 @@ class LEDService(BaseService):
 
         if event_type == "wake_word_detected":
             logging.info("Wake word detected - switched to rotating rainbow effect")
-            self.led_controller.start_random_twinkling_effect(0.06)
+            self.led_controller.start_effect(LEDEffect.RANDOM_TWINKLING, speed=0.06)
 
         elif event_type == "conversation_started":
             logging.info("Conversation started - switched to random twinkling effect")
-            self.led_controller.start_random_twinkling_effect(0.1)
+            self.led_controller.start_effect(LEDEffect.RANDOM_TWINKLING, speed=0.1)
 
         elif event_type == "conversation_ended":
             logging.info("Conversation ended - switched to rotating pink blue effect")
-            self.led_controller.start_rotating_pink_blue_effect()
+            self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
 
         elif event_type == "application_startup_completed":
             logging.info("Application startup completed - switched to rotating pink blue effect")
-            self.led_controller.start_rotating_pink_blue_effect()
+            self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
 
         elif event_type == "touch_stroke_intensity":
             # Only trigger purring effect if we're not in a conversation
@@ -68,43 +68,34 @@ class LEDService(BaseService):
                     # Higher intensity = faster purring (lower wait time)
                     speed = 0.02 - (intensity * 0.015)  # This maps 0-1 to 0.02-0.005
                     logging.info(f"Starting purring effect with speed {speed} based on intensity {intensity}")
-                    self.led_controller.start_purring_effect(speed=speed)
+                    self.led_controller.start_effect(LEDEffect.PURRING, speed=speed)
                 else:
                     # When intensity drops to 0, return to default effect
                     logging.info("Touch intensity ended, returning to default effect")
-                    self.led_controller.start_rotating_pink_blue_effect()
+                    self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
 
         elif event_type == "start_led_effect":
             # Handle manual LED commands
             effect_name = event.get('data', {}).get('effectName')
-            if effect_name == "blue_breathing":
-                speed = event.get('data', {}).get('speed', 0.02)
-                self.led_controller.start_blue_breathing_effect(speed=speed)
-                logging.info(f"Started blue breathing effect with speed {speed}")
-            elif effect_name == "green_breathing":
-                speed = event.get('data', {}).get('speed', 0.05)
-                self.led_controller.start_green_breathing_effect(speed=speed)
-                logging.info(f"Started green breathing effect with speed {speed}")
-            elif effect_name == "rainbow":
-                speed = event.get('data', {}).get('speed', 0.03)
-                self.led_controller.start_rotating_rainbow_effect(speed=speed)
-                logging.info(f"Started rainbow effect with speed {speed}")
-            elif effect_name == "pink_blue_cycle":
-                speed = event.get('data', {}).get('speed', 0.05)
-                self.led_controller.start_rotating_pink_blue_effect(speed=speed)
-                logging.info(f"Started pink blue cycle effect with speed {speed}")
-            elif effect_name == "magical_spell":
-                speed = event.get('data', {}).get('speed', 0.005)
-                self.led_controller.start_random_twinkling_effect(speed=speed, duration=3000)
-                logging.info(f"Started random twinkling effect with speed {speed}")
-            elif effect_name == "rain":
-                speed = event.get('data', {}).get('speed', 0.05)
-                self.led_controller.start_rain_effect(speed=speed)
-                logging.info(f"Started rain effect with speed {speed}")
-            elif effect_name == "lightning":
-                speed = event.get('data', {}).get('speed', 0.05)
-                self.led_controller.start_lightning_effect(speed=speed, duration=3500)
-                logging.info(f"Started lightning effect with speed {speed} for 3 seconds")
+            speed = event.get('data', {}).get('speed', 0.02)
+            brightness = event.get('data', {}).get('brightness', LED_BRIGHTNESS)
+            
+            # Map string effect names to enum values
+            effect_map = {
+                "blue_breathing": LEDEffect.BLUE_BREATHING,
+                "green_breathing": LEDEffect.GREEN_BREATHING,
+                "rainbow": LEDEffect.ROTATING_RAINBOW,
+                "pink_blue_cycle": LEDEffect.ROTATING_PINK_BLUE,
+                "magical_spell": LEDEffect.RANDOM_TWINKLING,
+                "rain": LEDEffect.RAIN,
+                "lightning": LEDEffect.LIGHTNING,
+                "purring": LEDEffect.PURRING
+            }
+            
+            if effect_name in effect_map:
+                effect = effect_map[effect_name]
+                self.led_controller.start_effect(effect, speed=speed, brightness=brightness)
+                logging.info(f"Started {effect_name} effect with speed {speed} and brightness {brightness}")
             elif effect_name == "stop":
                 self.led_controller.stop_effect()
                 logging.info("Stopped LED effect")

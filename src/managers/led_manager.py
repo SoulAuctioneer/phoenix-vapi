@@ -5,6 +5,7 @@ from threading import Thread, Event
 from config import LED_PIN, LED_COUNT, LED_BRIGHTNESS, LED_ORDER, PLATFORM
 import logging
 import random
+from enum import Enum, auto
 
 # Try to import board and neopixel, but don't fail if they're not available, e.g. not on Raspberry Pi
 try:
@@ -16,7 +17,30 @@ except (ImportError, NotImplementedError):
     LEDS_AVAILABLE = False
     logging.info("LED libraries not available. Won't use LEDs")
 
+class LEDEffect(Enum):
+    """Enumeration of available LED effects"""
+    BLUE_BREATHING = auto()
+    GREEN_BREATHING = auto()
+    ROTATING_PINK_BLUE = auto()
+    ROTATING_RAINBOW = auto()
+    RANDOM_TWINKLING = auto()
+    RAIN = auto()
+    LIGHTNING = auto()
+    PURRING = auto()
+
 class LEDManager:
+    # Map of effects to their corresponding private methods and default speeds
+    _EFFECT_MAP = {
+        LEDEffect.BLUE_BREATHING: {'method': '_blue_breathing_effect', 'default_speed': 0.05},
+        LEDEffect.GREEN_BREATHING: {'method': '_green_breathing_effect', 'default_speed': 0.05},
+        LEDEffect.ROTATING_PINK_BLUE: {'method': '_pink_blue_rotation_effect', 'default_speed': 0.05},
+        LEDEffect.ROTATING_RAINBOW: {'method': '_rotating_rainbow_effect', 'default_speed': 0.02},
+        LEDEffect.RANDOM_TWINKLING: {'method': '_random_twinkling_effect', 'default_speed': 0.03},
+        LEDEffect.RAIN: {'method': '_rain_effect', 'default_speed': 0.05},
+        LEDEffect.LIGHTNING: {'method': '_lightning_effect', 'default_speed': 0.05},
+        LEDEffect.PURRING: {'method': '_purring_effect', 'default_speed': 0.01},
+    }
+
     def __init__(self):
         self._effect_thread = None
         self._stop_event = Event()
@@ -61,10 +85,78 @@ class LEDManager:
         
         self.clear()
 
+
+    def _blend_colors(self, color1, color2):
+        """Blend two colors by taking the maximum of each component"""
+        return (
+            max(color1[0], color2[0]),
+            max(color1[1], color2[1]),
+            max(color1[2], color2[2])
+        )
+
+    def start_effect(self, effect: LEDEffect, speed=None, brightness=LED_BRIGHTNESS, duration=None):
+        """Start an LED effect
+        
+        Args:
+            effect: The LEDEffect to start
+            speed: Speed of the effect (if None, uses effect's default speed)
+            brightness: Brightness level from 0.0 to 1.0 (default: LED_BRIGHTNESS from config)
+            duration: Optional duration in milliseconds before reverting to previous effect
+        """
+        if effect not in self._EFFECT_MAP:
+            raise ValueError(f"Unknown effect: {effect}")
+
+        effect_info = self._EFFECT_MAP[effect]
+        effect_speed = speed if speed is not None else effect_info['default_speed']
+        effect_method = getattr(self, effect_info['method'])
+
+        # Store the current effect function and speed before changing
+        previous_effect = None
+        if self._effect_thread is not None:
+            previous_effect = {
+                'effect': effect,
+                'speed': self._current_speed,
+                'brightness': self.pixels.brightness
+            }
+            self.stop_effect()
+            
+        self._stop_event.clear()
+        self._current_speed = effect_speed
+        self.pixels.brightness = brightness
+        self._effect_thread = Thread(target=effect_method, args=(effect_speed,))
+        self._effect_thread.daemon = True
+        self._effect_thread.start()
+        
+        if duration is not None:
+            def revert_after_duration():
+                time.sleep(duration / 1000)  # Convert ms to seconds
+                if previous_effect and not self._stop_event.is_set():
+                    self.start_effect(
+                        previous_effect['effect'],
+                        previous_effect['speed'],
+                        previous_effect['brightness']
+                    )
+                    
+            revert_thread = Thread(target=revert_after_duration)
+            revert_thread.daemon = True
+            revert_thread.start()
+
     def clear(self):
         """Turn off all LEDs"""
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
+
+    def stop_effect(self):
+        """Stop any running effect"""
+        self._stop_event.set()
+        if self._effect_thread:
+            self._effect_thread.join()
+            self._effect_thread = None
+        self.clear()
+
+
+    # ********** Effect methods **********
+
 
     def _blue_breathing_effect(self, wait):
         """Gentle breathing effect in a soft blue color"""
@@ -256,71 +348,6 @@ class LEDManager:
             self.pixels.show()
             time.sleep(wait)
 
-    def _blend_colors(self, color1, color2):
-        """Blend two colors by taking the maximum of each component"""
-        return (
-            max(color1[0], color2[0]),
-            max(color1[1], color2[1]),
-            max(color1[2], color2[2])
-        )
-
-    def _start_effect(self, effect_func, speed, duration=None):
-        """Helper method to start an effect
-        
-        Args:
-            effect_func: The effect function to run
-            speed: Speed of the effect
-            duration: Duration in milliseconds before reverting to previous effect. None for no duration.
-        """
-        # Store the current effect function and speed before changing
-        previous_effect = None
-        if self._effect_thread is not None:
-            previous_effect = {
-                'func': self._effect_thread._target,
-                'speed': self._current_speed  # Use stored current_speed instead of new speed
-            }
-            self.stop_effect()
-            
-        self._stop_event.clear()
-        self._current_speed = speed  # Store the current speed
-        self._effect_thread = Thread(target=effect_func, args=(speed,))
-        self._effect_thread.daemon = True
-        self._effect_thread.start()
-        
-        if duration is not None:
-            def revert_after_duration():
-                time.sleep(duration / 1000)  # Convert ms to seconds
-                if previous_effect and not self._stop_event.is_set():
-                    self._start_effect(previous_effect['func'], previous_effect['speed'])
-                    
-            revert_thread = Thread(target=revert_after_duration)
-            revert_thread.daemon = True
-            revert_thread.start()
-
-    def start_blue_breathing_effect(self, speed=0.05, duration=None):
-        """Start the blue breathing effect"""
-        self._start_effect(self._blue_breathing_effect, speed, duration)
-
-    def start_green_breathing_effect(self, speed=0.05, duration=None):
-        """Start the green breathing effect"""
-        self._start_effect(self._green_breathing_effect, speed, duration)
-
-    def start_rotating_pink_blue_effect(self, speed=0.05, duration=None):
-        """Start the breathing effect"""
-        self._start_effect(self._pink_blue_rotation_effect, speed, duration)
-
-    def start_rotating_rainbow_effect(self, speed=0.02, duration=None):
-        """Start the rainbow effect"""
-        self._start_effect(self._rotating_rainbow_effect, speed, duration)
-
-    def start_random_twinkling_effect(self, speed=0.03, duration=None):
-        """Start the conversation effect"""
-        self._start_effect(self._random_twinkling_effect, speed, duration)
-
-    def start_rain_effect(self, speed=0.05, duration=None):
-        """Start the rain effect"""
-        self._start_effect(self._rain_effect, speed, duration)
-
     def _lightning_effect(self, wait):
         """Create a realistic lightning effect that arcs across the LED ring"""
         while not self._stop_event.is_set():
@@ -395,10 +422,6 @@ class LEDManager:
             # Random wait between lightning strikes
             time.sleep(random.uniform(0.3, 2.0))
 
-    def start_lightning_effect(self, speed=0.05, duration=None):
-        """Start the lightning effect"""
-        self._start_effect(self._lightning_effect, speed, duration)
-
     def _purring_effect(self, wait):
         """Create a gentle pulsing effect that simulates a cat's purring.
         The effect creates a soft, warm glow that pulses at a speed determined by the stroke intensity.
@@ -422,40 +445,3 @@ class LEDManager:
                 self.pixels.fill(color)
                 self.pixels.show()
                 time.sleep(wait)
-
-    def start_purring_effect(self, speed=0.01, duration=None):
-        """Start the purring effect with the given speed.
-        
-        Args:
-            speed: Speed of the purring effect. Lower values create faster purring.
-                  Recommended range: 0.005 (fast purring) to 0.02 (slow purring)
-            duration: Optional duration in milliseconds before reverting to previous effect
-        """
-        self._start_effect(self._purring_effect, speed, duration)
-
-    def stop_effect(self):
-        """Stop any running effect"""
-        self._stop_event.set()
-        if self._effect_thread:
-            self._effect_thread.join()
-            self._effect_thread = None
-        self.clear()
-
-# Example usage:
-if __name__ == "__main__":
-    led = LEDManager()
-    try:
-        print("Testing LED effects...")
-        print("1. Idle pattern")
-        led.start_rotating_pink_blue_effect()
-        time.sleep(5)
-        print("2. Listening pattern")
-        led.start_rotating_rainbow_effect()
-        time.sleep(5)
-        print("3. Conversation pattern")
-        led.start_random_twinkling_effect()
-        time.sleep(5)
-        led.stop_effect()
-    except KeyboardInterrupt:
-        print("\nStopping effects...")
-        led.stop_effect() 
