@@ -28,7 +28,7 @@ class SensorService(BaseService):
         self.touch_manager.on_position(self._handle_touch_position)
         self.touch_manager.on_stroke(self._handle_touch_stroke)
         self.touch_manager.on_touch(self._handle_touch_state)
-        self.touch_manager.on_intensity(self._handle_touch_intensity)
+        self.touch_manager.on_stroke_intensity(self._handle_touch_intensity)
         
         # Start the touch manager
         await self.touch_manager.start()

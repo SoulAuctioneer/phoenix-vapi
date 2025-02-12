@@ -23,7 +23,7 @@ if TOUCH_HARDWARE_AVAILABLE:
 TouchCallback = Union[Callable[[bool], Awaitable[None]], Callable[[bool], None]]
 PositionCallback = Union[Callable[[float], Awaitable[None]], Callable[[float], None]]
 StrokeCallback = Union[Callable[[str], Awaitable[None]], Callable[[str], None]]
-IntensityCallback = Union[Callable[[float], Awaitable[None]], Callable[[float], None]]
+StrokeIntensityCallback = Union[Callable[[float], Awaitable[None]], Callable[[float], None]]
 
 class TouchManager:
     """Main class for interacting with the touch sensor"""
@@ -34,11 +34,11 @@ class TouchManager:
         self.position_callbacks: List[PositionCallback] = []
         self.stroke_callbacks: List[StrokeCallback] = []
         self.touch_callbacks: List[TouchCallback] = []
-        self.intensity_callbacks: List[IntensityCallback] = []
+        self.stroke_intensity_callbacks: List[StrokeIntensityCallback] = []
         
-        # Intensity level tracking
-        self.intensity_level = 0.0  # 0.0 to 1.0
-        self.last_intensity_update = time.time()
+        # Stroke intensity level tracking. This is a cumulative value that increases with each stroke and decays over time.
+        self.stroke_intensity_level = 0.0  # 0.0 to 1.0
+        self.last_stroke_intensity_update = time.time()
 
         if TOUCH_HARDWARE_AVAILABLE:
             self.ads, self.chan = self._setup_adc()
@@ -93,13 +93,13 @@ class TouchManager:
         """
         self.touch_callbacks.append(callback)
         
-    def on_intensity(self, callback: Callable[[float], None]):
-        """Register callback for intensity level updates
+    def on_stroke_intensity(self, callback: Callable[[float], None]):
+        """Register callback for stroke intensity level updates
         
         Args:
-            callback: Function taking intensity level (0-1) as argument
+            callback: Function taking stroke intensity level (0-1) as argument
         """
-        self.intensity_callbacks.append(callback)
+        self.stroke_intensity_callbacks.append(callback)
         
     async def _execute_callbacks(self, callbacks: List[Union[Callable, Awaitable]], *args):
         """Helper method to execute callbacks that may be async or sync"""
@@ -112,33 +112,33 @@ class TouchManager:
             except Exception as e:
                 logging.error(f"Error in callback {callback.__name__}: {str(e)}")
     
-    def _update_intensity_level(self):
-        """Update intensity level based on time decay"""
+    def _update_stroke_intensity_level(self):
+        """Update stroke intensity level based on time decay"""
         now = time.time()
-        elapsed = now - self.last_intensity_update
+        elapsed = now - self.last_stroke_intensity_update
         
         # Apply time-based decay
-        decay = config.INTENSITY_DECAY_RATE * elapsed
-        self.intensity_level = max(0.0, self.intensity_level - decay)
+        decay = config.STROKE_INTENSITY_DECAY_RATE * elapsed
+        self.stroke_intensity_level = max(0.0, self.stroke_intensity_level - decay)
         
-        self.last_intensity_update = now
+        self.last_stroke_intensity_update = now
         
-        # Notify callbacks of new intensity level
-        asyncio.create_task(self._execute_callbacks(self.intensity_callbacks, self.intensity_level))
+        # Notify callbacks of new stroke intensity level
+        asyncio.create_task(self._execute_callbacks(self.stroke_intensity_callbacks, self.stroke_intensity_level))
     
-    def _calculate_intensity_increase(self, distance: float, speed: float) -> float:
-        """Calculate intensity increase based on stroke metrics
+    def _calculate_stroke_intensity_increase(self, distance: float, speed: float) -> float:
+        """Calculate stroke intensity increase based on stroke metrics
         
         Args:
             distance: Total distance of stroke (0-1 range)
             speed: Speed of stroke (positions per second)
             
         Returns:
-            float: Amount to increase intensity (0-1 range)
+            float: Amount to increase stroke intensity (0-1 range)
         """
         # Increase is proportional to distance and inversely proportional to speed
         # Add a small constant (0.1) to speed to prevent division by very small numbers
-        increase = (distance * config.INTENSITY_DISTANCE_FACTOR) / ((speed * config.INTENSITY_SPEED_FACTOR) + 0.1)
+        increase = (distance * config.STROKE_INTENSITY_DISTANCE_FACTOR) / ((speed * config.STROKE_INTENSITY_SPEED_FACTOR) + 0.1)
         
         # Clamp the increase to a reasonable range (0-0.5)
         return min(0.5, max(0.0, increase))
@@ -162,8 +162,8 @@ class TouchManager:
                     was_touching = self.touch_state.is_touching
                     is_touching = self.touch_state.update(value)
                     
-                    # Update intensity level
-                    self._update_intensity_level()
+                    # Update stroke intensity level
+                    self._update_stroke_intensity_level()
                     
                     # Notify touch state changes
                     if is_touching != was_touching:
@@ -188,13 +188,13 @@ class TouchManager:
                         total_time = times[-1] - times[0]
                         speed = total_distance / total_time if total_time > 0 else 0
                         
-                        # Calculate and apply intensity increase based on stroke metrics
-                        increase = self._calculate_intensity_increase(total_distance, speed)
-                        self.intensity_level = min(1.0, self.intensity_level + increase)
-                        self._update_intensity_level()
+                        # Calculate and apply stroke intensity increase based on stroke metrics
+                        increase = self._calculate_stroke_intensity_increase(total_distance, speed)
+                        self.stroke_intensity_level = min(1.0, self.stroke_intensity_level + increase)
+                        self._update_stroke_intensity_level()
                         
-                        # Log the intensity calculation
-                        logging.info(f"Intensity increase: {increase:.3f} (distance: {total_distance:.3f}, speed: {speed:.3f})")
+                        # Log the stroke intensity calculation
+                        logging.info(f"Stroke intensity increase: {increase:.3f} (distance: {total_distance:.3f}, speed: {speed:.3f})")
                         
                         # Notify stroke detection
                         await self._execute_callbacks(self.stroke_callbacks, direction)

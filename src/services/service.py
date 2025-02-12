@@ -31,7 +31,7 @@ class GlobalState:
         self.temperature: Optional[float] = None
         self.touch_state: bool = False
         self.touch_position: Optional[float] = None
-        self.touch_intensity: Optional[float] = None
+        self.touch_stroke_intensity: Optional[float] = None
 
 
 class ServiceManager:
@@ -202,8 +202,8 @@ class BaseService:
             elif event_type == "touch_position":
                 self._state.touch_position = event["position"]
                 
-            elif event_type == "touch_intensity":
-                self._state.touch_intensity = event["intensity"]
+            elif event_type == "touch_stroke_intensity":
+                self._state.touch_stroke_intensity = event["intensity"]
                 
             elif event_type == "volume_changed":
                 self._state.volume = event["volume"]
