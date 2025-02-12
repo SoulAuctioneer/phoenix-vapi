@@ -35,9 +35,10 @@ class TouchManager:
         self.touch_callbacks: List[TouchCallback] = []
         self.stroke_intensity_callbacks: List[StrokeIntensityCallback] = []
         
-        # Stroke intensity level tracking. This is a cumulative value that increases with each stroke and decays over time.
+        # Stroke intensity level tracking
         self.stroke_intensity_level = 0.0  # 0.0 to 1.0
         self.last_stroke_intensity_update = time.time()
+        self._pending_intensity_update = None  # Track pending update task
 
         if config.PLATFORM == "raspberry-pi":
             self.ads, self.chan = self._setup_adc()
@@ -115,8 +116,12 @@ class TouchManager:
             except Exception as e:
                 logging.error(f"Error in callback {callback.__name__}: {str(e)}")
     
-    def _update_stroke_intensity_level(self):
-        """Update stroke intensity level based on time decay"""
+    def _update_stroke_intensity_level(self) -> bool:
+        """Update stroke intensity level based on time decay
+        
+        Returns:
+            bool: True if intensity was updated and callbacks should be triggered
+        """
         now = time.time()
         elapsed = now - self.last_stroke_intensity_update
         
@@ -124,17 +129,21 @@ class TouchManager:
         decay = config.STROKE_INTENSITY_DECAY_RATE * elapsed
         new_intensity = max(0.0, self.stroke_intensity_level - decay)
         
-        # Only update and notify if intensity changed significantly
+        # Only update if intensity changed significantly
         if abs(new_intensity - self.stroke_intensity_level) >= 0.001:
             self.stroke_intensity_level = new_intensity
             self.last_stroke_intensity_update = now
-            
-            # Create a task to handle callbacks (both sync and async)
-            asyncio.create_task(self._execute_callbacks(self.stroke_intensity_callbacks, self.stroke_intensity_level))
+            return True
         else:
             # Just update the timestamp if no significant change
             self.last_stroke_intensity_update = now
-    
+            return False
+
+    async def _notify_intensity_update(self):
+        """Helper method to notify intensity callbacks"""
+        if self.stroke_intensity_callbacks:
+            await self._execute_callbacks(self.stroke_intensity_callbacks, self.stroke_intensity_level)
+
     def _calculate_stroke_intensity_increase(self, distance: float, speed: float) -> float:
         """Calculate stroke intensity increase based on stroke metrics
         
@@ -172,8 +181,9 @@ class TouchManager:
                     was_touching = self.touch_state.is_touching
                     is_touching = self.touch_state.update(value)
                     
-                    # Update stroke intensity level
-                    self._update_stroke_intensity_level()
+                    # Update stroke intensity level and notify if changed
+                    if self._update_stroke_intensity_level():
+                        await self._notify_intensity_update()
                     
                     # Notify touch state changes
                     if is_touching != was_touching:
@@ -206,11 +216,9 @@ class TouchManager:
                         # Log the stroke intensity calculation
                         logging.info(f"Stroke intensity increase: {increase:.3f} (distance: {total_distance:.3f}, speed: {speed:.3f})")
                         
-                        # Notify stroke detection
+                        # Notify stroke detection and intensity update
                         await self._execute_callbacks(self.stroke_callbacks, direction)
-                        
-                        # Notify new intensity level after stroke
-                        await self._execute_callbacks(self.stroke_intensity_callbacks, self.stroke_intensity_level)
+                        await self._notify_intensity_update()
                     
                 except Exception as e:
                     logging.error(f"Error reading sensor: {str(e)}")
