@@ -100,6 +100,13 @@ class AudioProducer:
         # Clip to int16 range and convert back
         return np.clip(audio_float, -32768, 32767).astype(np.int16)
 
+    def stop(self):
+        """Stop this producer and clean up its resources"""
+        self.active = False
+        self.buffer.clear()
+        self._remainder = np.array([], dtype=np.int16)
+        logging.info(f"Producer '{self.name}' stopped and cleaned up")
+
 class AudioManager:
     """Manages audio resources and provides thread-safe access"""
     _instance = None
@@ -467,6 +474,14 @@ class AudioManager:
             return False
             
         return self._play_wav_file(wav_path, producer_name="sound_effect") 
+
+    def stop_sound(self):
+        """Stop the currently playing sound effect"""
+        with self._producers_lock:
+            if "sound_effect" in self._producers:
+                producer = self._producers["sound_effect"]
+                producer.stop()  # Let the producer handle its own cleanup
+                del self._producers["sound_effect"]  # Remove from active producers
         
     def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect") -> bool:
         """Play a WAV file through the audio system"""
