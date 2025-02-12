@@ -1,9 +1,121 @@
 import logging
 import asyncio
-from typing import Dict, Any, Set, Callable, Awaitable
+from typing import Dict, Any, Set, Callable, Awaitable, Optional
 from collections import defaultdict
+from dataclasses import dataclass, field
+from enum import Enum
 
 EventHandler = Callable[[Dict[str, Any]], Awaitable[None]]
+
+class GlobalState:
+    """Immutable container for global application state"""
+    def __init__(self):
+        # Location state
+        self.current_location: str = "unknown"
+        self.location_beacons: Dict[str, Dict[str, Any]] = {}
+        
+        # Conversation state
+        self.conversation_active: bool = False
+        self.assistant_speaking: bool = False
+        self.user_speaking: bool = False
+        self.is_muted: bool = False
+        
+        # Audio state
+        self.volume: float = 1.0
+        
+        # Sensor states
+        self.acceleration: Optional[tuple] = None
+        self.gyro: Optional[tuple] = None
+        self.temperature: Optional[float] = None
+        self.touch_state: bool = False
+        self.touch_position: Optional[float] = None
+        self.touch_intensity: Optional[float] = None
+
+class StateService(BaseService):
+    """Service for maintaining global application state.
+    Listens to all events and updates state accordingly.
+    Provides read-only access to current state."""
+    
+    def __init__(self, manager: 'ServiceManager'):
+        super().__init__(manager)
+        self._state = GlobalState()
+        self._state_lock = asyncio.Lock()
+        
+    @property
+    def state(self) -> GlobalState:
+        """Get the current global state (read-only)"""
+        return self._state
+        
+    async def start(self):
+        """Start the state service"""
+        await super().start()
+        self.logger.info("State service started")
+        
+    async def stop(self):
+        """Stop the state service"""
+        await super().stop()
+        self.logger.info("State service stopped")
+        
+    async def handle_event(self, event: Dict[str, Any]):
+        """Update state based on received events"""
+        event_type = event.get("type")
+        
+        async with self._state_lock:
+            if event_type == "location_changed":
+                self._state.current_location = event["data"]["location"]
+                
+            elif event_type == "proximity_changed":
+                location = event["data"]["location"]
+                if event["data"]["distance"] == "UNKNOWN":
+                    self._state.location_beacons.pop(location, None)
+                else:
+                    self._state.location_beacons[location] = {
+                        "distance": event["data"]["distance"],
+                        "rssi": event["data"]["rssi"]
+                    }
+                    
+            elif event_type == "conversation_starting":
+                self._state.conversation_active = True
+                self._state.conversation_error = None  # Clear any previous error
+                
+            elif event_type == "conversation_ended":
+                self._state.conversation_active = False
+                self._state.assistant_speaking = False
+                self._state.user_speaking = False
+                
+            elif event_type == "conversation_error":
+                self._state.conversation_active = False  # Conversation ends on error
+                self._state.assistant_speaking = False
+                self._state.user_speaking = False
+                
+            elif event_type == "speech-update":
+                role = event["role"]
+                is_speaking = event["status"] == "started"
+                if role == "assistant":
+                    self._state.assistant_speaking = is_speaking
+                elif role == "user":
+                    self._state.user_speaking = is_speaking
+                    
+            elif event_type == "sensor_data":
+                if event["sensor"] == "accelerometer":
+                    self._state.acceleration = event["data"]["acceleration"]
+                    self._state.gyro = event["data"]["gyro"]
+                    self._state.temperature = event["data"]["temperature"]
+                    
+            elif event_type == "touch_state":
+                self._state.touch_state = event["is_touching"]
+                
+            elif event_type == "touch_position":
+                self._state.touch_position = event["position"]
+                
+            elif event_type == "touch_intensity":
+                self._state.touch_intensity = event["intensity"]
+                
+            elif event_type == "volume_changed":
+                self._state.volume = event["volume"]
+                
+            elif event_type == "microphone_state":
+                self._state.is_muted = event["is_muted"]
 
 class ServiceManager:
     """Manages service lifecycle and event distribution"""
@@ -13,11 +125,24 @@ class ServiceManager:
         self._should_run = True
         self._lock = asyncio.Lock()
         self.logger = logging.getLogger(__name__)
+        self._state_service = None
+        
+    @property
+    def state(self) -> Optional[GlobalState]:
+        """Get the current global state (read-only)"""
+        if self._state_service:
+            return self._state_service.state
+        return None
         
     async def start_service(self, name: str, service: 'BaseService'):
         """Start a service and store it in the manager"""
         await service.start()
         self.services[name] = service
+        
+        # If this is the state service, store the reference
+        if isinstance(service, StateService):
+            self._state_service = service
+            
         # Auto-subscribe the service's handle_event method
         await self.subscribe("*", service.handle_event)
         self.logger.debug(f"Started service: {name}")
@@ -29,6 +154,11 @@ class ServiceManager:
             # Unsubscribe from all events
             await self.unsubscribe("*", service.handle_event)
             await service.stop()
+            
+            # Clear state service reference if needed
+            if service is self._state_service:
+                self._state_service = None
+                
             del self.services[name]
             self.logger.debug(f"Stopped service: {name}")
             
