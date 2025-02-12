@@ -198,7 +198,7 @@ class TouchManager:
                         
                 #         # Notify stroke detection
                 #         await self._execute_callbacks(self.stroke_callbacks, direction)
-                pass
+                    pass
                     
                 except Exception as e:
                     logging.error(f"Error reading sensor: {str(e)}")
