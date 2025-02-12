@@ -157,7 +157,7 @@ class TouchManager:
         
         try:
             while self.running:
-                # try:
+                try:
                 #     value = self.chan.value
                 #     was_touching = self.touch_state.is_touching
                 #     is_touching = self.touch_state.update(value)
