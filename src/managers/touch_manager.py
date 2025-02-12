@@ -28,26 +28,26 @@ StrokeIntensityCallback = Union[Callable[[float], Awaitable[None]], Callable[[fl
 class TouchManager:
     """Main class for interacting with the touch sensor"""
     def __init__(self):
-        # self.touch_state = TouchState()
-        # self.stroke_detector = StrokeDetector()
-        # self.running = False
-        # self.position_callbacks: List[PositionCallback] = []
-        # self.stroke_callbacks: List[StrokeCallback] = []
-        # self.touch_callbacks: List[TouchCallback] = []
-        # self.stroke_intensity_callbacks: List[StrokeIntensityCallback] = []
+        self.touch_state = TouchState()
+        self.stroke_detector = StrokeDetector()
+        self.running = False
+        self.position_callbacks: List[PositionCallback] = []
+        self.stroke_callbacks: List[StrokeCallback] = []
+        self.touch_callbacks: List[TouchCallback] = []
+        self.stroke_intensity_callbacks: List[StrokeIntensityCallback] = []
         
-        # # Stroke intensity level tracking
-        # self.stroke_intensity_level = 0.0  # 0.0 to 1.0
-        # self.last_stroke_intensity_update = time.time()
-        # self._pending_intensity_update = None  # Track pending update task
+        # Stroke intensity level tracking
+        self.stroke_intensity_level = 0.0  # 0.0 to 1.0
+        self.last_stroke_intensity_update = time.time()
+        self._pending_intensity_update = None  # Track pending update task
         
-        # # Stroke activity tracking for dynamic decay
-        # self.recent_strokes = []  # List of (timestamp, intensity_increase) tuples
-        # self.activity_window = config.STROKE_ACTIVITY_WINDOW  # Track strokes in last N seconds
+        # Stroke activity tracking for dynamic decay
+        self.recent_strokes = []  # List of (timestamp, intensity_increase) tuples
+        self.activity_window = config.STROKE_ACTIVITY_WINDOW  # Track strokes in last N seconds
         
-        # if config.PLATFORM == "raspberry-pi":
-        #     self.ads, self.chan = self._setup_adc()
-        # else:
+        if config.PLATFORM == "raspberry-pi":
+            self.ads, self.chan = self._setup_adc()
+        else:
             # Mock ADC for non-Raspberry Pi platforms
             self.ads = None
             self.chan = MockAnalogIn()
