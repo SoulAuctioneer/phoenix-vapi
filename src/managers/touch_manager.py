@@ -129,12 +129,8 @@ class TouchManager:
             self.stroke_intensity_level = new_intensity
             self.last_stroke_intensity_update = now
             
-            # Execute callbacks synchronously like in the original code
-            for callback in self.stroke_intensity_callbacks:
-                try:
-                    callback(self.stroke_intensity_level)
-                except Exception as e:
-                    logging.error(f"Error in stroke intensity callback: {str(e)}")
+            # Create a task to handle callbacks (both sync and async)
+            asyncio.create_task(self._execute_callbacks(self.stroke_intensity_callbacks, self.stroke_intensity_level))
         else:
             # Just update the timestamp if no significant change
             self.last_stroke_intensity_update = now
@@ -214,11 +210,7 @@ class TouchManager:
                         await self._execute_callbacks(self.stroke_callbacks, direction)
                         
                         # Notify new intensity level after stroke
-                        for callback in self.stroke_intensity_callbacks:
-                            try:
-                                callback(self.stroke_intensity_level)
-                            except Exception as e:
-                                logging.error(f"Error in stroke intensity callback: {str(e)}")
+                        await self._execute_callbacks(self.stroke_intensity_callbacks, self.stroke_intensity_level)
                     
                 except Exception as e:
                     logging.error(f"Error reading sensor: {str(e)}")
