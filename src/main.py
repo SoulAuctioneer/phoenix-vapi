@@ -25,6 +25,7 @@ for logger_name in [
     'services.conversation',
     'services.led',
     'services.special_effect',
+    'services.sensor',
     # Too noisy, disable for now
     # 'services.location'
 ]:
