@@ -43,7 +43,7 @@ class TouchManager:
         
         # Stroke activity tracking for dynamic decay
         self.recent_strokes = []  # List of (timestamp, intensity_increase) tuples
-        self.activity_window = 15.0  # Track strokes in last 15 seconds - typical for gentle petting sessions
+        self.activity_window = config.STROKE_ACTIVITY_WINDOW  # Track strokes in last N seconds
         
         if config.PLATFORM == "raspberry-pi":
             self.ads, self.chan = self._setup_adc()
@@ -128,7 +128,8 @@ class TouchManager:
         Decay rate is dynamic based on recent stroke activity:
         - More active stroking = slower decay (maintains intensity during gentle petting)
         - Less active stroking = faster decay (fades when petting stops)
-        - Uses a 15-second window to accommodate natural pauses between strokes
+        - Uses configurable window to accommodate natural pauses between strokes
+        - Implements gentle fade-out when petting stops
         
         Returns:
             bool: True if intensity was updated and callbacks should be triggered
@@ -143,22 +144,38 @@ class TouchManager:
         # More strokes and higher intensity increases = higher activity
         if self.recent_strokes:
             # Weight recent strokes more heavily using exponential decay
-            # Time constant of 5.0 seconds means strokes from 5s ago have ~37% weight
-            weighted_activity = sum(i * math.exp(-(now - t) / 5.0) for t, i in self.recent_strokes)
-            # Normalize to 0-1 range (assuming ~3 strokes in 15s window with max increase each)
-            activity_level = min(1.0, weighted_activity / (3 * config.STROKE_INTENSITY_MAX_INCREASE))
+            weighted_activity = sum(i * math.exp(-(now - t) / config.STROKE_ACTIVITY_DECAY_TIME) 
+                                 for t, i in self.recent_strokes)
+            # Normalize to 0-1 range based on expected strokes per window
+            activity_level = min(1.0, weighted_activity / 
+                               (config.STROKE_ACTIVITY_STROKES_PER_WINDOW * config.STROKE_INTENSITY_MAX_INCREASE))
+            
+            # Add extra weight to very recent strokes (last 2 seconds) to maintain intensity better
+            very_recent_strokes = sum(1 for t, _ in self.recent_strokes if now - t <= 2.0)
+            if very_recent_strokes > 0:
+                activity_level = min(1.0, activity_level * 1.2)  # Boost activity level by up to 20%
         else:
             activity_level = 0.0
             
         # Calculate dynamic decay rate:
-        # - At activity_level = 0: decay = BASE_DECAY * 3 (faster decay when petting stops)
-        # - At activity_level = 1: decay = BASE_DECAY / 4 (very slow decay during active petting)
+        # - At activity_level = 0: decay = BASE_DECAY * MAX_MULTIPLIER (faster decay)
+        # - At activity_level = 1: decay = BASE_DECAY * MIN_MULTIPLIER (slower decay)
         base_decay = config.STROKE_INTENSITY_DECAY_RATE
-        decay_rate = base_decay * (3.0 - 2.75 * activity_level)
+        decay_range = config.STROKE_MAX_DECAY_MULTIPLIER - config.STROKE_MIN_DECAY_MULTIPLIER
+        decay_rate = base_decay * (config.STROKE_MAX_DECAY_MULTIPLIER - (decay_range * activity_level))
+        
+        # Add non-linear decay: slower at low intensities for gentler fade-out
+        if self.stroke_intensity_level < 0.3:  # Slow down decay at low intensities
+            decay_rate *= (self.stroke_intensity_level / 0.3) ** 0.5
         
         # Apply time-based decay with dynamic rate
         decay = decay_rate * elapsed
         new_intensity = max(0.0, self.stroke_intensity_level - decay)
+        
+        # Log decay metrics for debugging
+        if new_intensity != self.stroke_intensity_level:
+            logging.debug(f"Decay metrics - Activity: {activity_level:.2f}, Rate: {decay_rate:.4f}, " 
+                        f"Decay: {decay:.4f}, New intensity: {new_intensity:.2f}")
         
         # Update if:
         # 1. There is any decay

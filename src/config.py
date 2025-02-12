@@ -221,6 +221,13 @@ STROKE_INTENSITY_DISTANCE_FACTOR = 0.6  # Multiplier for distance contribution
 STROKE_INTENSITY_MIN_SPEED = 0.5  # Minimum speed threshold to prevent large increases from very slow strokes
 STROKE_INTENSITY_MAX_INCREASE = 0.1  # Maximum intensity increase per stroke (0-1)
 
+# Stroke activity and decay behavior
+STROKE_ACTIVITY_WINDOW = 15.0  # Time window to track strokes for activity level (seconds)
+STROKE_ACTIVITY_DECAY_TIME = 5.0  # Time constant for activity level exponential decay (seconds)
+STROKE_MAX_DECAY_MULTIPLIER = 2.0  # Maximum decay rate multiplier when inactive (was 3.0)
+STROKE_MIN_DECAY_MULTIPLIER = 0.25  # Minimum decay rate multiplier when very active (was 0.25)
+STROKE_ACTIVITY_STROKES_PER_WINDOW = 3  # Expected number of strokes per window for normalization
+
 # Sensor sampling configuration
 SAMPLE_RATE_HZ = 100  # Default sampling rate in Hz
 
