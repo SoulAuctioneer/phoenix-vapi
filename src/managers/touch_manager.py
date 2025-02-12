@@ -122,12 +122,22 @@ class TouchManager:
         
         # Apply time-based decay
         decay = config.STROKE_INTENSITY_DECAY_RATE * elapsed
-        self.stroke_intensity_level = max(0.0, self.stroke_intensity_level - decay)
+        new_intensity = max(0.0, self.stroke_intensity_level - decay)
         
-        self.last_stroke_intensity_update = now
-        
-        # Notify callbacks of new stroke intensity level
-        asyncio.create_task(self._execute_callbacks(self.stroke_intensity_callbacks, self.stroke_intensity_level))
+        # Only update and notify if intensity changed significantly
+        if abs(new_intensity - self.stroke_intensity_level) >= 0.001:
+            self.stroke_intensity_level = new_intensity
+            self.last_stroke_intensity_update = now
+            
+            # Execute callbacks synchronously like in the original code
+            for callback in self.stroke_intensity_callbacks:
+                try:
+                    callback(self.stroke_intensity_level)
+                except Exception as e:
+                    logging.error(f"Error in stroke intensity callback: {str(e)}")
+        else:
+            # Just update the timestamp if no significant change
+            self.last_stroke_intensity_update = now
     
     def _calculate_stroke_intensity_increase(self, distance: float, speed: float) -> float:
         """Calculate stroke intensity increase based on stroke metrics
@@ -195,18 +205,24 @@ class TouchManager:
                         # Calculate and apply stroke intensity increase based on stroke metrics
                         increase = self._calculate_stroke_intensity_increase(total_distance, speed)
                         self.stroke_intensity_level = min(1.0, self.stroke_intensity_level + increase)
-                        self._update_stroke_intensity_level()
+                        self.last_stroke_intensity_update = time.time()
                         
                         # Log the stroke intensity calculation
                         logging.info(f"Stroke intensity increase: {increase:.3f} (distance: {total_distance:.3f}, speed: {speed:.3f})")
                         
                         # Notify stroke detection
                         await self._execute_callbacks(self.stroke_callbacks, direction)
+                        
+                        # Notify new intensity level after stroke
+                        for callback in self.stroke_intensity_callbacks:
+                            try:
+                                callback(self.stroke_intensity_level)
+                            except Exception as e:
+                                logging.error(f"Error in stroke intensity callback: {str(e)}")
                     
                 except Exception as e:
                     logging.error(f"Error reading sensor: {str(e)}")
                 
-                # Use asyncio.sleep to properly yield to the event loop
                 await asyncio.sleep(interval)
         
         try:
