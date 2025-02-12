@@ -891,7 +891,7 @@ class CallManager:
         else:
             raise Exception("Error: No assistant specified.")
 
-        logging.info("Creating web call...")
+        logging.info("Creating web call with payload: " + str(payload))
         call_id, web_call_url = self._create_vapi_call(payload)
 
         if not web_call_url:
