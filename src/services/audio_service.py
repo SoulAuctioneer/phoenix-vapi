@@ -10,6 +10,7 @@ class AudioService(BaseService):
     def __init__(self, manager):
         super().__init__(manager)
         self.audio_manager = None
+        self._purring_active = False  # Track if purring sound is currently active
         
     async def start(self):
         """Start the audio service"""
@@ -58,6 +59,30 @@ class AudioService(BaseService):
         # Play yawn sound when conversation ends
         elif event_type == "conversation_ended":
             await self._play_sound("YAWN") 
+
+        # Handle touch stroke intensity for purring sound
+        elif event_type == "touch_stroke_intensity":
+            # Only trigger purring if we're not in a conversation
+            if not self.global_state.conversation_active:
+                intensity = event.get('intensity', 0.0)
+                if intensity > 0:
+                    # Map intensity (0-1) to volume (0.05-0.3)
+                    min_volume = 0.05  # Minimum volume
+                    max_volume = 0.3   # Maximum volume
+                    volume_range = max_volume - min_volume
+                    volume = min_volume + (intensity * volume_range)
+                    
+                    # Start or update purring sound with new volume
+                    self.logger.info(f"Starting or updating purring sound with volume {volume:.2f} based on intensity {intensity:.2f}")
+                    self.audio_manager.set_producer_volume("sound_effect", volume)
+                    if not self._purring_active:
+                        self._purring_active = True
+                        await self._play_sound("PURRING")
+                else:
+                    # When intensity drops to 0, stop the purring sound
+                    self._purring_active = False
+                    self.logger.info("Touch intensity ended, stopping purring sound")
+                    self.audio_manager.stop_sound()
 
     async def _play_sound(self, effect_name: str) -> bool:
         """Helper method to play a sound effect with error handling
