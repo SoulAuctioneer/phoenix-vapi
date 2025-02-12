@@ -11,11 +11,12 @@ import random
 from typing import Callable, Optional, List, Awaitable, Union
 
 # Only import hardware-specific libraries on Raspberry Pi
-if config.platform == "raspberry-pi":
+if config.PLATFORM == "raspberry-pi":
     import board
     import busio
     import adafruit_ads1x15.ads1115 as ADS
     from adafruit_ads1x15.analog_in import AnalogIn
+    from adafruit_ads1x15.ads1x15 import Mode
 
 # Type aliases for callbacks
 TouchCallback = Union[Callable[[bool], Awaitable[None]], Callable[[bool], None]]
@@ -57,6 +58,10 @@ class TouchManager:
             
             # Create the ADC object using the I2C bus
             ads = ADS.ADS1115(i2c)  # Change to ADS1015 if using that model
+
+            # Set the ADC to continuous conversion mode
+            # TODO: Uncomment this to test when everything else works
+            # ads.mode = Mode.CONTINUOUS
             
             # Create single-ended input on channel 0
             chan = AnalogIn(ads, ADS.P0)
