@@ -166,20 +166,7 @@ class LocationService(BaseService):
         """Handle incoming events"""
         event_type = event.get("type")
         
-        if event_type == "get_location":
-            # Respond with current location and all beacon information
-            response = {
-                "current_location": self._last_location or "unknown",
-                "beacons": self._last_distances.copy()
-            }
-            await self.publish({
-                "type": "location_response",
-                "data": response,
-                "producer_name": "location_service",
-                "request_id": event.get("request_id")
-            })
-            
-        elif event_type == "force_scan":
+        if event_type == "force_scan":
             # Force an immediate scan
             if PLATFORM == "raspberry-pi":
                 try:
