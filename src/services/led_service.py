@@ -61,7 +61,7 @@ class LEDService(BaseService):
 
         elif event_type == "touch_intensity":
             # Only trigger purring effect if we're not in a conversation
-            if not self.manager.state.conversation_active:
+            if not self.global_state.conversation_active:
                 intensity = event.get('intensity', 0.0)
                 if intensity > 0:
                     # Map intensity (0-1) to purring speed (0.02-0.005)
