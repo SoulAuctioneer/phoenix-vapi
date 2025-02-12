@@ -156,7 +156,7 @@ class TouchManager:
         # interval = 1.0 / sample_rate_hz
         
         try:
-            while self.running:
+            # while self.running:
                 # try:
                 #     value = self.chan.value
                 #     was_touching = self.touch_state.is_touching
@@ -203,7 +203,8 @@ class TouchManager:
                 # except Exception as e:
                 #     logging.error(f"Error reading sensor: {str(e)}")
                 
-                await asyncio.sleep(1000)
+                # await asyncio.sleep(1000)
+                pass
         except asyncio.CancelledError:
             logging.info("Sensor loop cancelled")
         finally:
