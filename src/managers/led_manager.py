@@ -399,6 +399,40 @@ class LEDManager:
         """Start the lightning effect"""
         self._start_effect(self._lightning_effect, speed, duration)
 
+    def _purring_effect(self, wait):
+        """Create a gentle pulsing effect that simulates a cat's purring.
+        The effect creates a soft, warm glow that pulses at a speed determined by the stroke intensity.
+        A faster stroke will create a more rapid purring effect."""
+        # Warm, gentle color for the purr (soft peachy-pink)
+        base_color = (255, 180, 147)  # RGB values for a warm, cozy glow
+        
+        while not self._stop_event.is_set():
+            # Create two pulses per cycle to simulate the inhale/exhale of purring
+            for i in range(0, 100, 1):
+                if self._stop_event.is_set():
+                    break
+                    
+                # Use two overlapping sine waves to create a more natural purring rhythm
+                wave1 = math.sin(i * math.pi / 25)  # Faster wave
+                wave2 = math.sin(i * math.pi / 50)  # Slower wave
+                brightness = ((wave1 + wave2 + 2) / 4) * 0.7  # Normalize to 0-0.7 range for gentle effect
+                
+                # Apply brightness to base color
+                color = tuple(int(c * brightness) for c in base_color)
+                self.pixels.fill(color)
+                self.pixels.show()
+                time.sleep(wait)
+
+    def start_purring_effect(self, speed=0.01, duration=None):
+        """Start the purring effect with the given speed.
+        
+        Args:
+            speed: Speed of the purring effect. Lower values create faster purring.
+                  Recommended range: 0.005 (fast purring) to 0.02 (slow purring)
+            duration: Optional duration in milliseconds before reverting to previous effect
+        """
+        self._start_effect(self._purring_effect, speed, duration)
+
     def stop_effect(self):
         """Stop any running effect"""
         self._stop_event.set()

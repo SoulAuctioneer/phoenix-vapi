@@ -59,6 +59,21 @@ class LEDService(BaseService):
             logging.info("Application startup completed - switched to rotating pink blue effect")
             self.led_controller.start_rotating_pink_blue_effect()
 
+        elif event_type == "touch_intensity":
+            # Only trigger purring effect if we're not in a conversation
+            if not self.manager.state.conversation_active:
+                intensity = event.get('intensity', 0.0)
+                if intensity > 0:
+                    # Map intensity (0-1) to purring speed (0.02-0.005)
+                    # Higher intensity = faster purring (lower wait time)
+                    speed = 0.02 - (intensity * 0.015)  # This maps 0-1 to 0.02-0.005
+                    logging.info(f"Starting purring effect with speed {speed} based on intensity {intensity}")
+                    self.led_controller.start_purring_effect(speed=speed)
+                else:
+                    # When intensity drops to 0, return to default effect
+                    logging.info("Touch intensity ended, returning to default effect")
+                    self.led_controller.start_rotating_pink_blue_effect()
+
         elif event_type == "start_led_effect":
             # Handle manual LED commands
             effect_name = event.get('data', {}).get('effectName')
