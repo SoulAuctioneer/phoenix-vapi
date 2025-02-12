@@ -66,12 +66,12 @@ class AudioService(BaseService):
             if not self.global_state.conversation_active:
                 intensity = event.get('intensity', 0.0)
                 if intensity > 0:
-                    # Map intensity (0-1) to volume (0.0-0.3) with exponential scaling
-                    # This makes it much quieter at low intensities
-                    min_volume = 0.0    # Minimum volume
-                    max_volume = 0.5    # Maximum volume
-                    # Apply exponential scaling (x^2) to make low intensities even quieter
-                    scaled_intensity = intensity * intensity  
+                    # Map intensity (0-1) to volume (0.0-0.5) with cubic scaling
+                    # Cubic scaling makes it very quiet at low intensities but can still get loud
+                    min_volume = 0.0     # Minimum volume
+                    max_volume = 0.5     # Maximum volume - allows for louder purring at high intensities
+                    # Apply cubic scaling to make it extra quiet at low intensities
+                    scaled_intensity = intensity ** 3  # Cubic scaling
                     volume = min_volume + (scaled_intensity * (max_volume - min_volume))
                     
                     # Start or update purring sound with new volume
