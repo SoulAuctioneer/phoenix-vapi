@@ -31,8 +31,8 @@ class SensorService(BaseService):
         self.touch_manager.on_stroke_intensity(self._handle_touch_intensity)
         
         # Start the touch manager
-        # await self.touch_manager.start()
-        # self.logger.info("SensorService started successfully")
+        await self.touch_manager.start()
+        self.logger.info("SensorService started successfully")
         
     async def stop(self):
         """Stop all sensor systems"""
