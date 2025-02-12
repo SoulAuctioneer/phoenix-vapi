@@ -8,6 +8,7 @@ import config
 import asyncio
 import platform
 import random
+import math
 from typing import Callable, Optional, List, Awaitable, Union
 
 # Only import hardware-specific libraries on Raspberry Pi
@@ -39,7 +40,11 @@ class TouchManager:
         self.stroke_intensity_level = 0.0  # 0.0 to 1.0
         self.last_stroke_intensity_update = time.time()
         self._pending_intensity_update = None  # Track pending update task
-
+        
+        # Stroke activity tracking for dynamic decay
+        self.recent_strokes = []  # List of (timestamp, intensity_increase) tuples
+        self.activity_window = 15.0  # Track strokes in last 15 seconds - typical for gentle petting sessions
+        
         if config.PLATFORM == "raspberry-pi":
             self.ads, self.chan = self._setup_adc()
         else:
@@ -120,9 +125,10 @@ class TouchManager:
         """Update stroke intensity level based on time decay
         
         The stroke intensity naturally decays over time when no new strokes are detected.
-        We want to track:
-        1. Any non-zero decay
-        2. When intensity reaches exactly 0
+        Decay rate is dynamic based on recent stroke activity:
+        - More active stroking = slower decay (maintains intensity during gentle petting)
+        - Less active stroking = faster decay (fades when petting stops)
+        - Uses a 15-second window to accommodate natural pauses between strokes
         
         Returns:
             bool: True if intensity was updated and callbacks should be triggered
@@ -130,8 +136,28 @@ class TouchManager:
         now = time.time()
         elapsed = now - self.last_stroke_intensity_update
         
-        # Apply time-based decay
-        decay = config.STROKE_INTENSITY_DECAY_RATE * elapsed
+        # Clean up old strokes outside the activity window
+        self.recent_strokes = [(t, i) for t, i in self.recent_strokes if now - t <= self.activity_window]
+        
+        # Calculate activity level (0-1) based on recent strokes
+        # More strokes and higher intensity increases = higher activity
+        if self.recent_strokes:
+            # Weight recent strokes more heavily using exponential decay
+            # Time constant of 5.0 seconds means strokes from 5s ago have ~37% weight
+            weighted_activity = sum(i * math.exp(-(now - t) / 5.0) for t, i in self.recent_strokes)
+            # Normalize to 0-1 range (assuming ~3 strokes in 15s window with max increase each)
+            activity_level = min(1.0, weighted_activity / (3 * config.STROKE_INTENSITY_MAX_INCREASE))
+        else:
+            activity_level = 0.0
+            
+        # Calculate dynamic decay rate:
+        # - At activity_level = 0: decay = BASE_DECAY * 3 (faster decay when petting stops)
+        # - At activity_level = 1: decay = BASE_DECAY / 4 (very slow decay during active petting)
+        base_decay = config.STROKE_INTENSITY_DECAY_RATE
+        decay_rate = base_decay * (3.0 - 2.75 * activity_level)
+        
+        # Apply time-based decay with dynamic rate
+        decay = decay_rate * elapsed
         new_intensity = max(0.0, self.stroke_intensity_level - decay)
         
         # Update if:
@@ -221,7 +247,11 @@ class TouchManager:
                         # Calculate and apply stroke intensity increase based on stroke metrics
                         increase = self._calculate_stroke_intensity_increase(total_distance, speed)
                         self.stroke_intensity_level = min(1.0, self.stroke_intensity_level + increase)
-                        self.last_stroke_intensity_update = time.time()
+                        now = time.time()
+                        self.last_stroke_intensity_update = now
+                        
+                        # Track this stroke for activity level calculation
+                        self.recent_strokes.append((now, increase))
                         
                         # Log the stroke intensity calculation
                         logging.info(f"Stroke intensity increase: {increase:.3f} (distance: {total_distance:.3f}, speed: {speed:.3f})")
