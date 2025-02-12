@@ -17,18 +17,18 @@ class SensorService(BaseService):
     def __init__(self, manager: ServiceManager):
         super().__init__(manager)
         self.touch_manager = TouchManager()
-        # self._last_intensity = 0.0  # Track last published intensity
-        # self._last_position = 0.0  # Track last published position
+        self._last_intensity = 0.0  # Track last published intensity
+        self._last_position = 0.0  # Track last published position
         
     async def start(self):
         """Initialize and start all sensor systems"""
         await super().start()
         
         # Set up touch manager callbacks
-        # self.touch_manager.on_position(self._handle_touch_position)
-        # self.touch_manager.on_stroke(self._handle_touch_stroke)
-        # self.touch_manager.on_touch(self._handle_touch_state)
-        # self.touch_manager.on_stroke_intensity(self._handle_touch_intensity)
+        self.touch_manager.on_position(self._handle_touch_position)
+        self.touch_manager.on_stroke(self._handle_touch_stroke)
+        self.touch_manager.on_touch(self._handle_touch_state)
+        self.touch_manager.on_stroke_intensity(self._handle_touch_intensity)
         
         # Start the touch manager
         # await self.touch_manager.start()
