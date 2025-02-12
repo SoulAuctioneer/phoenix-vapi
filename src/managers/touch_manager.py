@@ -203,21 +203,25 @@ class TouchManager:
                 except Exception as e:
                     logging.error(f"Error reading sensor: {str(e)}")
                 
-                # Use a non-blocking sleep that won't interfere with other threads
-                time.sleep(interval)
+                # Use asyncio.sleep to properly yield to the event loop
+                await asyncio.sleep(interval)
         
         try:
-            # Start the callback processing task
-            task = asyncio.create_task(process_callbacks())
-            await task
-        except asyncio.CancelledError:
-            logging.info("Sensor loop cancelled")
-        finally:
+            # Start the callback processing task but don't await it
+            self._processing_task = asyncio.create_task(process_callbacks())
+            # Return immediately to not block the event loop
+            return
+        except Exception as e:
+            logging.error(f"Failed to start touch processing: {str(e)}")
             self.running = False
+            raise
     
     def stop(self):
         """Stop the sensor reading loop"""
         self.running = False
+        # Cancel the processing task if it exists
+        if hasattr(self, '_processing_task') and self._processing_task:
+            self._processing_task.cancel()
 
 class StrokeDetector:
     """Class to detect stroking motions on the touch sensor"""
