@@ -66,17 +66,23 @@ class AudioService(BaseService):
             if not self.global_state.conversation_active:
                 intensity = event.get('intensity', 0.0)
                 if intensity > 0:
-                    # Map intensity (0-1) to volume (0.05-0.3)
-                    min_volume = 0.0  # Minimum volume
-                    max_volume = 0.5   # Maximum volume
-                    volume_range = max_volume - min_volume
-                    volume = min_volume + (intensity * volume_range)
+                    # Map intensity (0-1) to volume (0.0-0.3) with exponential scaling
+                    # This makes it much quieter at low intensities
+                    min_volume = 0.0    # Minimum volume
+                    max_volume = 0.5    # Maximum volume
+                    # Apply exponential scaling (x^2) to make low intensities even quieter
+                    scaled_intensity = intensity * intensity  
+                    volume = min_volume + (scaled_intensity * (max_volume - min_volume))
                     
                     # Start or update purring sound with new volume
-                    self.logger.info(f"Starting or updating purring sound with volume {volume:.2f} based on intensity {intensity:.2f}")
+                    self.logger.info(f"Starting or updating purring sound with volume {volume:.3f} based on intensity {intensity:.2f} (scaled: {scaled_intensity:.3f})")
+                    
+                    # Set volume before starting sound if not already purring
                     self.audio_manager.set_producer_volume("sound_effect", volume)
                     if not self._purring_active:
                         self._purring_active = True
+                        # Ensure volume is set before playing
+                        await asyncio.sleep(0.1)  # Small delay to ensure volume takes effect
                         await self._play_sound("PURRING")
                 else:
                     # When intensity drops to 0, stop the purring sound
