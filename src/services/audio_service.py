@@ -66,16 +66,14 @@ class AudioService(BaseService):
             if not self.global_state.conversation_active:
                 intensity = event.get('intensity', 0.0)
                 if intensity > 0:
-                    # Map intensity (0-1) to volume (0.01-0.5) with quadratic scaling
-                    # Using a minimum volume threshold to prevent silence
-                    min_volume = 0.01    # Minimum volume threshold to prevent silence
-                    max_volume = 0.5     # Maximum volume - allows for louder purring at high intensities
-                    # Apply quadratic scaling for quieter low intensities
-                    scaled_intensity = intensity ** 2  # Quadratic scaling
-                    volume = min_volume + (scaled_intensity * (max_volume - min_volume))
+                    # Linear mapping from intensity to volume (0.001-0.5)
+                    # Start very quiet and increase linearly to max volume
+                    min_volume = 0.001   # Start nearly silent (0.1%)
+                    max_volume = 0.5     # Maximum volume (50%)
+                    volume = min_volume + (intensity * (max_volume - min_volume))
                     
                     # Start or update purring sound with new volume
-                    self.logger.info(f"Starting or updating purring sound with volume {volume:.3f} based on intensity {intensity:.2f} (scaled: {scaled_intensity:.3f})")
+                    self.logger.info(f"Starting or updating purring sound with volume {volume:.3f} based on intensity {intensity:.2f}")
                     
                     # Set volume before starting sound if not already purring
                     self.audio_manager.set_producer_volume("sound_effect", volume)
