@@ -67,8 +67,13 @@ class LEDService(BaseService):
                     # Map intensity (0-1) to purring speed (0.02-0.005)
                     # Higher intensity = faster purring (lower wait time)
                     speed = 0.02 - (intensity * 0.015)  # This maps 0-1 to 0.02-0.005
-                    logging.info(f"Starting purring effect with speed {speed} based on intensity {intensity}")
-                    self.led_controller.start_effect(LEDEffect.PURRING, speed=speed)
+                    
+                    # Map intensity to brightness (0.3-1.0)
+                    # Higher intensity = brighter glow
+                    brightness = 0.3 + (intensity * 0.7)  # This maps 0-1 to 0.3-1.0
+                    
+                    logging.info(f"Starting or updating purring effect with speed {speed} and brightness {brightness} based on intensity {intensity}")
+                    self.led_controller.start_or_update_effect(LEDEffect.PURRING, speed=speed, brightness=brightness)
                 else:
                     # When intensity drops to 0, return to default effect
                     logging.info("Touch intensity ended, returning to default effect")

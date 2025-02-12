@@ -45,6 +45,9 @@ class LEDManager:
         self._effect_thread = None
         self._stop_event = Event()
         self._current_speed = None
+        # Track current effect state
+        self._current_effect = None
+        self._current_brightness = LED_BRIGHTNESS
         
         # Initialize the NeoPixel object only on Raspberry Pi
         if LEDS_AVAILABLE:
@@ -85,7 +88,6 @@ class LEDManager:
         
         self.clear()
 
-
     def _blend_colors(self, color1, color2):
         """Blend two colors by taking the maximum of each component"""
         return (
@@ -93,6 +95,68 @@ class LEDManager:
             max(color1[1], color2[1]),
             max(color1[2], color2[2])
         )
+
+    def _setup_revert_thread(self, previous_effect, duration):
+        """Set up a thread to revert to previous effect after duration.
+        
+        Args:
+            previous_effect: Dictionary containing previous effect state
+            duration: Duration in milliseconds before reverting
+        """
+        def revert_after_duration():
+            time.sleep(duration / 1000)  # Convert ms to seconds
+            if previous_effect and not self._stop_event.is_set():
+                self.start_effect(
+                    previous_effect['effect'],
+                    previous_effect['speed'],
+                    previous_effect['brightness']
+                )
+                
+        revert_thread = Thread(target=revert_after_duration)
+        revert_thread.daemon = True
+        revert_thread.start()
+
+    def start_or_update_effect(self, effect: LEDEffect, speed=None, brightness=LED_BRIGHTNESS, duration=None):
+        """Start an LED effect if it's not already running, or update its parameters if it is.
+        
+        This function allows for smooth transitions in effect parameters without restarting the effect
+        pattern from the beginning. If the requested effect is already running, it will only update
+        the speed and brightness. If it's a different effect, it will start the new effect.
+        
+        Args:
+            effect: The LEDEffect to start or update
+            speed: Speed of the effect (if None, uses effect's default speed)
+            brightness: Brightness level from 0.0 to 1.0 (default: LED_BRIGHTNESS from config)
+            duration: Optional duration in milliseconds before reverting to previous effect
+        """
+        if effect not in self._EFFECT_MAP:
+            raise ValueError(f"Unknown effect: {effect}")
+
+        effect_info = self._EFFECT_MAP[effect]
+        effect_speed = speed if speed is not None else effect_info['default_speed']
+
+        # Store current state before any changes
+        previous_effect = None
+        if self._effect_thread is not None:
+            previous_effect = {
+                'effect': self._current_effect,
+                'speed': self._current_speed,
+                'brightness': self._current_brightness
+            }
+
+        # If the same effect is already running, just update parameters
+        if effect == self._current_effect and self._effect_thread and self._effect_thread.is_alive():
+            self._current_speed = effect_speed
+            self._current_brightness = brightness
+            self.pixels.brightness = brightness
+            logging.info(f"Updated {effect.name} parameters: speed={effect_speed}, brightness={brightness}")
+            
+            # Handle duration-based revert for parameter updates
+            if duration is not None:
+                self._setup_revert_thread(previous_effect, duration)
+        else:
+            # Different effect or no effect running, start new effect
+            self.start_effect(effect, speed, brightness, duration)
 
     def start_effect(self, effect: LEDEffect, speed=None, brightness=LED_BRIGHTNESS, duration=None):
         """Start an LED effect
@@ -110,36 +174,27 @@ class LEDManager:
         effect_speed = speed if speed is not None else effect_info['default_speed']
         effect_method = getattr(self, effect_info['method'])
 
-        # Store the current effect function and speed before changing
+        # Store current state before stopping the effect
         previous_effect = None
         if self._effect_thread is not None:
             previous_effect = {
-                'effect': effect,
+                'effect': self._current_effect,
                 'speed': self._current_speed,
-                'brightness': self.pixels.brightness
+                'brightness': self._current_brightness
             }
             self.stop_effect()
             
         self._stop_event.clear()
         self._current_speed = effect_speed
+        self._current_effect = effect
+        self._current_brightness = brightness
         self.pixels.brightness = brightness
         self._effect_thread = Thread(target=effect_method, args=(effect_speed,))
         self._effect_thread.daemon = True
         self._effect_thread.start()
         
         if duration is not None:
-            def revert_after_duration():
-                time.sleep(duration / 1000)  # Convert ms to seconds
-                if previous_effect and not self._stop_event.is_set():
-                    self.start_effect(
-                        previous_effect['effect'],
-                        previous_effect['speed'],
-                        previous_effect['brightness']
-                    )
-                    
-            revert_thread = Thread(target=revert_after_duration)
-            revert_thread.daemon = True
-            revert_thread.start()
+            self._setup_revert_thread(previous_effect, duration)
 
     def clear(self):
         """Turn off all LEDs"""
@@ -152,6 +207,8 @@ class LEDManager:
         if self._effect_thread:
             self._effect_thread.join()
             self._effect_thread = None
+        self._current_effect = None
+        self._current_speed = None
         self.clear()
 
 
