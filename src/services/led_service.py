@@ -59,7 +59,7 @@ class LEDService(BaseService):
             logging.info("Application startup completed - switched to rotating pink blue effect")
             self.led_controller.start_rotating_pink_blue_effect()
 
-        elif event_type == "touch_intensity":
+        elif event_type == "touch_stroke_intensity":
             # Only trigger purring effect if we're not in a conversation
             if not self.global_state.conversation_active:
                 intensity = event.get('intensity', 0.0)
