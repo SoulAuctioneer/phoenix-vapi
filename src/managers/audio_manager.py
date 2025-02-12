@@ -70,6 +70,8 @@ class AudioProducer:
         self.active = True
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
+        self.loop = False  # Whether to loop the audio
+        self._original_audio = None  # Store original audio data for looping
 
     def resize_chunk(self, audio_data: np.ndarray) -> List[np.ndarray]:
         """Resize audio chunk to desired size, handling remainder samples"""
@@ -105,6 +107,8 @@ class AudioProducer:
         self.active = False
         self.buffer.clear()
         self._remainder = np.array([], dtype=np.int16)
+        self._original_audio = None  # Clear original audio data
+        self.loop = False  # Reset loop flag
         logging.info(f"Producer '{self.name}' stopped and cleaned up")
 
 class AudioManager:
@@ -383,9 +387,14 @@ class AudioManager:
                                     logging.warning(f"Skipped chunk from '{name}': expected {self.config.chunk} samples, got {len(data)}")
                             else:
                                 if producer.buffer.buffer.empty():
-                                    no_data_count += 1
-                                    if no_data_count % 100 == 0:  # Log every 100th no-data iteration
-                                        logging.debug(f"No data available from producer '{name}' for {no_data_count} iterations")
+                                    # If looping is enabled and we have original audio data, requeue it
+                                    if producer.loop and producer._original_audio is not None:
+                                        logging.debug(f"Requeuing audio data for looping producer '{name}'")
+                                        self.play_audio(producer._original_audio, producer_name=name)
+                                    else:
+                                        no_data_count += 1
+                                        if no_data_count % 100 == 0:  # Log every 100th no-data iteration
+                                            logging.debug(f"No data available from producer '{name}' for {no_data_count} iterations")
                     
                     # Convert back to int16 and clip to prevent overflow
                     mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
@@ -404,10 +413,15 @@ class AudioManager:
                     
         logging.info("Output processing loop stopped")
                 
-    def play_audio(self, audio_data: np.ndarray, producer_name: str = "default"):
-        """Play audio data through a specific producer"""
+    def play_audio(self, audio_data: np.ndarray, producer_name: str = "default", loop: bool = False):
+        """Play audio data through a specific producer
+        Args:
+            audio_data: Audio data to play as numpy array
+            producer_name: Name of the producer to use
+            loop: Whether to loop the audio (default: False)
+        """
         print(f"DEBUG: Entering play_audio with {len(audio_data)} samples", flush=True)
-        logging.info(f"play_audio called for producer '{producer_name}' with {len(audio_data)} samples")
+        logging.info(f"play_audio called for producer '{producer_name}' with {len(audio_data)} samples, loop={loop}")
         
         try:
             if not self._running:
@@ -425,6 +439,11 @@ class AudioManager:
                 if not producer.active:
                     logging.warning(f"Producer '{producer_name}' is not active")
                     return
+                    
+                # Set loop flag and store original audio if looping
+                producer.loop = loop
+                if loop:
+                    producer._original_audio = audio_data.copy()
                     
             # Ensure audio data is int16
             if audio_data.dtype != np.int16:
@@ -455,11 +474,12 @@ class AudioManager:
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
                 
-    def play_sound(self, effect_name: str) -> bool:
+    def play_sound(self, effect_name: str, loop: bool = False) -> bool:
         """
         Play a sound effect by name.
         Args:
             effect_name: Name of the sound effect (case-insensitive)
+            loop: Whether to loop the sound effect (default: False)
         Returns:
             bool: True if the sound effect was found and playback started, False otherwise
         """
@@ -473,7 +493,7 @@ class AudioManager:
             logging.error(f"Sound effect file not found: {wav_path}")
             return False
             
-        return self._play_wav_file(wav_path, producer_name="sound_effect") 
+        return self._play_wav_file(wav_path, producer_name="sound_effect", loop=loop)
 
     def stop_sound(self):
         """Stop the currently playing sound effect"""
@@ -483,7 +503,7 @@ class AudioManager:
                 producer.stop()  # Let the producer handle its own cleanup
                 del self._producers["sound_effect"]  # Remove from active producers
         
-    def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect") -> bool:
+    def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", loop: bool = False) -> bool:
         """Play a WAV file through the audio system"""
         if not self._running:
             logging.error("Cannot play WAV file - AudioManager not running")
@@ -524,7 +544,7 @@ class AudioManager:
                     
                     audio_data = wf.readframes(frames)
                     audio_array = np.frombuffer(audio_data, dtype=np.int16)
-                    self.play_audio(audio_array, producer_name)
+                    self.play_audio(audio_array, producer_name=producer_name, loop=loop)
                     
             except FileNotFoundError:
                 logging.error(f"WAV file not found: {wav_path}")

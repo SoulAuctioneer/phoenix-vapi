@@ -45,7 +45,8 @@ class AudioService(BaseService):
         # Handle direct play_sound requests
         if event_type == "play_sound":
             effect_name = event.get("effect_name")
-            await self._play_sound(effect_name)
+            loop = event.get("loop", False)  # Get loop parameter with default False
+            await self._play_sound(effect_name, loop=loop)
         
         # Play tadaaa when application starts up
         # Turned off for now, getting annoying
@@ -81,17 +82,18 @@ class AudioService(BaseService):
                         self._purring_active = True
                         # Ensure volume is set before playing
                         await asyncio.sleep(0.1)  # Small delay to ensure volume takes effect
-                        await self._play_sound("PURRING")
+                        await self._play_sound("PURRING", loop=True)  # Always loop purring sound
                 else:
                     # When intensity drops to 0, stop the purring sound
                     self._purring_active = False
                     self.logger.info("Touch intensity ended, stopping purring sound")
                     self.audio_manager.stop_sound()
 
-    async def _play_sound(self, effect_name: str) -> bool:
+    async def _play_sound(self, effect_name: str, loop: bool = False) -> bool:
         """Helper method to play a sound effect with error handling
         Args:
             effect_name: Name of the sound effect to play
+            loop: Whether to loop the sound effect (default: False)
         Returns:
             bool: True if sound played successfully, False otherwise
         """
@@ -113,7 +115,8 @@ class AudioService(BaseService):
             success = await loop.run_in_executor(
                 None,
                 self.audio_manager.play_sound,
-                effect_name
+                effect_name,
+                loop  # Pass the loop parameter
             )
             if not success:
                 self.logger.error(f"Failed to play sound effect: {effect_name}")
