@@ -116,12 +116,12 @@ class AudioService(BaseService):
             else:
                 self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME)
                 
-            loop = asyncio.get_event_loop()
-            success = await loop.run_in_executor(
+            event_loop = asyncio.get_event_loop()  # Renamed to avoid shadowing loop parameter
+            success = await event_loop.run_in_executor(
                 None,
                 self.audio_manager.play_sound,
                 effect_name,
-                loop  # Pass the loop parameter
+                loop
             )
             if not success:
                 self.logger.error(f"Failed to play sound effect: {effect_name}")

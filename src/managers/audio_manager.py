@@ -458,6 +458,8 @@ class AudioManager:
                 producer.loop = loop
                 if loop:
                     producer._original_audio = audio_data.copy()
+                else:
+                    producer._original_audio = None  # Clear any previous audio data if not looping
                     
             # Ensure audio data is int16
             if audio_data.dtype != np.int16:
