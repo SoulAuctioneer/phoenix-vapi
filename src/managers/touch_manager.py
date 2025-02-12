@@ -166,38 +166,38 @@ class TouchManager:
                     self._update_stroke_intensity_level()
                     
                     # Notify touch state changes
-                    if is_touching != was_touching:
-                        await self._execute_callbacks(self.touch_callbacks, is_touching)
+                    # if is_touching != was_touching:
+                    #     await self._execute_callbacks(self.touch_callbacks, is_touching)
                     
-                    # Process point and check for strokes
-                    stroke_detected, direction = self.stroke_detector.add_point(value, is_touching)
+                    # # Process point and check for strokes
+                    # stroke_detected, direction = self.stroke_detector.add_point(value, is_touching)
                     
-                    if is_touching:
-                        # Calculate normalized position
-                        position = ((value - config.LEFT_MIN) / (config.RIGHT_MAX - config.LEFT_MIN))
-                        position = max(0, min(position, 1.0))
+                    # if is_touching:
+                    #     # Calculate normalized position
+                    #     position = ((value - config.LEFT_MIN) / (config.RIGHT_MAX - config.LEFT_MIN))
+                    #     position = max(0, min(position, 1.0))
                         
-                        # Notify position updates
-                        await self._execute_callbacks(self.position_callbacks, position)
+                    #     # Notify position updates
+                    #     await self._execute_callbacks(self.position_callbacks, position)
                     
-                    if stroke_detected:
-                        # Get stroke metrics from detector
-                        times = [t for t, p in self.stroke_detector.touch_history]
-                        positions = [p for t, p in self.stroke_detector.touch_history]
-                        total_distance = abs(positions[-1] - positions[0])
-                        total_time = times[-1] - times[0]
-                        speed = total_distance / total_time if total_time > 0 else 0
+                    # if stroke_detected:
+                    #     # Get stroke metrics from detector
+                    #     times = [t for t, p in self.stroke_detector.touch_history]
+                    #     positions = [p for t, p in self.stroke_detector.touch_history]
+                    #     total_distance = abs(positions[-1] - positions[0])
+                    #     total_time = times[-1] - times[0]
+                    #     speed = total_distance / total_time if total_time > 0 else 0
                         
-                        # Calculate and apply stroke intensity increase based on stroke metrics
-                        increase = self._calculate_stroke_intensity_increase(total_distance, speed)
-                        self.stroke_intensity_level = min(1.0, self.stroke_intensity_level + increase)
-                        self._update_stroke_intensity_level()
+                    #     # Calculate and apply stroke intensity increase based on stroke metrics
+                    #     increase = self._calculate_stroke_intensity_increase(total_distance, speed)
+                    #     self.stroke_intensity_level = min(1.0, self.stroke_intensity_level + increase)
+                    #     self._update_stroke_intensity_level()
                         
-                        # Log the stroke intensity calculation
-                        logging.info(f"Stroke intensity increase: {increase:.3f} (distance: {total_distance:.3f}, speed: {speed:.3f})")
+                    #     # Log the stroke intensity calculation
+                    #     logging.info(f"Stroke intensity increase: {increase:.3f} (distance: {total_distance:.3f}, speed: {speed:.3f})")
                         
-                        # Notify stroke detection
-                        await self._execute_callbacks(self.stroke_callbacks, direction)
+                    #     # Notify stroke detection
+                    #     await self._execute_callbacks(self.stroke_callbacks, direction)
                     
                 except Exception as e:
                     logging.error(f"Error reading sensor: {str(e)}")
