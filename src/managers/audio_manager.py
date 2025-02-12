@@ -146,6 +146,11 @@ class AudioManager:
         # Reusable chunk resizer
         self._chunk_resizer: Optional[AudioProducer] = None
         self._chunk_resizer_lock = threading.Lock()
+
+        # Queue for requeuing audio data
+        self._requeue_queue = queue.Queue()
+        self._requeue_thread = None
+        self._requeue_stop = threading.Event()
         
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
@@ -216,10 +221,13 @@ class AudioManager:
                 logging.info("Starting audio threads...")
                 self._input_thread = threading.Thread(target=self._input_loop, name="AudioInputThread")
                 self._output_thread = threading.Thread(target=self._output_loop, name="AudioOutputThread")
+                self._requeue_thread = threading.Thread(target=self._requeue_loop, name="AudioRequeueThread")
                 self._input_thread.daemon = True
                 self._output_thread.daemon = True
+                self._requeue_thread.daemon = True
                 self._input_thread.start()
                 self._output_thread.start()
+                self._requeue_thread.start()
                 logging.info("AudioManager started successfully")
                 
             except Exception as e:
@@ -231,6 +239,7 @@ class AudioManager:
         """Stop audio processing and cleanup resources"""
         with self._lock:
             self._running = False
+            self._requeue_stop.set()
             
             # Stop all consumers and producers
             with self._consumers_lock:
@@ -245,6 +254,8 @@ class AudioManager:
                 self._input_thread.join(timeout=1.0)
             if self._output_thread and self._output_thread.is_alive():
                 self._output_thread.join(timeout=1.0)
+            if self._requeue_thread and self._requeue_thread.is_alive():
+                self._requeue_thread.join(timeout=1.0)
                 
             self._cleanup_streams()
             
@@ -387,10 +398,10 @@ class AudioManager:
                                     logging.warning(f"Skipped chunk from '{name}': expected {self.config.chunk} samples, got {len(data)}")
                             else:
                                 if producer.buffer.buffer.empty():
-                                    # If looping is enabled and we have original audio data, requeue it
+                                    # If looping is enabled and we have original audio data, queue it for requeuing
                                     if producer.loop and producer._original_audio is not None:
-                                        logging.debug(f"Requeuing audio data for looping producer '{name}'")
-                                        self.play_audio(producer._original_audio, producer_name=name)
+                                        logging.debug(f"Queueing audio data for requeuing producer '{name}'")
+                                        self._requeue_queue.put((name, producer._original_audio))
                                     else:
                                         no_data_count += 1
                                         if no_data_count % 100 == 0:  # Log every 100th no-data iteration
@@ -593,3 +604,23 @@ class AudioManager:
                 if device_info['maxOutputChannels'] > 0:
                     devices[i] = device_info['name']
         return devices
+
+    def _requeue_loop(self):
+        """Background thread for handling audio requeuing"""
+        while not self._requeue_stop.is_set():
+            try:
+                # Get the next requeue request with a timeout
+                try:
+                    producer_name, audio_data = self._requeue_queue.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+
+                # Process the requeue request
+                if self._running:
+                    self.play_audio(audio_data, producer_name=producer_name)
+                
+                self._requeue_queue.task_done()
+                
+            except Exception as e:
+                logging.error(f"Error in requeue loop: {e}", exc_info=True)
+                time.sleep(0.1)  # Prevent tight loop on error
