@@ -215,7 +215,7 @@ MIN_STROKE_SPEED = 0.25      # Minimum speed (position units per second)
 DIRECTION_REVERSAL_TOLERANCE = 0.05  # Tolerance for small direction reversals
 
 # Stroke intensity tracking parameters
-STROKE_INTENSITY_DECAY_RATE = 0.03   # Level lost per second
+STROKE_INTENSITY_DECAY_RATE = 0.02   # Level lost per second
 STROKE_INTENSITY_SPEED_FACTOR = 2.2  # Higher speeds reduce intensity gain (divisor)
 STROKE_INTENSITY_DISTANCE_FACTOR = 0.6  # Multiplier for distance contribution
 STROKE_INTENSITY_MIN_SPEED = 0.5  # Minimum speed threshold to prevent large increases from very slow strokes
