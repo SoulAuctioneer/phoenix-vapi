@@ -6,7 +6,7 @@ Provides a high-level interface for sensor data and events to other services.
 import logging
 from typing import Dict, Any
 from services.service import BaseService, ServiceManager
-from managers.touch_manager import TouchManager
+#from managers.touch_manager import TouchManager
 
 class SensorService(BaseService):
     """
