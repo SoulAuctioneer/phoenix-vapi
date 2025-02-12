@@ -16,7 +16,7 @@ class SensorService(BaseService):
     
     def __init__(self, manager: ServiceManager):
         super().__init__(manager)
-        # self.touch_manager = TouchManager()
+        self.touch_manager = TouchManager()
         # self._last_intensity = 0.0  # Track last published intensity
         # self._last_position = 0.0  # Track last published position
         
