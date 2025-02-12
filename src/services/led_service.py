@@ -64,15 +64,27 @@ class LEDService(BaseService):
             if not self.global_state.conversation_active:
                 intensity = event.get('intensity', 0.0)
                 if intensity > 0:
-                    # Map intensity (0-1) to purring speed (0.02-0.005)
+                    # Map intensity (0-1) to purring speed (0.05-0.005)
                     # Higher intensity = faster purring (lower wait time)
-                    speed = 0.02 - (intensity * 0.015)  # This maps 0-1 to 0.02-0.005
+                    # Using a larger range for more noticeable speed changes
+                    base_speed = 0.05  # Slower base speed
+                    min_speed = 0.005  # Fastest possible speed
+                    speed_range = base_speed - min_speed
+                    speed = base_speed - (intensity * speed_range)
                     
-                    # Map intensity to brightness (0.3-1.0)
-                    # Higher intensity = brighter glow
-                    brightness = 0.3 + (intensity * 0.7)  # This maps 0-1 to 0.3-1.0
+                    # Map intensity to brightness (0.05-1.0)
+                    # CURVE_RATIO = 1.0 for linear, > 1.0 for slower initial increase, < 1.0 for faster initial increase
+                    CURVE_RATIO = 1.0  # Linear by default
+                    min_brightness = 0.05  # Start very dim
+                    brightness_range = 1.0 - min_brightness
+                    # Apply curve ratio to intensity for optional non-linear scaling
+                    curved_intensity = pow(intensity, CURVE_RATIO)
+                    brightness = min_brightness + (curved_intensity * brightness_range)
                     
-                    logging.info(f"Starting or updating purring effect with speed {speed} and brightness {brightness} based on intensity {intensity}")
+                    # Log the speed as frequency (1/speed) to make the relationship more intuitive
+                    # Higher frequency = faster purring
+                    frequency = 1.0 / speed if speed > 0 else 0
+                    logging.info(f"Starting or updating purring effect with frequency {frequency:.2f}Hz (speed={speed:.4f}) and brightness {brightness:.2f} based on intensity {intensity:.2f}")
                     self.led_controller.start_or_update_effect(LEDEffect.PURRING, speed=speed, brightness=brightness)
                 else:
                     # When intensity drops to 0, return to default effect
