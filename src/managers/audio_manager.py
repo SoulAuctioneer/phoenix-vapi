@@ -166,18 +166,20 @@ class AudioManager:
                 consumer.active = False
                 self._consumers.remove(consumer)
                 
-    def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100) -> AudioProducer:
+    def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = None) -> AudioProducer:
         """Create a new producer instance without adding it to the producers dictionary"""
         print(f"DEBUG: Creating producer '{name}' with chunk_size={chunk_size}, buffer_size={buffer_size}", flush=True)
         logging.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}")
         
         producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size)
         producer.active = True
+        if initial_volume is not None:
+            producer.volume = initial_volume
         return producer
         
-    def add_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100) -> AudioProducer:
+    def add_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = None) -> AudioProducer:
         """Add a new audio producer"""
-        producer = self._create_producer(name, chunk_size, buffer_size)
+        producer = self._create_producer(name, chunk_size, buffer_size, initial_volume)
         
         with self._producers_lock:
             self._producers[name] = producer
@@ -550,7 +552,11 @@ class AudioManager:
                     # Create or get producer and set volume
                     with self._producers_lock:
                         if producer_name not in self._producers:
-                            producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000)
+                            # Get current volume if producer exists
+                            current_volume = None
+                            if producer_name in self._producers:
+                                current_volume = self._producers[producer_name].volume
+                            producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000, initial_volume=current_volume)
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
                     
