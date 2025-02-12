@@ -401,10 +401,10 @@ class AudioManager:
                             else:
                                 if producer.buffer.buffer.empty():
                                     # If looping is enabled and we have original audio data, queue it for requeuing
-                                    if producer.loop and producer._original_audio is not None:
-                                        logging.debug(f"Queueing audio data for requeuing producer '{name}'")
-                                        # Pass both the loop flag and original audio data
-                                        self._requeue_queue.put((name, producer._original_audio, True))
+                                    if producer.loop and producer._original_audio is not None and producer.active:
+                                        logging.debug(f"Queueing audio data for requeuing producer '{name}' with loop={producer.loop}")
+                                        # Pass the producer's current loop flag
+                                        self._requeue_queue.put((name, producer._original_audio, producer.loop))
                                     else:
                                         no_data_count += 1
                                         if no_data_count % 100 == 0:  # Log every 100th no-data iteration
@@ -510,12 +510,16 @@ class AudioManager:
         return self._play_wav_file(wav_path, producer_name="sound_effect", loop=loop)
 
     def stop_sound(self):
-        """Stop the currently playing sound effect"""
+        """Stop the currently playing sound effect and clean up resources"""
         with self._producers_lock:
             if "sound_effect" in self._producers:
                 producer = self._producers["sound_effect"]
-                producer.stop()  # Let the producer handle its own cleanup
+                producer.loop = False  # Ensure loop flag is cleared
+                producer._original_audio = None  # Clear original audio data
+                producer.buffer.clear()  # Clear any pending audio
+                producer.stop()  # Stop the producer
                 del self._producers["sound_effect"]  # Remove from active producers
+                logging.info("Sound effect stopped and cleaned up")
         
     def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", loop: bool = False) -> bool:
         """Play a WAV file through the audio system"""
