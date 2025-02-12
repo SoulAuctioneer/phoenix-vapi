@@ -119,6 +119,11 @@ class TouchManager:
     def _update_stroke_intensity_level(self) -> bool:
         """Update stroke intensity level based on time decay
         
+        The stroke intensity naturally decays over time when no new strokes are detected.
+        We want to track:
+        1. Any non-zero decay
+        2. When intensity reaches exactly 0
+        
         Returns:
             bool: True if intensity was updated and callbacks should be triggered
         """
@@ -129,15 +134,17 @@ class TouchManager:
         decay = config.STROKE_INTENSITY_DECAY_RATE * elapsed
         new_intensity = max(0.0, self.stroke_intensity_level - decay)
         
-        # Only update if intensity changed significantly
-        if abs(new_intensity - self.stroke_intensity_level) >= 0.001:
+        # Update if:
+        # 1. There is any decay
+        # 2. We've just reached zero
+        if new_intensity < self.stroke_intensity_level:
             self.stroke_intensity_level = new_intensity
             self.last_stroke_intensity_update = now
             return True
-        else:
-            # Just update the timestamp if no significant change
-            self.last_stroke_intensity_update = now
-            return False
+        
+        # Just update the timestamp if no change
+        self.last_stroke_intensity_update = now
+        return False
 
     async def _notify_intensity_update(self):
         """Helper method to notify intensity callbacks"""

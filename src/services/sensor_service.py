@@ -72,9 +72,31 @@ class SensorService(BaseService):
         # })
         
     async def _handle_stroke_intensity(self, intensity: float):
-        """Handle stroke intensity updates from TouchManager - only publish on change"""
-        # Only publish if intensity has changed significantly
-        if abs(intensity - self._last_intensity) >= 0.001:
+        """Handle stroke intensity updates from TouchManager - publish significant changes
+        
+        We want to publish:
+        1. Any increase in intensity (from strokes)
+        2. Significant decreases in intensity (from decay)
+        3. When intensity reaches 0
+        """
+        # Always publish if intensity reaches 0
+        if intensity == 0 and self._last_intensity > 0:
+            self._last_intensity = intensity
+            await self.publish({
+                "type": "touch_stroke_intensity",
+                "producer_name": "sensor_service",
+                "intensity": intensity
+            })
+        # Always publish increases (from strokes)
+        elif intensity > self._last_intensity:
+            self._last_intensity = intensity
+            await self.publish({
+                "type": "touch_stroke_intensity",
+                "producer_name": "sensor_service",
+                "intensity": intensity
+            })
+        # For decreases (decay), publish if change is significant
+        elif (self._last_intensity - intensity) >= 0.01:  # 1% change for decay
             self._last_intensity = intensity
             await self.publish({
                 "type": "touch_stroke_intensity",
