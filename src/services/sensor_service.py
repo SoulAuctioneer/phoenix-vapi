@@ -38,11 +38,13 @@ class SensorService(BaseService):
         """Stop all sensor systems"""
         self.touch_manager.stop()
         await super().stop()
-        # self.logger.info("SensorService stopped")
+        self.logger.info("SensorService stopped")
         
     async def _handle_touch_position(self, position: float):
         """Handle touch position updates from TouchManager - only called when touching"""
         # Only publish if position has changed significantly
+        # Don't really need to publish this as it's not used for anything yet
+        pass
         # if abs(position - self._last_position) >= 0.01:  # 1% change threshold
         #     self._last_position = position
         #     await self.publish({
@@ -53,14 +55,16 @@ class SensorService(BaseService):
         
     async def _handle_touch_stroke(self, direction: str):
         """Handle stroke detection events from TouchManager"""
-        # await self.publish({
-        #     "type": "touch_stroke",
-        #     "producer_name": "sensor_service",
-        #     "direction": direction
-        # })
+        await self.publish({
+            "type": "touch_stroke",
+            "producer_name": "sensor_service",
+            "direction": direction
+        })
         
     async def _handle_touch_state(self, is_touching: bool):
         """Handle touch state changes from TouchManager"""
+        # Don't really need to publish this as it's not used for anything yet
+        pass
         # await self.publish({
         #     "type": "touch_state",
         #     "producer_name": "sensor_service",
@@ -69,14 +73,14 @@ class SensorService(BaseService):
         
     async def _handle_touch_intensity(self, intensity: float):
         """Handle stroke intensity updates from TouchManager - only publish on change"""
-        # Only publish if intensity has changed significantly (avoid float comparison issues)
-        # if abs(intensity - self._last_intensity) >= 0.001:
-        #     self._last_intensity = intensity
-        #     await self.publish({
-        #         "type": "touch_intensity",
-        #         "producer_name": "sensor_service",
-        #         "intensity": intensity
-        #     })
+        # Only publish if intensity has changed significantly
+        if abs(intensity - self._last_intensity) >= 0.001:
+            self._last_intensity = intensity
+            await self.publish({
+                "type": "touch_intensity",
+                "producer_name": "sensor_service",
+                "intensity": intensity
+            })
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle incoming events from other services"""
