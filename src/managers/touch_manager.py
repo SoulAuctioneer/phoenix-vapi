@@ -204,6 +204,7 @@ class TouchManager:
                 #     logging.error(f"Error reading sensor: {str(e)}")
                 
                 #await asyncio.sleep(1000)
+                pass
         except asyncio.CancelledError:
             logging.info("Sensor loop cancelled")
         finally:
