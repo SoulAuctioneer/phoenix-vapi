@@ -106,7 +106,7 @@ class SoundEffect(str, Enum):
     WHOOSH = "whoosh.wav"
     MYSTERY = "mystery.wav"
     TADA = "tada.wav"
-    PURRING = "purring.wav"
+    PURRING = "purring2.wav"
     
     @classmethod
     def get_filename(cls, effect_name: str) -> Union[str, None]:
