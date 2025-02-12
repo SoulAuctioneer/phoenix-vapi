@@ -482,7 +482,8 @@ class LEDManager:
     def _purring_effect(self, wait):
         """Create a gentle pulsing effect that simulates a cat's purring.
         The effect creates a soft, warm glow that pulses at a speed determined by the stroke intensity.
-        A faster stroke will create a more rapid purring effect."""
+        A faster stroke will create a more rapid purring effect. The brightness variation is scaled
+        based on the global brightness level to maintain a consistent relative effect at all brightness levels."""
         # Warm, gentle color for the purr (soft peachy-pink)
         base_color = (255, 180, 147)  # RGB values for a warm, cozy glow
         
@@ -495,7 +496,14 @@ class LEDManager:
                 # Use two overlapping sine waves to create a more natural purring rhythm
                 wave1 = math.sin(i * math.pi / 25)  # Faster wave
                 wave2 = math.sin(i * math.pi / 50)  # Slower wave
-                brightness = ((wave1 + wave2 + 2) / 4) * 0.7  # Normalize to 0-0.7 range for gentle effect
+                
+                # Calculate base variation and scale it based on global brightness
+                base_variation = ((wave1 + wave2 + 2) / 4)  # Normalized to 0-1 range
+                # Scale variation to be proportional to global brightness
+                # At low brightness, reduce the variation range to be more subtle
+                variation_range = 0.3 * self.pixels.brightness  # Smaller range at lower brightness
+                min_brightness = 1.0 - variation_range  # Higher minimum at lower brightness
+                brightness = min_brightness + (base_variation * variation_range)
                 
                 # Apply brightness to base color
                 color = tuple(int(c * brightness) for c in base_color)
