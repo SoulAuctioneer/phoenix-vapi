@@ -9,3 +9,5 @@ rpi_ws281x
 adafruit-circuitpython-neopixel
 # adafruit-circuitpython-mpu6050
 bleak
+adafruit-blinka
+adafruit-circuitpython-ads1x15

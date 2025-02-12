@@ -8,6 +8,7 @@ from services.wakeword_service import WakeWordService
 from services.conversation_service import ConversationService
 from services.led_service import LEDService
 from services.location_service import LocationService
+from services.sensor_service import SensorService
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -44,6 +45,7 @@ class PhoenixApp:
             'conversation': ConversationService(self.manager),
             'led': LEDService(self.manager),
             'special_effect': SpecialEffectService(self.manager),
+            'sensor': SensorService(self.manager),
             # Turned off until I can debug the bouncing location problem
             # 'location': LocationService(self.manager),
         }
