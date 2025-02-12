@@ -401,7 +401,8 @@ class AudioManager:
                                     # If looping is enabled and we have original audio data, queue it for requeuing
                                     if producer.loop and producer._original_audio is not None:
                                         logging.debug(f"Queueing audio data for requeuing producer '{name}'")
-                                        self._requeue_queue.put((name, producer._original_audio))
+                                        # Pass both the loop flag and original audio data
+                                        self._requeue_queue.put((name, producer._original_audio, True))
                                     else:
                                         no_data_count += 1
                                         if no_data_count % 100 == 0:  # Log every 100th no-data iteration
@@ -611,13 +612,13 @@ class AudioManager:
             try:
                 # Get the next requeue request with a timeout
                 try:
-                    producer_name, audio_data = self._requeue_queue.get(timeout=0.1)
+                    producer_name, audio_data, should_loop = self._requeue_queue.get(timeout=0.1)
                 except queue.Empty:
                     continue
 
                 # Process the requeue request
                 if self._running:
-                    self.play_audio(audio_data, producer_name=producer_name)
+                    self.play_audio(audio_data, producer_name=producer_name, loop=should_loop)
                 
                 self._requeue_queue.task_done()
                 
