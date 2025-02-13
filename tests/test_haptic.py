@@ -3,6 +3,7 @@
 
 # Simple demo of the DRV2605 haptic feedback motor driver.
 # Will play all 123 effects in order for about a half second each.
+
 import time
 
 import board
