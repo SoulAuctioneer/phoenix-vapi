@@ -497,15 +497,15 @@ class LEDManager:
                 wave2 = math.sin(i * math.pi / 50)  # Slower wave
                 
                 # # Calculate brightness variation - varies between 0.3 and 1.0
-                # brightness = 0.3 + (((wave1 + wave2 + 2) / 4) * 0.7)
+                brightness = 0.3 + (((wave1 + wave2 + 2) / 4) * 0.7)
 
-               # Calculate base variation and scale it based on global brightness
-                base_variation = ((wave1 + wave2 + 2) / 4)  # Normalized to 0-1 range
-                # Scale variation to be proportional to global brightness
-                # At low brightness, reduce the variation range to be more subtle
-                variation_range = 0.3 * self.pixels.brightness  # Smaller range at lower brightness
-                min_brightness = 1.0 - variation_range  # Higher minimum at lower brightness
-                brightness = min_brightness + (base_variation * variation_range)
+            #    # Calculate base variation and scale it based on global brightness
+            #     base_variation = ((wave1 + wave2 + 2) / 4)  # Normalized to 0-1 range
+            #     # Scale variation to be proportional to global brightness
+            #     # At low brightness, reduce the variation range to be more subtle
+            #     variation_range = 0.3 * self.pixels.brightness  # Smaller range at lower brightness
+            #     min_brightness = 1.0 - variation_range  # Higher minimum at lower brightness
+            #     brightness = min_brightness + (base_variation * variation_range)
 
                 # Apply brightness to base color
                 color = tuple(int(c * brightness) for c in base_color)
