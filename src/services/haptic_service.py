@@ -136,8 +136,9 @@ class HapticService(BaseService):
         - touch_stroke_intensity: Updates purring intensity based on stroke intensity
         """
         if event["type"] == "touch_stroke_intensity":
-            intensity = event["intensity"]
-            self._update_purr_effect(intensity)
+            if self.haptic_manager.drv:
+                intensity = event["intensity"]
+                self._update_purr_effect(intensity)
 
 # Original waveform-based implementation (commented out for reference)
 """
