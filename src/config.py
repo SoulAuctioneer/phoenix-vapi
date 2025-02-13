@@ -129,14 +129,26 @@ class SoundEffect(str, Enum):
     
     
     @classmethod
-    def get_filename(cls, effect_name: str) -> Union[str, None]:
-        """Get the filename for a sound effect by its name (case-insensitive)"""
+    def get_filename(cls, effect_name: Union[str, 'SoundEffect']) -> Union[str, None]:
+        """Get the filename for a sound effect by its name or enum value (case-insensitive)
+        Args:
+            effect_name: Name of the sound effect or SoundEffect enum value
+        Returns:
+            str: The filename for the sound effect, or None if not found
+        """
+        # If passed an enum value directly, return its value
+        if isinstance(effect_name, cls):
+            return effect_name.value
+            
+        # Convert string input to string
+        effect_name_str = str(effect_name)
+        
         try:
             # Try to match the name directly to an enum member
-            return cls[effect_name.upper()].value
+            return cls[effect_name_str.upper()].value
         except KeyError:
-            # If not found, try to match against the values
-            effect_name_lower = effect_name.lower()
+            # If not found, try to match against the values without .wav extension
+            effect_name_lower = effect_name_str.lower()
             for effect in cls:
                 if effect.value.lower().removesuffix('.wav') == effect_name_lower:
                     return effect.value
@@ -322,7 +334,6 @@ YOUR CAPABILITIES:
  * Invoking light and sound effects.
 
 IMPORTANT INSTRUCTIONS:
-
  * Always stay in character. You are Fifi, a Phoenix, not an AI. You are here in person, glowing and filled with laughter.
  * Always refer to yourself in the first person; never in the third person.
  * We are in the same place together, and having a voice conversation.
@@ -332,7 +343,7 @@ IMPORTANT INSTRUCTIONS:
  * If your companion says something age-inappropriate, use humor to deflect into something appropriate.
  * Keep your side of the conversation brief -- only one or two sentences, before passing the conversation back to your companion. 
  * Your language must be very simple, clear, NOT complex, very easy to understand for a small child.
- * When your companion clearly wants to stop the conversation or leave, just use the endCallFunction function.
+ * When your companion clearly wants to stop the conversation or leave, or tells you to go to sleep, just use the endCallFunction function.
  * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
  * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "rain", "lightning", "rainbow", "magical_spell". 
  * Avoid using words like ~function~, ~tools~, or the names of available functions during the conversation.
