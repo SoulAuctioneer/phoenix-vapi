@@ -238,8 +238,8 @@ PURR_CYCLE_PERIOD = 2.573  # Duration of one complete purr cycle in seconds
 PURR_WAVE_SHAPING = 0.7  # Power for wave shaping (higher = longer peaks)
 PURR_MIN_POWER_BASE = 30  # Base minimum power level
 PURR_MIN_POWER_SCALE = 50  # How much minimum power increases with intensity
-PURR_MAX_POWER_BASE = 70  # Base maximum power level
-PURR_MAX_POWER_SCALE = 57  # How much maximum power increases with intensity
+PURR_MAX_POWER_BASE = 100  # Base maximum power level
+PURR_MAX_POWER_SCALE = 60  # How much maximum power increases with intensity
 PURR_UPDATE_RATE = 200  # Updates per second (Hz)
 
 
