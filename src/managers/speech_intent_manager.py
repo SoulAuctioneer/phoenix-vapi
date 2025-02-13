@@ -71,32 +71,32 @@ class SpeechIntentManager:
         if not self.running:
             return
             
-        try:
-            # Combine with any remainder from last time
-            if len(self._remainder) > 0:
-                audio_data = np.concatenate([self._remainder, audio_data])
-                
-            # Process complete frames
-            frame_length = self.rhino.frame_length
-            num_complete_frames = len(audio_data) // frame_length
+        # try:
+        # Combine with any remainder from last time
+        if len(self._remainder) > 0:
+            audio_data = np.concatenate([self._remainder, audio_data])
             
-            for i in range(num_complete_frames):
-                start = i * frame_length
-                end = start + frame_length
-                frame = audio_data[start:end]
-                
-                # Process the frame
-                is_finalized = self.rhino.process(frame)
-                if is_finalized:
-                    inference = self.rhino.get_inference()
-                    self._handle_inference(inference)
-                    
-            # Store remainder samples for next time
-            remainder_start = num_complete_frames * frame_length
-            self._remainder = audio_data[remainder_start:]
+        # Process complete frames
+        frame_length = self.rhino.frame_length
+        num_complete_frames = len(audio_data) // frame_length
+        
+        for i in range(num_complete_frames):
+            start = i * frame_length
+            end = start + frame_length
+            frame = audio_data[start:end]
             
-        except Exception as e:
-            logging.error(f"Error processing audio in speech intent detection: {e}")
+            # Process the frame
+            is_finalized = self.rhino.process(frame)
+            if is_finalized:
+                inference = self.rhino.get_inference()
+                self._handle_inference(inference)
+                
+        # Store remainder samples for next time
+        remainder_start = num_complete_frames * frame_length
+        self._remainder = audio_data[remainder_start:]
+        
+        # except Exception as e:
+        #    logging.error(f"Error processing audio in speech intent detection: {e}")
 
     def _handle_inference(self, inference):
         """Handle speech intent inference results by calling the callback if provided"""
