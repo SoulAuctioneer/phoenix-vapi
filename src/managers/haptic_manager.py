@@ -324,4 +324,73 @@ class HapticManager:
             return True
         except Exception as e:
             logging.error(f"Error configuring ERM motor: {str(e)}")
+            return False
+
+    def set_realtime_value(self, value: int) -> bool:
+        """Set a raw realtime value to directly control the motor amplitude.
+        
+        Args:
+            value: Signed 8-bit integer (-127 to 255) controlling motor amplitude/direction.
+                  Positive values drive the motor forward, negative values drive in reverse.
+                  The magnitude determines the strength of vibration.
+                  
+        Returns:
+            bool: True if value was set successfully
+            
+        Note:
+            Automatically switches to realtime mode if needed.
+            The exact effect depends on motor type (ERM/LRA) and open/closed loop mode.
+        """
+        if not self.drv:
+            logging.warning("No haptic controller available")
+            return False
+            
+        try:
+            if not -127 <= value <= 255:
+                logging.error(f"Invalid realtime value {value}. Must be between -127 and 255")
+                return False
+            
+            # Switch to realtime mode if not already in it
+            if self.drv.mode != adafruit_drv2605.MODE_REALTIME:
+                if not self.start_realtime_mode():
+                    return False
+                
+            self.drv.realtime_value = value
+            return True
+        except Exception as e:
+            logging.error(f"Error setting realtime value: {str(e)}")
+            return False
+
+    def start_realtime_mode(self) -> bool:
+        """Switch to realtime playback mode for direct motor control.
+        
+        Returns:
+            bool: True if mode was set successfully
+        """
+        if not self.drv:
+            logging.warning("No haptic controller available") 
+            return False
+            
+        try:
+            self.drv.mode = adafruit_drv2605.MODE_REALTIME
+            return True
+        except Exception as e:
+            logging.error(f"Error setting realtime mode: {str(e)}")
+            return False
+
+    def exit_realtime_mode(self) -> bool:
+        """Exit realtime mode and return to internal trigger mode.
+        
+        Returns:
+            bool: True if mode was set successfully
+        """
+        if not self.drv:
+            logging.warning("No haptic controller available")
+            return False
+            
+        try:
+            self.drv.mode = adafruit_drv2605.MODE_INTTRIG
+            return True
+        except Exception as e:
+            logging.error(f"Error exiting realtime mode: {str(e)}")
             return False 
