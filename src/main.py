@@ -9,6 +9,7 @@ from services.conversation_service import ConversationService
 from services.led_service import LEDService
 from services.location_service import LocationService
 from services.sensor_service import SensorService
+from services.haptic_service import HapticService
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -26,6 +27,7 @@ for logger_name in [
     'services.led',
     'services.special_effect',
     'services.sensor',
+    'services.haptic',
     # Too noisy, disable for now
     # 'services.location'
 ]:
@@ -47,6 +49,7 @@ class PhoenixApp:
             'led': LEDService(self.manager),
             'special_effect': SpecialEffectService(self.manager),
             'sensor': SensorService(self.manager),
+            'haptic': HapticService(self.manager),
             # Turned off until I can debug the bouncing location problem
             # 'location': LocationService(self.manager),
         }
