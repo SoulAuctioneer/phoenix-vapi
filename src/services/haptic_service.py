@@ -90,7 +90,8 @@ class HapticService(BaseService):
                 normalized = (wave + 1) / 2  # Map [-1,1] to [0,1]
                 motor_value = int(min_power + (normalized * (max_power - min_power)))
                 
-                # Ensure we stay within valid range
+                # Ensure we stay within valid range for unidirectional ERM mode (0-127)
+                # We're using unidirectional mode so we only use positive values
                 motor_value = max(0, min(127, motor_value))
                 
                 # Set motor value
