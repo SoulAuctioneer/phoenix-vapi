@@ -64,13 +64,14 @@ class LEDService(BaseService):
             if not self.global_state.conversation_active:
                 intensity = event.get('intensity', 0.0)
                 if intensity > 0:
-                    # Map intensity (0-1) to purring speed (0.05-0.005)
+                    # Map intensity (0-1) to LED effect speed (0.05-0.005)
                     # Higher intensity = faster purring (lower wait time)
                     # Using a larger range for more noticeable speed changes
-                    base_speed = 0.05  # Slower base speed
-                    min_speed = 0.005  # Fastest possible speed
-                    speed_range = base_speed - min_speed
-                    speed = base_speed - (intensity * speed_range)
+                    # base_speed = 0.05  # Slower base speed
+                    # min_speed = 0.005  # Fastest possible speed
+                    # speed_range = base_speed - min_speed
+                    # speed = base_speed - (intensity * speed_range)
+                    speed = 0.05 # Just hardcoded as real purring doesn't really actually get faster, just louder
                     
                     # Map intensity to brightness (0.05-1.0)
                     # CURVE_RATIO = 1.0 for linear, > 1.0 for slower initial increase, < 1.0 for faster initial increase
