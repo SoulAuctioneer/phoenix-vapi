@@ -9,6 +9,7 @@ import math
 from typing import Dict, Any, Optional
 from services.service import BaseService, ServiceManager
 from managers.haptic_manager import HapticManager, WaveformEffect
+import config
 
 class HapticService(BaseService):
     """
@@ -50,16 +51,15 @@ class HapticService(BaseService):
         """Generate a continuous purring effect that varies with intensity using realtime control
         
         Creates a purring effect by combining:
-        1. Slow amplitude modulation (~0.5 Hz) for the breathing-like pattern
+        1. Slow amplitude modulation (1/PURR_CYCLE_PERIOD Hz) for the breathing-like pattern
         2. Power level that scales with intensity
         
         Args:
             intensity: Stroke intensity value (0.0 to 1.0)
         """
         try:
-            # Slow modulation frequency (breaths per second)
-            # Slightly faster at higher intensities: 0.4-0.6 Hz (2.5-1.67s per cycle)
-            mod_freq = 0.4 + (intensity * 0.2)
+            # Fixed modulation frequency based on configured cycle period
+            mod_freq = 1.0 / config.PURR_CYCLE_PERIOD
             
             # Time tracking
             start_time = asyncio.get_event_loop().time()
@@ -79,12 +79,12 @@ class HapticService(BaseService):
                 
                 # Transform wave to create longer peaks and shorter troughs
                 # This makes the purr feel more natural with longer "on" periods
-                wave = math.copysign(abs(wave) ** 0.7, wave)
+                wave = math.copysign(abs(wave) ** config.PURR_WAVE_SHAPING, wave)
                 
                 # Map wave from [-1, 1] to [min_power, max_power]
                 # Higher intensity = higher power range and higher minimum power
-                min_power = int(30 + (intensity * 50))   # 30-80 range
-                max_power = int(70 + (intensity * 57))   # 70-127 range
+                min_power = int(config.PURR_MIN_POWER_BASE + (intensity * config.PURR_MIN_POWER_SCALE))
+                max_power = int(config.PURR_MAX_POWER_BASE + (intensity * config.PURR_MAX_POWER_SCALE))
                 
                 # Linear interpolation between min and max power
                 normalized = (wave + 1) / 2  # Map [-1,1] to [0,1]
@@ -97,7 +97,7 @@ class HapticService(BaseService):
                 self.haptic_manager.set_realtime_value(motor_value)
                 
                 # Small delay for update rate
-                await asyncio.sleep(0.005)  # 200Hz update rate
+                await asyncio.sleep(1.0 / config.PURR_UPDATE_RATE)
                 
         except asyncio.CancelledError:
             self.haptic_manager.set_realtime_value(0)

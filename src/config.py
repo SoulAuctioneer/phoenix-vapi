@@ -214,6 +214,15 @@ MIN_STROKE_POINTS = 5        # Minimum number of touch points to consider a stro
 MIN_STROKE_SPEED = 0.25      # Minimum speed (position units per second)
 DIRECTION_REVERSAL_TOLERANCE = 0.05  # Tolerance for small direction reversals
 
+# Haptic purr effect configuration
+PURR_CYCLE_PERIOD = 2.2  # Duration of one complete purr cycle in seconds
+PURR_WAVE_SHAPING = 0.7  # Power for wave shaping (higher = longer peaks)
+PURR_MIN_POWER_BASE = 30  # Base minimum power level
+PURR_MIN_POWER_SCALE = 50  # How much minimum power increases with intensity
+PURR_MAX_POWER_BASE = 70  # Base maximum power level
+PURR_MAX_POWER_SCALE = 57  # How much maximum power increases with intensity
+PURR_UPDATE_RATE = 200  # Updates per second (Hz)
+
 # Stroke intensity tracking parameters
 STROKE_INTENSITY_DECAY_RATE = 0.02   # Level lost per second
 STROKE_INTENSITY_SPEED_FACTOR = 2.2  # Higher speeds reduce intensity gain (divisor)
