@@ -106,7 +106,7 @@ class SoundEffect(str, Enum):
     WHOOSH = "whoosh.wav"
     MYSTERY = "mystery.wav"
     TADA = "tada.wav"
-    PURRING = "purring2.wav"
+    PURRING = "purring.wav"
     
     @classmethod
     def get_filename(cls, effect_name: str) -> Union[str, None]:
@@ -214,15 +214,6 @@ MIN_STROKE_POINTS = 5        # Minimum number of touch points to consider a stro
 MIN_STROKE_SPEED = 0.25      # Minimum speed (position units per second)
 DIRECTION_REVERSAL_TOLERANCE = 0.05  # Tolerance for small direction reversals
 
-# Haptic purr effect configuration
-PURR_CYCLE_PERIOD = 2.2  # Duration of one complete purr cycle in seconds
-PURR_WAVE_SHAPING = 0.7  # Power for wave shaping (higher = longer peaks)
-PURR_MIN_POWER_BASE = 30  # Base minimum power level
-PURR_MIN_POWER_SCALE = 50  # How much minimum power increases with intensity
-PURR_MAX_POWER_BASE = 70  # Base maximum power level
-PURR_MAX_POWER_SCALE = 57  # How much maximum power increases with intensity
-PURR_UPDATE_RATE = 200  # Updates per second (Hz)
-
 # Stroke intensity tracking parameters
 STROKE_INTENSITY_DECAY_RATE = 0.02   # Level lost per second
 STROKE_INTENSITY_SPEED_FACTOR = 2.2  # Higher speeds reduce intensity gain (divisor)
@@ -237,9 +228,19 @@ STROKE_MAX_DECAY_MULTIPLIER = 2.0  # Maximum decay rate multiplier when inactive
 STROKE_MIN_DECAY_MULTIPLIER = 0.25  # Minimum decay rate multiplier when very active (was 0.25)
 STROKE_ACTIVITY_STROKES_PER_WINDOW = 3  # Expected number of strokes per window for normalization
 
-# Sensor sampling configuration
+# Touch sensor sampling configuration
 SAMPLE_RATE_HZ = 100  # Default sampling rate in Hz
 
+
+# Haptics Configuration
+# Haptic purr effect configuration
+PURR_CYCLE_PERIOD = 2.573  # Duration of one complete purr cycle in seconds
+PURR_WAVE_SHAPING = 0.7  # Power for wave shaping (higher = longer peaks)
+PURR_MIN_POWER_BASE = 30  # Base minimum power level
+PURR_MIN_POWER_SCALE = 50  # How much minimum power increases with intensity
+PURR_MAX_POWER_BASE = 70  # Base maximum power level
+PURR_MAX_POWER_SCALE = 57  # How much maximum power increases with intensity
+PURR_UPDATE_RATE = 200  # Updates per second (Hz)
 
 
 # AI Assistant Configuration
