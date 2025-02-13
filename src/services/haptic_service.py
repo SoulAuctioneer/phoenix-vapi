@@ -49,15 +49,17 @@ class HapticService(BaseService):
     async def _generate_purr_sequence(self, intensity: float) -> None:
         """Generate a continuous purring effect that varies with intensity using realtime control
         
-        Creates a purring effect by modulating the motor speed in a simple wave pattern.
-        The pattern varies in strength and frequency based on intensity.
+        Creates a purring effect by combining:
+        1. Slow amplitude modulation (~0.5 Hz) for the breathing-like pattern
+        2. Power level that scales with intensity
         
         Args:
             intensity: Stroke intensity value (0.0 to 1.0)
         """
         try:
-            # Base frequency increases with intensity (2-8 Hz)
-            base_freq = 2.0 + (intensity * 6.0)
+            # Slow modulation frequency (breaths per second)
+            # Slightly faster at higher intensities: 0.4-0.6 Hz (2.5-1.67s per cycle)
+            mod_freq = 0.4 + (intensity * 0.2)
             
             # Time tracking
             start_time = asyncio.get_event_loop().time()
@@ -72,16 +74,17 @@ class HapticService(BaseService):
                 current_time = asyncio.get_event_loop().time()
                 elapsed = current_time - start_time
                 
-                # Simple sine wave modulation
-                wave = math.sin(2 * math.pi * base_freq * elapsed)
+                # Generate slow modulation wave
+                wave = math.sin(2 * math.pi * mod_freq * elapsed)
                 
-                # Transform wave to create sharper peaks and longer troughs
-                wave = math.copysign(abs(wave) ** 0.5, wave)
+                # Transform wave to create longer peaks and shorter troughs
+                # This makes the purr feel more natural with longer "on" periods
+                wave = math.copysign(abs(wave) ** 0.7, wave)
                 
                 # Map wave from [-1, 1] to [min_power, max_power]
-                # Stronger intensity = higher minimum and maximum power
-                min_power = int(40 + (intensity * 40))  # 40-80 range
-                max_power = int(80 + (intensity * 47))  # 80-127 range
+                # Higher intensity = higher power range and higher minimum power
+                min_power = int(30 + (intensity * 50))   # 30-80 range
+                max_power = int(70 + (intensity * 57))   # 70-127 range
                 
                 # Linear interpolation between min and max power
                 normalized = (wave + 1) / 2  # Map [-1,1] to [0,1]
