@@ -49,20 +49,15 @@ class HapticService(BaseService):
     async def _generate_purr_sequence(self, intensity: float) -> None:
         """Generate a continuous purring effect that varies with intensity using realtime control
         
-        Creates a purring effect by modulating the motor speed in a sinusoidal pattern.
-        The pattern combines:
-        1. Base vibration level that increases with intensity
-        2. Sinusoidal modulation for the rhythmic purring effect
-        3. Secondary faster modulation for texture
-        4. Variable frequency based on intensity (faster purring when more intense)
+        Creates a purring effect by modulating the motor speed in a simple wave pattern.
+        The pattern varies in strength and frequency based on intensity.
         
         Args:
             intensity: Stroke intensity value (0.0 to 1.0)
         """
         try:
-            # Purring parameters that vary with intensity
-            base_freq = 2.0 + (intensity * 4.0)  # Base frequency 2-6 Hz
-            texture_freq = 30.0 + (intensity * 20.0)  # Texture frequency 30-50 Hz
+            # Base frequency increases with intensity (2-8 Hz)
+            base_freq = 2.0 + (intensity * 6.0)
             
             # Time tracking
             start_time = asyncio.get_event_loop().time()
@@ -77,31 +72,22 @@ class HapticService(BaseService):
                 current_time = asyncio.get_event_loop().time()
                 elapsed = current_time - start_time
                 
-                # Calculate base vibration level (40-120 range for stronger effect)
-                base_level = 40 + (intensity * 80)  # Maps 0.0-1.0 to 40-120
+                # Simple sine wave modulation
+                wave = math.sin(2 * math.pi * base_freq * elapsed)
                 
-                # Primary modulation for main purring rhythm
-                # Use exponential curve for more pronounced peaks
-                main_mod = math.sin(2 * math.pi * base_freq * elapsed)
-                main_mod = math.copysign(abs(main_mod) ** 0.7, main_mod)  # Sharper peaks
+                # Transform wave to create sharper peaks and longer troughs
+                wave = math.copysign(abs(wave) ** 0.5, wave)
                 
-                # Secondary faster modulation for texture
-                # Reduce texture amplitude at high intensities for smoother strong purrs
-                texture_amp = 0.3 * (1.0 - (intensity * 0.7))
-                texture_mod = texture_amp * math.sin(2 * math.pi * texture_freq * elapsed)
+                # Map wave from [-1, 1] to [min_power, max_power]
+                # Stronger intensity = higher minimum and maximum power
+                min_power = int(40 + (intensity * 40))  # 40-80 range
+                max_power = int(80 + (intensity * 47))  # 80-127 range
                 
-                # Combine modulations and map to appropriate range
-                combined_mod = main_mod + texture_mod
-                # Scale modulation to maintain minimum vibration
-                # Higher minimum at high intensities
-                min_level = 0.2 + (intensity * 0.4)  # 0.2-0.6 minimum
-                combined_mod = min_level + ((1.0 - min_level) * combined_mod)
+                # Linear interpolation between min and max power
+                normalized = (wave + 1) / 2  # Map [-1,1] to [0,1]
+                motor_value = int(min_power + (normalized * (max_power - min_power)))
                 
-                # Calculate final motor value
-                motor_value = int(base_level * combined_mod)
-                # Ensure we use full range for strong purrs
-                if intensity > 0.8:
-                    motor_value = max(motor_value, 40)  # Never drop below 40 for strong purrs
+                # Ensure we stay within valid range
                 motor_value = max(0, min(127, motor_value))
                 
                 # Set motor value
