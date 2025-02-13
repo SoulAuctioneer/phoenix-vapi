@@ -5,6 +5,7 @@ requests
 numpy
 sounddevice
 pvporcupine
+pvrhino
 rpi_ws281x
 adafruit-circuitpython-neopixel
 # adafruit-circuitpython-mpu6050

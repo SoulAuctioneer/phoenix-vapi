@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import signal
+from config import PLATFORM
 from services.service import ServiceManager
 from services.audio_service import AudioService
 from services.special_effect_service import SpecialEffectService
@@ -10,6 +11,7 @@ from services.led_service import LEDService
 from services.location_service import LocationService
 from services.sensor_service import SensorService
 from services.haptic_service import HapticService
+from services.intent_service import IntentService
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -28,6 +30,7 @@ for logger_name in [
     'services.special_effect',
     'services.sensor',
     'services.haptic',
+    'services.intent',
     # Too noisy, disable for now
     # 'services.location'
 ]:
@@ -46,14 +49,18 @@ class PhoenixApp:
             'audio': AudioService(self.manager),
             'wakeword': WakeWordService(self.manager),
             'conversation': ConversationService(self.manager),
-            'led': LEDService(self.manager),
             'special_effect': SpecialEffectService(self.manager),
-            'sensor': SensorService(self.manager),
-            'haptic': HapticService(self.manager),
             # Turned off until I can debug the bouncing location problem
             # 'location': LocationService(self.manager),
         }
-        
+
+        # These are only functional on Raspberry Pi
+        if PLATFORM == "raspberry-pi":
+            self.services['led'] = LEDService(self.manager)
+            self.services['sensor'] = SensorService(self.manager)
+            self.services['haptic'] = HapticService(self.manager)
+            self.services['intent'] = IntentService(self.manager)
+
         # Start audio service first, then the remaining services in parallel
         await self.manager.start_service('audio', self.services['audio'])
         await asyncio.gather(

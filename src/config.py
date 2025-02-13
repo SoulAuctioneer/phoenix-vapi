@@ -23,15 +23,29 @@ else:
 VAPI_API_KEY = os.getenv('VAPI_API_KEY')
 PICOVOICE_ACCESS_KEY = os.getenv('PICOVOICE_ACCESS_KEY')
 
+# Intent Detection Configuration
+class IntentConfig:
+    """Configuration for intent detection"""
+    # Path to the Rhino context file for intent detection
+    if PLATFORM == "macos":
+        CONTEXT_PATH = "assets/models/text-to-intent-rpi.rhn" # TODO: Only get one training a month, hope this works...
+    elif PLATFORM == "raspberry-pi":
+        CONTEXT_PATH = "assets/models/text-to-intent-rpi.rhn"
+    else:
+        raise ValueError(f"Unsupported platform: {system} {machine}")
+    
+    # How long to listen for an intent after wake word (in seconds)
+    DETECTION_TIMEOUT = 5.0
+
 # Wake Word Configuration
 # Available built-in wake words:
 # alexa, americano, blueberry, bumblebee, computer, grapefruit, grasshopper, hey barista, hey google, hey siri, jarvis, ok google, pico clock, picovoice, porcupine, terminator
 WAKE_WORD_BUILTIN = None
 # Platform-specific custom wake word file paths
 if PLATFORM == "macos":
-    WAKE_WORD_PATH = "assets/Hey-Phoenix_en_mac_v3_0_0.ppn"
+    WAKE_WORD_PATH = "assets/models/wake-word-mac.ppn"
 elif PLATFORM == "raspberry-pi":
-    WAKE_WORD_PATH = "assets/Hey-Phoenix_en_raspberry-pi_v3_0_0.ppn"
+    WAKE_WORD_PATH = "assets/models/wake-word-rpi.ppn"
 else:
     raise ValueError(f"Unsupported platform: {system} {machine}")
 
@@ -107,6 +121,12 @@ class SoundEffect(str, Enum):
     MYSTERY = "mystery.wav"
     TADA = "tada.wav"
     PURRING = "purring.wav"
+    CHIRP1 = "chirp1.wav"
+    CHIRP2 = "chirp2.wav"
+    CHIRP3 = "chirp3.wav"
+    CHIRP4 = "chirp4.wav"
+    CHIRP5 = "chirp5.wav"
+    
     
     @classmethod
     def get_filename(cls, effect_name: str) -> Union[str, None]:

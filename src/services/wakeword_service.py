@@ -3,7 +3,6 @@ import asyncio
 from typing import Dict, Any
 from services.service import BaseService
 from managers.wakeword_manager import WakeWordManager
-from config import PICOVOICE_ACCESS_KEY, WAKE_WORD_PATH
 
 class WakeWordService(BaseService):
     """Handles wake word detection"""
@@ -23,13 +22,12 @@ class WakeWordService(BaseService):
         """Initialize the wake word detector"""
         await self.cleanup_detector()  # Clean up any existing detector
         try:
-            logging.info("Using wake word from: %s", WAKE_WORD_PATH)
             # Add delay before initialization to allow audio device to fully release
             await asyncio.sleep(1.5)
             
-            # Create and initialize the detector
+            # Create and initialize the detector with callback
             self.detector = await WakeWordManager.create(
-                manager=self.manager  # Pass the manager for direct event publishing
+                on_wake_word=self._handle_wake_word_detected
             )
             
             logging.info("Wake word detector initialized successfully")
@@ -54,5 +52,9 @@ class WakeWordService(BaseService):
             
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
-        # We no longer need to handle conversation_ended since we keep running
-        pass 
+        pass  # Wake word detection runs continuously
+        
+    async def _handle_wake_word_detected(self):
+        """Callback handler for when a wake word is detected by the manager"""
+        logging.info("Wake word detected, publishing event")
+        await self.publish({"type": "wake_word_detected"}) 

@@ -1,7 +1,8 @@
 import logging
+import random
 from typing import Dict, Any
 import asyncio
-from config import AudioBaseConfig
+from config import AudioBaseConfig, SoundEffect
 from services.service import BaseService
 from managers.audio_manager import AudioManager, AudioConfig
 
@@ -60,7 +61,16 @@ class AudioService(BaseService):
                 
         # Play yawn sound when conversation ends
         elif event_type == "conversation_ended":
-            await self._play_sound("YAWN") 
+            await self._play_sound("YAWN")
+
+        # Play a random chirp sound when wakeword is detected
+        elif event_type == "wakeword_detected":
+            await self._play_random_chirp()
+
+        elif event_type == "intent_detected":
+            intent = event.get("intent")
+            # TODO: Have a different chirp for each intent
+            await self._play_random_chirp()
 
         # Handle touch stroke intensity for purring sound
         elif event_type == "touch_stroke_intensity":
@@ -130,3 +140,8 @@ class AudioService(BaseService):
             self.logger.error(f"Error playing sound effect {effect_name}: {e}")
             return False
         
+    async def _play_random_chirp(self):
+        """Play a random chirp sound"""
+        chirp_sounds = [SoundEffect.CHIRP1, SoundEffect.CHIRP2, SoundEffect.CHIRP3, SoundEffect.CHIRP4, SoundEffect.CHIRP5]
+        random_chirp = random.choice(chirp_sounds)
+        await self._play_sound(random_chirp, loop=True, volume=0.5)

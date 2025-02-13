@@ -72,16 +72,30 @@ class ConversationService(BaseService):
         """Handle events from other services"""
         event_type = event.get("type")
         
-        if event_type == "wake_word_detected":
-            self.logger.info("Wake word detected event received")
-            # Start a new conversation if one isn't already active
-            if not self.is_active:
-                self.logger.info("Starting new conversation in response to wake word")
-                await self.start_conversation()
-            else:
-                self.logger.info("Conversation already active, sending interrupt message")
+        if event_type == "intent_detection_started":
+            # Mute local mic while intent detection is happening
+            if self.is_active:
+                self.logger.info("Conversation active, sending interrupt message and muting until intent detection completes")
                 self.call_manager.interrupt_assistant()
-                
+                self.call_manager.mute()
+
+        elif event_type == "intent_detection_timeout":
+            # Unmute local mic when intent detection completes
+            if self.is_active:
+                self.logger.info("Intent detection completed, unmuting local mic")
+                self.call_manager.unmute()
+
+        elif event_type == "intent_detected":
+            intent = event.get("intent")
+            if intent == "wake_up":
+                # Start a new conversation if one isn't already active
+                if not self.is_active:
+                    self.logger.info("Starting new conversation in response to wake word")
+                    await self.start_conversation()
+                else:
+                    self.logger.info("Conversation already active, passing along the `wake up` message")
+                    self.call_manager.add_message("user", "Wake up!")
+                                    
         elif event_type == "call_state":
             if event.get("state") == "ended" and self.is_active:
                 self.logger.info("Call ended event received, stopping conversation")

@@ -6,12 +6,16 @@ import asyncio
 from managers.audio_manager import AudioManager
 import threading
 from config import PICOVOICE_ACCESS_KEY, WAKE_WORD_BUILTIN, WAKE_WORD_PATH
+from typing import Callable, Awaitable, Optional
 
 class WakeWordManager:
-    """Handles wake word detection using Porcupine"""
-    def __init__(self, audio_manager, manager=None):
+    """
+    Handles wake word detection using Porcupine.
+    Uses callback to notify service of wake word detection rather than publishing events directly.
+    """
+    def __init__(self, audio_manager, *, on_wake_word: Optional[Callable[[], Awaitable[None]]] = None):
         self.audio_manager = audio_manager
-        self.manager = manager
+        self.on_wake_word = on_wake_word
         self.running = False
         self._audio_consumer = None
         self._lock = threading.Lock()
@@ -40,11 +44,11 @@ class WakeWordManager:
             raise
 
     @classmethod
-    async def create(cls, *, audio_manager=None, manager=None):
+    async def create(cls, *, audio_manager=None, on_wake_word: Optional[Callable[[], Awaitable[None]]] = None):
         """Factory method to create and initialize a WakeWordManager instance"""
         if audio_manager is None:
             audio_manager = AudioManager.get_instance()
-        instance = cls(audio_manager, manager=manager)
+        instance = cls(audio_manager, on_wake_word=on_wake_word)
         return instance
 
     async def start(self):
@@ -138,12 +142,9 @@ class WakeWordManager:
         await self.cleanup()
 
     def _handle_wake_word_detected(self):
-        """Handle wake word detection event"""
+        """Handle wake word detection by calling the callback if provided"""
         logging.info("Wake word detected!")
-        # Schedule the event publishing in a thread-safe way using the stored loop reference
-        if self.manager and self._loop is not None:
+        if self.on_wake_word and self._loop is not None:
             self._loop.call_soon_threadsafe(
-                lambda: asyncio.create_task(
-                    self.manager.publish({"type": "wake_word_detected"})
-                )
+                lambda: asyncio.create_task(self.on_wake_word())
             ) 
