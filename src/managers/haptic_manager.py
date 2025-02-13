@@ -356,6 +356,7 @@ class HapticManager:
                     return False
                 
             self.drv.realtime_value = value
+            logging.info(f"Set realtime value to {value}")
             return True
         except Exception as e:
             logging.error(f"Error setting realtime value: {str(e)}")
