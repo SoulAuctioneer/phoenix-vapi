@@ -77,23 +77,31 @@ class HapticService(BaseService):
                 current_time = asyncio.get_event_loop().time()
                 elapsed = current_time - start_time
                 
-                # Calculate base vibration level (0-100)
-                base_level = 20 + (intensity * 60)  # Maps 0.0-1.0 to 20-80
+                # Calculate base vibration level (40-120 range for stronger effect)
+                base_level = 40 + (intensity * 80)  # Maps 0.0-1.0 to 40-120
                 
                 # Primary modulation for main purring rhythm
+                # Use exponential curve for more pronounced peaks
                 main_mod = math.sin(2 * math.pi * base_freq * elapsed)
+                main_mod = math.copysign(abs(main_mod) ** 0.7, main_mod)  # Sharper peaks
                 
                 # Secondary faster modulation for texture
-                texture_mod = 0.2 * math.sin(2 * math.pi * texture_freq * elapsed)
+                # Reduce texture amplitude at high intensities for smoother strong purrs
+                texture_amp = 0.3 * (1.0 - (intensity * 0.7))
+                texture_mod = texture_amp * math.sin(2 * math.pi * texture_freq * elapsed)
                 
                 # Combine modulations and map to appropriate range
                 combined_mod = main_mod + texture_mod
-                # Scale modulation to +/-0.8 range to maintain some base vibration
-                combined_mod *= 0.8
+                # Scale modulation to maintain minimum vibration
+                # Higher minimum at high intensities
+                min_level = 0.2 + (intensity * 0.4)  # 0.2-0.6 minimum
+                combined_mod = min_level + ((1.0 - min_level) * combined_mod)
                 
                 # Calculate final motor value
-                # Map intensity and modulation to 0-127 range for positive-only drive
-                motor_value = int(base_level * (1.0 + combined_mod))
+                motor_value = int(base_level * combined_mod)
+                # Ensure we use full range for strong purrs
+                if intensity > 0.8:
+                    motor_value = max(motor_value, 40)  # Never drop below 40 for strong purrs
                 motor_value = max(0, min(127, motor_value))
                 
                 # Set motor value
