@@ -133,8 +133,22 @@ class IntentService(BaseService):
         
         # Stop the detection task
         if self.detection_task and not self.detection_task.done():
-            self.detection_task.cancel()
+            # Create a new task for cancellation to avoid blocking
+            cancel_task = asyncio.create_task(self._cancel_detection_task())
             try:
-                await self.detection_task
-            except asyncio.CancelledError:
-                pass
+                await cancel_task
+            except Exception as e:
+                logging.error(f"Error cancelling detection task: {e}")
+                
+    async def _cancel_detection_task(self):
+        """Helper method to safely cancel the detection task"""
+        try:
+            self.detection_task.cancel()
+            await self.detection_task
+        except asyncio.CancelledError:
+            # This is expected when cancelling
+            pass
+        except Exception as e:
+            logging.error(f"Unexpected error while cancelling detection task: {e}")
+        finally:
+            self.detection_task = None
