@@ -1,6 +1,6 @@
 from services.service import BaseService
 from managers.led_manager import LEDManager, LEDEffect
-from config import PLATFORM, LED_BRIGHTNESS, IntentConfig  # Import the IntentConfig class/object
+from config import PLATFORM, LED_BRIGHTNESS
 import logging
 
 
@@ -47,7 +47,8 @@ class LEDService(BaseService):
         if event_type == "intent_detection_started":
             logging.info("Intent detection started - switched to random twinkling effect")
             # TODO: This needs to be smarter in respect to what effect we revert to after finishing, need more state orchestration
-            self.led_controller.start_effect(LEDEffect.RANDOM_TWINKLING, speed=0.06, duration=IntentConfig.DETECTION_TIMEOUT)
+            duration = event.get('timeout', 7)
+            self.led_controller.start_effect(LEDEffect.RANDOM_TWINKLING, speed=0.06, duration=duration)
 
         elif event_type == "conversation_started":
             logging.info("Conversation started - switched to random twinkling effect")
