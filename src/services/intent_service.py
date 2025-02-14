@@ -69,10 +69,6 @@ class IntentService(BaseService):
 
     async def start_detection_timeout(self):
         """Start intent detection with timeout"""
-        if self.detection_task and not self.detection_task.done():
-            # Cancel any existing detection task
-            await self._cancel_detection_task()
-
         try:
             # Start the detector
             await self.detector.start()
@@ -85,23 +81,29 @@ class IntentService(BaseService):
             })
             
             # Wait for timeout
-            await asyncio.sleep(IntentConfig.DETECTION_TIMEOUT)
-            
-            # If we reach here, timeout occurred
-            logging.info("Intent detection timed out")
-            await self.detector.stop()
-            
-            # Publish timeout event
-            await self.publish({
-                "type": "intent_detection_timeout"
-            })
-            
+            try:
+                await asyncio.sleep(IntentConfig.DETECTION_TIMEOUT)
+                # If we reach here, timeout occurred
+                logging.info("Intent detection timed out")
+                await self.publish({
+                    "type": "intent_detection_timeout"
+                })
+            except asyncio.CancelledError:
+                # Task was cancelled (either by timeout or intent detection)
+                logging.info("Intent detection cancelled")
+                raise  # Re-raise to trigger cleanup
+                
         except asyncio.CancelledError:
-            # Task was cancelled (either by timeout or intent detection)
-            logging.info("Intent detection cancelled")
-            await self.detector.stop()
+            # Handle cancellation cleanup
+            logging.info("Cleaning up cancelled detection")
+            raise  # Re-raise to ensure proper task cleanup
+            
         finally:
-            self.detection_task = None
+            # Always stop the detector
+            try:
+                await self.detector.stop()
+            except Exception as e:
+                logging.error(f"Error stopping detector: {e}")
             
     async def handle_event(self, event: Dict[str, Any]):
         """
@@ -112,39 +114,31 @@ class IntentService(BaseService):
         
         if event_type == "wake_word_detected":
             logging.info("Wake word detected, starting intent detection")
-            if not self.detection_task or self.detection_task.done():
-                self.detection_task = asyncio.create_task(self.start_detection_timeout())
+            # Cancel any existing task
+            if self.detection_task and not self.detection_task.done():
+                self.detection_task.cancel()
+                try:
+                    await self.detection_task
+                except asyncio.CancelledError:
+                    pass
+                self.detection_task = None
+                
+            # Start new detection task
+            self.detection_task = asyncio.create_task(self.start_detection_timeout())
                 
     async def _handle_intent_detected(self, intent_data: Dict[str, Any]):
         """Callback handler for when an intent is detected by the manager"""
         logging.info("Intent detected, stopping detection")
         
-        # Publish the intent event
+        # Publish the intent event first
         await self.publish({
             "type": "intent_detected",
             "intent": intent_data["intent"],
             "slots": intent_data["slots"]
         })
         
-        # Stop the detection task
+        # Then cancel the detection task if it exists
         if self.detection_task and not self.detection_task.done():
             self.detection_task.cancel()
-            try:
-                await self.detection_task
-            except asyncio.CancelledError:
-                pass  # This is expected
-            finally:
-                self.detection_task = None
-
-    async def _cancel_detection_task(self):
-        """Helper method to safely cancel the detection task"""
-        try:
-            self.detection_task.cancel()
-            await self.detection_task
-        except asyncio.CancelledError:
-            # This is expected when cancelling
-            pass
-        except Exception as e:
-            logging.error(f"Unexpected error while cancelling detection task: {e}")
-        finally:
+            # Don't await the task here to avoid potential deadlocks
             self.detection_task = None
