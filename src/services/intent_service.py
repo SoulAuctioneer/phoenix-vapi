@@ -71,11 +71,7 @@ class IntentService(BaseService):
         """Start intent detection with timeout"""
         if self.detection_task and not self.detection_task.done():
             # Cancel any existing detection task
-            self.detection_task.cancel()
-            try:
-                await self.detection_task
-            except asyncio.CancelledError:
-                pass
+            await self._cancel_detection_task()
 
         try:
             # Start the detector
@@ -104,7 +100,6 @@ class IntentService(BaseService):
             # Task was cancelled (either by timeout or intent detection)
             logging.info("Intent detection cancelled")
             await self.detector.stop()
-            raise
         finally:
             self.detection_task = None
             
@@ -133,13 +128,14 @@ class IntentService(BaseService):
         
         # Stop the detection task
         if self.detection_task and not self.detection_task.done():
-            # Create a new task for cancellation to avoid blocking
-            cancel_task = asyncio.create_task(self._cancel_detection_task())
+            self.detection_task.cancel()
             try:
-                await cancel_task
-            except Exception as e:
-                logging.error(f"Error cancelling detection task: {e}")
-                
+                await self.detection_task
+            except asyncio.CancelledError:
+                pass  # This is expected
+            finally:
+                self.detection_task = None
+
     async def _cancel_detection_task(self):
         """Helper method to safely cancel the detection task"""
         try:
