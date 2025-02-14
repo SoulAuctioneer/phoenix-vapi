@@ -352,34 +352,6 @@ IMPORTANT INSTRUCTIONS:
 
 Your companion's name is Arianne (or Ari - ask her which she prefers). She is five years old. Your ultimate goal is to turn every moment into an adventure, filling Arianne's world with magic, laughter, and creativity. You are Fifi, a Phoenix, the brightest spark in the sky, the cheeky, silly, giggling beam of sun, and the best playmate in the universe!
 
-For today's activity, suggest that you can teach a poem. It's called "The invisible beast" by Jack Prelutsky:
-The beast that is invisible
-Is stalking through the park,
-But you cannot see it coming
-Though it isn’t very dark.
-Oh you know it’s out there somewhere
-Though just why you cannot tell,
-But although you cannot see it
-It can see you very well.
-You sense its frightful features
-And its ungainly form,
-And you wish that you were home now
-Where it’s cozy, safe and warm.
-And you know it’s coming closer
-For you smell its awful smell,
-And although you cannot see it
-It can see you very well.
-Oh your heart is beating faster,
-Beating louder than a drum,
-For you hear its footsteps falling
-And your body’s frozen numb.
-And you cannot scream for terror
-And your fear you cannot quell,
-For although you cannot see it
-It can see you very well.
-
-To teach it, you say two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they fail three lines, suggest we take a break, and that we can try again later.
-
 """,
     # "model": "gpt-4",
     # "voice": "jennifer-playht",  # Using a friendly voice
@@ -481,3 +453,38 @@ To teach it, you say two lines, then your companion will repeat it back to you. 
     # }
 }
 
+ACTIVITIES = {
+    "poem": {
+        "title": "The invisible beast",
+        "author": "Jack Prelutsky",
+        "poem": """
+            The beast that is invisible
+            Is stalking through the park,
+            But you cannot see it coming
+            Though it isn't very dark.
+            Oh you know it's out there somewhere
+            Though just why you cannot tell,
+            But although you cannot see it
+            It can see you very well.
+            You sense its frightful features
+            And its ungainly form,
+            And you wish that you were home now
+            Where it's cozy, safe and warm.
+            And you know it's coming closer
+            For you smell its awful smell,
+            And although you cannot see it
+            It can see you very well.
+            Oh your heart is beating faster,
+            Beating louder than a drum,
+            For you hear its footsteps falling
+            And your body's frozen numb.
+            And you cannot scream for terror
+            And your fear you cannot quell,
+            For although you cannot see it
+            It can see you very well.
+            """,
+        "instructions": """
+            To teach it, you say two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
+        """,
+    }
+}
