@@ -64,7 +64,7 @@ class AudioService(BaseService):
             await self._play_sound("YAWN")
 
         # Play a random chirp sound when wakeword is detected
-        elif event_type == "wakeword_detected":
+        elif event_type == "intent_detection_started":
             await self._play_random_chirp()
 
         elif event_type == "intent_detected":
@@ -144,4 +144,4 @@ class AudioService(BaseService):
         """Play a random chirp sound"""
         chirp_sounds = [SoundEffect.CHIRP1, SoundEffect.CHIRP2, SoundEffect.CHIRP3, SoundEffect.CHIRP4, SoundEffect.CHIRP5]
         random_chirp = random.choice(chirp_sounds)
-        await self._play_sound(random_chirp, loop=True, volume=0.5)
+        await self._play_sound(random_chirp)

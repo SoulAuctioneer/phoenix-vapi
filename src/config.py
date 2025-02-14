@@ -35,7 +35,7 @@ class IntentConfig:
         raise ValueError(f"Unsupported platform: {system} {machine}")
     
     # How long to listen for an intent after wake word (in seconds)
-    DETECTION_TIMEOUT = 5.0
+    DETECTION_TIMEOUT = 7.0
 
 # Wake Word Configuration
 # Available built-in wake words:
