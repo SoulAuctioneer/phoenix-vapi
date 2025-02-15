@@ -139,7 +139,7 @@ class ServiceManager:
                 self.global_state.is_muted = event["is_muted"]
             
             # Log the complete state after any change
-            self._log_global_state()
+            # self._log_global_state()
             
     async def _safe_handle_event(self, handler: EventHandler, event: Dict[str, Any]):
         """Safely execute an event handler and update global state"""
