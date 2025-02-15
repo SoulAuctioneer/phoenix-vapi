@@ -201,17 +201,17 @@ class BLEConfig:
     
     # Scan intervals and timeouts (in seconds)
     SCAN_DURATION = 1.0          # Duration for BLE hardware to scan for devices
-    SCAN_INTERVAL = 2.0          # Time between periodic scans (was 3.0)
+    SCAN_INTERVAL = 1.5          # Time between periodic scans (was 3.0)
     LOW_POWER_SCAN_INTERVAL = 15.0  # Scan interval when no activity
     ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
     #UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
     
     # RSSI smoothing
-    RSSI_EMA_ALPHA = 0.2  # Exponential moving average alpha (0-1) (was 0.2)
+    RSSI_EMA_ALPHA = 0.3  # Exponential moving average alpha (0-1) (was 0.2)
                           # Higher = more weight to recent readings
     
     # Activity thresholds
-    NO_ACTIVITY_THRESHOLD = 5  # Number of empty scans before switching to low power
+    NO_ACTIVITY_THRESHOLD = 10  # Number of empty scans before switching to low power
     
     # Distance change thresholds (in meters)
     DISTANCE_CHANGE_THRESHOLD = 1.0  # Minimum change to trigger proximity update
@@ -226,7 +226,7 @@ class BLEConfig:
     BEACON_TIMEOUT_SEC = 12.0    # Wait longer before declaring unknown (was 6.0)
     
     # Add minimum consecutive empty scans before unknown
-    MIN_EMPTY_SCANS_FOR_UNKNOWN = 6  # Require multiple empty scans (was 4)
+    MIN_EMPTY_SCANS_FOR_UNKNOWN = 10  # Require multiple empty scans (was 4)
     
     # Add preference for maintaining current location
     CURRENT_LOCATION_RSSI_BONUS = 5  # Add virtual dB to current location (was 5)
