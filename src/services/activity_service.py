@@ -8,6 +8,7 @@ from services.sensor_service import SensorService
 from services.haptic_service import HapticService
 from services.sleep_activity import SleepActivity
 from services.hide_seek_service import HideSeekService
+import asyncio
 
 class ActivityType(Enum):
     """Types of activities the device can be in"""
@@ -45,6 +46,7 @@ class ActivityService(BaseService):
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
+        self._activity_lock = asyncio.Lock()  # Add lock for activity transitions
         
     async def start(self):
         """Start the activity service. Initial activity will be started after receiving startup completed event."""
@@ -119,37 +121,38 @@ class ActivityService(BaseService):
             activity: The activity to start
             direct_transition: If True, skip stopping current activity (used for direct transitions)
         """
-        if activity == self.current_activity:
-            self.logger.debug(f"Activity {activity.name} already active")
-            return
-            
-        # Get required supporting services and activity service
-        supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
-        
-        # Ensure supporting services are running
-        if not await self._ensure_services(supporting_services):
-            self.logger.error(f"Failed to start {activity.name} - required supporting services could not be started")
-            return
-            
-        # Stop current activity if one is running and this isn't a direct transition
-        if self.current_activity and not direct_transition:
-            await self._stop_activity(self.current_activity)
-            
-        self.logger.info(f"Starting activity: {activity.name}")
-        
-        # Start activity-specific service if needed
-        if activity_service_name:
-            if not await self._ensure_services([activity_service_name]):
-                self.logger.error(f"Failed to start {activity.name} - activity service could not be started")
+        async with self._activity_lock:  # Ensure atomic activity transition
+            if activity == self.current_activity:
+                self.logger.debug(f"Activity {activity.name} already active")
                 return
                 
-        self.current_activity = activity
-        
-        # Publish activity started event
-        await self.publish({
-            "type": "activity_started",
-            "activity": activity.name
-        })
+            # Get required supporting services and activity service
+            supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
+            
+            # Ensure supporting services are running
+            if not await self._ensure_services(supporting_services):
+                self.logger.error(f"Failed to start {activity.name} - required supporting services could not be started")
+                return
+                
+            # Stop current activity if one is running and this isn't a direct transition
+            if self.current_activity and not direct_transition:
+                await self._stop_activity(self.current_activity)
+                
+            self.logger.info(f"Starting activity: {activity.name}")
+            
+            # Start activity-specific service if needed
+            if activity_service_name:
+                if not await self._ensure_services([activity_service_name]):
+                    self.logger.error(f"Failed to start {activity.name} - activity service could not be started")
+                    return
+                    
+            self.current_activity = activity
+            
+            # Publish activity started event
+            await self.publish({
+                "type": "activity_started",
+                "activity": activity.name
+            })
         
     async def _stop_activity(self, activity: ActivityType):
         """Stop an activity
@@ -157,42 +160,43 @@ class ActivityService(BaseService):
         Args:
             activity: The activity to stop
         """
-        if activity != self.current_activity:
-            return
+        async with self._activity_lock:  # Ensure atomic activity transition
+            if activity != self.current_activity:
+                return
+                
+            self.logger.info(f"Stopping activity: {activity.name}")
             
-        self.logger.info(f"Stopping activity: {activity.name}")
-        
-        # Get current activity's services
-        supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
-        current_services = supporting_services.copy()  # Make a copy to avoid modifying the original
-        if activity_service_name:
-            current_services.append(activity_service_name)
+            # Get current activity's services
+            supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
+            current_services = supporting_services.copy()  # Make a copy to avoid modifying the original
+            if activity_service_name:
+                current_services.append(activity_service_name)
+                
+            # Get next activity's services (SLEEP if stopping non-SLEEP activity)
+            next_activity = ActivityType.SLEEP if activity != ActivityType.SLEEP else None
+            next_services = []
+            if next_activity:
+                next_supporting_services, next_activity_service = ACTIVITY_REQUIREMENTS[next_activity]
+                next_services = next_supporting_services.copy()  # Make a copy to avoid modifying the original
+                if next_activity_service:
+                    next_services.append(next_activity_service)
             
-        # Get next activity's services (SLEEP if stopping non-SLEEP activity)
-        next_activity = ActivityType.SLEEP if activity != ActivityType.SLEEP else None
-        next_services = []
-        if next_activity:
-            next_supporting_services, next_activity_service = ACTIVITY_REQUIREMENTS[next_activity]
-            next_services = next_supporting_services.copy()  # Make a copy to avoid modifying the original
-            if next_activity_service:
-                next_services.append(next_activity_service)
-        
-        # Calculate services to stop (current services not needed by next activity)
-        services_to_stop = [s for s in current_services if s not in next_services]
-        await self._cleanup_services(services_to_stop)
+            # Calculate services to stop (current services not needed by next activity)
+            services_to_stop = [s for s in current_services if s not in next_services]
+            await self._cleanup_services(services_to_stop)
+                
+            # Clear current activity before publishing event
+            self.current_activity = None
             
-        # Clear current activity before publishing event
-        self.current_activity = None
-        
-        # Publish activity stopped event
-        await self.publish({
-            "type": "activity_stopped",
-            "activity": activity.name
-        })
-        
-        # Start SLEEP activity if needed, using direct transition to avoid recursion
-        if activity != ActivityType.SLEEP:
-            await self._start_activity(ActivityType.SLEEP, direct_transition=True)
+            # Publish activity stopped event
+            await self.publish({
+                "type": "activity_stopped",
+                "activity": activity.name
+            })
+            
+            # Start SLEEP activity if needed, using direct transition to avoid recursion
+            if activity != ActivityType.SLEEP:
+                await self._start_activity(ActivityType.SLEEP, direct_transition=True)
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
