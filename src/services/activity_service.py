@@ -103,11 +103,12 @@ class ActivityService(BaseService):
                 await self.manager.stop_service(service_name)
                 del self.active_services[service_name]
         
-    async def _start_activity(self, activity: ActivityType):
+    async def _start_activity(self, activity: ActivityType, direct_transition: bool = False):
         """Start a new activity
         
         Args:
             activity: The activity to start
+            direct_transition: If True, skip stopping current activity (used for direct transitions)
         """
         if activity == self.current_activity:
             self.logger.debug(f"Activity {activity.name} already active")
@@ -121,8 +122,8 @@ class ActivityService(BaseService):
             self.logger.error(f"Failed to start {activity.name} - required supporting services could not be started")
             return
             
-        # Stop current activity if one is running
-        if self.current_activity:
+        # Stop current activity if one is running and this isn't a direct transition
+        if self.current_activity and not direct_transition:
             await self._stop_activity(self.current_activity)
             
         self.logger.info(f"Starting activity: {activity.name}")
@@ -171,6 +172,7 @@ class ActivityService(BaseService):
         services_to_stop = [s for s in current_services if s not in next_services]
         await self._cleanup_services(services_to_stop)
             
+        # Clear current activity before publishing event
         self.current_activity = None
         
         # Publish activity stopped event
@@ -179,9 +181,9 @@ class ActivityService(BaseService):
             "activity": activity.name
         })
         
-        # Return to SLEEP activity
+        # Start SLEEP activity if needed, using direct transition to avoid recursion
         if activity != ActivityType.SLEEP:
-            await self._start_activity(ActivityType.SLEEP)
+            await self._start_activity(ActivityType.SLEEP, direct_transition=True)
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
