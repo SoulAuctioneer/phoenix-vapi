@@ -390,21 +390,22 @@ class LocationManager:
                 all_beacons = {}
                 for addr, rssi in devices:
                     location = BLEConfig.BEACON_LOCATIONS[addr]
-                    distance = self._estimate_distance(rssi)
+                    smoothed_rssi = int(self._update_rssi_ema(f"{addr[0]}:{addr[1]}", rssi))
+                    distance = self._estimate_distance(smoothed_rssi)
                     all_beacons[location] = {
                         "distance": distance,
-                        "rssi": rssi,
-                        "smoothed_rssi": rssi  # Include smoothed RSSI
+                        "rssi": rssi,  # Keep raw RSSI for debugging
+                        "smoothed_rssi": smoothed_rssi
                     }
-                    self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Distance={distance}")
+                    self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Smoothed={smoothed_rssi}, Distance={distance}")
                 
                 self._last_location = {
                     "location": location,
-                    "distance": self._estimate_distance(rssi),
+                    "distance": self._estimate_distance(smoothed_rssi),
                     "all_beacons": all_beacons
                 }
                 
-                self.logger.debug(f"Scan complete - Location: {location}, Distance: {self._estimate_distance(rssi)}, Beacons: {len(all_beacons)}")
+                self.logger.debug(f"Scan complete - Location: {location}, Distance: {self._estimate_distance(smoothed_rssi)}, Beacons: {len(all_beacons)}")
                 return self._last_location
             else:
                 # Keep previous location until minimum readings reached

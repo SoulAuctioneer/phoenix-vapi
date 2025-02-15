@@ -181,7 +181,7 @@ class BLEConfig:
     # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
         # TODO: Switch 'em around
-        (1, 1): "blue_phoenix", # Label: Phoenix_Library
+#        (1, 1): "blue_phoenix", # Label: Phoenix_Library
         (1, 2): "pendant" # Label: Phoenix_Bedroom
     }
 
