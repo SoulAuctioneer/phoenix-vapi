@@ -466,10 +466,14 @@ class LocationManager:
         """Estimates distance category based on RSSI value"""
         if rssi >= BLEConfig.RSSI_IMMEDIATE:
             return Distance.IMMEDIATE
+        elif rssi >= BLEConfig.RSSI_VERY_NEAR:
+            return Distance.VERY_NEAR
         elif rssi >= BLEConfig.RSSI_NEAR:
             return Distance.NEAR
         elif rssi >= BLEConfig.RSSI_FAR:
             return Distance.FAR
+        elif rssi >= BLEConfig.RSSI_VERY_FAR:
+            return Distance.VERY_FAR
         else:
             return Distance.UNKNOWN
             

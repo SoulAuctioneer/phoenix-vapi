@@ -159,9 +159,11 @@ class SoundEffect(str, Enum):
 class Distance(Enum):
     """Enum for distance categories"""
     IMMEDIATE = auto()  # < 1m
-    NEAR = auto()      # 1-3m
-    FAR = auto()       # > 3m
-    UNKNOWN = auto()   # No signal
+    VERY_NEAR = auto() # 1-2m
+    NEAR = auto()      # 2-4m
+    FAR = auto()       # 4-6m
+    VERY_FAR = auto()  # 6-8m
+    UNKNOWN = auto()   # No signal or too weak
 
 class BLEConfig:
     """Configuration for BLE scanning and beacons"""
@@ -184,13 +186,15 @@ class BLEConfig:
     }
 
     # RSSI thresholds for distance estimation (in dB)
-    RSSI_IMMEDIATE = -55  # Stronger than -55 dB = IMMEDIATE (was -50)
-    RSSI_NEAR = -75      # Between -75 and -55 dB = NEAR (was -70)
-    RSSI_FAR = -90      # Between -90 and -75 dB = FAR (was -85)
-                         # Weaker than -90 dB = UNKNOWN
+    RSSI_IMMEDIATE = -55  # Stronger than -55 dB = IMMEDIATE
+    RSSI_VERY_NEAR = -65  # Between -65 and -55 dB = VERY_NEAR
+    RSSI_NEAR = -75      # Between -75 and -65 dB = NEAR
+    RSSI_FAR = -85      # Between -85 and -75 dB = FAR
+    RSSI_VERY_FAR = -100  # Between -100 and -85 dB = VERY_FAR
+                         # Weaker than -100 dB = UNKNOWN
     
     # Minimum RSSI threshold for considering a beacon signal valid
-    MIN_RSSI_THRESHOLD = -95  # Signals weaker than -95 dB are ignored (was -90)
+    MIN_RSSI_THRESHOLD = -105  # Signals weaker than -105 dB are ignored
     
     # RSSI hysteresis to prevent location flapping
     RSSI_HYSTERESIS = 12  # Required RSSI difference to switch locations (dB) (was 8)
@@ -233,7 +237,7 @@ class BLEConfig:
 # Hide and Seek Activity Configuration
 class HideSeekConfig:
     # How much to ramp audio cue volume the further away the beacon is
-    AUDIO_CUE_DISTANCE_SCALING = 1.5
+    AUDIO_CUE_DISTANCE_SCALING = 1.0
 
     # How frequently to emit an audio cue
     AUDIO_CUE_INTERVAL = 10.0

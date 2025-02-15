@@ -18,6 +18,7 @@ class HideSeekService(BaseService):
         self._sound_task: Optional[asyncio.Task] = None
         self._game_active = False
         self._pendant_found = False
+        self._pendant_detected = False  # Track if we've ever seen the pendant
         
     async def start(self):
         """Start the hide and seek service"""
@@ -44,6 +45,11 @@ class HideSeekService(BaseService):
         """Main loop that periodically emits chirp sounds based on pendant distance"""
         while self._game_active:
             try:
+                # Only emit sounds if we've detected the pendant at least once
+                if not self._pendant_detected:
+                    await asyncio.sleep(1.0)  # Check less frequently when waiting for pendant
+                    continue
+                    
                 # Get current pendant beacon info from global state
                 pendant_info = self.global_state.location_beacons.get("pendant", {})
                 if not pendant_info:
@@ -88,6 +94,11 @@ class HideSeekService(BaseService):
             # Only care about the pendant beacon
             if location == "pendant":
                 distance = data.get("distance")
+                
+                # Mark that we've detected the pendant at least once
+                if not self._pendant_detected and distance != Distance.UNKNOWN:
+                    self._pendant_detected = True
+                    self.logger.info("Pendant detected for the first time - starting hide and seek game!")
                 
                 # Check if pendant is found based on distance being IMMEDIATE
                 is_found = distance == Distance.IMMEDIATE
