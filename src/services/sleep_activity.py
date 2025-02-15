@@ -16,7 +16,7 @@ class SleepActivity(BaseService):
     def __init__(self, manager):
         super().__init__(manager)
         self._is_active = False
-        self._breathing_volume = 0.1  # Store breathing volume for restoration
+        self._breathing_volume = 0.02  # Store breathing volume for restoration (reduced from 0.1 for quieter effect)
         
     async def start(self):
         """Start the sleep activity"""
@@ -28,7 +28,7 @@ class SleepActivity(BaseService):
             "type": "play_sound",
             "effect_name": SoundEffect.BREATHING,
             "loop": True,
-            "volume": self._breathing_volume  # Lower volume for sleep mode
+            "volume": self._breathing_volume  # Very quiet for sleep mode
         })
         
         # Set LED effect to rotating pink/blue
