@@ -106,27 +106,6 @@ class ConversationService(BaseService):
                 await self.stop_conversation()
 
         elif event_type == "location_changed":
-            if self.is_active and self.call_manager:
-                location = event["data"]["location"]
-                previous_location = event["data"]["previous_location"]
-                
-                # Skip if location is unknown
-                if location == "unknown":
-                    self.logger.debug("Skipping location change involving unknown location")
-                    return
-                    
-                self.logger.debug(f"Sending location change to assistant: {previous_location} -> {location}")
-                try:
-                    self.call_manager.add_message_no_interrupt(
-                        "system",
-                        f"""You and your companion have moved from {previous_location} to {location}. 
-                        If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
-                        If it's not really relevant to the conversation, just ignore it for now."""
-                    )
-                except Exception as e:
-                    self.logger.error(f"Failed to send location change to assistant: {e}")
-
-        elif event_type == "location_changed":
             # Disabled for now as we don't want this for the first meeting with Arianne
             pass
             # if self.is_active and self.call_manager:
