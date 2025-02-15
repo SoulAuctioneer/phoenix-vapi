@@ -125,15 +125,40 @@ class ConversationService(BaseService):
                     )
                 except Exception as e:
                     self.logger.error(f"Failed to send location change to assistant: {e}")
-                
-        # Enable later when we have a good way to engage with the proximity changes
-        # elif event_type == "proximity_changed":
+
+        elif event_type == "location_changed":
+            # Disabled for now as we don't want this for the first meeting with Arianne
+            pass
             # if self.is_active and self.call_manager:
             #     location = event["data"]["location"]
-            #     distance = event["data"]["distance"]
-            #     previous_distance = event["data"]["previous_distance"]
-            #     self.logger.debug(f"Sending proximity change to assistant: {location} {previous_distance} -> {distance}")
-            #     self.call_manager.add_message(
-            #         "system",
-            #         f"User's distance to {location} changed from {previous_distance} to {distance}"
-            #     )
+            #     previous_location = event["data"]["previous_location"]
+                
+            #     # Skip if location is unknown
+            #     if location == "unknown":
+            #         self.logger.debug("Skipping location change involving unknown location")
+            #         return
+                    
+            #     self.logger.debug(f"Sending location change to assistant: {previous_location} -> {location}")
+            #     try:
+            #         self.call_manager.add_message(
+            #             "system",
+            #             f"""You and your companion have moved from {previous_location} to {location}. 
+            #             If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
+            #             If it's not really relevant to the conversation, just ignore it for now."""
+            #         )
+            #     except Exception as e:
+            #         self.logger.error(f"Failed to send location change to assistant: {e}")
+
+        # Proximity changes are for scavenger hunts and hunts for other Phoenixes
+        elif event_type == "proximity_changed":
+            # We only care about proximity changes to other Phoenixes
+            if self.is_active and self.call_manager:
+                location = event["data"]["location"]
+                if location == "blue_phoenix":
+                    distance = event["data"]["distance"]
+                    previous_distance = event["data"]["previous_distance"]
+                    self.logger.debug(f"Sending proximity change to assistant: {location} {previous_distance} -> {distance}")
+                    self.call_manager.add_message(
+                        "system",
+                        f"You are now {distance} distance away from your little sister."
+                    )
