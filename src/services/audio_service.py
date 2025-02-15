@@ -55,8 +55,8 @@ class AudioService(BaseService):
             self.logger.info(f"Stopped sound effect: {effect_name}")
         
         # Play acknowledgment sound when conversation starts
-        elif event_type == "conversation_starting":
-            await self._play_sound("YAWN")
+        # elif event_type == "conversation_starting":
+        #     await self._play_sound("YAWN")
                 
         # Play yawn sound when conversation ends
         elif event_type == "conversation_ended":

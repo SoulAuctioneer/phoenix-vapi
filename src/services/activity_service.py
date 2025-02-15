@@ -67,8 +67,10 @@ class ActivityService(BaseService):
         """
         try:
             for service_name in required_services:
+                self.logger.debug(f"Ensuring service {service_name} is running (active services: {list(self.active_services.keys())})")
                 # Skip if service is already active
                 if service_name in self.active_services:
+                    self.logger.debug(f"Service {service_name} is already active")
                     continue
                     
                 # Initialize service if needed
@@ -77,12 +79,19 @@ class ActivityService(BaseService):
                     service_class = self.activity_services[service_name]
                     service = service_class(self.manager)
                     self.initialized_services[service_name] = service
+                else:
+                    self.logger.debug(f"Service {service_name} already initialized")
                     
                 # Start the service
                 service = self.initialized_services[service_name]
                 self.logger.info(f"Starting service: {service_name}")
-                await self.manager.start_service(service_name, service)
-                self.active_services[service_name] = service
+                try:
+                    await self.manager.start_service(service_name, service)
+                    self.active_services[service_name] = service
+                    self.logger.info(f"Successfully started service: {service_name}")
+                except Exception as e:
+                    self.logger.error(f"Failed to start service {service_name}: {e}")
+                    raise
                 
             return True
             
