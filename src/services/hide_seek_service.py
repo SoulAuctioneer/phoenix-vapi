@@ -71,8 +71,8 @@ class HideSeekService(BaseService):
         """Main loop that periodically emits chirp sounds based on pendant distance"""
         while self._game_active:
             try:
-                # Only emit sounds if we've detected the pendant at least once
-                if not self._pendant_detected:
+                # Only emit sounds if we've detected the pendant at least once and it's not found
+                if not self._pendant_detected or self._pendant_found:
                     await asyncio.sleep(1.0)  # Check less frequently when waiting for pendant
                     continue
                     
@@ -81,6 +81,7 @@ class HideSeekService(BaseService):
                 if not pendant_info:
                     # No pendant detected, use max volume
                     volume = 1.0
+                    self.logger.debug("No pendant info, using max volume")
                 else:
                     # Calculate volume based on distance category
                     distance = pendant_info.get("distance", Distance.UNKNOWN)
@@ -88,15 +89,17 @@ class HideSeekService(BaseService):
                     self.logger.debug(f"Pendant distance: {distance}, calculated volume: {volume:.2f}")
                 
                 # Emit a random chirp sound
+                chirp = random.choice([
+                    SoundEffect.CHIRP1,
+                    SoundEffect.CHIRP2,
+                    SoundEffect.CHIRP3,
+                    SoundEffect.CHIRP4,
+                    SoundEffect.CHIRP5
+                ])
+                self.logger.debug(f"Playing chirp {chirp} with volume {volume:.2f}")
                 await self.publish({
                     "type": "play_sound",
-                    "effect_name": random.choice([
-                        SoundEffect.CHIRP1,
-                        SoundEffect.CHIRP2,
-                        SoundEffect.CHIRP3,
-                        SoundEffect.CHIRP4,
-                        SoundEffect.CHIRP5
-                    ]),
+                    "effect_name": chirp,
                     "volume": volume
                 })
                 
