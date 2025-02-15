@@ -24,6 +24,10 @@ class HideSeekService(BaseService):
         """Start the hide and seek service"""
         await super().start()
         self._game_active = True
+        # Disable any LED effects
+        await self.publish({
+            "type": "stop_led_effect"
+        })
         # Start sound task that periodically emits chirps
         self._sound_task = asyncio.create_task(self._sound_loop())
         self.logger.info("Hide and seek service started")
