@@ -8,6 +8,7 @@ from services.sensor_service import SensorService
 from services.haptic_service import HapticService
 from services.intent_service import IntentService
 from services.sleep_activity import SleepActivity
+from services.hide_seek_service import HideSeekService
 
 class ActivityType(Enum):
     """Types of activities the device can be in"""
@@ -42,6 +43,7 @@ class ActivityService(BaseService):
             'haptic': HapticService,
             'intent': IntentService,
             'sleep': SleepActivity,
+            'hide_seek': HideSeekService,
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
