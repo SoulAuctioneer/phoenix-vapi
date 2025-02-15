@@ -193,7 +193,7 @@ class ActivityService(BaseService):
             await conversation_service.start_conversation()
         elif activity == ActivityType.CONVERSATION_FIRST_MEETING:
             conversation_service = self.active_services.get('conversation')
-            await conversation_service.start_conversation_first_meeting(ASSISTANT_CONFIG_FIRST_MEETING)
+            await conversation_service.start_conversation(ASSISTANT_CONFIG_FIRST_MEETING)
                 
         self.current_activity = activity
         

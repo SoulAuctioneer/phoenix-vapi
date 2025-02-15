@@ -26,7 +26,7 @@ class ConversationService(BaseService):
             await self.call_manager.cleanup()
         await super().stop()
         
-    async def start_conversation(self):
+    async def start_conversation(self, assistant_config: Dict[str, Any] = ASSISTANT_CONFIG):
         """Start a conversation with the AI assistant
         
         This should only be called by the ActivityService when starting the CONVERSATION activity.
@@ -45,7 +45,7 @@ class ConversationService(BaseService):
         try:
             self.logger.info("Initializing call connection")
             await self.publish({"type": "conversation_starting"})
-            await self.call_manager.start_call(assistant_id=ASSISTANT_ID, assistant_config=ASSISTANT_CONFIG)
+            await self.call_manager.start_call(assistant_id=ASSISTANT_ID, assistant_config=assistant_config)
             self.logger.info("Conversation started successfully")
             
         except Exception as e:
