@@ -162,11 +162,12 @@ class BaseService:
                 
             elif event_type == "proximity_changed":
                 location = event["data"]["location"]
-                if event["data"]["distance"] == "UNKNOWN":
+                distance = event["data"]["distance"]
+                if distance == Distance.UNKNOWN:
                     self.global_state.location_beacons.pop(location, None)
                 else:
                     self.global_state.location_beacons[location] = {
-                        "distance": event["data"]["distance"],
+                        "distance": distance,  # Store the Distance enum directly
                         "rssi": event["data"]["rssi"]
                     }
                     

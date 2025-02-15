@@ -78,6 +78,8 @@ class HideSeekService(BaseService):
                     
                 # Get current pendant beacon info from global state
                 pendant_info = self.global_state.location_beacons.get("pendant", {})
+                self.logger.debug(f"Current pendant info: {pendant_info}")
+                
                 if not pendant_info:
                     # No pendant detected, use max volume
                     volume = 1.0
@@ -85,6 +87,7 @@ class HideSeekService(BaseService):
                 else:
                     # Calculate volume based on distance category
                     distance = pendant_info.get("distance", Distance.UNKNOWN)
+                    self.logger.debug(f"Raw distance value from state: {distance}, type: {type(distance)}")
                     volume = self._calculate_volume(distance)
                     self.logger.debug(f"Pendant distance: {distance}, calculated volume: {volume:.2f}")
                 
