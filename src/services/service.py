@@ -136,6 +136,8 @@ class BaseService:
         # Create a logger with the full module path and class name
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
         self.global_state = GlobalState()
+        # Initialize lock for thread-safe access to global_state
+        self.global_state_lock = asyncio.Lock()
         
     async def start(self):
         """Start the service"""
@@ -154,59 +156,59 @@ class BaseService:
            This base class updates the global state based on received events"""
         event_type = event.get("type")
         
-        async with self._state_lock:
+        async with self.global_state_lock:
             if event_type == "location_changed":
-                self._state.current_location = event["data"]["location"]
+                self.global_state.current_location = event["data"]["location"]
                 
             elif event_type == "proximity_changed":
                 location = event["data"]["location"]
                 if event["data"]["distance"] == "UNKNOWN":
-                    self._state.location_beacons.pop(location, None)
+                    self.global_state.location_beacons.pop(location, None)
                 else:
-                    self._state.location_beacons[location] = {
+                    self.global_state.location_beacons[location] = {
                         "distance": event["data"]["distance"],
                         "rssi": event["data"]["rssi"]
                     }
                     
             elif event_type == "conversation_starting":
-                self._state.conversation_active = True
-                self._state.conversation_error = None  # Clear any previous error
+                self.global_state.conversation_active = True
+                self.global_state.conversation_error = None  # Clear any previous error
                 
             elif event_type == "conversation_ended":
-                self._state.conversation_active = False
-                self._state.assistant_speaking = False
-                self._state.user_speaking = False
+                self.global_state.conversation_active = False
+                self.global_state.assistant_speaking = False
+                self.global_state.user_speaking = False
                 
             elif event_type == "conversation_error":
-                self._state.conversation_active = False  # Conversation ends on error
-                self._state.assistant_speaking = False
-                self._state.user_speaking = False
+                self.global_state.conversation_active = False  # Conversation ends on error
+                self.global_state.assistant_speaking = False
+                self.global_state.user_speaking = False
                 
             elif event_type == "speech-update":
                 role = event["role"]
                 is_speaking = event["status"] == "started"
                 if role == "assistant":
-                    self._state.assistant_speaking = is_speaking
+                    self.global_state.assistant_speaking = is_speaking
                 elif role == "user":
-                    self._state.user_speaking = is_speaking
+                    self.global_state.user_speaking = is_speaking
                     
             elif event_type == "sensor_data":
                 if event["sensor"] == "accelerometer":
-                    self._state.acceleration = event["data"]["acceleration"]
-                    self._state.gyro = event["data"]["gyro"]
-                    self._state.temperature = event["data"]["temperature"]
+                    self.global_state.acceleration = event["data"]["acceleration"]
+                    self.global_state.gyro = event["data"]["gyro"]
+                    self.global_state.temperature = event["data"]["temperature"]
                     
             elif event_type == "touch_state":
-                self._state.touch_state = event["is_touching"]
+                self.global_state.touch_state = event["is_touching"]
                 
             elif event_type == "touch_position":
-                self._state.touch_position = event["position"]
+                self.global_state.touch_position = event["position"]
                 
             elif event_type == "touch_stroke_intensity":
-                self._state.touch_stroke_intensity = event["intensity"]
+                self.global_state.touch_stroke_intensity = event["intensity"]
                 
             elif event_type == "volume_changed":
-                self._state.volume = event["volume"]
+                self.global_state.volume = event["volume"]
                 
             elif event_type == "microphone_state":
-                self._state.is_muted = event["is_muted"]
+                self.global_state.is_muted = event["is_muted"]
