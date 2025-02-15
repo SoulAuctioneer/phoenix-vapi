@@ -157,13 +157,17 @@ class HideSeekService(BaseService):
                 # Check if pendant is found based on distance being IMMEDIATE
                 is_found = distance == Distance.IMMEDIATE
                 
-                # If newly found, play tada sound
+                # If newly found, publish a won event
                 if is_found and not self._pendant_found:
-                    self._pendant_found = True
+                    # self._pendant_found = True
+                    # await self.publish({
+                    #     "type": "play_sound",
+                    #     "effect_name": SoundEffect.TADA
+                    # })
+                    # Publish hide seek won event
                     await self.publish({
-                        "type": "play_sound",
-                        "effect_name": SoundEffect.TADA
+                        "type": "hide_seek_won"
                     })
-                    self.logger.info("Pendant found! Playing tada sound")
+                    self.logger.info("Pendant found!")
                 elif not is_found:
                     self._pendant_found = False

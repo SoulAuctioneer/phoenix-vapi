@@ -9,10 +9,12 @@ from services.haptic_service import HapticService
 from services.sleep_activity import SleepActivity
 from services.hide_seek_service import HideSeekService
 import asyncio
+from config import ASSISTANT_CONFIG_FIRST_MEETING
 
 class ActivityType(Enum):
     """Types of activities the device can be in"""
     CONVERSATION = "conversation"
+    CONVERSATION_FIRST_MEETING = "conversation_first_meeting"
     HIDE_SEEK = "hide_seek"
     CUDDLE = "cuddle"
     SLEEP = "sleep"
@@ -21,6 +23,7 @@ class ActivityType(Enum):
 # Format: (list of supporting services, activity service name if any)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str]]] = {
     ActivityType.CONVERSATION: ([], 'conversation'),  # ConversationService is the activity implementation
+    ActivityType.CONVERSATION_FIRST_MEETING: ([], 'conversation'),  # ConversationService is the activity implementation
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek'),  # Requires HideSeekService
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle'),  # Requires CuddleService
     ActivityType.SLEEP: ([], 'sleep')  # Uses SleepActivity service
@@ -191,6 +194,13 @@ class ActivityService(BaseService):
             if not await self._ensure_services([activity_service_name]):
                 self.logger.error(f"Failed to start {activity.name} - activity service could not be started")
                 return
+            
+        # Any additional setup for the activity
+        if activity == ActivityType.CONVERSATION:
+            await self.manager.conversation_service.start_conversation()
+
+        elif activity == ActivityType.CONVERSATION_FIRST_MEETING:
+            await self.manager.conversation_service.start_conversation_first_meeting(ASSISTANT_CONFIG_FIRST_MEETING)
                 
         self.current_activity = activity
         
@@ -274,6 +284,10 @@ class ActivityService(BaseService):
             # When conversation ends, return to sleep if that was the current activity
             if self.current_activity == ActivityType.CONVERSATION:
                 await self._queue_transition(ActivityType.CONVERSATION, False)
+                
+        elif event_type == "hide_seek_won":
+            # When hide and seek is won, transition to first meeting conversation
+            await self._queue_transition(ActivityType.CONVERSATION_FIRST_MEETING, True)
                 
         elif event_type == "touch_stroke_intensity":
             intensity = event.get("intensity", 0.0)

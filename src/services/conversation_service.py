@@ -3,7 +3,7 @@ import asyncio
 from typing import Dict, Any
 from .service import BaseService
 from managers.call_manager import CallManager
-from config import VAPI_API_KEY, ASSISTANT_ID, ASSISTANT_OVERRIDES
+from config import VAPI_API_KEY, ASSISTANT_ID, ASSISTANT_CONFIG
 
 class ConversationService(BaseService):
     """Handles conversations with the AI assistant"""
@@ -14,10 +14,9 @@ class ConversationService(BaseService):
         self._is_stopping = False  # Add state tracking for stop operation
         
     async def start(self):
-        """Start the service (initializes call manager and starts conversation)"""
+        """Start the service (initializes call manager but doesn't start the conversation)"""
         await super().start()
         self.call_manager = await CallManager.create(manager=self.manager)
-        await self.start_conversation()
             
     async def stop(self):
         """Stop the service and any active conversation"""
@@ -46,7 +45,7 @@ class ConversationService(BaseService):
         try:
             self.logger.info("Initializing call connection")
             await self.publish({"type": "conversation_starting"})
-            await self.call_manager.start_call(assistant_id=ASSISTANT_ID, assistant_overrides=ASSISTANT_OVERRIDES)
+            await self.call_manager.start_call(assistant_id=ASSISTANT_ID, assistant_config=ASSISTANT_CONFIG)
             self.logger.info("Conversation started successfully")
             
         except Exception as e:

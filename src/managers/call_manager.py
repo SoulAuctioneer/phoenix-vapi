@@ -872,7 +872,7 @@ class CallManager:
         *,
         assistant_id=None,
         assistant=None,
-        assistant_overrides=None,
+        assistant_config=None,
         squad_id=None,
         squad=None,
     ):
@@ -881,9 +881,9 @@ class CallManager:
 
         # Start a new call
         if assistant_id:
-            payload = {'assistantId': assistant_id, 'assistantOverrides': assistant_overrides}
+            payload = {'assistantId': assistant_id, 'assistantOverrides': assistant_config}
         elif assistant:
-            payload = {'assistant': assistant, 'assistantOverrides': assistant_overrides}
+            payload = {'assistant': assistant, 'assistantOverrides': assistant_config}
         elif squad_id:
             payload = {'squadId': squad_id}
         elif squad:
