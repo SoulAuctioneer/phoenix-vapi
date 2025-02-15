@@ -41,6 +41,32 @@ class HideSeekService(BaseService):
         await super().stop()
         self.logger.info("Hide and seek service stopped")
         
+    def _calculate_volume(self, distance: Distance) -> float:
+        """Calculate volume based on distance category
+        
+        Args:
+            distance: The distance category from the pendant
+            
+        Returns:
+            float: Volume level between 0.1 and 1.0
+        """
+        # Map distances to volume levels
+        # Further = louder to help guide the player
+        if distance == Distance.UNKNOWN:
+            return 1.0  # Max volume when unknown/lost
+        elif distance == Distance.VERY_FAR:
+            return 0.9 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+        elif distance == Distance.FAR:
+            return 0.7 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+        elif distance == Distance.NEAR:
+            return 0.5 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+        elif distance == Distance.VERY_NEAR:
+            return 0.3 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+        elif distance == Distance.IMMEDIATE:
+            return 0.1  # Minimum volume when very close
+        else:
+            return 1.0  # Fallback to max volume
+        
     async def _sound_loop(self):
         """Main loop that periodically emits chirp sounds based on pendant distance"""
         while self._game_active:
@@ -56,12 +82,10 @@ class HideSeekService(BaseService):
                     # No pendant detected, use max volume
                     volume = 1.0
                 else:
-                    # Calculate volume based on distance
-                    # RSSI is negative, so we need to invert the relationship
-                    # The more negative (further away), the louder the sound
-                    rssi = pendant_info.get("rssi", -100)  # Default to far away if no RSSI
-                    # Map RSSI range (-100 to -40) to volume range (1.0 to 0.1)
-                    volume = min(1.0, max(0.1, ((-rssi - 40) / 60) * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING))
+                    # Calculate volume based on distance category
+                    distance = pendant_info.get("distance", Distance.UNKNOWN)
+                    volume = self._calculate_volume(distance)
+                    self.logger.debug(f"Pendant distance: {distance}, calculated volume: {volume:.2f}")
                 
                 # Emit a random chirp sound
                 await self.publish({
