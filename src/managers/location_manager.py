@@ -20,13 +20,13 @@ class LocationManager:
             "all_beacons": {}
         }
         self._no_activity_count = 0
+        self._empty_scan_count = 0  # Initialize empty scan counter
         self._is_running = False
         self._scanning_lock = asyncio.Lock()  # Add lock for scan coordination
         # Initialize RSSI smoothing
         self._rssi_ema = defaultdict(lambda: None)  # Stores EMA for each beacon
         self._consecutive_readings = defaultdict(int)
         self._last_seen_timestamps = defaultdict(float)
-        self._empty_scan_count = 0
         self._last_location_change_time = 0.0
         self._last_strongest = None  # Tracks the last strongest beacon for hysteresis
         
@@ -352,12 +352,19 @@ class LocationManager:
             return self._last_location
             
         if not devices:
+            # Increment empty scan counter
+            self._empty_scan_count += 1
+            
             # Check timeout before declaring unknown
             current_time = time.time()
             for location in self._last_location.get("all_beacons", {}):
                 if (current_time - self._last_seen_timestamps[location]) < BLEConfig.BEACON_TIMEOUT_SEC:
                     # Keep last known state if within timeout
                     return self._last_location
+            
+            # Only declare unknown after minimum number of empty scans
+            if self._empty_scan_count < BLEConfig.MIN_EMPTY_SCANS_FOR_UNKNOWN:
+                return self._last_location
             
             self._consecutive_readings.clear()
             self._no_activity_count += 1
@@ -367,6 +374,9 @@ class LocationManager:
                 "all_beacons": {}
             }
             
+        # Reset empty scan counter when we get devices
+        self._empty_scan_count = 0
+        
         # Update last seen timestamps for detected beacons
         current_time = time.time()
         for addr, rssi in devices:

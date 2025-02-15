@@ -227,7 +227,7 @@ class BLEConfig:
     BEACON_TIMEOUT_SEC = 12.0    # Wait longer before declaring unknown (was 6.0)
     
     # Add minimum consecutive empty scans before unknown
-    MIN_EMPTY_SCANS_FOR_UNKNOWN = 10  # Require multiple empty scans (was 4)
+    MIN_EMPTY_SCANS_FOR_UNKNOWN = 5  # Require multiple empty scans (was 4)
     
     # Add preference for maintaining current location
     CURRENT_LOCATION_RSSI_BONUS = 5  # Add virtual dB to current location (was 5)
