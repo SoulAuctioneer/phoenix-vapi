@@ -24,13 +24,14 @@ class AudioConfig:
 
 
 class AudioBuffer:
-    """Minimal thread-safe audio buffer"""
+    """Minimal thread-safe audio buffer with volume control"""
     def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE):
         self.buffer = queue.Queue(maxsize=maxsize)
         self._lock = threading.Lock()
+        self._volume = 1.0  # Default volume
         
     def put(self, data: np.ndarray) -> bool:
-        """Put data into buffer, dropping if full"""
+        """Put raw audio data into buffer, dropping if full"""
         try:
             self.buffer.put_nowait(data)
             return True
@@ -38,9 +39,15 @@ class AudioBuffer:
             return False
             
     def get(self) -> Optional[np.ndarray]:
-        """Get data from buffer"""
+        """Get volume-adjusted audio data from buffer"""
         try:
-            return self.buffer.get_nowait()
+            data = self.buffer.get_nowait()
+            if data is not None and self._volume != 1.0:
+                # Convert to float32 for volume adjustment
+                audio_float = data.astype(np.float32) * self._volume
+                # Clip to int16 range and convert back
+                data = np.clip(audio_float, -32768, 32767).astype(np.int16)
+            return data
         except queue.Empty:
             return None
             
@@ -52,6 +59,11 @@ class AudioBuffer:
                     self.buffer.get_nowait()
                 except queue.Empty:
                     break
+                    
+    def set_volume(self, volume: float):
+        """Set the volume to apply during get"""
+        with self._lock:
+            self._volume = max(0.0, min(1.0, volume))
 
 class AudioConsumer:
     """Represents a consumer of audio input data"""
@@ -66,12 +78,21 @@ class AudioProducer:
     def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100):
         self.name = name
         self.buffer = AudioBuffer(maxsize=buffer_size)
-        self.volume = AUDIO_DEFAULT_VOLUME
+        self._volume = AUDIO_DEFAULT_VOLUME
         self.active = True
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
         self.loop = False  # Whether to loop the audio
         self._original_audio = None  # Store original audio data for looping
+
+    @property
+    def volume(self) -> float:
+        return self._volume
+
+    @volume.setter
+    def volume(self, value: float):
+        self._volume = max(0.0, min(1.0, value))
+        self.buffer.set_volume(self._volume)
 
     def resize_chunk(self, audio_data: np.ndarray) -> List[np.ndarray]:
         """Resize audio chunk to desired size, handling remainder samples"""
@@ -92,15 +113,6 @@ class AudioProducer:
         self._remainder = audio_data[remainder_start:]
         
         return chunks
-
-    def apply_volume(self, audio_data: np.ndarray) -> np.ndarray:
-        """Apply volume control to int16 audio data"""
-        if self.volume == 1.0:
-            return audio_data
-        # Convert to float32 temporarily for volume adjustment to prevent integer overflow
-        audio_float = audio_data.astype(np.float32) * self.volume
-        # Clip to int16 range and convert back
-        return np.clip(audio_float, -32768, 32767).astype(np.int16)
 
     def stop(self):
         """Stop this producer and clean up its resources"""
@@ -384,15 +396,12 @@ class AudioManager:
                         producer_states.append(state)
                         
                         if producer.active:
-                            data = producer.buffer.get()
+                            data = producer.buffer.get()  # Volume already applied here
                             if data is not None:
                                 no_data_count = 0  # Reset no-data counter
                                 if len(data) == self.config.chunk:
-                                    # Pre-scale each producer's audio to prevent clipping when mixing
-                                    audio_float = data.astype(np.float32) * 0.8  # Scale down slightly to prevent clipping
-                                    if producer.volume != 1.0:
-                                        audio_float *= producer.volume
-                                    mixed_audio += audio_float
+                                    # Pre-scale to prevent clipping when mixing
+                                    mixed_audio += data.astype(np.float32) * 0.8
                                     active_producers += 1
                                     state['had_data'] = True
                                     logging.debug(f"Mixed data from producer '{name}'")
@@ -403,7 +412,6 @@ class AudioManager:
                                     # If looping is enabled and we have original audio data, queue it for requeuing
                                     if producer.loop and producer._original_audio is not None and producer.active:
                                         logging.debug(f"Queueing audio data for requeuing producer '{name}' with loop={producer.loop}")
-                                        # Pass the producer's current loop flag
                                         self._requeue_queue.put((name, producer._original_audio, producer.loop))
                                     else:
                                         no_data_count += 1
