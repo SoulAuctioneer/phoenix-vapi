@@ -69,6 +69,10 @@ class LocationService(BaseService):
         # Process visible beacons
         for location, beacon_info in all_beacons.items():
             seen_beacons.add(location)
+            # Calculate current distance based on RSSI
+            current_distance = self._location_manager._estimate_distance(beacon_info["rssi"])
+            beacon_info["distance"] = current_distance
+            
             if self._distance_changed(location, beacon_info):
                 await self._publish_proximity_change(location, beacon_info)
                 
