@@ -14,9 +14,10 @@ class ConversationService(BaseService):
         self._is_stopping = False  # Add state tracking for stop operation
         
     async def start(self):
-        """Start the service (initializes call manager but doesn't start conversation)"""
+        """Start the service (initializes call manager and starts conversation)"""
         await super().start()
         self.call_manager = await CallManager.create(manager=self.manager)
+        self.start_conversation()
             
     async def stop(self):
         """Stop the service and any active conversation"""
