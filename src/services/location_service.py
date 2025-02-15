@@ -81,22 +81,24 @@ class LocationService(BaseService):
                 # Even if we don't publish an event, update the stored state
                 self._last_distances[location] = beacon_info.copy()
                 
-        # Clear state for beacons that are no longer visible
+        # Check beacons that are no longer visible
         for location in list(self._last_distances.keys()):
             if location not in seen_beacons:
-                previous = self._last_distances[location]
-                await self.publish({
-                    "type": "proximity_changed",
-                    "data": {
-                        "location": location,
-                        "distance": Distance.UNKNOWN,
-                        "previous_distance": previous["distance"],
-                        "rssi": None
-                    },
-                    "producer_name": "location_service"
-                })
-                self.logger.debug(f"Lost visibility of beacon: {location}")
-                del self._last_distances[location]
+                # Only publish unknown state after minimum empty scans
+                if self._location_manager._beacon_empty_counts[location] >= BLEConfig.MIN_EMPTY_SCANS_FOR_UNKNOWN:
+                    previous = self._last_distances[location]
+                    await self.publish({
+                        "type": "proximity_changed",
+                        "data": {
+                            "location": location,
+                            "distance": Distance.UNKNOWN,
+                            "previous_distance": previous["distance"],
+                            "rssi": None
+                        },
+                        "producer_name": "location_service"
+                    })
+                    self.logger.debug(f"Lost visibility of beacon: {location} after {self._location_manager._beacon_empty_counts[location]} empty scans")
+                    del self._last_distances[location]
         
     async def _scanning_loop(self) -> None:
         """Main scanning loop that periodically checks location"""

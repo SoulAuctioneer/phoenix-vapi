@@ -21,6 +21,7 @@ class LocationManager:
         }
         self._no_activity_count = 0
         self._empty_scan_count = 0  # Initialize empty scan counter
+        self._beacon_empty_counts = defaultdict(int)  # Track empty scans per beacon
         self._is_running = False
         self._scanning_lock = asyncio.Lock()  # Add lock for scan coordination
         # Initialize RSSI smoothing
@@ -352,8 +353,10 @@ class LocationManager:
             return self._last_location
             
         if not devices:
-            # Increment empty scan counter
+            # Increment empty scan counters
             self._empty_scan_count += 1
+            for location in BLEConfig.BEACON_LOCATIONS.values():
+                self._beacon_empty_counts[location] += 1
             
             # Check timeout before declaring unknown
             current_time = time.time()
@@ -377,11 +380,19 @@ class LocationManager:
         # Reset empty scan counter when we get devices
         self._empty_scan_count = 0
         
-        # Update last seen timestamps for detected beacons
+        # Update last seen timestamps and reset empty counts for detected beacons
         current_time = time.time()
+        seen_locations = set()
         for addr, rssi in devices:
             location = BLEConfig.BEACON_LOCATIONS[addr]
+            seen_locations.add(location)
             self._last_seen_timestamps[location] = current_time
+            self._beacon_empty_counts[location] = 0  # Reset empty count for this beacon
+            
+        # Increment empty counts for unseen beacons
+        for location in BLEConfig.BEACON_LOCATIONS.values():
+            if location not in seen_locations:
+                self._beacon_empty_counts[location] += 1
             
         # Get strongest beacon considering consecutive readings
         strongest = self._get_strongest_beacon(devices)
