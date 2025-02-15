@@ -185,8 +185,8 @@ class BLEConfig:
     # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
         # TODO: Switch 'em around
-        (1, 1): "blue_phoenix", # Label: Phoenix_Library
-        (1, 2): "pendant" # Label: Phoenix_Bedroom
+        (1, 1): "pendant", # Label: Phoenix_Library
+        (1, 2): "blue_phoenix" # Label: Phoenix_Bedroom
     }
 
     # RSSI thresholds for distance estimation (in dB)
@@ -523,8 +523,9 @@ I could fly up and check, but my glowing feathers might give us away!
 
 Continue the story. Here are some other potential scenes:
 Scene 3: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below.
-Scene 4: A Hidden Message: Timmy stumbles upon a mysterious note hidden in the tree, revealing a clue that could lead to their escape.
-Scene 5: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Dene once and for all!
+Scene 4: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
+Scene 5: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
+Scene 6: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Dene once and for all!
 """
 }
 
