@@ -6,12 +6,8 @@ from services.service import ServiceManager
 from services.audio_service import AudioService
 from services.special_effect_service import SpecialEffectService
 from services.wakeword_service import WakeWordService
-from services.conversation_service import ConversationService
 from services.led_service import LEDService
-from services.location_service import LocationService
-from services.sensor_service import SensorService
-from services.haptic_service import HapticService
-from services.intent_service import IntentService
+from services.activity_service import ActivityService
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -31,6 +27,7 @@ for logger_name in [
     'services.sensor',
     'services.haptic',
     'services.intent',
+    'services.activity',
     # Too noisy, disable for now
     # 'services.location'
 ]:
@@ -39,36 +36,31 @@ for logger_name in [
 class PhoenixApp:
     def __init__(self):
         self.manager = ServiceManager()
-        self.services = []
         self._should_run = True
+        self.initialized_services = {}
 
     async def initialize_services(self):
-        """Initialize and start all services in the correct order"""
-        # Create services in order
-        self.services = {
+        """Initialize and start core services in the correct order"""
+        # Initialize all services
+        self.initialized_services = {
             'audio': AudioService(self.manager),
             'wakeword': WakeWordService(self.manager),
-            'conversation': ConversationService(self.manager),
             'special_effect': SpecialEffectService(self.manager),
-            # Turned off until I can debug the bouncing location problem
-            # 'location': LocationService(self.manager),
+            'activity': ActivityService(self.manager)
         }
-
-        # These are only functional on Raspberry Pi
+        
+        # Add LED service on Raspberry Pi
         if PLATFORM == "raspberry-pi":
-            self.services['led'] = LEDService(self.manager)
-            self.services['sensor'] = SensorService(self.manager)
-            self.services['haptic'] = HapticService(self.manager)
-            self.services['intent'] = IntentService(self.manager)
+            self.initialized_services['led'] = LEDService(self.manager)
 
-        # Start audio service first, then the remaining services in parallel
-        await self.manager.start_service('audio', self.services['audio'])
+        # Start audio service first, then all other services in parallel
+        await self.manager.start_service('audio', self.initialized_services['audio'])
         await asyncio.gather(
-            *[self.manager.start_service(service_name, service)
-              for service_name, service in self.services.items() if service_name != 'audio']
+            *[self.manager.start_service(name, self.initialized_services[name])
+              for name in self.initialized_services.keys() if name != 'audio']
         )
         
-        logging.info("All services initialized and started")
+        logging.info("All core services initialized and started")
 
     async def run(self):
         """Main application loop"""

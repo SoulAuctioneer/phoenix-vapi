@@ -14,10 +14,12 @@ class ConversationService(BaseService):
         self._is_stopping = False  # Add state tracking for stop operation
         
     async def start(self):
+        """Start the service (initializes call manager but doesn't start conversation)"""
         await super().start()
         self.call_manager = await CallManager.create(manager=self.manager)
             
     async def stop(self):
+        """Stop the service and any active conversation"""
         if self.is_active:
             await self.stop_conversation()
         if self.call_manager:
@@ -25,7 +27,10 @@ class ConversationService(BaseService):
         await super().stop()
         
     async def start_conversation(self):
-        """Start a conversation with the AI assistant"""
+        """Start a conversation with the AI assistant
+        
+        This should only be called by the ActivityService when starting the CONVERSATION activity.
+        """
         if self.is_active:
             self.logger.info("Conversation already active, ignoring start request")
             return
@@ -54,7 +59,10 @@ class ConversationService(BaseService):
             })
             
     async def stop_conversation(self):
-        """Stop the current conversation"""
+        """Stop the current conversation
+        
+        This can be called directly by the ActivityService or in response to call_state events.
+        """
         if not self.is_active:
             return
             
@@ -86,15 +94,11 @@ class ConversationService(BaseService):
                 self.call_manager.unmute()
 
         elif event_type == "intent_detected":
+            # Only handle wake_up intent if we're already active
             intent = event.get("intent")
-            if intent == "wake_up":
-                # Start a new conversation if one isn't already active
-                if not self.is_active:
-                    self.logger.info("Starting new conversation in response to wake word")
-                    await self.start_conversation()
-                else:
-                    self.logger.info("Conversation already active, passing along the `wake up` message")
-                    self.call_manager.add_message("user", "Wake up!")
+            if intent == "wake_up" and self.is_active:
+                self.logger.info("Conversation already active, passing along the `wake up` message")
+                self.call_manager.add_message("user", "Wake up!")
                                     
         elif event_type == "call_state":
             if event.get("state") == "ended" and self.is_active:

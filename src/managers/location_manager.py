@@ -380,7 +380,9 @@ class LocationManager:
             addr, rssi = strongest
             location = BLEConfig.BEACON_LOCATIONS[addr]
             self._consecutive_readings[location] += 1
-            
+
+            self._no_activity_count = 0
+
             # Only change location after minimum consecutive readings
             if (self._consecutive_readings[location] >= BLEConfig.MIN_READINGS_FOR_CHANGE and
                 location != self._last_location.get("location")):
@@ -396,7 +398,6 @@ class LocationManager:
                     }
                     self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Distance={distance}")
                 
-                self._no_activity_count = 0
                 self._last_location = {
                     "location": location,
                     "distance": self._estimate_distance(rssi),

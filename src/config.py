@@ -120,6 +120,7 @@ class SoundEffect(str, Enum):
     WHOOSH = "whoosh.wav"
     MYSTERY = "mystery.wav"
     TADA = "tada.wav"
+    BREATHING = "breathing.wav"
     PURRING = "purring.wav"
     CHIRP1 = "chirp1.wav"
     CHIRP2 = "chirp2.wav"
@@ -177,10 +178,10 @@ class BLEConfig:
 
     # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
-        (1, 1): "library",
-        (1, 2): "bedroom"
+        (1, 1): "pendant",
+        (1, 2): "blue_phoenix"
     }
-    
+
     # RSSI thresholds for distance estimation (in dB)
     RSSI_IMMEDIATE = -55  # Stronger than -55 dB = IMMEDIATE (was -50)
     RSSI_NEAR = -75      # Between -75 and -55 dB = NEAR (was -70)
@@ -196,7 +197,7 @@ class BLEConfig:
     # Scan intervals and timeouts (in seconds)
     SCAN_DURATION = 1.0          # Duration for BLE hardware to scan for devices
     SCAN_INTERVAL = 2.0          # Time between periodic scans (was 3.0)
-    LOW_POWER_SCAN_INTERVAL = 30.0  # Scan interval when no activity
+    LOW_POWER_SCAN_INTERVAL = 15.0  # Scan interval when no activity
     ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
     #UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
     
@@ -227,6 +228,14 @@ class BLEConfig:
     
     # Minimum time between location changes
     MIN_TIME_BETWEEN_CHANGES = 10.0  # Minimum seconds between location changes (was 15.0)
+
+# Hide and Seek Activity Configuration
+class HideSeekConfig:
+    # How much to ramp audio cue volume the further away the beacon is
+    AUDIO_CUE_DISTANCE_SCALING = 1.5
+
+    # How frequently to emit an audio cue
+    AUDIO_CUE_INTERVAL = 10.0
 
 
 # Touch Sensor Configuration

@@ -3,7 +3,7 @@ import asyncio
 from typing import Dict, Any, Optional
 from services.service import BaseService
 from managers.speech_intent_manager import SpeechIntentManager
-from config import PICOVOICE_ACCESS_KEY, IntentConfig
+from config import IntentConfig
 
 class IntentService(BaseService):
     """
