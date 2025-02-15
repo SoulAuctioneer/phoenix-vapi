@@ -276,6 +276,10 @@ class ActivityService(BaseService):
             elif intensity == 0 and self.current_activity == ActivityType.CUDDLE:
                 await self._queue_transition(ActivityType.SLEEP)
 
-        elif event_type == "start_sense_phoenix_distance":
+        elif event_type == "start_sensing_phoenix_distance":
             # Start the location service to sense the distance to the Phoenix
             await self._ensure_services(['location'])
+
+        elif event_type == "stop_sensing_phoenix_distance":
+            # Stop the location service to sense the distance to the Phoenix
+            await self._cleanup_services(['location'])
