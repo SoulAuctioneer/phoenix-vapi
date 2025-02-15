@@ -31,7 +31,8 @@ for logger_name in [
     'services.activity',
     'services.sleep_activity',
     # Too noisy, disable for now
-    'services.location'
+    'services.location',
+    'managers.location_manager'
 ]:
     logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
