@@ -191,11 +191,11 @@ class LocationManager:
                                 
                             uuid, major, minor = beacon_info
                             ibeacon_count += 1
-                            self.logger.debug(f"Found iBeacon - UUID: {uuid}, Major: {major}, Minor: {minor}, RSSI: {adv.rssi}")
+                            # self.logger.debug(f"Found iBeacon - UUID: {uuid}, Major: {major}, Minor: {minor}, RSSI: {adv.rssi}")
                             
                             # Check if this is one of our beacons
                             if uuid.lower() != BLEConfig.BEACON_UUID.lower():
-                                self.logger.debug(f"UUID mismatch - Found: {uuid}, Expected: {BLEConfig.BEACON_UUID}")
+                                # self.logger.debug(f"UUID mismatch - Found: {uuid}, Expected: {BLEConfig.BEACON_UUID}")
                                 continue
                                 
                             beacon_key = (major, minor)
@@ -332,7 +332,6 @@ class LocationManager:
             
     async def scan_once(self) -> Dict[str, Any]:
         """Performs a single scan cycle and returns location info"""
-        self.logger.debug("Starting scan cycle...")
         try:
             # Check if a scan is already in progress
             if self._scanning_lock.locked():
@@ -342,7 +341,6 @@ class LocationManager:
             # Try to get the lock with a timeout
             try:
                 async with self._scanning_lock:
-                    self.logger.debug("Starting beacon scan...")
                     devices = await self._scan_beacons()
                     self.logger.debug(f"Beacon scan complete, found {len(devices)} location beacons. Current location: {self._last_location.get('location')}")
             except asyncio.TimeoutError:
