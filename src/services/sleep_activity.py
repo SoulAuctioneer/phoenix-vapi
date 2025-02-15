@@ -24,12 +24,13 @@ class SleepActivity(BaseService):
         self._is_active = True
         
         # Start the breathing sound effect on loop
-        await self.publish({
-            "type": "play_sound",
-            "effect_name": SoundEffect.BREATHING,
-            "loop": True,
-            "volume": self._breathing_volume  # Very quiet for sleep mode
-        })
+        # Commented out until I can figure out the volume issue
+        # await self.publish({
+        #     "type": "play_sound",
+        #     "effect_name": SoundEffect.BREATHING,
+        #     "loop": True,
+        #     "volume": self._breathing_volume  # Very quiet for sleep mode
+        # })
         
         # Set LED effect to rotating pink/blue
         await self.publish({
@@ -49,10 +50,11 @@ class SleepActivity(BaseService):
             self._is_active = False
             
             # Stop the breathing sound
-            await self.publish({
-                "type": "stop_sound",
-                "effect_name": SoundEffect.BREATHING
-            })
+            # Commented out until I can figure out the volume issue
+            # await self.publish({
+            #     "type": "stop_sound",
+            #     "effect_name": SoundEffect.BREATHING
+            # })
             
             # Stop the LED effect
             await self.publish({
@@ -77,12 +79,13 @@ class SleepActivity(BaseService):
                 
             elif event_type == "intent_detection_timeout":
                 # Resume breathing sound after intent detection timeout
-                await self.publish({
-                    "type": "play_sound",
-                    "effect_name": SoundEffect.BREATHING,
-                    "loop": True,
-                    "volume": self._breathing_volume
-                })
+                # Commented out until I can figure out the volume issue
+                # await self.publish({
+                #     "type": "play_sound",
+                #     "effect_name": SoundEffect.BREATHING,
+                #     "loop": True,
+                #     "volume": self._breathing_volume
+                # })
                 
                 # Restart the LED effect
                 await self.publish({
