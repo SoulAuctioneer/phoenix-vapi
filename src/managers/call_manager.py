@@ -264,6 +264,10 @@ class CallManager:
         self._call_client = None
         self._start_event = asyncio.Event()
         self._initialized = False
+        
+        # Message queue for non-interrupting messages
+        self._message_queue = asyncio.Queue()
+        self._message_processor_task = None
 
     @classmethod
     async def create(cls, *, manager=None):
@@ -287,6 +291,9 @@ class CallManager:
             self.state_manager.register_handler(CallState.JOINING, self._handle_joining_state)
             self.state_manager.register_handler(CallState.JOINED, self._handle_joined_state)
             self.state_manager.register_handler(CallState.LEFT, self._handle_left_state)
+            
+            # Start message processor task
+            self._message_processor_task = asyncio.create_task(self._process_queued_messages())
             
             self._initialized = True
         except Exception as e:
@@ -767,6 +774,15 @@ class CallManager:
     async def cleanup(self):
         """Clean up all resources"""
         try:
+            # Cancel message processor task if it exists
+            if self._message_processor_task:
+                self._message_processor_task.cancel()
+                try:
+                    await self._message_processor_task
+                except asyncio.CancelledError:
+                    pass
+                self._message_processor_task = None
+            
             # First leave any active call
             if not self.state_manager.state.is_terminal_state:
                 await self.leave()
@@ -947,11 +963,31 @@ class CallManager:
         }
         self.send_message(message)
 
+    def add_message_no_interrupt(self, role, content):
+        """Adds the message to the conversation history without interrupting the assistant.
+        The message will be queued and sent when neither party is speaking.
+        
+        Args:
+            role (str): Message role (system/user/assistant/tool/function)
+            content (str): Message content
+        """
+        message = {
+            'type': 'add-message',
+            'message': {
+                'role': role,
+                'content': content
+            }
+        }
+        
+        # Add to queue - use create_task to avoid blocking
+        asyncio.create_task(self._message_queue.put(message))
+
     def interrupt_assistant(self):
         """Stop the assistant from speaking if it's speaking"""
         if self.state_manager.assistant_speaking and CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
             self.add_message("user", "Wait, I want to talk. Respond only with 'Yes?'.")
 
+    
     async def _receive_bot_audio(self):
         """Task for receiving bot audio from Daily"""
         try:
@@ -1093,4 +1129,29 @@ class CallManager:
     def is_muted(self) -> bool:
         """Get the current mute state"""
         return self.state_manager.is_muted
+
+    async def _process_queued_messages(self):
+        """Background task to process queued messages when neither party is speaking"""
+        while True:
+            try:
+                # Wait for a message to be available
+                message = await self._message_queue.get()
+                
+                # Wait until neither party is speaking
+                while (self.state_manager.assistant_speaking or 
+                       self.state_manager.user_speaking):
+                    await asyncio.sleep(0.1)
+                
+                # Send the message if we're still in an active call
+                if self.state_manager.state.is_active:
+                    self.send_message(message)
+                    
+                self._message_queue.task_done()
+                
+            except asyncio.CancelledError:
+                # Clean exit on cancellation
+                break
+            except Exception as e:
+                logging.error(f"Error processing queued message: {e}")
+                await asyncio.sleep(0.1)
 

@@ -117,7 +117,7 @@ class ConversationService(BaseService):
                     
                 self.logger.debug(f"Sending location change to assistant: {previous_location} -> {location}")
                 try:
-                    self.call_manager.add_message(
+                    self.call_manager.add_message_no_interrupt(
                         "system",
                         f"""You and your companion have moved from {previous_location} to {location}. 
                         If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
