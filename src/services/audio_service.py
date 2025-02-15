@@ -112,25 +112,7 @@ class AudioService(BaseService):
             return False
             
         try:
-            # First stop any currently playing sound
-            self.audio_manager.stop_sound()
-            
-            # Set the volume before playing
-            if volume is not None:
-                self.audio_manager.set_producer_volume("sound_effect", volume)
-            else:
-                # Determine appropriate volume based on call state
-                with self.audio_manager._producers_lock:
-                    has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
-                
-                if has_active_call:
-                    self.logger.info("Active call detected, setting sound effect volume to 0.1")
-                    volume = 0.1
-                else:
-                    volume = AudioBaseConfig.DEFAULT_VOLUME
-                self.audio_manager.set_producer_volume("sound_effect", volume)
-                
-            # Play the sound
+            # Start playing the sound first
             event_loop = asyncio.get_event_loop()
             success = await event_loop.run_in_executor(
                 None,
@@ -141,7 +123,22 @@ class AudioService(BaseService):
             
             if not success:
                 self.logger.error(f"Failed to play sound effect: {effect_name}")
-            return success
+                return False
+
+            # Now set the volume after the producer has been created
+            with self.audio_manager._producers_lock:
+                has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
+            
+            # Use provided volume if specified, otherwise use default logic
+            if volume is not None:
+                self.audio_manager.set_producer_volume("sound_effect", volume)
+            elif has_active_call:
+                self.logger.info("Active call detected, setting sound effect volume to 0.1")
+                self.audio_manager.set_producer_volume("sound_effect", 0.1)
+            else:
+                self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME)
+
+            return True
             
         except Exception as e:
             self.logger.error(f"Error playing sound effect {effect_name}: {e}")

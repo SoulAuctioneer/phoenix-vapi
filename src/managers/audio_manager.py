@@ -529,6 +529,11 @@ class AudioManager:
             logging.error("Cannot play WAV file - AudioManager not running")
             return False
 
+        # Clear any existing sound effect first
+        with self._producers_lock:
+            if producer_name in self._producers:
+                self._producers[producer_name].buffer.clear()
+
         def _play_in_thread():
             try:
                 logging.info(f"Opening WAV file: {wav_path}")
@@ -550,21 +555,16 @@ class AudioManager:
                         logging.error(f"WAV width ({width}) doesn't match config format")
                         return False
                                         
-                    # Create or get producer and preserve volume
+                    # Create or get producer and set volume
                     with self._producers_lock:
-                        # Get current volume if producer exists
-                        current_volume = None
-                        if producer_name in self._producers:
-                            current_volume = self._producers[producer_name].volume
-                            # Stop and remove the existing producer
-                            self._producers[producer_name].stop()
-                            del self._producers[producer_name]
-                            
-                        # Create new producer with preserved volume
-                        producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000)
-                        if current_volume is not None:
-                            producer.volume = current_volume
-                        self._producers[producer_name] = producer
+                        if producer_name not in self._producers:
+                            # Get current volume if producer exists
+                            current_volume = None
+                            if producer_name in self._producers:
+                                current_volume = self._producers[producer_name].volume
+                            producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000, initial_volume=current_volume)
+                            self._producers[producer_name] = producer
+                        producer = self._producers[producer_name]
                     
                     audio_data = wf.readframes(frames)
                     audio_array = np.frombuffer(audio_data, dtype=np.int16)
