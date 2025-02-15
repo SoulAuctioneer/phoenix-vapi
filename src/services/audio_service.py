@@ -51,7 +51,7 @@ class AudioService(BaseService):
             await self._play_sound(effect_name, loop=loop, volume=volume)
         elif event_type == "stop_sound":
             effect_name = event.get("effect_name")  # For logging purposes
-            self.audio_manager.stop_sound()
+            self.audio_manager.stop_sound(effect_name)
             self.logger.info(f"Stopped sound effect: {effect_name}")
         
         # Play acknowledgment sound when conversation starts
@@ -97,7 +97,7 @@ class AudioService(BaseService):
                     # When intensity drops to 0, stop the purring sound
                     self._purring_active = False
                     self.logger.info("Touch intensity ended, stopping purring sound")
-                    self.audio_manager.stop_sound()
+                    self.audio_manager.stop_sound("PURRING")
 
     async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
         """Helper method to play a sound effect with error handling

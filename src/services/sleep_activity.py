@@ -71,11 +71,12 @@ class SleepActivity(BaseService):
         if self._is_active:
             if event_type == "intent_detection_started":
                 # Stop breathing sound during intent detection
-                await self.publish({
-                    "type": "stop_sound",
-                    "effect_name": SoundEffect.BREATHING
-                })
-                self.logger.info("Paused breathing sound for intent detection")
+                # await self.publish({
+                #     "type": "stop_sound",
+                #     "effect_name": SoundEffect.BREATHING
+                # })
+                # self.logger.info("Paused breathing sound for intent detection")
+                pass
                 
             elif event_type == "intent_detection_timeout":
                 # Resume breathing sound after intent detection timeout

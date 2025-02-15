@@ -519,9 +519,10 @@ class AudioManager:
             
         return self._play_wav_file(wav_path, producer_name="sound_effect", loop=loop)
 
-    def stop_sound(self):
+    def stop_sound(self, effect_name: str):
         """Stop the currently playing sound effect and clean up resources"""
         with self._producers_lock:
+            # TODO: Change to use effect_name instead of "sound_effect" so we have a producer for each sound effect
             if "sound_effect" in self._producers:
                 producer = self._producers["sound_effect"]
                 producer.loop = False  # Ensure loop flag is cleared
