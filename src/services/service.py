@@ -143,6 +143,35 @@ class BaseService:
         # Initialize lock for thread-safe access to global_state
         self.global_state_lock = asyncio.Lock()
         
+    def log_global_state(self):
+        """Log the complete current state of the global state object"""
+        state_dict = {
+            "location": {
+                "current_location": self.global_state.current_location,
+                "location_beacons": self.global_state.location_beacons
+            },
+            "conversation": {
+                "active": self.global_state.conversation_active,
+                "assistant_speaking": self.global_state.assistant_speaking,
+                "user_speaking": self.global_state.user_speaking
+            },
+            "audio": {
+                "is_muted": self.global_state.is_muted,
+                "volume": self.global_state.volume
+            },
+            "sensors": {
+                "acceleration": self.global_state.acceleration,
+                "gyro": self.global_state.gyro,
+                "temperature": self.global_state.temperature,
+                "touch": {
+                    "state": self.global_state.touch_state,
+                    "position": self.global_state.touch_position,
+                    "stroke_intensity": self.global_state.touch_stroke_intensity
+                }
+            }
+        }
+        self.logger.info(f"Current global state: {state_dict}")
+        
     async def start(self):
         """Start the service"""
         self._running = True
@@ -167,22 +196,18 @@ class BaseService:
             elif event_type == "proximity_changed":
                 location = event["data"]["location"]
                 distance = event["data"]["distance"]
-                self.logger.info(f"Handling proximity event - location: {location}, distance: {distance}, type: {type(distance)}")
                 
                 if distance == Distance.UNKNOWN:
-                    self.logger.info(f"Removing beacon {location} from global state")
                     self.global_state.location_beacons.pop(location, None)
                 else:
-                    self.logger.info(f"Updating beacon {location} in global state with distance {distance}")
                     self.global_state.location_beacons[location] = {
-                        "distance": distance,  # Store the Distance enum directly
+                        "distance": distance,
                         "rssi": event["data"]["rssi"]
                     }
-                self.logger.info(f"Global state beacons after update: {self.global_state.location_beacons}")
                     
             elif event_type == "conversation_starting":
                 self.global_state.conversation_active = True
-                self.global_state.conversation_error = None  # Clear any previous error
+                self.global_state.conversation_error = None
                 
             elif event_type == "conversation_ended":
                 self.global_state.conversation_active = False
@@ -190,7 +215,7 @@ class BaseService:
                 self.global_state.user_speaking = False
                 
             elif event_type == "conversation_error":
-                self.global_state.conversation_active = False  # Conversation ends on error
+                self.global_state.conversation_active = False
                 self.global_state.assistant_speaking = False
                 self.global_state.user_speaking = False
                 
@@ -222,3 +247,6 @@ class BaseService:
                 
             elif event_type == "microphone_state":
                 self.global_state.is_muted = event["is_muted"]
+            
+            # Log the complete state after any change
+            self.log_global_state()
