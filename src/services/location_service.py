@@ -77,6 +77,9 @@ class LocationService(BaseService):
             
             if self._distance_changed(location, beacon_info):
                 await self._publish_proximity_change(location, beacon_info)
+            else:
+                # Even if we don't publish an event, update the stored state
+                self._last_distances[location] = beacon_info.copy()
                 
         # Clear state for beacons that are no longer visible
         for location in list(self._last_distances.keys()):
