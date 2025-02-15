@@ -36,6 +36,11 @@ for logger_name in [
 ]:
     logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
+for logger_name in [
+    'services.hide_seek_service'
+]:
+    logging.getLogger(logger_name).setLevel(logging.WARNING)
+
 class PhoenixApp:
     def __init__(self):
         self.manager = ServiceManager()
