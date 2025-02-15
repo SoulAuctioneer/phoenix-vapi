@@ -604,6 +604,12 @@ class CallManager:
                         "type": "stop_sensing_phoenix_distance"
                     })
 
+            elif name == 'start_story':
+                if self.manager:
+                    await self.manager.publish({
+                        "type": "start_story"
+                    })
+
             else:
                 logging.warning(f"Unknown tool call: {name}")
 
