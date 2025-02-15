@@ -16,7 +16,7 @@ class SleepActivity(BaseService):
     def __init__(self, manager):
         super().__init__(manager)
         self._is_active = False
-        self._breathing_volume = 0.02  # Store breathing volume for restoration (reduced from 0.1 for quieter effect)
+        self._breathing_volume = 1.0  # Store breathing volume for restoration (reduced from 0.1 for quieter effect)
         
     async def start(self):
         """Start the sleep activity"""
