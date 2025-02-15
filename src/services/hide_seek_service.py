@@ -63,24 +63,24 @@ class HideSeekService(BaseService):
             self.logger.info("Distance is UNKNOWN, using max volume")
             return 1.0  # Max volume when unknown/lost
         elif distance == Distance.VERY_FAR:
-            vol = 0.9
+            vol = 0.8
             self.logger.info(f"Distance is VERY_FAR, volume: {vol:.2f}")
             return vol
         elif distance == Distance.FAR:
-            vol = 0.7
+            vol = 0.5
             self.logger.info(f"Distance is FAR, volume: {vol:.2f}")
             return vol
         elif distance == Distance.NEAR:
-            vol = 0.4
+            vol = 0.25
             self.logger.info(f"Distance is NEAR, volume: {vol:.2f}")
             return vol
         elif distance == Distance.VERY_NEAR:
-            vol = 0.1
+            vol = 0.05
             self.logger.info(f"Distance is VERY_NEAR, volume: {vol:.2f}")
             return vol
         elif distance == Distance.IMMEDIATE:
             self.logger.info("Distance is IMMEDIATE, using min volume")
-            return 0.05  # Minimum volume when very close
+            return 0.01  # Minimum volume when very close
         else:
             self.logger.error(f"Unhandled distance value: {distance}")
             return 1.0  # Fallback to max volume
