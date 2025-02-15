@@ -121,38 +121,37 @@ class ActivityService(BaseService):
             activity: The activity to start
             direct_transition: If True, skip stopping current activity (used for direct transitions)
         """
-        async with self._activity_lock:  # Ensure atomic activity transition
-            if activity == self.current_activity:
-                self.logger.debug(f"Activity {activity.name} already active")
+        if activity == self.current_activity:
+            self.logger.debug(f"Activity {activity.name} already active")
+            return
+            
+        # Get required supporting services and activity service
+        supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
+        
+        # Ensure supporting services are running
+        if not await self._ensure_services(supporting_services):
+            self.logger.error(f"Failed to start {activity.name} - required supporting services could not be started")
+            return
+            
+        # Stop current activity if one is running and this isn't a direct transition
+        if self.current_activity and not direct_transition:
+            await self._stop_activity(self.current_activity)
+            
+        self.logger.info(f"Starting activity: {activity.name}")
+        
+        # Start activity-specific service if needed
+        if activity_service_name:
+            if not await self._ensure_services([activity_service_name]):
+                self.logger.error(f"Failed to start {activity.name} - activity service could not be started")
                 return
                 
-            # Get required supporting services and activity service
-            supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
-            
-            # Ensure supporting services are running
-            if not await self._ensure_services(supporting_services):
-                self.logger.error(f"Failed to start {activity.name} - required supporting services could not be started")
-                return
-                
-            # Stop current activity if one is running and this isn't a direct transition
-            if self.current_activity and not direct_transition:
-                await self._stop_activity(self.current_activity)
-                
-            self.logger.info(f"Starting activity: {activity.name}")
-            
-            # Start activity-specific service if needed
-            if activity_service_name:
-                if not await self._ensure_services([activity_service_name]):
-                    self.logger.error(f"Failed to start {activity.name} - activity service could not be started")
-                    return
-                    
-            self.current_activity = activity
-            
-            # Publish activity started event
-            await self.publish({
-                "type": "activity_started",
-                "activity": activity.name
-            })
+        self.current_activity = activity
+        
+        # Publish activity started event
+        await self.publish({
+            "type": "activity_started",
+            "activity": activity.name
+        })
         
     async def _stop_activity(self, activity: ActivityType):
         """Stop an activity
@@ -160,81 +159,81 @@ class ActivityService(BaseService):
         Args:
             activity: The activity to stop
         """
-        async with self._activity_lock:  # Ensure atomic activity transition
-            if activity != self.current_activity:
-                return
-                
-            self.logger.info(f"Stopping activity: {activity.name}")
+        if activity != self.current_activity:
+            return
             
-            # Get current activity's services
-            supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
-            current_services = supporting_services.copy()  # Make a copy to avoid modifying the original
-            if activity_service_name:
-                current_services.append(activity_service_name)
-                
-            # Get next activity's services (SLEEP if stopping non-SLEEP activity)
-            next_activity = ActivityType.SLEEP if activity != ActivityType.SLEEP else None
-            next_services = []
-            if next_activity:
-                next_supporting_services, next_activity_service = ACTIVITY_REQUIREMENTS[next_activity]
-                next_services = next_supporting_services.copy()  # Make a copy to avoid modifying the original
-                if next_activity_service:
-                    next_services.append(next_activity_service)
+        self.logger.info(f"Stopping activity: {activity.name}")
+        
+        # Get current activity's services
+        supporting_services, activity_service_name = ACTIVITY_REQUIREMENTS[activity]
+        current_services = supporting_services.copy()  # Make a copy to avoid modifying the original
+        if activity_service_name:
+            current_services.append(activity_service_name)
             
-            # Calculate services to stop (current services not needed by next activity)
-            services_to_stop = [s for s in current_services if s not in next_services]
-            await self._cleanup_services(services_to_stop)
-                
-            # Clear current activity before publishing event
-            self.current_activity = None
+        # Get next activity's services (SLEEP if stopping non-SLEEP activity)
+        next_activity = ActivityType.SLEEP if activity != ActivityType.SLEEP else None
+        next_services = []
+        if next_activity:
+            next_supporting_services, next_activity_service = ACTIVITY_REQUIREMENTS[next_activity]
+            next_services = next_supporting_services.copy()  # Make a copy to avoid modifying the original
+            if next_activity_service:
+                next_services.append(next_activity_service)
+        
+        # Calculate services to stop (current services not needed by next activity)
+        services_to_stop = [s for s in current_services if s not in next_services]
+        await self._cleanup_services(services_to_stop)
             
-            # Publish activity stopped event
-            await self.publish({
-                "type": "activity_stopped",
-                "activity": activity.name
-            })
-            
-            # Start SLEEP activity if needed, using direct transition to avoid recursion
-            if activity != ActivityType.SLEEP:
-                await self._start_activity(ActivityType.SLEEP, direct_transition=True)
+        # Clear current activity before publishing event
+        self.current_activity = None
+        
+        # Publish activity stopped event
+        await self.publish({
+            "type": "activity_stopped",
+            "activity": activity.name
+        })
+        
+        # Start SLEEP activity if needed, using direct transition to avoid recursion
+        if activity != ActivityType.SLEEP:
+            await self._start_activity(ActivityType.SLEEP, direct_transition=True)
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
-        event_type = event.get("type")
-        
-        if event_type == "application_startup_completed":
-            # Start initial sleep activity once all core services are ready
-            await self._start_activity(ActivityType.SLEEP)
+        async with self._activity_lock:  # Lock at the event handler level
+            event_type = event.get("type")
             
-        elif event_type == "intent_detected":
-            intent = event.get("intent")
-            
-            # Handle activity-related intents
-            if intent == "wake_up":
-                # Start conversation activity
-                await self._start_activity(ActivityType.CONVERSATION)
-                
-            elif intent == "hide_and_seek":
-                # Start hide and seek activity
-                await self._start_activity(ActivityType.HIDE_SEEK)
-                
-            elif intent == "cuddle":
-                await self._start_activity(ActivityType.CUDDLE)
-                
-            elif intent == "sleep":
-                # Return to sleep activity
+            if event_type == "application_startup_completed":
+                # Start initial sleep activity once all core services are ready
                 await self._start_activity(ActivityType.SLEEP)
                 
-        elif event_type == "conversation_ended":
-            # When conversation ends, return to sleep if that was the current activity
-            if self.current_activity == ActivityType.CONVERSATION:
-                await self._stop_activity(ActivityType.CONVERSATION)
+            elif event_type == "intent_detected":
+                intent = event.get("intent")
                 
-        elif event_type == "touch_stroke_intensity":
-            intensity = event.get("intensity", 0.0)
-            # Start cuddle activity when being petted, if not in conversation
-            if intensity > 0 and self.current_activity not in [ActivityType.CONVERSATION, ActivityType.CUDDLE]:
-                await self._start_activity(ActivityType.CUDDLE)
-            # Return to sleep when petting stops
-            elif intensity == 0 and self.current_activity == ActivityType.CUDDLE:
-                await self._stop_activity(ActivityType.CUDDLE)
+                # Handle activity-related intents
+                if intent == "wake_up":
+                    # Start conversation activity
+                    await self._start_activity(ActivityType.CONVERSATION)
+                    
+                elif intent == "hide_and_seek":
+                    # Start hide and seek activity
+                    await self._start_activity(ActivityType.HIDE_SEEK)
+                    
+                elif intent == "cuddle":
+                    await self._start_activity(ActivityType.CUDDLE)
+                    
+                elif intent == "sleep":
+                    # Return to sleep activity
+                    await self._start_activity(ActivityType.SLEEP)
+                    
+            elif event_type == "conversation_ended":
+                # When conversation ends, return to sleep if that was the current activity
+                if self.current_activity == ActivityType.CONVERSATION:
+                    await self._stop_activity(ActivityType.CONVERSATION)
+                    
+            elif event_type == "touch_stroke_intensity":
+                intensity = event.get("intensity", 0.0)
+                # Start cuddle activity when being petted, if not in conversation
+                if intensity > 0 and self.current_activity not in [ActivityType.CONVERSATION, ActivityType.CUDDLE]:
+                    await self._start_activity(ActivityType.CUDDLE)
+                # Return to sleep when petting stops
+                elif intensity == 0 and self.current_activity == ActivityType.CUDDLE:
+                    await self._stop_activity(ActivityType.CUDDLE)
