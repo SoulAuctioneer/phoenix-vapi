@@ -50,21 +50,39 @@ class HideSeekService(BaseService):
         Returns:
             float: Volume level between 0.1 and 1.0
         """
+        # Add type checking and logging
+        if not isinstance(distance, Distance):
+            self.logger.error(f"Invalid distance type: {type(distance)}, value: {distance}")
+            return 1.0
+
+        self.logger.info(f"Calculating volume for distance: {distance}, type: {type(distance)}")
+            
         # Map distances to volume levels
         # Further = louder to help guide the player
         if distance == Distance.UNKNOWN:
+            self.logger.info("Distance is UNKNOWN, using max volume")
             return 1.0  # Max volume when unknown/lost
         elif distance == Distance.VERY_FAR:
-            return 0.9 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            vol = 0.9 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            self.logger.info(f"Distance is VERY_FAR, volume: {vol:.2f}")
+            return vol
         elif distance == Distance.FAR:
-            return 0.7 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            vol = 0.7 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            self.logger.info(f"Distance is FAR, volume: {vol:.2f}")
+            return vol
         elif distance == Distance.NEAR:
-            return 0.5 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            vol = 0.5 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            self.logger.info(f"Distance is NEAR, volume: {vol:.2f}")
+            return vol
         elif distance == Distance.VERY_NEAR:
-            return 0.3 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            vol = 0.3 * HideSeekConfig.AUDIO_CUE_DISTANCE_SCALING
+            self.logger.info(f"Distance is VERY_NEAR, volume: {vol:.2f}")
+            return vol
         elif distance == Distance.IMMEDIATE:
+            self.logger.info("Distance is IMMEDIATE, using min volume")
             return 0.1  # Minimum volume when very close
         else:
+            self.logger.error(f"Unhandled distance value: {distance}")
             return 1.0  # Fallback to max volume
         
     async def _sound_loop(self):
@@ -78,18 +96,18 @@ class HideSeekService(BaseService):
                     
                 # Get current pendant beacon info from global state
                 pendant_info = self.global_state.location_beacons.get("pendant", {})
-                self.logger.debug(f"Current pendant info: {pendant_info}")
+                self.logger.info(f"Current pendant info: {pendant_info}")
                 
                 if not pendant_info:
                     # No pendant detected, use max volume
                     volume = 1.0
-                    self.logger.debug("No pendant info, using max volume")
+                    self.logger.info("No pendant info, using max volume")
                 else:
                     # Calculate volume based on distance category
                     distance = pendant_info.get("distance", Distance.UNKNOWN)
-                    self.logger.debug(f"Raw distance value from state: {distance}, type: {type(distance)}")
+                    self.logger.info(f"Raw distance value from state: {distance}, type: {type(distance)}")
                     volume = self._calculate_volume(distance)
-                    self.logger.debug(f"Pendant distance: {distance}, calculated volume: {volume:.2f}")
+                    self.logger.info(f"Final calculated volume: {volume:.2f}")
                 
                 # Emit a random chirp sound
                 chirp = random.choice([
@@ -99,7 +117,7 @@ class HideSeekService(BaseService):
                     SoundEffect.CHIRP4,
                     SoundEffect.CHIRP5
                 ])
-                self.logger.debug(f"Playing chirp {chirp} with volume {volume:.2f}")
+                self.logger.info(f"Playing chirp {chirp} with volume {volume:.2f}")
                 await self.publish({
                     "type": "play_sound",
                     "effect_name": chirp,

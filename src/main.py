@@ -29,6 +29,7 @@ for logger_name in [
     'services.haptic',
     'services.intent',
     'services.activity',
+    'services.sleep_activity',
     # Too noisy, disable for now
     # 'services.location'
 ]:
