@@ -167,13 +167,18 @@ class BaseService:
             elif event_type == "proximity_changed":
                 location = event["data"]["location"]
                 distance = event["data"]["distance"]
+                self.logger.info(f"Handling proximity event - location: {location}, distance: {distance}, type: {type(distance)}")
+                
                 if distance == Distance.UNKNOWN:
+                    self.logger.info(f"Removing beacon {location} from global state")
                     self.global_state.location_beacons.pop(location, None)
                 else:
+                    self.logger.info(f"Updating beacon {location} in global state with distance {distance}")
                     self.global_state.location_beacons[location] = {
                         "distance": distance,  # Store the Distance enum directly
                         "rssi": event["data"]["rssi"]
                     }
+                self.logger.info(f"Global state beacons after update: {self.global_state.location_beacons}")
                     
             elif event_type == "conversation_starting":
                 self.global_state.conversation_active = True
