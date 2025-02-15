@@ -95,8 +95,11 @@ class HideSeekService(BaseService):
                     continue
                     
                 # Get current pendant beacon info from global state
-                pendant_info = self.global_state.location_beacons.get("pendant", {})
-                self.logger.info(f"Current pendant info: {pendant_info}")
+                async with self.global_state_lock:
+                    self.logger.info("Acquired global state lock")
+                    pendant_info = self.global_state.location_beacons.get("pendant", {})
+                    self.logger.info(f"Current pendant info: {pendant_info}")
+                    self.logger.info(f"All beacons in global state: {self.global_state.location_beacons}")
                 
                 if not pendant_info:
                     # No pendant detected, use max volume
