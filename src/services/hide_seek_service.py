@@ -118,7 +118,10 @@ class HideSeekService(BaseService):
                     SoundEffect.CHIRP2,
                     SoundEffect.CHIRP3,
                     SoundEffect.CHIRP4,
-                    SoundEffect.CHIRP5
+                    SoundEffect.CHIRP5,
+                    SoundEffect.CHIRP6,
+                    SoundEffect.CHIRP7,
+                    SoundEffect.CHIRP8,
                 ])
                 self.logger.info(f"Playing chirp {chirp} with volume {volume:.2f}")
                 await self.publish({

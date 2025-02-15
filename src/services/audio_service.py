@@ -55,8 +55,8 @@ class AudioService(BaseService):
             self.logger.info(f"Stopped sound effect: {effect_name}")
         
         # Play acknowledgment sound when conversation starts
-        # elif event_type == "conversation_starting":
-        #     await self._play_sound("YAWN")
+        elif event_type == "conversation_starting":
+            await self._play_sound("YAWN2")
                 
         # Play yawn sound when conversation ends
         elif event_type == "conversation_ended":
@@ -69,7 +69,8 @@ class AudioService(BaseService):
         elif event_type == "intent_detected":
             intent = event.get("intent")
             # TODO: Have a different chirp for each intent
-            await self._play_random_chirp()
+            if intent != "wake_up":
+                await self._play_random_chirp()
 
         # Handle touch stroke intensity for purring sound
         elif event_type == "touch_stroke_intensity":
@@ -146,6 +147,6 @@ class AudioService(BaseService):
         
     async def _play_random_chirp(self):
         """Play a random chirp sound"""
-        chirp_sounds = [SoundEffect.CHIRP1, SoundEffect.CHIRP2, SoundEffect.CHIRP3, SoundEffect.CHIRP4, SoundEffect.CHIRP5]
+        chirp_sounds = [SoundEffect.CHIRP1, SoundEffect.CHIRP2, SoundEffect.CHIRP3, SoundEffect.CHIRP4, SoundEffect.CHIRP5, SoundEffect.CHIRP6, SoundEffect.CHIRP7, SoundEffect.CHIRP8]
         random_chirp = random.choice(chirp_sounds)
         await self._play_sound(random_chirp)

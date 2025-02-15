@@ -114,6 +114,7 @@ class SoundEffect(str, Enum):
     RISING_TONE = "rising_tone.wav"
     MMHMM = "mmhmm.wav"
     YAWN = "yawn.wav"
+    YAWN2 = "yawn2.wav"
     MAGICAL_SPELL = "magical_spell.wav"
     LIGHTNING = "lightning.wav"
     RAIN = "rain.wav"
@@ -127,6 +128,9 @@ class SoundEffect(str, Enum):
     CHIRP3 = "chirp3.wav"
     CHIRP4 = "chirp4.wav"
     CHIRP5 = "chirp5.wav"
+    CHIRP6 = "chirp6.wav"
+    CHIRP7 = "chirp7.wav"
+    CHIRP8 = "chirp8.wav"
     
     
     @classmethod
