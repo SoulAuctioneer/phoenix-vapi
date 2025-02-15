@@ -275,3 +275,7 @@ class ActivityService(BaseService):
             # Return to sleep when petting stops
             elif intensity == 0 and self.current_activity == ActivityType.CUDDLE:
                 await self._queue_transition(ActivityType.SLEEP)
+
+        elif event_type == "start_sense_phoenix_distance":
+            # Start the location service to sense the distance to the Phoenix
+            await self._ensure_services(['location'])

@@ -591,6 +591,13 @@ class CallManager:
                         "type": "play_special_effect",
                         "effect_name": effect_name
                     })
+
+            elif name == 'sense_phoenix_distance':
+                if self.manager:
+                    await self.manager.publish({
+                        "type": "start_sense_phoenix_distance"
+                    })
+
             else:
                 logging.warning(f"Unknown tool call: {name}")
 
