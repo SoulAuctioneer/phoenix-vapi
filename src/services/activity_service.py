@@ -46,17 +46,64 @@ class ActivityService(BaseService):
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
-        self._activity_lock = asyncio.Lock()  # Add lock for activity transitions
+        self._transition_queue = asyncio.Queue()
+        self._transition_task = None
         
     async def start(self):
         """Start the activity service. Initial activity will be started after receiving startup completed event."""
         await super().start()
+        # Start the transition processing task
+        self._transition_task = asyncio.create_task(self._process_transitions())
         
     async def stop(self):
         """Stop the activity service and current activity"""
+        # Cancel the transition processing task
+        if self._transition_task:
+            self._transition_task.cancel()
+            try:
+                await self._transition_task
+            except asyncio.CancelledError:
+                pass
+            
         if self.current_activity:
             await self._stop_activity(self.current_activity)
         await super().stop()
+        
+    async def _process_transitions(self):
+        """Process activity transitions from the queue"""
+        while True:
+            try:
+                # Wait for the next transition
+                transition = await self._transition_queue.get()
+                
+                # Process the transition
+                activity, is_start, direct = transition
+                try:
+                    if is_start:
+                        await self._start_activity(activity, direct)
+                    else:
+                        await self._stop_activity(activity)
+                except Exception as e:
+                    self.logger.error(f"Error processing activity transition: {e}")
+                    
+                # Mark the transition as done
+                self._transition_queue.task_done()
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"Error in transition processing loop: {e}")
+                await asyncio.sleep(0.1)  # Avoid tight loop on persistent errors
+                
+    async def _queue_transition(self, activity: ActivityType, is_start: bool, direct: bool = False):
+        """Queue an activity transition
+        
+        Args:
+            activity: The activity to transition to/from
+            is_start: True for starting an activity, False for stopping
+            direct: True if this is a direct transition (for _start_activity)
+        """
+        await self._transition_queue.put((activity, is_start, direct))
         
     async def _ensure_services(self, required_services: list[str]) -> bool:
         """Ensure all required services are initialized and running
@@ -198,42 +245,41 @@ class ActivityService(BaseService):
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
-        async with self._activity_lock:  # Lock at the event handler level
-            event_type = event.get("type")
+        event_type = event.get("type")
+        
+        if event_type == "application_startup_completed":
+            # Start initial sleep activity once all core services are ready
+            await self._queue_transition(ActivityType.SLEEP, True)
             
-            if event_type == "application_startup_completed":
-                # Start initial sleep activity once all core services are ready
-                await self._start_activity(ActivityType.SLEEP)
+        elif event_type == "intent_detected":
+            intent = event.get("intent")
+            
+            # Handle activity-related intents
+            if intent == "wake_up":
+                # Start conversation activity
+                await self._queue_transition(ActivityType.CONVERSATION, True)
                 
-            elif event_type == "intent_detected":
-                intent = event.get("intent")
+            elif intent == "hide_and_seek":
+                # Start hide and seek activity
+                await self._queue_transition(ActivityType.HIDE_SEEK, True)
                 
-                # Handle activity-related intents
-                if intent == "wake_up":
-                    # Start conversation activity
-                    await self._start_activity(ActivityType.CONVERSATION)
-                    
-                elif intent == "hide_and_seek":
-                    # Start hide and seek activity
-                    await self._start_activity(ActivityType.HIDE_SEEK)
-                    
-                elif intent == "cuddle":
-                    await self._start_activity(ActivityType.CUDDLE)
-                    
-                elif intent == "sleep":
-                    # Return to sleep activity
-                    await self._start_activity(ActivityType.SLEEP)
-                    
-            elif event_type == "conversation_ended":
-                # When conversation ends, return to sleep if that was the current activity
-                if self.current_activity == ActivityType.CONVERSATION:
-                    await self._stop_activity(ActivityType.CONVERSATION)
-                    
-            elif event_type == "touch_stroke_intensity":
-                intensity = event.get("intensity", 0.0)
-                # Start cuddle activity when being petted, if not in conversation
-                if intensity > 0 and self.current_activity not in [ActivityType.CONVERSATION, ActivityType.CUDDLE]:
-                    await self._start_activity(ActivityType.CUDDLE)
-                # Return to sleep when petting stops
-                elif intensity == 0 and self.current_activity == ActivityType.CUDDLE:
-                    await self._stop_activity(ActivityType.CUDDLE)
+            elif intent == "cuddle":
+                await self._queue_transition(ActivityType.CUDDLE, True)
+                
+            elif intent == "sleep":
+                # Return to sleep activity
+                await self._queue_transition(ActivityType.SLEEP, True)
+                
+        elif event_type == "conversation_ended":
+            # When conversation ends, return to sleep if that was the current activity
+            if self.current_activity == ActivityType.CONVERSATION:
+                await self._queue_transition(ActivityType.CONVERSATION, False)
+                
+        elif event_type == "touch_stroke_intensity":
+            intensity = event.get("intensity", 0.0)
+            # Start cuddle activity when being petted, if not in conversation
+            if intensity > 0 and self.current_activity not in [ActivityType.CONVERSATION, ActivityType.CUDDLE]:
+                await self._queue_transition(ActivityType.CUDDLE, True)
+            # Return to sleep when petting stops
+            elif intensity == 0 and self.current_activity == ActivityType.CUDDLE:
+                await self._queue_transition(ActivityType.CUDDLE, False)
