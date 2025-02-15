@@ -59,12 +59,16 @@ class LEDService(BaseService):
             self.led_controller.start_effect(LEDEffect.RANDOM_TWINKLING, speed=0.1)
 
         elif event_type == "conversation_ended":
-            logging.info("Conversation ended - switched to rotating pink blue effect")
-            self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
+            # Now handled by switching to sleep activity
+            # logging.info("Conversation ended - switched to rotating pink blue effect")
+            # self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
+            pass
 
         elif event_type == "application_startup_completed":
-            logging.info("Application startup completed - switched to rotating pink blue effect")
-            self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
+            # Now handled by switching to sleep activity
+            # logging.info("Application startup completed - switched to rotating pink blue effect")
+            # self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
+            pass
 
         elif event_type == "touch_stroke_intensity":
             # Only trigger purring effect if we're not in a conversation
