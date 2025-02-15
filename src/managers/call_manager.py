@@ -592,10 +592,16 @@ class CallManager:
                         "effect_name": effect_name
                     })
 
-            elif name == 'sense_phoenix_distance':
+            elif name == 'start_sensing_phoenix_distance':
                 if self.manager:
                     await self.manager.publish({
-                        "type": "start_sense_phoenix_distance"
+                        "type": "start_sensing_phoenix_distance"
+                    })
+
+            elif name == 'stop_sensing_phoenix_distance':
+                if self.manager:
+                    await self.manager.publish({
+                        "type": "stop_sensing_phoenix_distance"
                     })
 
             else:
