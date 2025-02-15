@@ -28,6 +28,7 @@ class LocationManager:
         self._last_seen_timestamps = defaultdict(float)
         self._empty_scan_count = 0
         self._last_location_change_time = 0.0
+        self._last_strongest = None  # Tracks the last strongest beacon for hysteresis
         
     def _ensure_bluetooth_powered(self) -> bool:
         """Ensures Bluetooth adapter is powered on
@@ -522,6 +523,8 @@ class LocationManager:
                         if device[0] == self._last_strongest[0]
                     )
         
+        # Update last strongest and return
+        self._last_strongest = sorted_devices[0]
         return sorted_devices[0]
         
     def get_current_location(self) -> Dict[str, Any]:
