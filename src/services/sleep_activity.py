@@ -16,6 +16,7 @@ class SleepActivity(BaseService):
     def __init__(self, manager):
         super().__init__(manager)
         self._is_active = False
+        self._breathing_volume = 0.1  # Store breathing volume for restoration
         
     async def start(self):
         """Start the sleep activity"""
@@ -27,7 +28,7 @@ class SleepActivity(BaseService):
             "type": "play_sound",
             "effect_name": SoundEffect.BREATHING,
             "loop": True,
-            "volume": 0.2  # Lower volume for sleep mode
+            "volume": self._breathing_volume  # Lower volume for sleep mode
         })
         
         # Set LED effect to rotating pink/blue
@@ -49,16 +50,13 @@ class SleepActivity(BaseService):
             
             # Stop the breathing sound
             await self.publish({
-                "type": "play_sound",
-                "effect_name": "stop"
+                "type": "stop_sound",
+                "effect_name": SoundEffect.BREATHING
             })
             
-            # Stop the LED effect (will be handled by the next activity)
+            # Stop the LED effect
             await self.publish({
-                "type": "start_led_effect",
-                "data": {
-                    "effectName": "stop"
-                }
+                "type": "stop_led_effect"
             })
             
         await super().stop()
@@ -66,6 +64,34 @@ class SleepActivity(BaseService):
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
-        # Sleep activity mainly just maintains its state
-        # It doesn't need to handle many events since it's a passive state
-        pass 
+        event_type = event.get("type")
+        
+        if self._is_active:
+            if event_type == "intent_detection_started":
+                # Stop breathing sound during intent detection
+                await self.publish({
+                    "type": "stop_sound",
+                    "effect_name": SoundEffect.BREATHING
+                })
+                self.logger.info("Paused breathing sound for intent detection")
+                
+            elif event_type == "intent_detection_timeout":
+                # Resume breathing sound after intent detection timeout
+                await self.publish({
+                    "type": "play_sound",
+                    "effect_name": SoundEffect.BREATHING,
+                    "loop": True,
+                    "volume": self._breathing_volume
+                })
+                
+                # Restart the LED effect
+                await self.publish({
+                    "type": "start_led_effect",
+                    "data": {
+                        "effectName": "pink_blue_cycle",
+                        "speed": 0.05,  # Slow, gentle rotation
+                        "brightness": 0.3  # Dimmer for sleep mode
+                    }
+                })
+                
+                self.logger.info("Resumed breathing sound and LED effect after intent detection timeout") 

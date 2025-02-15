@@ -43,18 +43,17 @@ class AudioService(BaseService):
         """Handle events from other services"""
         event_type = event.get("type")
         
-        # Handle direct play_sound requests
+        # Handle sound control requests
         if event_type == "play_sound":
             effect_name = event.get("effect_name")
             loop = event.get("loop", False)  # Get loop parameter with default False
             volume = event.get("volume", None)  # Allow specifying custom volume
             await self._play_sound(effect_name, loop=loop, volume=volume)
+        elif event_type == "stop_sound":
+            effect_name = event.get("effect_name")  # For logging purposes
+            self.audio_manager.stop_sound()
+            self.logger.info(f"Stopped sound effect: {effect_name}")
         
-        # Play tadaaa when application starts up
-        # Turned off for now, getting annoying
-        # elif event_type == "application_startup_completed":
-            # await self._play_sound("TADA")
-                
         # Play acknowledgment sound when conversation starts
         elif event_type == "conversation_starting":
             await self._play_sound("YAWN")

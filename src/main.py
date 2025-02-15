@@ -8,6 +8,7 @@ from services.special_effect_service import SpecialEffectService
 from services.wakeword_service import WakeWordService
 from services.led_service import LEDService
 from services.activity_service import ActivityService
+from services.intent_service import IntentService
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -46,6 +47,7 @@ class PhoenixApp:
             'audio': AudioService(self.manager),
             'wakeword': WakeWordService(self.manager),
             'special_effect': SpecialEffectService(self.manager),
+            'intent': IntentService(self.manager),
             'activity': ActivityService(self.manager)
         }
         
@@ -60,7 +62,7 @@ class PhoenixApp:
               for name in self.initialized_services.keys() if name != 'audio']
         )
         
-        logging.info("All core services initialized and started")
+        logging.info("All services initialized and started")
 
     async def run(self):
         """Main application loop"""

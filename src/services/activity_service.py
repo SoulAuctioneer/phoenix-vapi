@@ -6,7 +6,6 @@ from services.conversation_service import ConversationService
 from services.location_service import LocationService
 from services.sensor_service import SensorService
 from services.haptic_service import HapticService
-from services.intent_service import IntentService
 from services.sleep_activity import SleepActivity
 from services.hide_seek_service import HideSeekService
 
@@ -20,8 +19,8 @@ class ActivityType(Enum):
 # Map activities to their required supporting services and activity-specific service
 # Format: (list of supporting services, activity service name if any)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str]]] = {
-    ActivityType.CONVERSATION: (['intent'], 'conversation'),  # ConversationService is the activity implementation
-    ActivityType.HIDE_SEEK: (['location', 'intent'], 'hide_seek'),  # Requires HideSeekService
+    ActivityType.CONVERSATION: ([], 'conversation'),  # ConversationService is the activity implementation
+    ActivityType.HIDE_SEEK: (['location'], 'hide_seek'),  # Requires HideSeekService
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle'),  # Requires CuddleService
     ActivityType.SLEEP: ([], 'sleep')  # Uses SleepActivity service
 }
@@ -41,7 +40,6 @@ class ActivityService(BaseService):
             'location': LocationService,
             'sensor': SensorService,
             'haptic': HapticService,
-            'intent': IntentService,
             'sleep': SleepActivity,
             'hide_seek': HideSeekService,
         }
