@@ -17,7 +17,7 @@ class ConversationService(BaseService):
         """Start the service (initializes call manager and starts conversation)"""
         await super().start()
         self.call_manager = await CallManager.create(manager=self.manager)
-        self.start_conversation()
+        await self.start_conversation()
             
     async def stop(self):
         """Stop the service and any active conversation"""

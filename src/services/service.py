@@ -4,6 +4,7 @@ from typing import Dict, Any, Set, Callable, Awaitable, Optional
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
+from config import Distance
 
 
 EventHandler = Callable[[Dict[str, Any]], Awaitable[None]]
@@ -42,9 +43,12 @@ class ServiceManager:
         self._should_run = True
         self._lock = asyncio.Lock()
         self.logger = logging.getLogger(__name__)
+        self.global_state = GlobalState()  # Shared global state
         
     async def start_service(self, name: str, service: 'BaseService'):
         """Start a service and store it in the manager"""
+        # Set the service's global state to our shared instance
+        service.global_state = self.global_state
         await service.start()
         self.services[name] = service
         
@@ -135,7 +139,7 @@ class BaseService:
         self._running = False
         # Create a logger with the full module path and class name
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
-        self.global_state = GlobalState()
+        self.global_state = None  # Will be set by ServiceManager
         # Initialize lock for thread-safe access to global_state
         self.global_state_lock = asyncio.Lock()
         
