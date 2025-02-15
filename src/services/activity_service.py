@@ -189,9 +189,11 @@ class ActivityService(BaseService):
             
         # Any additional setup for the activity
         if activity == ActivityType.CONVERSATION:
-            await self.manager.conversation_service.start_conversation()
+            conversation_service = self.active_services.get('conversation')
+            await conversation_service.start_conversation()
         elif activity == ActivityType.CONVERSATION_FIRST_MEETING:
-            await self.manager.conversation_service.start_conversation_first_meeting(ASSISTANT_CONFIG_FIRST_MEETING)
+            conversation_service = self.active_services.get('conversation')
+            await conversation_service.start_conversation_first_meeting(ASSISTANT_CONFIG_FIRST_MEETING)
                 
         self.current_activity = activity
         
