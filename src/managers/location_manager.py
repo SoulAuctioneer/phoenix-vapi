@@ -393,7 +393,8 @@ class LocationManager:
                     distance = self._estimate_distance(rssi)
                     all_beacons[location] = {
                         "distance": distance,
-                        "rssi": rssi
+                        "rssi": rssi,
+                        "smoothed_rssi": rssi  # Include smoothed RSSI
                     }
                     self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Distance={distance}")
                 
