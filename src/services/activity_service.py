@@ -9,13 +9,14 @@ from services.haptic_service import HapticService
 from services.sleep_activity import SleepActivity
 from services.hide_seek_service import HideSeekService
 import asyncio
-from config import ASSISTANT_CONFIG_FIRST_MEETING, ASSISTANT_CONFIG_STORY
+from config import ASSISTANT_CONFIG_FIRST_MEETING, ASSISTANT_CONFIG_STORY, ASSISTANT_CONFIG_LEARN_POEM
 
 class ActivityType(Enum):
     """Types of activities the device can be in"""
     CONVERSATION = "conversation"
     CONVERSATION_FIRST_MEETING = "conversation_first_meeting"
     CONVERSATION_STORY = "conversation_story"
+    CONVERSATION_POEM = "conversation_poem"
     HIDE_SEEK = "hide_seek"
     CUDDLE = "cuddle"
     SLEEP = "sleep"
@@ -25,6 +26,7 @@ class ActivityType(Enum):
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str]]] = {
     ActivityType.CONVERSATION: ([], 'conversation'),  # ConversationService is the activity implementation
     ActivityType.CONVERSATION_FIRST_MEETING: ([], 'conversation'),  # ConversationService is the activity implementation
+    ActivityType.CONVERSATION_POEM: ([], 'conversation'),  # ConversationService is the activity implementation
     ActivityType.CONVERSATION_STORY: ([], 'conversation'),  # ConversationService is the activity implementation
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek'),  # Requires HideSeekService
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle'),  # Requires CuddleService
@@ -199,6 +201,9 @@ class ActivityService(BaseService):
         elif activity == ActivityType.CONVERSATION_STORY:
             conversation_service = self.active_services.get('conversation')
             await conversation_service.start_conversation(ASSISTANT_CONFIG_STORY)
+        elif activity == ActivityType.CONVERSATION_POEM:
+            conversation_service = self.active_services.get('conversation')
+            await conversation_service.start_conversation(ASSISTANT_CONFIG_LEARN_POEM)
                 
         self.current_activity = activity
         
@@ -252,7 +257,8 @@ class ActivityService(BaseService):
             if intent == "wake_up":
                 # Start conversation activity
                 # TODO: Remove this after testing
-                await self._queue_transition(ActivityType.CONVERSATION_FIRST_MEETING)
+                await self._queue_transition(ActivityType.CONVERSATION_POEM)
+                # await self._queue_transition(ActivityType.CONVERSATION_FIRST_MEETING)
                 # await self._queue_transition(ActivityType.CONVERSATION)
                 
             elif intent == "hide_and_seek":

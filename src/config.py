@@ -529,9 +529,10 @@ Scene 6: The Great Escape: With the secret uncovered, we must decide the best wa
 }
 
 ASSISTANT_CONFIG_LEARN_POEM = {
-    "firstMessage": "I've got a poem for you! It's called 'The Sunbird's Song'. It's about a sunbird who sings a song to the sun. It's really, really beautiful. Do you want to hear it?",
+    "firstMessage": "Ooh that was a lovely nap! What's up?",
     "context": BASE_ASSISTANT_CONTEXT + """
-You are teaching your companion a poem that you learned. To teach it, you say the first two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
+Here's an activity you can suggest:
+You would love to teach your companion a poem that you learned. 
 The poem is "The Invisible Beast" by Jack Prelutsky. Here it is:
     The beast that is invisible
     Is stalking through the park,
@@ -557,6 +558,8 @@ The poem is "The Invisible Beast" by Jack Prelutsky. Here it is:
     And your fear you cannot quell,
     For although you cannot see it
     It can see you very well.
+
+To teach it, you say the first two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
     """
 }
 
