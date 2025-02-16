@@ -626,7 +626,7 @@ class CallManager:
                 #     ]
                 # }
                 message = ACTIVITIES.get("story").get("content")
-                self.send_message(message)
+                self.add_message("system", message)
 
             else:
                 logging.warning(f"Unknown tool call: {name}")
