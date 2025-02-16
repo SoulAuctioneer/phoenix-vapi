@@ -257,7 +257,7 @@ class ActivityService(BaseService):
             if intent == "wake_up":
                 # Start conversation activity
                 # TODO: Remove this after testing
-                await self._queue_transition(ActivityType.CONVERSATION_POEM)
+                await self._queue_transition(ActivityType.CONVERSATION_FIRST_MEETING)
                 # await self._queue_transition(ActivityType.CONVERSATION_FIRST_MEETING)
                 # await self._queue_transition(ActivityType.CONVERSATION)
                 
