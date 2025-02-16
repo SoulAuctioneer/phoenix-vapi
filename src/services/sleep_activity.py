@@ -17,6 +17,7 @@ class SleepActivity(BaseService):
         super().__init__(manager)
         self._is_active = False
         self._breathing_volume = 0.02  # Store breathing volume for restoration (reduced from 0.1 for quieter effect)
+        self._LED_BRIGHTNESS = 0.6 # TODO: Move to config
         
     async def start(self):
         """Start the sleep activity"""
@@ -38,7 +39,7 @@ class SleepActivity(BaseService):
             "data": {
                 "effectName": "pink_blue_cycle",
                 "speed": 0.05,  # Slow, gentle rotation
-                "brightness": 0.3  # Dimmer for sleep mode
+                "brightness": self._LED_BRIGHTNESS  # Dimmer for sleep mode
             }
         })
         
@@ -94,7 +95,7 @@ class SleepActivity(BaseService):
                     "data": {
                         "effectName": "pink_blue_cycle",
                         "speed": 0.05,  # Slow, gentle rotation
-                        "brightness": 0.3  # Dimmer for sleep mode
+                        "brightness": self._LED_BRIGHTNESS
                     }
                 })
                 
