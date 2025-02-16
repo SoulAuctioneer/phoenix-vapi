@@ -251,7 +251,9 @@ class ActivityService(BaseService):
             # Handle activity-related intents
             if intent == "wake_up":
                 # Start conversation activity
-                await self._queue_transition(ActivityType.CONVERSATION)
+                # TODO: Remove this after testing
+                await self._queue_transition(ActivityType.CONVERSATION_FIRST_MEETING)
+                # await self._queue_transition(ActivityType.CONVERSATION)
                 
             elif intent == "hide_and_seek":
                 # Start hide and seek activity

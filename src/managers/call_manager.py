@@ -8,7 +8,7 @@ import time
 import requests
 from enum import Enum
 from managers.audio_manager import AudioManager
-from config import CallConfig
+from config import CallConfig, ACTIVITIES
 import queue
 
 logger = logging.getLogger('call_manager')
@@ -572,6 +572,7 @@ class CallManager:
             function = tool_call.get('function', {})
             name = function.get('name')
             arguments = function.get('arguments', {})
+            tool_call_id = tool_call.get('toolCallId', None)
             
             logging.info(f"Handling tool call: {name} with arguments {arguments}")
             
@@ -612,10 +613,20 @@ class CallManager:
                     })
 
             elif name == 'start_story':
-                if self.manager:
-                    await self.manager.publish({
-                        "type": "start_story"
-                    })
+                # if self.manager:
+                #     await self.manager.publish({
+                #         "type": "start_story"
+                #     })
+                # message = {
+                #     "results": [
+                #         {
+                #             "toolCallId": "X",
+                #             "result": "Y"
+                #         }
+                #     ]
+                # }
+                message = ACTIVITIES.get("story").get("content")
+                self.send_message(message)
 
             else:
                 logging.warning(f"Unknown tool call: {name}")

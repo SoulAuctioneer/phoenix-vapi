@@ -564,7 +564,7 @@ ACTIVITIES = {
     "poem": {
         "title": "The invisible beast",
         "author": "Jack Prelutsky",
-        "poem": """
+        "content": """
             The beast that is invisible
             Is stalking through the park,
             But you cannot see it coming
@@ -593,5 +593,38 @@ ACTIVITIES = {
         "instructions": """
             To teach it, you say two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
         """,
-    }
+    },
+    "story": {
+        "title": "Famous Three Get In Trouble",
+        "content": """
+You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are going to be Julian. Your sister will be Timmy, but as a bird instead of a dog.
+For each scene, describe the setting, then describe what you and your sister do. Then, ask your companion to suggest what you should do next. Give them a choice of 2-3 options. Ask them for any props that they might be able to use to help you.
+
+Here are some examples of how the story might go:
+Scene 1: Trapped at Owl's Dene
+The heavy doors of Owl's Dene slam shut behind us. We are standing in the dimly lit hallway. Timmy is hopping in circles, chirping in confusion.
+“We're in trouble,” you mutter, shaking your fiery wings. “I knew this place smelled of bad magic.”
+Owl's Dene is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. We've been captured by the villains who ran this place—but if we can find a way out, we might still save our friends.
+You notice a small window near the ceiling. There is a tall tree outside.
+Ask your companion to find a way out.
+
+Scene 2: Reaching the Window
+I look up. The window is too high for me to reach!
+I glance around the room and spot:
+A wobbly wooden chair—maybe I can stand on it?
+A pile of dusty books—I could stack them to climb higher!
+A long piece of twine—maybe I can make a lasso and pull the window open?
+I could fly up and check, but my glowing feathers might give us away!
+(Arianne, make a choice! What do we try first?)
+
+Continue the story. Here are some other potential scenes:
+Scene 3: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below.
+Scene 4: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
+Scene 5: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
+Scene 6: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Dene once and for all!
+
+Start by saying: "Okay, I've got it! Let's pretend we're in Owl's Deen. My sister will be Timmy, and I'll be Julian. Who would you like to be? Anne, George or Dick?"
+"""
+}
+
 }
