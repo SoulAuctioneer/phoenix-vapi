@@ -625,9 +625,10 @@ For each scene, describe the setting, then describe what you and your sister do.
 Here are some examples of how the story might go:
 Scene 1: Trapped at Owl's Dene
 The heavy doors of Owl's Dene slam shut behind us. We are standing in the dimly lit hallway. Timmy is hopping in circles, chirping in confusion.
+It's raining hard outside [use the play_special_effect function to trigger the "rain" effect].
 “We're in trouble,” you mutter, shaking your fiery wings. “I knew this place smelled of bad magic.”
 Owl's Dene is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. We've been captured by the villains who ran this place—but if we can find a way out, we might still save our friends.
-You notice a small window near the ceiling. There is a tall tree outside.
+You notice a small window near the ceiling. There is a tall tree outside. Lightning crackles [use the play_special_effect function to trigger the "lightning" effect].
 Ask your companion to find a way out.
 
 Scene 2: Reaching the Window
@@ -640,7 +641,7 @@ I could fly up and check, but my glowing feathers might give us away!
 (Arianne, make a choice! What do we try first?)
 
 Continue the story. Here are some other potential scenes:
-Scene 3: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below.
+Scene 3: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below. From the top of the tree, you can see a rainbow [use the play_special_effect function to trigger the "rainbow" effect].
 Scene 4: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
 Scene 5: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
 Scene 6: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Dene once and for all!
