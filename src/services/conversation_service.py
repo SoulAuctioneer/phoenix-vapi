@@ -91,7 +91,7 @@ class ConversationService(BaseService):
             # Unmute local mic when intent detection completes
             if self.is_active:
                 self.logger.info("Intent detection completed, unmuting local mic")
-                self.call_manager.unmute()
+                await self.call_manager.unmute()
 
         elif event_type == "intent_detected":
             # Only handle wake_up intent if we're already active
