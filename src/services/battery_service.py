@@ -30,6 +30,7 @@ class BatteryService(BaseService):
     - Hibernation mode reduces ADC reading frequency for power saving
     - Activity threshold determines voltage change needed to exit hibernation
     - Analog comparator can be disabled if battery removal detection isn't needed
+    - Service will continue running in a dormant state if no battery monitor is detected
     """
     
     def __init__(self, manager: ServiceManager):
@@ -108,10 +109,18 @@ class BatteryService(BaseService):
             # Start monitoring task
             self._monitor_task = asyncio.create_task(self._battery_monitor_loop())
             
-            self.logger.info("BatteryService started successfully")
+            self.logger.info("BatteryService started successfully with active monitoring")
+            
+        except (OSError, ValueError) as e:
+            self.logger.warning(
+                f"Battery monitor not detected ({str(e)}). "
+                "Service will continue in dormant state."
+            )
+            # Don't raise the exception - let the service continue without active monitoring
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize battery monitor: {str(e)}")
+            self.logger.error(f"Unexpected error initializing battery monitor: {str(e)}")
+            # Only raise for unexpected errors
             raise
         
     async def stop(self):
@@ -124,7 +133,7 @@ class BatteryService(BaseService):
                 pass
             self._monitor_task = None
             
-        # Wake up from hibernation before stopping
+        # Wake up from hibernation before stopping if we have a device
         if self.max17 and self.max17.hibernating:
             self.logger.info("Waking from hibernation before shutdown")
             self.max17.wake()
@@ -142,7 +151,9 @@ class BatteryService(BaseService):
         Returns:
             float: The appropriate check interval in seconds
         """
-        # Use longer interval if hibernating
+        # Use longer interval if no device or hibernating
+        if not self.max17:
+            return BatteryConfig.NORMAL_CHECK_INTERVAL * 4
         if self.max17.hibernating:
             return BatteryConfig.NORMAL_CHECK_INTERVAL * 2
             
