@@ -85,13 +85,13 @@ class ConversationService(BaseService):
             if self.is_active:
                 self.logger.info("Conversation active, sending interrupt message and muting until intent detection completes")
                 self.call_manager.interrupt_assistant()
-                await self.call_manager.mute()
+                # await self.call_manager.mute()
 
         elif event_type == "intent_detection_timeout":
             # Unmute local mic when intent detection completes
             if self.is_active:
                 self.logger.info("Intent detection completed, unmuting local mic")
-                await self.call_manager.unmute()
+                # await self.call_manager.unmute()
 
         elif event_type == "intent_detected":
             # Only handle wake_up intent if we're already active
