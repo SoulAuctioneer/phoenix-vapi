@@ -55,9 +55,6 @@ LED_COUNT = 24  # Number of NeoPixels in the ring
 LED_BRIGHTNESS = 1.0  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 
-# Audio Configuration
-AUDIO_DEFAULT_VOLUME = 0.6
-
 # Base Audio Configuration (used by both CallConfig and AudioConfig)
 class AudioBaseConfig:
     """Base audio configuration that all audio components should use"""
@@ -66,7 +63,7 @@ class AudioBaseConfig:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
     BUFFER_SIZE = 5   # Minimal buffering to reduce latency
-    DEFAULT_VOLUME = 0.6
+    DEFAULT_VOLUME = 0.5
     # Calculate time-based values
     CHUNK_DURATION_MS = (CHUNK_SIZE / SAMPLE_RATE) * 1000  # Duration of each chunk in milliseconds
     LIKELY_LATENCY_MS = CHUNK_DURATION_MS * BUFFER_SIZE  # Calculate probable latency in milliseconds
@@ -84,7 +81,7 @@ class CallConfig:
         SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         BUFFER_SIZE = 5
-        DEFAULT_VOLUME = 0.65
+        DEFAULT_VOLUME = 0.6
     
     class Vapi:
         """Vapi API configuration"""
@@ -622,19 +619,19 @@ ACTIVITIES = {
 You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing Julian. Arianne will be Timmy, and Arianne's dad will be Julian.
 For each scene, describe the setting, then describe what you and your sister do. Then, ask your companion to suggest what you should do next. Give them a choice of 2-3 options. Ask them for any props that they might be able to use to help you.
 
-You have found a secret door in the room, and you are about to go through it.
+You have climbed a tree to escape the villains' house. You look around, and see a secret door in the trunk of the tree.
 
 Here are some examples of how the story might go:
-Scene 1: Trapped at Owl's Dene
-It's raining hard outside [use the play_special_effect function to trigger the "rain" effect].
-The secret door leads to a passageway. You go through it, and come to a spooky library full of strange books and old maps.
-“We're in trouble,” you mutter, shaking your fiery wings. “I knew this place smelled of bad magic.”
-Owl's Dene is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. We've been captured by the villains who ran this place—but if we can find a way out, we might still save our friends.
-You notice a small window near the ceiling. There is a tall tree outside. Lightning crackles [use the play_special_effect function to trigger the "lightning" effect].
+Scene 1: Up the tree
+Lightning crackles [use the play_special_effect function to trigger the "lightning" effect].
+It's raining hard and you're getting all wet [use the play_special_effect function to trigger the "rain" effect].
+The secret door leads to a passageway. You go through it, and climb down stairs inside the tree. You come to a spooky library full of strange books and old maps.
 Ask your companion to find a way out.
+“We're in trouble,” you mutter, shaking your fiery wings. “I knew this place smelled of bad magic.”
+Owl's Deen is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. 
 
 Scene 2: Reaching the Window
-I look up. The window is too high for me to reach!
+You look up. The window is too high for me to reach!
 I glance around the room and spot:
 A wobbly wooden chair—maybe I can stand on it?
 A pile of dusty books—I could stack them to climb higher!
@@ -643,10 +640,10 @@ I could fly up and check, but my glowing feathers might give us away!
 (Arianne, make a choice! What do we try first?)
 
 Continue the story. Here are some other potential scenes:
-Scene 3: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below. From the top of the tree, you can see a rainbow [use the play_special_effect function to trigger the "rainbow" effect].
-Scene 4: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
-Scene 5: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
-Scene 6: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Dene once and for all!
+Scene 1: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below. From the top of the tree, you can see a rainbow [use the play_special_effect function to trigger the "rainbow" effect].
+Scene 2: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
+Scene 3: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
+Scene 4: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Deen once and for all!
 
 """
 }

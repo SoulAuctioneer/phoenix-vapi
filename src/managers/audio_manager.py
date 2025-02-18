@@ -9,7 +9,7 @@ import os
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
-from config import SoundEffect, AUDIO_DEFAULT_VOLUME, AudioBaseConfig
+from config import SoundEffect, AudioBaseConfig
 
 @dataclass
 class AudioConfig:
@@ -20,7 +20,7 @@ class AudioConfig:
     chunk: int = AudioBaseConfig.CHUNK_SIZE
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
-    default_volume: float = AUDIO_DEFAULT_VOLUME
+    default_volume: float = AudioBaseConfig.DEFAULT_VOLUME
 
 
 class AudioBuffer:
@@ -78,7 +78,7 @@ class AudioProducer:
     def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100):
         self.name = name
         self.buffer = AudioBuffer(maxsize=buffer_size)
-        self._volume = AUDIO_DEFAULT_VOLUME
+        self._volume = AudioBaseConfig.DEFAULT_VOLUME
         self.active = True
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
