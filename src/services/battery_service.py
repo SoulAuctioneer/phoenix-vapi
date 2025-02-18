@@ -218,7 +218,6 @@ class BatteryService(BaseService):
                     # Publish battery status update
                     await self.manager.publish({
                         "type": "battery_status_update",
-                        "producer_name": self.name,
                         "voltage": voltage,
                         "charge_percent": charge_percent,
                         "hibernating": self.max17.hibernating,
@@ -260,7 +259,6 @@ class BatteryService(BaseService):
                     if alerts:  # Only publish if we have alerts
                         await self.manager.publish({
                             "type": "battery_alert",
-                            "producer_name": self.name,
                             "alerts": alerts,
                             "voltage": voltage,
                             "charge_percent": charge_percent
