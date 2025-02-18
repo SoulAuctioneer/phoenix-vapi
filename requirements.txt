@@ -1,15 +1,16 @@
-python-dotenv
-daily-python
-pyaudio
-requests
-numpy
-sounddevice
-pvporcupine
-pvrhino
-rpi_ws281x
-adafruit-circuitpython-neopixel
-# adafruit-circuitpython-mpu6050
-bleak
-adafruit-blinka
-adafruit-circuitpython-ads1x15
-adafruit-circuitpython-drv2605
+python-dotenv # environment variables
+daily-python # WebRTC call client for VAPI
+pyaudio # audio input/output
+sounddevice # audio input/output
+requests # http requests
+numpy # munging numbers
+pvporcupine # keyword detection
+pvrhino # speech-to-intent detection
+rpi_ws281x # LEDs
+adafruit-circuitpython-neopixel # LEDs
+# adafruit-circuitpython-mpu6050 # accelerometer
+bleak # bluetooth
+adafruit-blinka # Adafruit circuitpython > python shim
+adafruit-circuitpython-ads1x15 # ADC for force sensor
+adafruit-circuitpython-drv2605 # vibration motor
+adafruit-circuitpython-max1704x # battery monitor

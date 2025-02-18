@@ -9,6 +9,7 @@ from services.wakeword_service import WakeWordService
 from services.led_service import LEDService
 from services.activity_service import ActivityService
 from services.intent_service import IntentService
+from services.battery_service import BatteryService
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -58,9 +59,10 @@ class PhoenixApp:
             'activity': ActivityService(self.manager)
         }
         
-        # Add LED service on Raspberry Pi
+        # Add platform-specific services on Raspberry Pi
         if PLATFORM == "raspberry-pi":
             self.initialized_services['led'] = LEDService(self.manager)
+            self.initialized_services['battery'] = BatteryService(self.manager)
 
         # Start audio service first, then all other services in parallel
         await self.manager.start_service('audio', self.initialized_services['audio'])
