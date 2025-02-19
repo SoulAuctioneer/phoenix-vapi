@@ -41,7 +41,10 @@ class BatteryService(BaseService):
         self._last_charge: float = 0.0
         self._last_hibernating: bool = False
         self._is_charging: bool = False
-        self._last_charging_check_voltage: float = 0.0  # Add new tracking variable
+        self._last_charging_check_voltage: float = 0.0
+        # Add tracking for time estimates
+        self._last_charge_time: Optional[float] = None
+        self._charge_rate: Optional[float] = None  # Percent per hour
         
     async def start(self):
         """Initialize and start the battery monitoring service"""
@@ -168,6 +171,65 @@ class BatteryService(BaseService):
         # Always update last voltage to track small changes
         self._last_charging_check_voltage = voltage
         
+    def _update_charge_rate(self, current_charge: float, current_time: float) -> None:
+        """Update charge/discharge rate calculation
+        
+        Args:
+            current_charge: Current battery charge percentage
+            current_time: Current time in seconds
+        """
+        if self._last_charge_time is None:
+            self._last_charge_time = current_time
+            return
+            
+        # Calculate time difference in hours
+        time_diff = (current_time - self._last_charge_time) / 3600.0
+        if time_diff < 0.1:  # Require at least 6 minutes between measurements
+            return
+            
+        # Calculate charge rate in percent per hour
+        charge_diff = current_charge - self._last_charge
+        rate = charge_diff / time_diff
+        
+        # Update or initialize moving average of charge rate
+        if self._charge_rate is None:
+            self._charge_rate = rate
+        else:
+            # Use exponential moving average
+            alpha = 0.3  # Weight for new values
+            self._charge_rate = (alpha * rate) + ((1 - alpha) * self._charge_rate)
+            
+        self._last_charge_time = current_time
+        
+        # Log significant rate changes
+        if abs(self._charge_rate) > 0.1:  # More than 0.1% per hour
+            direction = "charging" if self._charge_rate > 0 else "discharging"
+            self.logger.debug(
+                f"Battery {direction} at {abs(self._charge_rate):.1f}% per hour "
+                f"(current charge: {current_charge:.1f}%)"
+            )
+            
+    def _estimate_time_remaining(self, current_charge: float) -> Optional[float]:
+        """Estimate time remaining until empty/full in hours
+        
+        Args:
+            current_charge: Current battery charge percentage
+            
+        Returns:
+            float: Estimated hours remaining until empty/full, or None if cannot estimate
+        """
+        if self._charge_rate is None or abs(self._charge_rate) < 0.1:
+            return None
+            
+        if self._is_charging:
+            if current_charge >= 100:
+                return 0
+            return (100 - current_charge) / self._charge_rate
+        else:
+            if current_charge <= 0:
+                return 0
+            return current_charge / -self._charge_rate
+            
     def _determine_check_interval(self, charge_percent: float, voltage: float) -> float:
         """Determine the appropriate check interval based on battery state
         
@@ -237,23 +299,37 @@ class BatteryService(BaseService):
                 # Get current battery status
                 voltage = self.max17.cell_voltage
                 charge_percent = self.max17.cell_percent
+                current_time = asyncio.get_event_loop().time()
                 
-                # Update charging state
+                # Update charging state and charge rate
                 self._update_charging_state(voltage)
+                self._update_charge_rate(charge_percent, current_time)
+                
+                # Calculate time estimate
+                time_remaining = self._estimate_time_remaining(charge_percent)
                 
                 # Always publish if charging state changes
                 should_publish = self._should_publish_update(voltage, charge_percent)
                 
                 # Determine if we should publish an update
                 if should_publish:
-                    # Publish battery status update
-                    await self.manager.publish({
+                    # Build status update with time estimates
+                    status_update = {
                         "type": "battery_status_update",
                         "voltage": voltage,
                         "charge_percent": charge_percent,
                         "hibernating": self.max17.hibernating,
-                        "is_charging": self._is_charging
-                    })
+                        "is_charging": self._is_charging,
+                    }
+                    
+                    # Add rate and time estimates if available
+                    if self._charge_rate is not None:
+                        status_update["charge_rate"] = self._charge_rate  # Percent per hour
+                    if time_remaining is not None:
+                        status_update["time_remaining"] = time_remaining  # Hours
+                        
+                    # Publish update
+                    await self.manager.publish(status_update)
                     
                     # Update last known values
                     self._last_voltage = voltage
