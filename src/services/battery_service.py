@@ -149,15 +149,23 @@ class BatteryService(BaseService):
         Args:
             voltage: Current battery voltage
         """
-        if voltage > self._last_charging_check_voltage + BatteryConfig.VOLTAGE_HYSTERESIS:
+        # Use different thresholds for detecting start vs end of charging
+        if voltage > self._last_charging_check_voltage + BatteryConfig.CHARGING_START_HYSTERESIS:
             if not self._is_charging:
-                self.logger.info(f"Charging detected: voltage increased from {self._last_charging_check_voltage:.3f}V to {voltage:.3f}V")
+                self.logger.info(
+                    f"Charging detected: voltage increased from {self._last_charging_check_voltage:.3f}V "
+                    f"to {voltage:.3f}V (+{voltage - self._last_charging_check_voltage:.3f}V)"
+                )
                 self._is_charging = True
-        elif voltage < self._last_charging_check_voltage - BatteryConfig.VOLTAGE_HYSTERESIS:
+        elif voltage < self._last_charging_check_voltage - BatteryConfig.CHARGING_STOP_HYSTERESIS:
             if self._is_charging:
-                self.logger.info(f"Charging stopped: voltage decreased from {self._last_charging_check_voltage:.3f}V to {voltage:.3f}V")
+                self.logger.info(
+                    f"Charging stopped: voltage decreased from {self._last_charging_check_voltage:.3f}V "
+                    f"to {voltage:.3f}V (-{self._last_charging_check_voltage - voltage:.3f}V)"
+                )
                 self._is_charging = False
                 
+        # Always update last voltage to track small changes
         self._last_charging_check_voltage = voltage
         
     def _determine_check_interval(self, charge_percent: float, voltage: float) -> float:
@@ -233,8 +241,11 @@ class BatteryService(BaseService):
                 # Update charging state
                 self._update_charging_state(voltage)
                 
+                # Always publish if charging state changes
+                should_publish = self._should_publish_update(voltage, charge_percent)
+                
                 # Determine if we should publish an update
-                if self._should_publish_update(voltage, charge_percent):
+                if should_publish:
                     # Publish battery status update
                     await self.manager.publish({
                         "type": "battery_status_update",

@@ -307,6 +307,10 @@ class BatteryConfig:
     VOLTAGE_HYSTERESIS = 0.1  # Voltage must change by this much to trigger new alert (V)
     CHARGE_HYSTERESIS = 2.0  # Charge must change by this much to trigger new alert (%)
     
+    # Charging detection hysteresis (smaller than general voltage hysteresis)
+    CHARGING_START_HYSTERESIS = 0.02  # Voltage increase to detect start of charging (V)
+    CHARGING_STOP_HYSTERESIS = 0.05   # Voltage decrease to detect end of charging (V)
+    
     # Power saving configuration
     ACTIVITY_THRESHOLD = 0.15  # Voltage change threshold to exit hibernation (V)
     HIBERNATION_THRESHOLD = 5.0  # Charge rate change threshold to enter hibernation (%)
