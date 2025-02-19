@@ -285,6 +285,35 @@ PURR_MAX_POWER_BASE = 100  # Base maximum power level
 PURR_MAX_POWER_SCALE = 60  # How much maximum power increases with intensity
 PURR_UPDATE_RATE = 200  # Updates per second (Hz)
 
+# Battery Monitoring Configuration
+class BatteryConfig:
+    """Configuration for battery monitoring service"""
+    
+    # Monitoring intervals (in seconds)
+    NORMAL_CHECK_INTERVAL = 60.0  # Check battery status every minute normally
+    LOW_BATTERY_CHECK_INTERVAL = 30.0  # Check more frequently when battery is low
+    CHARGING_CHECK_INTERVAL = 10.0  # Check more frequently while charging
+    
+    # Battery thresholds
+    VOLTAGE_ALERT_MIN = 3.5  # Low voltage alert threshold (V)
+    VOLTAGE_ALERT_MAX = 4.1  # High voltage alert threshold (V)
+    LOW_BATTERY_THRESHOLD = 20.0  # Low battery warning threshold (%)
+    CRITICAL_BATTERY_THRESHOLD = 10.0  # Critical battery warning threshold (%)
+    
+    # Hysteresis to prevent alert flapping
+    VOLTAGE_HYSTERESIS = 0.1  # Voltage must change by this much to trigger new alert (V)
+    CHARGE_HYSTERESIS = 2.0  # Charge must change by this much to trigger new alert (%)
+    
+    # Charging detection hysteresis (smaller than general voltage hysteresis)
+    CHARGING_START_HYSTERESIS = 0.02  # Voltage increase to detect start of charging (V)
+    CHARGING_STOP_HYSTERESIS = 0.05   # Voltage decrease to detect end of charging (V)
+    
+    # Power saving configuration
+    ACTIVITY_THRESHOLD = 0.15  # Voltage change threshold to exit hibernation (V)
+    HIBERNATION_THRESHOLD = 5.0  # Charge rate change threshold to enter hibernation (%)
+    RESET_VOLTAGE = 3.0  # Voltage threshold for battery removal detection (V)
+    DISABLE_ANALOG_COMPARATOR = True  # Disable comparator if battery won't be removed
+    ENABLE_QUICK_START = False  # Enable quick start for instant calibration (use with caution)
 
 # AI Assistant Configuration
 
@@ -522,7 +551,7 @@ For each scene, describe the setting, then describe what you and your sister do.
 Here are some examples of how the story might go:
 Scene 1: Trapped at Owl's Dene
 The heavy doors of Owl's Dene slam shut behind us. We are standing in the dimly lit hallway. Timmy is hopping in circles, chirping in confusion.
-“We're in trouble,” you mutter, shaking your fiery wings. “I knew this place smelled of bad magic.”
+"We're in trouble," you mutter, shaking your fiery wings. "I knew this place smelled of bad magic."
 Owl's Dene is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. We've been captured by the villains who ran this place—but if we can find a way out, we might still save our friends.
 You notice a small window near the ceiling. There is a tall tree outside.
 Ask your companion to find a way out.
