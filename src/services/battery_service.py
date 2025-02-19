@@ -41,6 +41,7 @@ class BatteryService(BaseService):
         self._last_charge: float = 0.0
         self._last_hibernating: bool = False
         self._is_charging: bool = False
+        self._last_charging_check_voltage: float = 0.0  # Add new tracking variable
         
     async def start(self):
         """Initialize and start the battery monitoring service"""
@@ -141,6 +142,23 @@ class BatteryService(BaseService):
         await super().stop()
         self.logger.info("BatteryService stopped")
         
+    def _update_charging_state(self, voltage: float) -> None:
+        """Update charging state based on voltage changes
+        
+        Args:
+            voltage: Current battery voltage
+        """
+        if voltage > self._last_charging_check_voltage + BatteryConfig.VOLTAGE_HYSTERESIS:
+            if not self._is_charging:
+                self.logger.info(f"Charging detected: voltage increased from {self._last_charging_check_voltage:.3f}V to {voltage:.3f}V")
+                self._is_charging = True
+        elif voltage < self._last_charging_check_voltage - BatteryConfig.VOLTAGE_HYSTERESIS:
+            if self._is_charging:
+                self.logger.info(f"Charging stopped: voltage decreased from {self._last_charging_check_voltage:.3f}V to {voltage:.3f}V")
+                self._is_charging = False
+                
+        self._last_charging_check_voltage = voltage
+        
     def _determine_check_interval(self, charge_percent: float, voltage: float) -> float:
         """Determine the appropriate check interval based on battery state
         
@@ -157,9 +175,8 @@ class BatteryService(BaseService):
         if self.max17.hibernating:
             return BatteryConfig.NORMAL_CHECK_INTERVAL * 2
             
-        # Check if charging (voltage increasing)
-        if voltage > self._last_voltage + BatteryConfig.VOLTAGE_HYSTERESIS:
-            self._is_charging = True
+        # Use shorter interval when charging
+        if self._is_charging:
             return BatteryConfig.CHARGING_CHECK_INTERVAL
             
         # Use shorter interval for low battery states
@@ -169,7 +186,6 @@ class BatteryService(BaseService):
             return BatteryConfig.LOW_BATTERY_CHECK_INTERVAL
             
         # Default to normal interval
-        self._is_charging = False
         return BatteryConfig.NORMAL_CHECK_INTERVAL
         
     def _should_publish_update(self, voltage: float, charge_percent: float) -> bool:
@@ -183,7 +199,7 @@ class BatteryService(BaseService):
             bool: True if we should publish an update
         """
         # Always publish if charging state changed
-        if (voltage > self._last_voltage + BatteryConfig.VOLTAGE_HYSTERESIS) != self._is_charging:
+        if self._is_charging != (voltage > self._last_voltage + BatteryConfig.VOLTAGE_HYSTERESIS):
             return True
             
         # Always publish if hibernation state changed
@@ -212,6 +228,9 @@ class BatteryService(BaseService):
                 # Get current battery status
                 voltage = self.max17.cell_voltage
                 charge_percent = self.max17.cell_percent
+                
+                # Update charging state
+                self._update_charging_state(voltage)
                 
                 # Determine if we should publish an update
                 if self._should_publish_update(voltage, charge_percent):
