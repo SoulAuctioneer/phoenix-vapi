@@ -101,6 +101,7 @@ class BatteryService(BaseService):
                 self._last_voltage = self.max17.cell_voltage
                 self._last_charge = self.max17.cell_percent
                 self._last_hibernating = self.max17.hibernating
+                self._last_charging_check_voltage = self._last_voltage  # Initialize with actual voltage
                 self.logger.info(
                     f"Initial state: voltage={self._last_voltage:.2f}V, "
                     f"charge={self._last_charge:.1f}%, "
