@@ -632,8 +632,10 @@ class CallManager:
                         }
                     ]
                 }
-                self._call_client.send_app_message(message)
+                # TODO: Need to figure out how to send response back to assistant properly.
+                #self._call_client.send_app_message(message)
                 #self.send_message(message)
+                self.add_message("system", ACTIVITIES_PROMPT)
 
             elif name == 'start_activity':
                 # if self.manager:
@@ -649,9 +651,9 @@ class CallManager:
                         }
                     ]
                 }
-                self._call_client.send_app_message(message)
+                #self._call_client.send_app_message(message)
                 #self.send_message(message)
-
+                self.add_message("system", ACTIVITIES_CONFIG.get(activity_key))
             else:
                 logging.warning(f"Unknown tool call: {name}")
 
