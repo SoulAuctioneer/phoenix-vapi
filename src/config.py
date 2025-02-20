@@ -82,7 +82,7 @@ class CallConfig:
         SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         BUFFER_SIZE = 5
-        DEFAULT_VOLUME = 0.55
+        DEFAULT_VOLUME = 0.5
     
     class Vapi:
         """Vapi API configuration"""
