@@ -624,25 +624,31 @@ class CallManager:
                     })
 
             elif name == 'list_activities':
-                message = ACTIVITIES_PROMPT
-                self.add_message("system", message)
+                message = {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": ACTIVITIES_PROMPT
+                        }
+                    ]
+                }
+                self.send_message(message)
 
             elif name == 'start_activity':
                 # if self.manager:
                 #     await self.manager.publish({
                 #         "type": "start_story"
                 #     })
-                # message = {
-                #     "results": [
-                #         {
-                #             "toolCallId": "X",
-                #             "result": "Y"
-                #         }
-                #     ]
-                # }
                 activity_key = arguments.get('activity_key', None)
-                message = ACTIVITIES_CONFIG.get(activity_key)
-                self.add_message("system", message)
+                message = {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": ACTIVITIES_CONFIG.get(activity_key)
+                        }
+                    ]
+                }
+                self.send_message(message)
 
             else:
                 logging.warning(f"Unknown tool call: {name}")
@@ -978,7 +984,7 @@ class CallManager:
 
     def add_message(self, role, content):
         """ Adds the message to the conversation history.
-            role: system (Ensures the addition is unobtrusive) | user | assistant | tool | function
+            role: system (Theoretically ensures the addition is unobtrusive but not actually the case) | user | assistant | tool | function
             content: Actual message content.
         """
         message = {

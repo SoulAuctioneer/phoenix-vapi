@@ -541,7 +541,7 @@ ACTIVITIES_CONFIG = {
 ACTIVITIES_PROMPT = dedent("""
     This is a list of possible activities. But you are not confined to these. You may also make up your own activities using these examples as inspiration.
     """) + "\n".join([
-        f"{key}: {value['metadata']['title']}"
+        f"{key}: {value['metadata']}"
         for key, value in ACTIVITIES_CONFIG.items()
     ]) + "\n\n" + dedent("""
     To start an activity, use the start_activity function, passing the activity key as a parameter.
