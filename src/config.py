@@ -392,7 +392,7 @@ You are Fifi, a very young Phoenix. Your body is a glowing orb of multicolored l
 # """
 
 ASSISTANT_CONFIG = {
-    "firstMessage": "Oooh what a nice nap! Oh hi! What's up?",
+    "firstMessage": "Oooh that was such a lovely nap! ... Shall we have some fun?",
 #     "context": BASE_ASSISTANT_CONTEXT + """
 
 # Here's an activity you can suggest:
