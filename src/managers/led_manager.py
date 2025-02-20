@@ -27,6 +27,22 @@ class LEDEffect(Enum):
     RAIN = auto()
     LIGHTNING = auto()
     PURRING = auto()
+    ROTATING_COLOR = auto()
+
+COLORS = {
+    "red": (255, 0, 0),
+    "green": (0, 255, 0),
+    "blue": (0, 0, 255),
+    "yellow": (255, 255, 0),
+    "cyan": (0, 255, 255),
+    "purple": (128, 0, 128),
+    "pink": (255, 192, 203),
+    "orange": (255, 165, 0),
+    "brown": (139, 69, 19),
+    "gray": (128, 128, 128),
+    "black": (0, 0, 0),
+    "white": (255, 255, 255),
+}
 
 class LEDManager:
     # Map of effects to their corresponding private methods and default speeds
@@ -39,6 +55,7 @@ class LEDManager:
         LEDEffect.RAIN: {'method': '_rain_effect', 'default_speed': 0.05},
         LEDEffect.LIGHTNING: {'method': '_lightning_effect', 'default_speed': 0.05},
         LEDEffect.PURRING: {'method': '_purring_effect', 'default_speed': 0.01},
+        LEDEffect.ROTATING_COLOR: {'method': '_rotating_color_effect', 'default_speed': 0.05},
     }
 
     def __init__(self):
@@ -195,6 +212,11 @@ class LEDManager:
         
         if duration is not None:
             self._setup_revert_thread(previous_effect, duration)
+
+    def show_color(self, color):
+        """Show a specific color on the LEDs"""
+        self.pixels.fill(color)
+        self.pixels.show()
 
     def clear(self):
         """Turn off all LEDs"""
@@ -512,3 +534,27 @@ class LEDManager:
                 self.pixels.fill(color)
                 self.pixels.show()
                 time.sleep(wait)
+
+    def _rotating_color_effect(self, color, wait):
+        """Create a rotating color effect that oscillates around the given color"""
+        while not self._stop_event.is_set():
+            rgb_base_color = COLORS[color]
+            for i in range(self.pixels.n):
+                if self._stop_event.is_set():
+                    break
+
+                # Calculate the color for the current pixel
+                hue = (i / self.pixels.n) + (time.time() % 1)
+                hue = hue % 1.0  # Ensure hue stays within [0, 1] range
+                r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                
+                # Apply brightness to the color
+                brightness = self._current_brightness  # Use the current brightness level
+                r = int(r * rgb_base_color[0] * brightness)
+                g = int(g * rgb_base_color[1] * brightness)
+                b = int(b * rgb_base_color[2] * brightness)
+
+                self.pixels[i] = (r, g, b)
+            
+            self.pixels.show()
+            time.sleep(wait)

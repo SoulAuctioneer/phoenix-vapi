@@ -8,7 +8,7 @@ import time
 import requests
 from enum import Enum
 from managers.audio_manager import AudioManager
-from config import CallConfig, ACTIVITIES
+from config import CallConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG
 import queue
 
 logger = logging.getLogger('call_manager')
@@ -600,6 +600,17 @@ class CallManager:
                         "effect_name": effect_name
                     })
 
+            elif name == 'show_color':
+                color = arguments.get('color', None)
+                if color and self.manager:
+                    await self.manager.publish({
+                        "type": "start_led_effect",
+                        "data": {
+                            "effectName": "rotating_color",
+                            "color": color
+                        }
+                    })
+
             elif name == 'start_sensing_phoenix_distance':
                 if self.manager:
                     await self.manager.publish({
@@ -612,7 +623,11 @@ class CallManager:
                         "type": "stop_sensing_phoenix_distance"
                     })
 
-            elif name == 'start_story':
+            elif name == 'list_activities':
+                message = ACTIVITIES_PROMPT
+                self.add_message("system", message)
+
+            elif name == 'start_activity':
                 # if self.manager:
                 #     await self.manager.publish({
                 #         "type": "start_story"
@@ -625,7 +640,8 @@ class CallManager:
                 #         }
                 #     ]
                 # }
-                message = ACTIVITIES.get("story").get("content")
+                activity_key = arguments.get('activity_key', None)
+                message = ACTIVITIES_CONFIG.get(activity_key)
                 self.add_message("system", message)
 
             else:

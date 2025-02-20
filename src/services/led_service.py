@@ -118,7 +118,8 @@ class LEDService(BaseService):
                 "magical_spell": LEDEffect.RANDOM_TWINKLING,
                 "rain": LEDEffect.RAIN,
                 "lightning": LEDEffect.LIGHTNING,
-                "purring": LEDEffect.PURRING
+                "purring": LEDEffect.PURRING,
+                "rotating_color": LEDEffect.ROTATING_COLOR
             }
             
             if effect_name in effect_map:
