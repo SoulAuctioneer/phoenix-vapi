@@ -73,7 +73,7 @@ class AudioBaseConfig:
 class CallConfig:
     """Unified configuration for call-related settings"""
 
-    MUTE_WHEN_ASSISTANT_SPEAKING = True
+    MUTE_WHEN_ASSISTANT_SPEAKING = False
     
     class Audio:
         """Audio-specific configuration"""
@@ -94,9 +94,9 @@ class CallConfig:
         MIC_DEVICE_ID = "my-mic"
         SPEAKER_DEVICE_ID = "my-speaker"
         MIC_CONSTRAINTS = {
-            "autoGainControl": {"exact": True},
-            "noiseSuppression": {"exact": True},
-            "echoCancellation": {"exact": True},
+            "autoGainControl": {"exact": False},
+            "noiseSuppression": {"exact": False},
+            "echoCancellation": {"exact": False},
         }
         SUBSCRIPTION_PROFILES = {
             "base": {
@@ -237,7 +237,7 @@ class HideSeekConfig:
     AUDIO_CUE_DISTANCE_SCALING = 1.0
 
     # How frequently to emit an audio cue
-    AUDIO_CUE_INTERVAL = 10.0
+    AUDIO_CUE_INTERVAL = 8.0
 
 
 # Touch Sensor Configuration
