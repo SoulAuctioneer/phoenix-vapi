@@ -7,8 +7,6 @@ from dotenv import load_dotenv
 from enum import Enum, auto
 from typing import Union
 
-from sklearn.covariance import oas
-
 load_dotenv()
 
 # Determine platform
