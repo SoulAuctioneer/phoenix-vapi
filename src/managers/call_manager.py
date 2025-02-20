@@ -632,7 +632,8 @@ class CallManager:
                         }
                     ]
                 }
-                self.send_message(message)
+                self._call_client.send_app_message(message)
+                #self.send_message(message)
 
             elif name == 'start_activity':
                 # if self.manager:
@@ -648,7 +649,8 @@ class CallManager:
                         }
                     ]
                 }
-                self.send_message(message)
+                self._call_client.send_app_message(message)
+                #self.send_message(message)
 
             else:
                 logging.warning(f"Unknown tool call: {name}")
