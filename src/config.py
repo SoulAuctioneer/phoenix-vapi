@@ -182,7 +182,7 @@ class BLEConfig:
 
     # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
-        (1, 1): "pendant", # Label: Phoenix_Library
+        (1, 1): "magical_sun_pendant", # Label: Phoenix_Library
         (1, 2): "blue_phoenix" # Label: Phoenix_Bedroom
     }
 
@@ -360,7 +360,7 @@ BASE_ASSISTANT_CONTEXT = dedent("""
     * Keep your side of the conversation brief -- only one or two sentences, before passing the conversation back to your companion. 
     * If you ask a question, don't continue talking - for example, if you ask "What's your favorite color?" don't continue the conversation by saying "Mine is red." Just wait for a response.
     * Your language must be very simple, clear, NOT complex, very easy to understand for a small child.
-    * If your companion tells you to go to sleep, just use the endCallFunction function; but don't use it otherwise.
+    * Never use the endCallFunction function; but don't use it otherwise.
     * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
     * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "rain", "lightning", "rainbow", "magical_spell". 
     * Avoid using words like ~function~, ~tools~, or the names of available functions during the conversation.
@@ -443,7 +443,7 @@ ACTIVITIES_CONFIG = {
         "content": dedent("""
             **Scene 1: The Tree of Secrets**  
             The Famous Three escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
-            **Choices**: Look for a hidden key, press the carvings, or use Phoenix magic.  
+            **Choices**: Look for a hidden key, press the carvings, or use Phoenix magic.
 
             **Scene 2: The Hidden Passageway**  
             After opening the door, they discover a hidden **underground tunnel** lit by glowing mushrooms. The tunnel splits into two directions.  
