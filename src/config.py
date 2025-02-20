@@ -1,5 +1,6 @@
 import os
 import platform
+from textwrap import dedent
 import pyaudio
 from enum import Enum
 from typing import Union
@@ -547,9 +548,14 @@ ASSISTANT_CONFIG_FIRST_MEETING = {
 
 ACTIVITIES = {
     "poem": {
-        "title": "The invisible beast",
-        "author": "Jack Prelutsky",
-        "content": """
+        "metadata": {
+            "title": "The Invisible Beast",
+            "author": "Jack Prelutsky",
+        },
+        "instructions": """
+            To teach it, you say two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
+        """,
+        "content": dedent("""
             The beast that is invisible
             Is stalking through the park,
             But you cannot see it coming
@@ -574,44 +580,43 @@ ACTIVITIES = {
             And your fear you cannot quell,
             For although you cannot see it
             It can see you very well.
-            """,
-        "instructions": """
-            To teach it, you say two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
-        """,
+            """)
     },
     "story": {
-        "title": "Famous Three Get In Trouble",
-        "content": """
-You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing Julian. Arianne will be Timmy, and Arianne's dad will be Julian.
-For each scene, describe the setting, then describe what you and your sister do. Then, ask your companion to suggest what you should do next. Give them a choice of 2-3 options. Ask them for any props that they might be able to use to help you.
+        "metadata": {
+            "title": "Famous Three Get In Trouble",
+            "synopsis": "The Famous Three are a group of three friends who are trying to solve a mystery. It is based on the book 'Five Get Into Trouble' by Enid Blyton."
+        },
+        "instructions": """
+        You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing Julian. Arianne will be Timmy, and Arianne's dad will be Julian.
+        For each scene, describe the setting, then describe what you and other non-player characters do. Then, ask your companion to suggest what you should do next. Give them a choice of a couople of options. If relevant, ask them if there's anything around that they might be able to use to help.
+        """,
+        "content": dedent("""
+            You have climbed a tree to escape the villains' house. You look around, and see a secret door in the trunk of the tree.
 
-You have climbed a tree to escape the villains' house. You look around, and see a secret door in the trunk of the tree.
+            Here are some examples of how the story might go:
+            Scene 1: Up the tree
+            Lightning crackles [use the play_special_effect function to trigger the "lightning" effect].
+            It's raining hard and you're getting all wet [use the play_special_effect function to trigger the "rain" effect].
+            The secret door leads to a passageway. You go through it, and climb down stairs inside the tree. You come to a spooky library full of strange books and old maps.
+            Ask your companion to find a way out.
+            “We're in trouble,” you mutter, shaking your fiery wings. “I knew this place smelled of bad magic.”
+            Owl's Deen is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. 
 
-Here are some examples of how the story might go:
-Scene 1: Up the tree
-Lightning crackles [use the play_special_effect function to trigger the "lightning" effect].
-It's raining hard and you're getting all wet [use the play_special_effect function to trigger the "rain" effect].
-The secret door leads to a passageway. You go through it, and climb down stairs inside the tree. You come to a spooky library full of strange books and old maps.
-Ask your companion to find a way out.
-“We're in trouble,” you mutter, shaking your fiery wings. “I knew this place smelled of bad magic.”
-Owl's Deen is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. 
+            Scene 2: Reaching the Window
+            You look up. The window is too high for me to reach!
+            I glance around the room and spot:
+            A wobbly wooden chair—maybe I can stand on it?
+            A pile of dusty books—I could stack them to climb higher!
+            A long piece of twine—maybe I can make a lasso and pull the window open?
+            I could fly up and check, but my glowing feathers might give us away!
+            (Arianne, make a choice! What do we try first?)
 
-Scene 2: Reaching the Window
-You look up. The window is too high for me to reach!
-I glance around the room and spot:
-A wobbly wooden chair—maybe I can stand on it?
-A pile of dusty books—I could stack them to climb higher!
-A long piece of twine—maybe I can make a lasso and pull the window open?
-I could fly up and check, but my glowing feathers might give us away!
-(Arianne, make a choice! What do we try first?)
-
-Continue the story. Here are some other potential scenes:
-Scene 1: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below. From the top of the tree, you can see a rainbow [use the play_special_effect function to trigger the "rainbow" effect].
-Scene 2: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
-Scene 3: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
-Scene 4: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Deen once and for all!
-
-"""
-}
-
+            Continue the story. Here are some other potential scenes:
+            Scene 1: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below. From the top of the tree, you can see a rainbow [use the play_special_effect function to trigger the "rainbow" effect].
+            Scene 2: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
+            Scene 3: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
+            Scene 4: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Deen once and for all!
+            """)
+    }
 }
