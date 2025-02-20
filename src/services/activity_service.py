@@ -256,7 +256,9 @@ class ActivityService(BaseService):
                 await self._queue_transition(ActivityType.HIDE_SEEK)
                 
             elif intent == "cuddle":
-                await self._queue_transition(ActivityType.CUDDLE)
+                # TODO: This gets triggered too often, and interrupts conversation, so we're disabling it for now
+                pass
+                # await self._queue_transition(ActivityType.CUDDLE)
                 
             elif intent == "sleep":
                 # Return to sleep activity
