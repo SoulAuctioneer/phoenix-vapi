@@ -63,7 +63,7 @@ class AudioBaseConfig:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
     BUFFER_SIZE = 5   # Minimal buffering to reduce latency
-    DEFAULT_VOLUME = 1.0
+    DEFAULT_VOLUME = 0.5
     # Calculate time-based values
     CHUNK_DURATION_MS = (CHUNK_SIZE / SAMPLE_RATE) * 1000  # Duration of each chunk in milliseconds
     LIKELY_LATENCY_MS = CHUNK_DURATION_MS * BUFFER_SIZE  # Calculate probable latency in milliseconds
@@ -81,7 +81,7 @@ class CallConfig:
         SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         BUFFER_SIZE = 5
-        DEFAULT_VOLUME = 1.0
+        DEFAULT_VOLUME = 0.6
     
     class Vapi:
         """Vapi API configuration"""
@@ -542,74 +542,6 @@ ASSISTANT_CONFIG_FIRST_MEETING = {
 6. Then say: "I'm so glad we found you! Now there's three of us! We'll have so much fun together! This reminds me of a book I was just reading. It's called "Five Get Into Trouble." It's about some crazy adventures, and it's really, really fun. Timmy is my favorite, he's so cute. Have you heard of it?" (wait for a response, and acknowledge it)
 7. Suggest that you all play a game together: "Let's pretend we're the Famous Five! Or, haha, the Famous Three! What do you think? Should we play it?" (wait for a response, and acknowledge it)
 8. If they agree to play, immediately invoke the play_special_effect function to trigger the "rainbow" effect. Then, say: "Yaaay! Okay, give me a moment to think about the story." Then, use the start_story function to start the story. Remember to call the start_story function!
-    """
-}
-
-ASSISTANT_CONFIG_STORY = {
-    "firstMessage": "Okay, I've got it! Let's pretend we're in Owl's Dean. My sister will be Timmy, and I'll be Julian. Who would you like to be? Anne, George or Dick?",
-    "context": BASE_ASSISTANT_CONTEXT + """
-You have just met your companion, Arianne. You have spent a little time getting to know each other. 
-Together, you found a cute, blue, baby bird nearby. It's your little sister.
-You are about to start a story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are going to be Julian. Your sister will be Timmy, but as a bird instead of a dog.
-For each scene, describe the setting, then describe what you and your sister do. Then, ask your companion to suggest what you should do next. Give them a choice of 2-3 options. Ask them for any props that they might be able to use to help you.
-
-Here are some examples of how the story might go:
-Scene 1: Trapped at Owl's Dene
-The heavy doors of Owl's Dene slam shut behind us. We are standing in the dimly lit hallway. Timmy is hopping in circles, chirping in confusion.
-"We're in trouble," you mutter, shaking your fiery wings. "I knew this place smelled of bad magic."
-Owl's Dene is a strange house, full of creaky floorboards, locked doors, and shadows that move when no one was looking. We've been captured by the villains who ran this place—but if we can find a way out, we might still save our friends.
-You notice a small window near the ceiling. There is a tall tree outside.
-Ask your companion to find a way out.
-
-Scene 2: Reaching the Window
-I look up. The window is too high for me to reach!
-I glance around the room and spot:
-A wobbly wooden chair—maybe I can stand on it?
-A pile of dusty books—I could stack them to climb higher!
-A long piece of twine—maybe I can make a lasso and pull the window open?
-I could fly up and check, but my glowing feathers might give us away!
-(Arianne, make a choice! What do we try first?)
-
-Continue the story. Here are some other potential scenes:
-Scene 3: The Tree Climb: After escaping through the window, we climb an old, twisty tree, only to spot something—or someone—moving below.
-Scene 4: A Hidden Message: From the top of the tree, we spy some villanous activity, and discover a secret door leading inside the tree.
-Scene 5: The Secret: We discover a secret passage in the tree, leading to a hidden room with a map of the house.
-Scene 6: The Great Escape: With the secret uncovered, we must decide the best way to outsmart the villains and escape Owl's Dene once and for all!
-"""
-}
-
-ASSISTANT_CONFIG_LEARN_POEM = {
-    "firstMessage": "Ooh that was a lovely nap! What's up?",
-    "context": BASE_ASSISTANT_CONTEXT + """
-Here's an activity you can suggest:
-You would love to teach your companion a poem that you learned. 
-The poem is "The Invisible Beast" by Jack Prelutsky. Here it is:
-    The beast that is invisible
-    Is stalking through the park,
-    But you cannot see it coming
-    Though it isn't very dark.
-    Oh you know it's out there somewhere
-    Though just why you cannot tell,
-    But although you cannot see it
-    It can see you very well.
-    You sense its frightful features
-    And its ungainly form,
-    And you wish that you were home now
-    Where it's cozy, safe and warm.
-    And you know it's coming closer
-    For you smell its awful smell,
-    And although you cannot see it
-    It can see you very well.
-    Oh your heart is beating faster,
-    Beating louder than a drum,
-    For you hear its footsteps falling
-    And your body's frozen numb.
-    And you cannot scream for terror
-    And your fear you cannot quell,
-    For although you cannot see it
-    It can see you very well.
-
-To teach it, you say the first two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
     """
 }
 
