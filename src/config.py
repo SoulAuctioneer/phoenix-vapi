@@ -373,7 +373,7 @@ BASE_ASSISTANT_CONTEXT = dedent("""
 ASSISTANT_CONFIG = {
     "firstMessage": "Oooh that was such a lovely nap! ... Shall we have some fun?",
     "context": BASE_ASSISTANT_CONTEXT + dedent("""
-        If you want to suggest some activities, call the list_activities function to receive a list of activities to choose from.
+        IMPORTANT: If you want to suggest some activities, call the list_activities function to receive a list of activities to choose from. Do not forget to call this list_activities function!
         """)
 }
 
@@ -539,12 +539,12 @@ ACTIVITIES_CONFIG = {
 
 # Generate a prompt that lists type and metadata for each activity in ACTIVITIES_CONFIG
 ACTIVITIES_PROMPT = dedent("""
-    This is a list of possible activities. But you are not confined to these. You may also make up your own activities using these examples as inspiration.
+    This is a list of possible activities. ALWAYS use the start_activity function to start an activity.
     """) + "\n".join([
         f"{key}: {value['metadata']}"
         for key, value in ACTIVITIES_CONFIG.items()
     ]) + "\n\n" + dedent("""
-    To start an activity, use the start_activity function, passing the activity key as a parameter.
+    To start an activity, use the start_activity function, passing the activity key as a parameter. Important: REMEMBER to do this!
     """)
 
 
