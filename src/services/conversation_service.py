@@ -1,9 +1,7 @@
-import logging
-import asyncio
 from typing import Dict, Any
 from .service import BaseService
 from managers.call_manager import CallManager
-from config import VAPI_API_KEY, ASSISTANT_ID, ASSISTANT_CONFIG
+from config import ASSISTANT_ID, ASSISTANT_CONFIG
 
 class ConversationService(BaseService):
     """Handles conversations with the AI assistant"""

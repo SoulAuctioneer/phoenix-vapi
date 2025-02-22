@@ -6,7 +6,7 @@ from config import IntentConfig, PLATFORM
 
 # Import the appropriate intent manager based on platform
 if PLATFORM == "macos":
-    from managers.whisper_gpt_intent_manager import WhisperGPTIntentManager as SpeechIntentManager
+    from managers.llm_intent_manager import LLMIntentManager as SpeechIntentManager
 elif PLATFORM == "raspberry-pi":
     from managers.speech_intent_manager import SpeechIntentManager as SpeechIntentManager
 else:
@@ -16,7 +16,7 @@ class IntentService(BaseService):
     """
     Service that manages intent detection.
     Currently only supports speech-to-intent but eventually want to support various other ways to detect intent, e.g. with motion sensing etc.
-    Uses either Rhino-based SpeechIntentManager or Whisper+GPT-based WhisperGPTIntentManager
+    Uses either Rhino-based SpeechIntentManager or Whisper+GPT-based LLMIntentManager
     depending on platform configuration.
     TODO: This is temporary until I can get a MacOS model for PicoVoice Rhino.
     Coordinates with the manager to process spoken commands, and emits intent events.

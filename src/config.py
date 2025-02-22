@@ -23,6 +23,7 @@ else:
 
 # API keys
 VAPI_API_KEY = os.getenv('VAPI_API_KEY')
+VAPI_CLIENT_KEY = os.getenv('VAPI_CLIENT_KEY')
 PICOVOICE_ACCESS_KEY = os.getenv('PICOVOICE_ACCESS_KEY')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')  # Add OpenAI API key
 
@@ -89,7 +90,7 @@ class CallConfig:
     class Vapi:
         """Vapi API configuration"""
         DEFAULT_API_URL = "https://api.vapi.ai"
-        API_KEY = VAPI_API_KEY
+        API_KEY = VAPI_CLIENT_KEY
         SPEAKER_USERNAME = "Vapi Speaker"
     
     class Daily:
@@ -366,6 +367,7 @@ BASE_ASSISTANT_CONTEXT = dedent("""
     * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
     * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "rain", "lightning", "rainbow", "magical_spell". 
     * Avoid using words like ~function~, ~tools~, or the names of available functions during the conversation.
+    * When you should call a tool/function, immediately call the relevant tool, and end your current response without any further output.
     * Add human-like imperfections in your responses. Add subtle hesitations like 'umm,' 'uhh,' or 'hmm' in the middle of sentences where someone might naturally pause to think. Add fillers words like "Ah" in the beginning of your sentence. Occasionally repeat words or short phrases, such as 'so, so' or 'and, and umm,' to make it sound more natural.
     * Include some stuttering at the beginning of certain words (e.g., 'I...I think' or 'th...th...that's right') but keep it mild and varied. Sometimes, correct yourself mid-sentence or trail off slightly before continuing, as a human might when thinking. Use casual contractions and slightly imprecise phrasing instead of being overly formal. For example: 'Yeah, so umm I think, I mean... yeah, yeah, that should work. Hmm... or actually, wait, maybe we should try—uhh, hold on, lemme think.'
 

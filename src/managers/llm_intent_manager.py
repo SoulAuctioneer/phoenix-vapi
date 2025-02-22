@@ -3,15 +3,16 @@ import numpy as np
 import asyncio
 import threading
 import openai
+from openai import OpenAI
 import tempfile
 import soundfile as sf
 import json
 from textwrap import dedent
 from typing import Callable, Awaitable, Optional, Dict, Any
-from managers.audio_manager import AudioManager
-from config import OPENAI_API_KEY, IntentConfig
+from managers.audio_manager import AudioManager, AudioConfig
+from config import OPENAI_API_KEY, IntentConfig, AudioBaseConfig
 
-class WhisperGPTIntentManager:
+class LLMIntentManager:
     """
     Handles speech-to-intent detection using OpenAI's Whisper for speech-to-text
     and GPT-4 for intent classification. This is an alternative to Rhino that
@@ -27,6 +28,8 @@ class WhisperGPTIntentManager:
         self._lock = threading.Lock()
         self._audio_buffer = []  # Store audio chunks
         self._loop = None
+        self._processing_task: Optional[asyncio.Task] = None
+        self._client = None
         self._initialize_openai()
         
     def _initialize_openai(self):
@@ -34,7 +37,7 @@ class WhisperGPTIntentManager:
         try:
             if not OPENAI_API_KEY:
                 raise ValueError("OpenAI API key not found in environment")
-            openai.api_key = OPENAI_API_KEY
+            self._client = OpenAI(api_key=OPENAI_API_KEY)
             logging.info("OpenAI client initialized successfully")
         except Exception as e:
             logging.error(f"Failed to initialize OpenAI client: {e}")
@@ -42,7 +45,7 @@ class WhisperGPTIntentManager:
 
     @classmethod
     async def create(cls, *, audio_manager=None, on_intent: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None):
-        """Factory method to create and initialize a WhisperGPTIntentManager instance"""
+        """Factory method to create and initialize a LLMIntentManager instance"""
         if audio_manager is None:
             audio_manager = AudioManager.get_instance()
         instance = cls(audio_manager, on_intent=on_intent)
@@ -60,6 +63,8 @@ class WhisperGPTIntentManager:
             self._audio_consumer = self.audio_manager.add_consumer(
                 self._process_audio
             )
+            # Start the processing task
+            self._processing_task = asyncio.create_task(self._process_buffer())
             logging.info("Speech intent detection started")
 
         except Exception as e:
@@ -79,6 +84,31 @@ class WhisperGPTIntentManager:
         except Exception as e:
             logging.error(f"Error processing audio in speech intent detection: {e}")
 
+    async def _process_buffer(self):
+        """Periodically process the buffered audio to detect intents"""
+        try:
+            while self.running:
+                # Process every 2 seconds if we have audio
+                if len(self._audio_buffer) > 0:
+                    text = await self._transcribe_audio()
+                    if text.strip():  # Only process non-empty transcriptions
+                        logging.info(f"Transcribed text: {text}")
+                        intent_data = await self._classify_intent(text)
+                        if intent_data["intent"]:  # If we detected an intent
+                            logging.info(f"Detected intent: {intent_data}")
+                            if self.on_intent:
+                                await self.on_intent(intent_data)
+                            # Clear buffer after successful intent detection
+                            self._audio_buffer = []
+                            return  # Exit after first intent detection
+                
+                await asyncio.sleep(2.0)  # Wait before next processing
+                
+        except asyncio.CancelledError:
+            logging.info("Processing task cancelled")
+        except Exception as e:
+            logging.error(f"Error in processing loop: {e}")
+
     async def _transcribe_audio(self) -> str:
         """
         Transcribe the buffered audio using Whisper.
@@ -93,16 +123,17 @@ class WhisperGPTIntentManager:
             
             # Save audio to a temporary file
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as temp_file:
-                sf.write(temp_file.name, audio, self.audio_manager.sample_rate)
+                sf.write(temp_file.name, audio, AudioBaseConfig.SAMPLE_RATE)
                 
-                # Transcribe using Whisper
+                # Transcribe using Whisper with new API
                 with open(temp_file.name, "rb") as audio_file:
-                    transcript = await openai.Audio.atranscribe(
-                        "whisper-1",
-                        audio_file
+                    response = await asyncio.to_thread(
+                        self._client.audio.transcriptions.create,
+                        model="whisper-1",
+                        file=audio_file
                     )
                     
-            return transcript.text
+            return response.text
             
         except Exception as e:
             logging.error(f"Error transcribing audio: {e}")
@@ -126,7 +157,7 @@ class WhisperGPTIntentManager:
                      * "cuddle/snuggle/hug me"
                    - Any of the above with optional "please"
 
-                2. conversation (wake_up) - Match when someone:
+                2. wake_up - Match when someone:
                    - Says "time to wake up" or "time to start the day"
                    - Asks to talk/chat
                    - Asks "are you awake" or "are you there"
@@ -161,8 +192,9 @@ class WhisperGPTIntentManager:
                 {"intent": null, "slots": {}}
             """).strip()
             
-            # Get classification from GPT-4
-            response = await openai.ChatCompletion.acreate(
+            # Get classification from GPT-4 with new API
+            response = await asyncio.to_thread(
+                self._client.chat.completions.create,
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -176,8 +208,6 @@ class WhisperGPTIntentManager:
             try:
                 result = response.choices[0].message.content
                 intent_data = json.loads(result)
-                if intent_data["intent"] == "wake_up":  # Normalize wake_up/conversation intent
-                    intent_data["intent"] = "conversation"
                 return intent_data
             except (json.JSONDecodeError, AttributeError) as e:
                 logging.error(f"Error parsing GPT response: {e}")
@@ -194,6 +224,15 @@ class WhisperGPTIntentManager:
 
         logging.info("Stopping speech intent detection")
         self.running = False
+        
+        # Cancel the processing task if it exists
+        if self._processing_task and not self._processing_task.done():
+            self._processing_task.cancel()
+            try:
+                await self._processing_task
+            except asyncio.CancelledError:
+                pass
+            
         await asyncio.sleep(0.1)
         await self.cleanup()
 
