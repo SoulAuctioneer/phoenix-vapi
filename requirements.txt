@@ -1,5 +1,6 @@
 python-dotenv # environment variables
-daily-python # WebRTC call client for VAPI
+daily-python # WebRTC call client used by VAPI
+vapi_server_sdk # VAPI server SDK
 pyaudio # audio input/output
 sounddevice # audio input/output
 requests # http requests
