@@ -29,11 +29,19 @@ pip install -r requirements.txt
 if [ ! -f ".env" ]; then
     echo "Creating .env file..."
     echo "# Add your environment variables here" > .env
+    echo "" >> .env
+    echo "# Picovoice access key" >> .env
     echo "PICOVOICE_ACCESS_KEY=your_key_here" >> .env
-    echo "VAPI_API_KEY=your_vapi_api_key_here (private key)" >> .env
-    echo "VAPI_CLIENT_KEY=your_vapi_client_key_here (public key)" >> .env
-    echo "OPENAI_API_KEY=your_openai_api_key_here (optional, only needed for speech-to-intent if unable to use Picovoice Rhino)" >> .env
-    echo ""
+    echo "" >> .env
+    echo "# Vapi private key" >> .env
+    echo "VAPI_API_KEY=your_vapi_api_key_here" >> .env
+    echo "" >> .env
+    echo "# Vapi public key" >> .env
+    echo "VAPI_CLIENT_KEY=your_vapi_client_key_here" >> .env
+    echo "" >> .env
+    echo "# OpenAI API key (optional, only needed for speech-to-intent if unable to use Picovoice Rhino)" >> .env
+    echo "OPENAI_API_KEY=your_openai_api_key_here" >> .env
+    echo "" >> .env
     echo "Please update .env with your API keys:"
     echo "1. Picovoice access key from console.picovoice.ai"
     echo "2. Vapi API key from dashboard.vapi.ai"
@@ -114,9 +122,16 @@ echo "Next steps:"
 echo "1. Get your free Picovoice access key from console.picovoice.ai"
 echo "2. Get your Vapi API key from vapi.ai"
 echo "3. Add service keys to .env file:"
+echo "   # Picovoice access key"
 echo "   PICOVOICE_ACCESS_KEY=your_key_here"
-echo "   VAPI_API_KEY=your_vapi_api_key_here (private key)"
-echo "   VAPI_CLIENT_KEY=your_vapi_client_key_here (public key)"
+echo ""
+echo "   # Vapi private key"
+echo "   VAPI_API_KEY=your_vapi_api_key_here"
+echo ""
+echo "   # Vapi public key"
+echo "   VAPI_CLIENT_KEY=your_vapi_client_key_here"
+echo ""
+echo "   # OpenAI API key"
 echo "   OPENAI_API_KEY=your_openai_api_key_here"
 echo "4. Run the example: python src/example_wake_word.py"
 
