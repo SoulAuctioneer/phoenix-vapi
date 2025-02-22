@@ -2,14 +2,24 @@ import logging
 import asyncio
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from managers.speech_intent_manager import SpeechIntentManager
-from config import IntentConfig
+from config import IntentConfig, PLATFORM
+
+# Import the appropriate intent manager based on platform
+if PLATFORM == "macos":
+    from managers.whisper_gpt_intent_manager import WhisperGPTIntentManager as SpeechIntentManager
+elif PLATFORM == "raspberry-pi":
+    from managers.speech_intent_manager import SpeechIntentManager as SpeechIntentManager
+else:
+    raise ValueError(f"Unsupported platform: {PLATFORM}")
 
 class IntentService(BaseService):
     """
     Service that manages intent detection.
-    Currently only supports speech-to-intent detection using Rhino.
-    Coordinates with SpeechIntentManager to process spoken commands, and emits intent events.
+    Currently only supports speech-to-intent but eventually want to support various other ways to detect intent, e.g. with motion sensing etc.
+    Uses either Rhino-based SpeechIntentManager or Whisper+GPT-based WhisperGPTIntentManager
+    depending on platform configuration.
+    TODO: This is temporary until I can get a MacOS model for PicoVoice Rhino.
+    Coordinates with the manager to process spoken commands, and emits intent events.
     Intent detection is activated by wake word events and times out after several seconds.
     """
     def __init__(self, manager):
@@ -39,13 +49,12 @@ class IntentService(BaseService):
         """Initialize the speech intent detector"""
         await self.cleanup_detector()  # Clean up any existing detector
         try:
-            logging.info("Using context from: %s", IntentConfig.CONTEXT_PATH)
             # Add delay before initialization to allow audio device to fully release
             await asyncio.sleep(1.5)
             
             # Create the detector but don't start it yet
             self.detector = await SpeechIntentManager.create(
-                on_intent=self._handle_intent_detected  # Pass callback for intent detection
+                on_intent=self._handle_intent_detected
             )
             
             logging.info("Speech intent detector initialized successfully")

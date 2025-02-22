@@ -1,4 +1,4 @@
-from datetime import time
+import time
 import os
 import platform
 from textwrap import dedent
@@ -24,6 +24,7 @@ else:
 # API keys
 VAPI_API_KEY = os.getenv('VAPI_API_KEY')
 PICOVOICE_ACCESS_KEY = os.getenv('PICOVOICE_ACCESS_KEY')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')  # Add OpenAI API key
 
 # Intent Detection Configuration
 class IntentConfig:
