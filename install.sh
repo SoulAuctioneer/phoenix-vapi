@@ -13,13 +13,13 @@ is_raspberry_pi() {
 }
 
 # Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
     echo "Creating virtual environment..."
-    python3 -m venv venv
+    python3 -m venv .venv
 fi
 
 # Activate virtual environment
-source venv/bin/activate
+source .venv/bin/activate
 
 # Install requirements
 echo "Installing Python dependencies..."

@@ -7,11 +7,17 @@ requests # http requests
 numpy # munging numbers
 pvporcupine # keyword detection
 pvrhino # speech-to-intent detection
-rpi_ws281x # LEDs
-adafruit-circuitpython-neopixel # LEDs
-# adafruit-circuitpython-mpu6050 # accelerometer
 bleak # bluetooth
-adafruit-blinka # Adafruit circuitpython > python shim
-adafruit-circuitpython-ads1x15 # ADC for force sensor
-adafruit-circuitpython-drv2605 # vibration motor
-adafruit-circuitpython-max1704x # battery monitor
+
+# Platform-specific packages
+rpi_ws281x; sys_platform == 'linux'  # Only install on Linux
+adafruit-blinka; sys_platform == 'linux'  # Only install on Linux
+adafruit-circuitpython-neopixel; sys_platform == 'linux'
+adafruit-circuitpython-ads1x15; sys_platform == 'linux'  # ADC for force sensor
+adafruit-circuitpython-drv2605; sys_platform == 'linux'  # vibration motor
+adafruit-circuitpython-max1704x; sys_platform == 'linux'  # battery monitor
+# adafruit-circuitpython-mpu6050; sys_platform == 'linux' # accelerometer
+
+# System dependencies that need pip install
+pyaudio; sys_platform == 'darwin'  # macOS needs brew install portaudio first
+python3-pyaudio; sys_platform == 'linux'  # Linux needs apt-get install python3-pyaudio first
