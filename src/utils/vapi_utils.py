@@ -297,7 +297,7 @@ class VapiUtils:
             
             # Delete all existing tools
             for tool in existing_tools:
-                await self.client.tools.delete(id=tool["id"])
+                await self.client.tools.delete(id=tool.id)
         
         # Create new tools from TOOL_CONFIGS
         for tool_name, tool_config in TOOL_CONFIGS.items():
