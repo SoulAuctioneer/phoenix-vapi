@@ -21,11 +21,19 @@ elif system == "linux" and ("arm" in machine or "aarch" in machine):
 else:
     raise ValueError(f"Unsupported platform: {system} {machine}")
 
+def clean_env_value(value: str) -> str:
+    """Clean environment variable value by removing comments and whitespace"""
+    if value is None:
+        return None
+    # Split on first # and take the first part
+    value = value.split('#')[0]
+    return value.strip()
+
 # API keys
-VAPI_API_KEY = os.getenv('VAPI_API_KEY')
-VAPI_CLIENT_KEY = os.getenv('VAPI_CLIENT_KEY')
-PICOVOICE_ACCESS_KEY = os.getenv('PICOVOICE_ACCESS_KEY')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')  # Add OpenAI API key
+VAPI_API_KEY = clean_env_value(os.getenv('VAPI_API_KEY'))
+VAPI_CLIENT_KEY = clean_env_value(os.getenv('VAPI_CLIENT_KEY'))
+PICOVOICE_ACCESS_KEY = clean_env_value(os.getenv('PICOVOICE_ACCESS_KEY'))
+OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API key
 
 # Intent Detection Configuration
 class IntentConfig:

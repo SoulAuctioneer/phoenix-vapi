@@ -13,6 +13,8 @@ JSON Schema reference for tool parameters: https://ajv.js.org/json-schema.html#j
 from textwrap import dedent
 from vapi import AsyncVapi
 from config import VAPI_API_KEY
+import json
+from pprint import pprint
 
 
 # Function tool configurations
@@ -25,7 +27,7 @@ TOOL_CONFIGS = {
           "description": dedent("""
               Show a lighting effect and play a sound effect, in order to add atmosphere and immersion to a story, poem, scene, etc., or if you want to indicate a particular state that you're feeling, such as being sleepy, excited, celebrating, etc. 
               Only use one special effect per sentence.
-            """),
+            """).strip(),
           "strict": False,
           "parameters": {
               "type": "object",
@@ -39,7 +41,7 @@ TOOL_CONFIGS = {
                         - "lightning": Thunder and lightning.
                         - "rain": Raindrops falling.
                         - "rainbow": A rainbow of colors and mysterious sounds.
-                        """)
+                        """).strip()
                   }
               },
               "required": ["effect_name"],
@@ -73,7 +75,7 @@ TOOL_CONFIGS = {
                       "type": "string",
                       "description": dedent("""
                         The color to show. One of: red, orange, yellow, green, blue, purple, pink
-                        """)
+                        """).strip()
                   }
               },
               "required": ["color"],
@@ -119,7 +121,7 @@ TOOL_CONFIGS = {
           "name": "start_activity",
           "description": dedent("""
               Use to start an activity. In response, you will receive instructions and content for you to use to run the activity.
-            """),
+            """).strip(),
           "strict": False,
           "parameters": {
               "type": "object",
@@ -128,7 +130,7 @@ TOOL_CONFIGS = {
                       "type": "string",
                       "description": dedent("""
                         The name of the activity to start. One of: poem, story, color_hunt, obstacle_quest, magic_spell, discovery
-                        """)
+                        """).strip()
                   }
               },
               "required": ["activity_key"],
@@ -152,7 +154,7 @@ TOOL_CONFIGS = {
               Allows you to start sensing how close other phoenixes are to you. 
               After starting this function, you will start to receive occasional system messages notifying you of whether a Phoenix's location is UNKNOWN (cannot sense them), VERY_FAR, FAR, NEAR, VERY_NEAR, or IMMEDIATE (you are right next to them). 
               Use this information to help guide your companion towards the other Phoenix.
-            """),
+            """).strip(),
           "strict": False,
           "parameters": {
               "type": "object",
@@ -177,7 +179,7 @@ TOOL_CONFIGS = {
           "description": dedent("""
               Allows you to stop sensing how close other phoenixes are to you. 
               Use this function immediately when you have found what you are looking for.
-            """),
+            """).strip(),
           "strict": False,
           "parameters": {
               "type": "object",
@@ -272,24 +274,30 @@ class VapiUtils:
         """
         return await self.client.tools.create(request=tool_config)
     
-    async def recreate_all_tools(self):
+    async def create_all_tools(self, delete_existing: bool = False):
         """
-        Recreate all tools defined in TOOL_CONFIGS on VAPI.
+        Create all tools defined in TOOL_CONFIGS on VAPI.
+        
+        Args:
+            delete_existing (bool, optional): Whether to delete existing tools before creating new ones.
+                                           Defaults to False.
         
         This will:
-        1. Get all existing tools
-        2. Delete them
-        3. Create new tools from TOOL_CONFIGS
+        1. If delete_existing=True:
+           - Get all existing tools
+           - Delete them
+        2. Create new tools from TOOL_CONFIGS
         
         Raises:
             ApiError: If any API request fails
         """
-        # Get existing tools
-        existing_tools = await self.list_tools()
-        
-        # Delete all existing tools
-        for tool in existing_tools:
-            await self.client.tools.delete(id=tool["id"])
+        if delete_existing:
+            # Get existing tools
+            existing_tools = await self.list_tools()
+            
+            # Delete all existing tools
+            for tool in existing_tools:
+                await self.client.tools.delete(id=tool["id"])
         
         # Create new tools from TOOL_CONFIGS
         for tool_name, tool_config in TOOL_CONFIGS.items():
@@ -312,8 +320,16 @@ class VapiUtils:
         return await self.client.tools.list(limit=limit)
 
 async def main():
+    """
+    Main function to demonstrate the VapiUtils functionality.
+    Pretty prints the list of registered tools.
+    """
     vapi_utils = VapiUtils()
-    print(await vapi_utils.list_tools())
+    tools = await vapi_utils.list_tools()
+    pprint(tools)
+
+    # Create all tools
+    await vapi_utils.create_all_tools(delete_existing=True)
 
 if __name__ == "__main__":
     import asyncio
