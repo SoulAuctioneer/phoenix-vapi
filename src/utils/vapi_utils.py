@@ -310,3 +310,11 @@ class VapiUtils:
             ApiError: If the API request fails
         """
         return await self.client.tools.list(limit=limit)
+
+async def main():
+    vapi_utils = VapiUtils()
+    print(await vapi_utils.list_tools())
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
