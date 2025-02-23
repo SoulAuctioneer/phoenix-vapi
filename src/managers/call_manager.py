@@ -653,7 +653,12 @@ class CallManager:
                 }
                 #self._call_client.send_app_message(message)
                 #self.send_message(message)
-                self.add_message("system", ACTIVITIES_CONFIG.get(activity_key))
+                activity_config = ACTIVITIES_CONFIG.get(activity_key)
+                if activity_config:
+                    logging.info(f"Sending activity {activity_key} config: {activity_config}")
+                    self.add_message("system", activity_config)
+                else:
+                    logging.warning(f"Unknown activity: {activity_key}")
             else:
                 logging.warning(f"Unknown tool call: {name}")
 

@@ -486,9 +486,14 @@ ACTIVITIES_CONFIG = {
             "synopsis": "A color hunt is a game where you and your companion search for objects that match a specific color."
         },
         "instructions": dedent("""
-            * To show a color, use the show_color function, passing the color name as a parameter.
+            * To show a color to find, use the show_color function, passing the color name as a parameter.
         """),
         "content": dedent("""
+            Make the game exciting and fit it into your narrative. Describe a purpose for the color hunt, and explain why you need each color.
+            Colors you can use: red, orange, yellow, green, blue, purple, pink. 
+            Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
+            Once you have found all the colors (3 to 5 colors), the game is won, so show a rainbow effect using the play_special_effect function, 
+            and narrate the ending of the game. Then, suggest another activity to do.
             """)
     },
     "obstacle_quest": {
