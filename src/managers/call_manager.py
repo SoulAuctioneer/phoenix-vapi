@@ -624,14 +624,14 @@ class CallManager:
                     })
 
             elif name == 'list_activities':
-                message = {
-                    "results": [
-                        {
-                            "toolCallId": tool_call_id,
-                            "result": ACTIVITIES_PROMPT
-                        }
-                    ]
-                }
+                # message = {
+                #     "results": [
+                #         {
+                #             "toolCallId": tool_call_id,
+                #             "result": ACTIVITIES_PROMPT
+                #         }
+                #     ]
+                # }
                 # TODO: Need to figure out how to send response back to assistant properly.
                 #self._call_client.send_app_message(message)
                 #self.send_message(message)
@@ -643,20 +643,33 @@ class CallManager:
                 #         "type": "start_story"
                 #     })
                 activity_key = arguments.get('activity_key', None)
-                message = {
-                    "results": [
-                        {
-                            "toolCallId": tool_call_id,
-                            "result": ACTIVITIES_CONFIG.get(activity_key)
-                        }
-                    ]
-                }
+                # message = {
+                #     "results": [
+                #         {
+                #             "toolCallId": tool_call_id,
+                #             "result": ACTIVITIES_CONFIG.get(activity_key)
+                #         }
+                #     ]
+                # }
                 #self._call_client.send_app_message(message)
                 #self.send_message(message)
                 activity_config = ACTIVITIES_CONFIG.get(activity_key)
+                def parse_activity_config(config, indent=0):
+                    """Convert activity config dictionary to plain text/markdown string"""
+                    result = ""
+                    indent_str = " " * indent
+                    for key, value in config.items():
+                        if isinstance(value, dict):
+                            result += f"{indent_str}*{key}*:\n"
+                            result += parse_activity_config(value, indent + 4)
+                        else:
+                            result += f"{indent_str}*{key}*: {value}\n"
+                    return result
+
+                activity_config_str = parse_activity_config(activity_config)
                 if activity_config:
-                    logging.info(f"Sending activity {activity_key} config: {activity_config}")
-                    self.add_message("system", activity_config)
+                    logging.info(f"Sending activity {activity_key} config: {activity_config_str}")
+                    self.add_message("system", activity_config_str)
                 else:
                     logging.warning(f"Unknown activity: {activity_key}")
             else:
@@ -1027,7 +1040,7 @@ class CallManager:
     def interrupt_assistant(self):
         """Stop the assistant from speaking if it's speaking"""
         if self.state_manager.assistant_speaking and CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
-            self.add_message("user", "Wait, I want to talk. Respond only with 'Yes?'.")
+            self.add_message("user", "Wait, I want to say something.")
 
     
     async def _receive_bot_audio(self):
