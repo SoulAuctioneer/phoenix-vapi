@@ -139,6 +139,7 @@ class LocationManager:
                 # TODO: Bleak does a lot of this work for us, we're overcomplicating things here
                 # ...   See /Users/ash/develop/phoenix/phoenix-vapi/.venv/lib/python3.13/site-packages/bleak/__init__.py
                 # ...   and https://github.com/protobioengineering/bleak-python-examples/blob/main/continuous_ble_scanner.py
+                # ...   We can just have a callback and filter on the UUID we want
                 try:
                     self.logger.debug(f"Creating BLE scanner on interface {BLEConfig.BLUETOOTH_INTERFACE}...")
                     self._scanner = BleakScanner(
