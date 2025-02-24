@@ -1018,6 +1018,7 @@ class CallManager:
         }
         self.send_message(message)
 
+    # TODO: This isn't being used anywhere. Should we use it for tool call results, or will the non-blocking config of the tools suffice?
     def add_message_no_interrupt(self, role, content):
         """Adds the message to the conversation history without interrupting the assistant.
         The message will be queued and sent when neither party is speaking.
