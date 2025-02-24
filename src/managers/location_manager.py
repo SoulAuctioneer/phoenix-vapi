@@ -124,9 +124,9 @@ class LocationManager:
             
     async def _scan_beacons(self) -> List[Tuple[Tuple[int, int], int]]:
         """Scans for BLE devices and returns list of ((major, minor), smoothed RSSI) tuples"""
-        if PLATFORM != "raspberry-pi":
-            self.logger.debug("BLE scanning not available on this platform")
-            return []
+        # if PLATFORM != "raspberry-pi":
+        #     self.logger.debug("BLE scanning not available on this platform")
+        #     return []
             
         try:
             # Ensure Bluetooth is powered on
@@ -136,6 +136,9 @@ class LocationManager:
             # Create scanner if needed
             if not self._scanner:
                 # Configure scanner with our settings
+                # TODO: Bleak does a lot of this work for us, we're overcomplicating things here
+                # ...   See /Users/ash/develop/phoenix/phoenix-vapi/.venv/lib/python3.13/site-packages/bleak/__init__.py
+                # ...   and https://github.com/protobioengineering/bleak-python-examples/blob/main/continuous_ble_scanner.py
                 try:
                     self.logger.debug(f"Creating BLE scanner on interface {BLEConfig.BLUETOOTH_INTERFACE}...")
                     self._scanner = BleakScanner(
@@ -222,9 +225,9 @@ class LocationManager:
             
     async def scan_discovery(self) -> None:
         """Perform a discovery scan for all nearby BLE devices"""
-        if PLATFORM != "raspberry-pi":
-            self.logger.info("Discovery scan not available in simulation mode")
-            return
+        # if PLATFORM != "raspberry-pi":
+        #     self.logger.info("Discovery scan not available in simulation mode")
+        #     return
             
         try:
             # Ensure Bluetooth is powered on
@@ -438,9 +441,9 @@ class LocationManager:
         
     async def start(self) -> None:
         """Starts the location manager"""
-        if PLATFORM != "raspberry-pi":
-            self.logger.info("Location tracking not available on this platform")
-            return
+        # if PLATFORM != "raspberry-pi":
+        #     self.logger.info("Location tracking not available on this platform")
+        #     return
             
         # Ensure Bluetooth is powered on before starting
         if not self._ensure_bluetooth_powered():
