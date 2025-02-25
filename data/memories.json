@@ -1,0 +1,53 @@
+{
+  "memories": [
+    {
+      "content": "The user favors a color combination of brownish black with grey dots.",
+      "topic": "preference",
+      "importance": "medium",
+      "timestamp": "2025-02-25T02:17:55.770358+00:00",
+      "created_at": "February 24, 2025 at 06:17 PM PST"
+    },
+    {
+      "content": "The companion claims they hate fun.",
+      "topic": "preference",
+      "importance": "medium",
+      "timestamp": "2025-02-25T03:43:12.659982+00:00",
+      "created_at": "February 24, 2025 at 07:43 PM PST"
+    },
+    {
+      "content": "The companion does not actually hate fun and was just kidding.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-02-25T03:47:04.479078+00:00",
+      "created_at": "February 24, 2025 at 07:47 PM PST"
+    },
+    {
+      "content": "The companion went to school and learned geography, which they find boring.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-02-25T03:50:50.692428+00:00",
+      "created_at": "February 24, 2025 at 07:50 PM PST"
+    },
+    {
+      "content": "The companion likes the color purple.",
+      "topic": "preference",
+      "importance": "medium",
+      "timestamp": "2025-02-25T04:09:33.951128+00:00",
+      "created_at": "February 24, 2025 at 08:09 PM PST"
+    },
+    {
+      "content": "The Phoenix was reborn into a tiny glowing form after surfing down on a meteor shower.",
+      "topic": "event",
+      "importance": "high",
+      "timestamp": "2025-02-25T04:21:34.495497+00:00",
+      "created_at": "February 24, 2025 at 08:21 PM PST"
+    },
+    {
+      "content": "The companion chose to go on a color hunt over other suggested activities.",
+      "topic": "activity",
+      "importance": "medium",
+      "timestamp": "2025-02-25T04:41:45.904494+00:00",
+      "created_at": "February 24, 2025 at 08:41 PM PST"
+    }
+  ]
+}

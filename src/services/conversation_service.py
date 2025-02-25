@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from .service import BaseService
 from managers.call_manager import CallManager
+from managers.memory_manager import MemoryManager
 from config import ASSISTANT_ID, ASSISTANT_CONFIG
 
 class ConversationService(BaseService):
@@ -14,7 +15,8 @@ class ConversationService(BaseService):
     async def start(self):
         """Start the service (initializes call manager but doesn't start the conversation)"""
         await super().start()
-        self.call_manager = await CallManager.create(manager=self.manager)
+        self.memory_manager = MemoryManager()
+        self.call_manager = await CallManager.create(manager=self.manager, memory_manager=self.memory_manager)
             
     async def stop(self):
         """Stop the service and any active conversation"""
@@ -41,6 +43,7 @@ class ConversationService(BaseService):
         self.is_active = True
 
         try:
+            # Fetch memories and add to assistant context
             self.logger.info("Initializing call connection")
             await self.publish({"type": "conversation_starting"})
             await self.call_manager.start_call(assistant_id=ASSISTANT_ID, assistant_config=assistant_config)

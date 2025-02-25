@@ -1,3 +1,4 @@
+from textwrap import dedent
 import daily
 import threading
 import numpy as np
@@ -8,7 +9,7 @@ import time
 import requests
 from enum import Enum
 from managers.audio_manager import AudioManager
-from config import CallConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG
+from config import CallConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT
 import queue
 
 logger = logging.getLogger('call_manager')
@@ -247,13 +248,14 @@ class CallEventHandler(daily.EventHandler):
 class CallManager:
     """Handles Daily call functionality and Vapi API integration"""
     
-    def __init__(self, *, manager=None):
+    def __init__(self, *, manager=None, memory_manager=None):
         # Public attributes
         self.api_key = CallConfig.Vapi.API_KEY
         self.api_url = CallConfig.Vapi.DEFAULT_API_URL
         self.manager = manager
         self.state_manager = CallStateManager(self)
         self.audio_manager = None
+        self.memory_manager = memory_manager
 
         # Private attributes - using single underscore
         self._mic_device = None
@@ -268,11 +270,14 @@ class CallManager:
         # Message queue for non-interrupting messages
         self._message_queue = asyncio.Queue()
         self._message_processor_task = None
+        
+        # Conversation history
+        self.conversation = []
 
     @classmethod
-    async def create(cls, *, manager=None):
+    async def create(cls, *, manager=None, memory_manager=None):
         """Factory method to create and initialize a CallManager instance"""
-        instance = cls(manager=manager)
+        instance = cls(manager=manager, memory_manager=memory_manager)
         await instance.initialize()
         return instance
 
@@ -434,7 +439,15 @@ class CallManager:
             # Small delay to ensure all Daily events are processed
             await asyncio.sleep(0.1)
             
-            # No need to transition to INITIALIZED - both states can start new calls
+            # Extract and store memories from the conversation if available
+            if self.memory_manager and self.conversation:
+                logging.info("Extracting and storing memories from conversation")
+                success = await self.memory_manager.extract_and_store_conversation_memories(self.conversation)
+                if success:
+                    logging.info("Successfully stored conversation memories")
+                else:
+                    logging.warning("No memories were stored")
+            
             logging.info("Call cleanup complete, ready for new call")
         except Exception as e:
             logging.error(f"Error in left state handler: {e}")
@@ -454,6 +467,9 @@ class CallManager:
             
             # Reset the start event
             self.state_manager.start_event.clear()
+            
+            # Reset conversation history for new call
+            self.conversation = []
             
             if self.manager:
                 await self.manager.publish({"type": "conversation_joining"})
@@ -635,7 +651,7 @@ class CallManager:
                 # TODO: Need to figure out how to send response back to assistant properly.
                 #self._call_client.send_app_message(message)
                 #self.send_message(message)
-                self.add_message("system", ACTIVITIES_PROMPT)
+                self.add_message("tool", ACTIVITIES_PROMPT)
 
             elif name == 'start_activity':
                 # if self.manager:
@@ -669,7 +685,7 @@ class CallManager:
                 activity_config_str = parse_activity_config(activity_config)
                 if activity_config:
                     logging.info(f"Sending activity {activity_key} config: {activity_config_str}")
-                    self.add_message("system", activity_config_str)
+                    self.add_message("tool", activity_config_str)
                 else:
                     logging.warning(f"Unknown activity: {activity_key}")
             else:
@@ -677,6 +693,9 @@ class CallManager:
 
     async def handle_app_message(self, message, sender):
         """Handle app messages"""
+
+        # Log the raw message
+        # logging.info(f"Received app message: {message}")
 
         # Convert string messages to dict if needed
         if isinstance(message, str):
@@ -701,20 +720,19 @@ class CallManager:
             self.state_manager.set_speaking_state(role, is_speaking)
             logging.info(f"Speech update - Status: {status}, Role: {role}")
         elif msg_type == "transcript":
-            role = message.get("role", "")
-            transcript_type = message.get("transcriptType", "")
-            transcript = message.get("transcript", "")
-            # Only log final transcripts
-            if transcript_type == "final":
-                logging.info(f"Transcript | {role.title()}: {transcript}")
+            pass
+            # role = message.get("role", "")
+            # transcript_type = message.get("transcriptType", "")
+            # transcript = message.get("transcript", "")
+            # # Only log final transcripts
+            # if transcript_type == "final":
+            #     logging.info(f"Transcript | {role.title()}: {transcript}")
         elif msg_type == "conversation-update":
-            messages = message.get("messages", [])
-            if messages:
-                last_message = messages[-1]
-                role = "Assistant" if last_message.get('role') == 'bot' else last_message.get('role', '').title()
-                msg = last_message.get('message', '')
-                if msg:  # Only log if there's actual message content
-                    logging.info(f"Message | {role}: {msg}")
+            self.conversation = message.get("conversation", [])
+            last_message = self.conversation[-1]
+            role = last_message.get('role')
+            content = last_message.get('content', '')
+            logging.info(f"Message: {role}: {content}")
         elif msg_type == "user-interrupted":
             logging.info("User interrupted the assistant")
         elif msg_type == "model-output":
@@ -969,11 +987,16 @@ class CallManager:
         """Start a new call with specified assistant or squad"""
         logging.info("Starting call...")
 
+        # Fetch memories and add to assistant context
+        memories = self.memory_manager.get_memories_formatted()
+        assistant_config_with_memories = assistant_config.copy()
+        assistant_config_with_memories["context"] += ASSISTANT_CONTEXT_MEMORY_PROMPT.format(memories=memories)
+
         # Start a new call
         if assistant_id:
-            payload = {'assistantId': assistant_id, 'assistantOverrides': assistant_config}
+            payload = {'assistantId': assistant_id, 'assistantOverrides': assistant_config_with_memories}
         elif assistant:
-            payload = {'assistant': assistant, 'assistantOverrides': assistant_config}
+            payload = {'assistant': assistant, 'assistantOverrides': assistant_config_with_memories}
         elif squad_id:
             payload = {'squadId': squad_id}
         elif squad:
@@ -1004,17 +1027,45 @@ class CallManager:
         except Exception as e:
             logging.error(f"Failed to send message: {e}")
 
-    def add_message(self, role, content):
+    # TODO: Just found this ability in the docs. Use the trigger_response parameter. 
+    def add_message(self, role, content, trigger_response=True):
         """ Adds the message to the conversation history.
             role: system (Theoretically ensures the addition is unobtrusive but not actually the case) | user | assistant | tool | function
             content: Actual message content.
+            trigger_response: Whether to trigger a response from the assistant or silently add the message to the conversation history.
         """
         message = {
             'type': 'add-message',
             'message': {
                 'role': role,
                 'content': content
-            }
+            },
+            'triggerResponseEnabled': trigger_response            
+        }
+        self.send_message(message)
+
+    # TODO: Just found this ability in the docs. Use it instead of sending the "wait, I want to say something" message.
+    def tell_assistant_mute(self, mute: bool):
+        """Send a mute message to the assistant"""
+        message = {
+            'type': 'control',
+            'control': 'mute-assistant' if mute else 'unmute-assistant'
+        }
+        self.send_message(message)
+
+    def tell_assistant_say_something(self, content: str, end_call_after_spoken: bool = False):
+        """Tell the assistant to say something"""
+        message = {
+            'type': 'say',
+            'say': content,
+            'endCallAfterSpoken': end_call_after_spoken
+        }
+        self.send_message(message)
+
+    def tell_assistant_end_call(self):
+        """Tell the assistant to end the call"""
+        message = {
+            'type': 'end-call'
         }
         self.send_message(message)
 
@@ -1042,7 +1093,6 @@ class CallManager:
         """Stop the assistant from speaking if it's speaking"""
         if self.state_manager.assistant_speaking and CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
             self.add_message("user", "Wait, I want to say something.")
-
     
     async def _receive_bot_audio(self):
         """Task for receiving bot audio from Daily"""
