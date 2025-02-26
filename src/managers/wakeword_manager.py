@@ -60,11 +60,13 @@ class WakeWordManager:
             self.running = True
             # Store the event loop reference from the main thread
             self._loop = asyncio.get_running_loop()
-            # Register as an audio consumer without specifying chunk size
+            # Register as an audio consumer with Porcupine's requirements
             self._audio_consumer = self.audio_manager.add_consumer(
-                self._process_audio
+                self._process_audio,
+                chunk_size=self.porcupine.frame_length,  # Explicitly request 512-sample chunks
+                sample_rate=self.porcupine.sample_rate    # Explicitly request 16kHz sample rate
             )
-            logging.info("Wake word detection started")
+            logging.info(f"Wake word detection started with frame length {self.porcupine.frame_length} and sample rate {self.porcupine.sample_rate}Hz")
 
         except Exception as e:
             logging.error(f"Error starting wake word detection: {e}")

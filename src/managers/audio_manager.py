@@ -91,10 +91,11 @@ class AudioBuffer:
 
 class AudioConsumer:
     """Represents a consumer of audio input data"""
-    def __init__(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None):
+    def __init__(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None, sample_rate: Optional[int] = None):
         self.callback = callback
         self.active = True
         self.chunk_size = chunk_size
+        self.sample_rate = sample_rate  # Target sample rate for this consumer
 
 
 class AudioProducer:
@@ -178,9 +179,24 @@ class AudioManager:
         self._requeue_thread = None
         self._requeue_stop = threading.Event()
         
-    def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
-        """Add a new audio consumer"""
-        consumer = AudioConsumer(callback, chunk_size)
+    def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None, 
+                   sample_rate: Optional[int] = None) -> AudioConsumer:
+        """
+        Add a new audio consumer
+        
+        Args:
+            callback: Function that will receive audio data chunks
+            chunk_size: If specified, audio will be delivered in chunks of this size
+            sample_rate: This parameter is ignored as the system always uses 16kHz
+            
+        Returns:
+            AudioConsumer: The created consumer instance
+        """
+        # Ignore sample_rate parameter - we always use 16kHz
+        if sample_rate is not None and sample_rate != AudioBaseConfig.SAMPLE_RATE:
+            logging.warning(f"Ignoring requested sample rate {sample_rate}Hz - system always uses {AudioBaseConfig.SAMPLE_RATE}Hz")
+            
+        consumer = AudioConsumer(callback, chunk_size, None)  # Don't store sample_rate
         with self._consumers_lock:
             self._consumers.append(consumer)
         return consumer
@@ -312,11 +328,33 @@ class AudioManager:
             if indata is not None and frames > 0:
                 audio_data = indata[:, 0].copy().astype(np.int16)
                 
-                # Distribute to all active consumers
+                # Distribute to all active consumers, handling chunk sizes
                 with self._consumers_lock:
                     for consumer in self._consumers:
                         if consumer.active:
-                            consumer.callback(audio_data)
+                            # Check if this consumer needs specific chunk_size handling
+                            need_rechunk = consumer.chunk_size is not None and consumer.chunk_size != frames
+                            
+                            if need_rechunk:
+                                # Initialize this consumer's audio buffer if needed
+                                if not hasattr(consumer, '_audio_buffer'):
+                                    consumer._audio_buffer = np.array([], dtype=np.int16)
+                                
+                                # Combine with existing buffer
+                                consumer._audio_buffer = np.concatenate([consumer._audio_buffer, audio_data])
+                                
+                                # Process complete chunks
+                                if consumer.chunk_size is not None:
+                                    while len(consumer._audio_buffer) >= consumer.chunk_size:
+                                        # Extract one chunk of the desired size
+                                        chunk = consumer._audio_buffer[:consumer.chunk_size]
+                                        consumer.callback(chunk)
+                                        
+                                        # Keep the remainder
+                                        consumer._audio_buffer = consumer._audio_buffer[consumer.chunk_size:]
+                            else:
+                                # No special handling needed, just pass the data directly
+                                consumer.callback(audio_data)
             
             # Forward to output callback
             self._output_callback(outdata, frames, time, status)
@@ -350,10 +388,8 @@ class AudioManager:
                         logging.info(f"Using default output device: {default_device_info['name']}")
                         logging.info(f"Default device details: {default_device_info}")
                         
-                        # Update config with default device's sample rate if needed
-                        if self.config.rate != default_device_info['default_samplerate']:
-                            logging.warning(f"Adjusting sample rate to match device: {default_device_info['default_samplerate']}")
-                            self.config.rate = int(default_device_info['default_samplerate'])
+                        # Force the sample rate to 16kHz regardless of the device's default
+                        logging.info(f"Forcing sample rate to {AudioBaseConfig.SAMPLE_RATE}Hz regardless of device default")
                     except Exception as e:
                         logging.warning(f"Couldn't get default device info: {e}")
                 
@@ -368,27 +404,27 @@ class AudioManager:
                         input_device = sd.default.device[0]
                     
                     self._stream = sd.Stream(
-                        samplerate=self.config.rate,
+                        samplerate=AudioBaseConfig.SAMPLE_RATE,  # Always use 16kHz
                         blocksize=self.config.chunk,
                         channels=(1, self.config.get_channels()),  # Always mono input, but allow multiple output channels
                         dtype='int16',  # Always use int16
                         callback=self._audio_callback,
                         device=(input_device, self.config.output_device_index)
                     )
-                    logging.info(f"Created duplex stream with 1 input channel and {self.config.get_channels()} output channels")
+                    logging.info(f"Created duplex stream with 1 input channel and {self.config.get_channels()} output channels at {AudioBaseConfig.SAMPLE_RATE}Hz")
                 elif self._producers:
                     # Only output needed, no input capabilities
                     logging.info("Creating output-only stream")
                     
                     self._stream = sd.OutputStream(
-                        samplerate=self.config.rate,
+                        samplerate=AudioBaseConfig.SAMPLE_RATE,  # Always use 16kHz
                         blocksize=self.config.chunk,
                         channels=self.config.get_channels(),  # Allow multiple output channels
                         dtype='int16',  # Always use int16
                         callback=self._output_callback,
                         device=self.config.output_device_index
                     )
-                    logging.info(f"Created output-only stream with {self.config.get_channels()} channels using int16 format")
+                    logging.info(f"Created output-only stream with {self.config.get_channels()} channels at {AudioBaseConfig.SAMPLE_RATE}Hz")
                 else:
                     logging.warning("No input devices found and no producers registered. Audio functionality will be limited.")
                     return
@@ -595,9 +631,9 @@ class AudioManager:
                     rate = wf.getframerate()
                     frames = wf.getnframes()
                     
-                    # Verify WAV format
-                    if rate != self.config.rate:
-                        logging.warning(f"WAV rate ({rate}) doesn't match config ({self.config.rate}), playback may be distorted")
+                    # Verify WAV format - must be 16kHz
+                    if rate != AudioBaseConfig.SAMPLE_RATE:
+                        logging.warning(f"WAV sample rate ({rate}Hz) doesn't match system rate ({AudioBaseConfig.SAMPLE_RATE}Hz), playback may be distorted")
                         
                     # Verify WAV is mono (since all WAVs should be mono)
                     if channels != 1:
@@ -653,7 +689,7 @@ class AudioManager:
         wf = wave.open(filename, 'wb')
         wf.setnchannels(1)  # Always mono for recording
         wf.setsampwidth(2)  # 16-bit audio = 2 bytes
-        wf.setframerate(self.config.rate)
+        wf.setframerate(AudioBaseConfig.SAMPLE_RATE)  # Always use 16kHz
         
         try:
             yield lambda data: wf.writeframes(data.tobytes())
