@@ -22,6 +22,11 @@ class AudioService(BaseService):
             config = AudioConfig()
             self.audio_manager = AudioManager.get_instance(config)
             self.audio_manager.start()
+            
+            # Preload commonly used sound effects in the background
+            # This reduces latency when playing sounds during operation
+            self.audio_manager.preload_sound_effects()
+            
             self.logger.info("Audio service started successfully")
             
         except Exception as e:
@@ -154,10 +159,11 @@ class AudioService(BaseService):
             return False
             
         try:
-            # Start playing the sound first
+            # Start playing the sound using the dedicated audio thread pool
+            # This avoids creating new threads for each sound effect
             event_loop = asyncio.get_event_loop()
             success = await event_loop.run_in_executor(
-                None,
+                self.audio_manager._audio_thread_pool,  # Use dedicated thread pool
                 self.audio_manager.play_sound,
                 effect_name,
                 loop

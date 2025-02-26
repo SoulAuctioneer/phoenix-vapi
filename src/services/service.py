@@ -205,31 +205,18 @@ class ServiceManager:
             self.logger.warning("Received event without type")
             return
             
-        self.logger.debug(f"Publishing event: {event}")
+        # self.logger.info("Publishing event: " + str(event))
         
         async with self._lock:
             # Get both specific handlers and wildcard handlers
             handlers = self._subscribers.get(event_type, set()) | self._subscribers.get("*", set())
             
         if not handlers:
-            self.logger.debug(f"No handlers for event type: {event_type}")
             return
             
-        # Create tasks for all handlers
-        tasks = []
-        for handler in handlers:
-            task = asyncio.create_task(self._safe_handle_event(handler, event))
-            tasks.append(task)
-            
-        # Wait for all handlers to complete
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Log any errors
-            for result in results:
-                if isinstance(result, Exception):
-                    self.logger.error(f"Error in event handler: {result}", exc_info=True)
-                    
+        # Create and gather tasks efficiently
+        await asyncio.gather(*[self._safe_handle_event(handler, event) for handler in handlers], return_exceptions=True)
+
 
 class BaseService:
     """Base class for all services"""

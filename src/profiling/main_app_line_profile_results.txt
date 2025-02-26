@@ -1,6 +1,6 @@
 Timer unit: 1e-09 s
 
-Total time: 0.109394 s
+Total time: 0.109269 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/main.py
 Function: initialize_services at line 53
 
@@ -9,12 +9,12 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
     53                                               async def initialize_services(self):
     54                                                   """Initialize and start core services in the correct order"""
     55                                                   # Initialize all services
-    56         1       1000.0   1000.0      0.0          self.initialized_services = {
-    57         1      27000.0  27000.0      0.0              'audio': AudioService(self.manager),
+    56         1          0.0      0.0      0.0          self.initialized_services = {
+    57         1      26000.0  26000.0      0.0              'audio': AudioService(self.manager),
     58         1      10000.0  10000.0      0.0              'wakeword': WakeWordService(self.manager),
     59         1       7000.0   7000.0      0.0              'special_effect': SpecialEffectService(self.manager),
     60         1       6000.0   6000.0      0.0              'intent': IntentService(self.manager),
-    61         1      20000.0  20000.0      0.0              'activity': ActivityService(self.manager)
+    61         1      22000.0  22000.0      0.0              'activity': ActivityService(self.manager)
     62                                                   }
     63                                                   
     64                                                   # Add platform-specific services on Raspberry Pi
@@ -23,15 +23,15 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
     67                                                       self.initialized_services['battery'] = BatteryService(self.manager)
     68                                           
     69                                                   # Start audio service first, then all other services in parallel
-    70         1  109147000.0    1e+08     99.8          await self.manager.start_service('audio', self.initialized_services['audio'])
-    71         2      95000.0  47500.0      0.1          await asyncio.gather(
-    72         7      11000.0   1571.4      0.0              *[self.manager.start_service(name, self.initialized_services[name])
-    73         7       3000.0    428.6      0.0                for name in self.initialized_services.keys() if name != 'audio']
+    70         1  109089000.0    1e+08     99.8          await self.manager.start_service('audio', self.initialized_services['audio'])
+    71         2      65000.0  32500.0      0.1          await asyncio.gather(
+    72         7       1000.0    142.9      0.0              *[self.manager.start_service(name, self.initialized_services[name])
+    73         7       4000.0    571.4      0.0                for name in self.initialized_services.keys() if name != 'audio']
     74                                                   )
     75                                                   
-    76         1      67000.0  67000.0      0.1          logging.info("All services initialized and started")
+    76         1      39000.0  39000.0      0.0          logging.info("All services initialized and started")
 
-Total time: 0.384468 s
+Total time: 0.379936 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/main.py
 Function: run at line 78
 
@@ -40,26 +40,26 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
     78                                               async def run(self):
     79                                                   """Main application loop"""
     80         1          0.0      0.0      0.0          try:
-    81         1  109347000.0    1e+08     28.4              await self.initialize_services()
+    81         1  109246000.0    1e+08     28.8              await self.initialize_services()
     82                                                       
     83                                                       # Notify that application startup is complete
-    84         2     120000.0  60000.0      0.0              await self.manager.publish({
+    84         2      66000.0  33000.0      0.0              await self.manager.publish({
     85         1          0.0      0.0      0.0                  "type": "application_startup_completed",
     86         1          0.0      0.0      0.0                  "producer_name": "main"
     87                                                       })
     88                                           
     89                                                       # Keep the main task running
-    90        56     128000.0   2285.7      0.0              while self._should_run:
-    91        57    3015000.0  52894.7      0.8                  await asyncio.sleep(1)
+    90        57     182000.0   3193.0      0.0              while self._should_run:
+    91        58    3807000.0  65637.9      1.0                  await asyncio.sleep(1)
     92                                                           
-    93         1       2000.0   2000.0      0.0          except asyncio.CancelledError:
-    94         1     194000.0 194000.0      0.1              logging.info("Application task cancelled")
-    95         2  271281000.0    1e+08     70.6              await self.cleanup()
+    93         1       3000.0   3000.0      0.0          except asyncio.CancelledError:
+    94         1     205000.0 205000.0      0.1              logging.info("Application task cancelled")
+    95         1  266019000.0    3e+08     70.0              await self.cleanup()
     96                                                   except Exception as e:
     97                                                       logging.error(f"Fatal error: {e}", exc_info=True)
     98                                                       raise
     99                                                   finally:
-   100         1     381000.0 381000.0      0.1              await self.cleanup()
+   100         1     408000.0 408000.0      0.1              await self.cleanup()
 
 Total time: 0 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/main.py
@@ -82,398 +82,439 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
 
 Total time: 0 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/managers/audio_manager.py
-Function: _process_input at line 260
+Function: _process_input at line 332
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
-   260                                               def _process_input(self, indata, frames):
-   261                                                   """Process input audio data and distribute to consumers"""
-   262                                                   if indata is None or frames == 0:
-   263                                                       return
-   264                                                       
-   265                                                   # Get mono from first channel for input processing
-   266                                                   audio_data = indata[:, 0].copy().astype(np.int16)
-   267                                                   
-   268                                                   # Check if audio is too silent (common issue causing empty audio issues)
-   269                                                   if np.max(np.abs(audio_data)) < 50:  # Very quiet, likely just noise
-   270                                                       return
-   271                                                       
-   272                                                   # Distribute to all active consumers, handling chunk sizes
-   273                                                   with self._consumers_lock:
-   274                                                       for consumer in self._consumers:
-   275                                                           if not consumer.active:
-   276                                                               continue
-   277                                                               
-   278                                                           # Check if this consumer needs specific chunk_size handling
-   279                                                           if consumer.chunk_size is not None and consumer.chunk_size != frames:
-   280                                                               # Initialize this consumer's audio buffer if needed
-   281                                                               if consumer._audio_buffer is None:
-   282                                                                   consumer._audio_buffer = np.array([], dtype=np.int16)
-   283                                                               
-   284                                                               # Combine with existing buffer
-   285                                                               consumer._audio_buffer = np.concatenate([consumer._audio_buffer, audio_data])
-   286                                                               
-   287                                                               # Process complete chunks
-   288                                                               while len(consumer._audio_buffer) >= consumer.chunk_size:
-   289                                                                   # Extract one chunk of the desired size
-   290                                                                   chunk = consumer._audio_buffer[:consumer.chunk_size]
-   291                                                                   consumer.callback(chunk)
-   292                                                                   
-   293                                                                   # Keep the remainder
-   294                                                                   consumer._audio_buffer = consumer._audio_buffer[consumer.chunk_size:]
-   295                                                           else:
-   296                                                               # No special handling needed, just pass the data directly
-   297                                                               consumer.callback(audio_data)
+   332                                               def _process_input(self, indata, frames):
+   333                                                   """Process input audio data and distribute to consumers"""
+   334                                                   if indata is None or frames == 0:
+   335                                                       return
+   336                                                       
+   337                                                   # Get mono from first channel for input processing
+   338                                                   audio_data = indata[:, 0].copy().astype(np.int16)
+   339                                                   
+   340                                                   # Check if audio is too silent (common issue causing empty audio issues)
+   341                                                   if np.max(np.abs(audio_data)) < 50:  # Very quiet, likely just noise
+   342                                                       return
+   343                                                       
+   344                                                   # OPTIMIZATION: Get a snapshot of active consumers under lock
+   345                                                   # This minimizes the time we hold the lock to just the snapshot operation
+   346                                                   active_consumers = []
+   347                                                   with self._consumers_lock:
+   348                                                       # Only collect references to active consumers
+   349                                                       active_consumers = [(c, c.chunk_size, c.callback) for c in self._consumers if c.active]
+   350                                                       
+   351                                                   # No active consumers, early return
+   352                                                   if not active_consumers:
+   353                                                       return
+   354                                                       
+   355                                                   # Process consumers WITHOUT holding the lock
+   356                                                   for consumer, chunk_size, callback in active_consumers:
+   357                                                       try:
+   358                                                           # Check if this consumer needs specific chunk_size handling
+   359                                                           if chunk_size is not None and chunk_size != frames:
+   360                                                               # NOTE: We're modifying consumer._audio_buffer outside the lock
+   361                                                               # This is acceptable if consumers are only modified from the main thread
+   362                                                               # For true thread-safety, consider implementing per-consumer locks
+   363                                                               
+   364                                                               # Initialize this consumer's audio buffer if needed
+   365                                                               # Need to access consumer directly to modify its buffer
+   366                                                               if consumer._audio_buffer is None:
+   367                                                                   with self._consumers_lock:
+   368                                                                       if consumer.active:  # Double-check it's still active
+   369                                                                           consumer._audio_buffer = np.array([], dtype=np.int16)
+   370                                                                       else:
+   371                                                                           continue
+   372                                                               
+   373                                                               # Combine with existing buffer
+   374                                                               # NOTE: We're using the consumer's buffer directly, which
+   375                                                               # could be modified by other threads. This is a potential race condition.
+   376                                                               with self._consumers_lock:
+   377                                                                   if consumer.active:  # Double-check active before processing
+   378                                                                       consumer._audio_buffer = np.concatenate([consumer._audio_buffer, audio_data])
+   379                                                                   else:
+   380                                                                       continue
+   381                                                               
+   382                                                               # Process complete chunks
+   383                                                               buffer_size = len(consumer._audio_buffer)
+   384                                                               while consumer.active and buffer_size >= chunk_size:
+   385                                                                   # Extract one chunk of the desired size
+   386                                                                   with self._consumers_lock:
+   387                                                                       if not consumer.active:
+   388                                                                           break
+   389                                                                       chunk = consumer._audio_buffer[:chunk_size]
+   390                                                                       consumer._audio_buffer = consumer._audio_buffer[chunk_size:]
+   391                                                                       buffer_size = len(consumer._audio_buffer)
+   392                                                                   
+   393                                                                   # Call the callback outside the lock
+   394                                                                   callback(chunk)
+   395                                                           else:
+   396                                                               # No special handling needed, just pass the data directly
+   397                                                               callback(audio_data)
+   398                                                       except Exception as e:
+   399                                                           logging.error(f"Error processing audio for consumer: {e}", exc_info=True)
 
 Total time: 0 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/managers/audio_manager.py
-Function: _process_output at line 299
+Function: _process_output at line 401
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
-   299                                               def _process_output(self, outdata, frames):
-   300                                                   """Fill output buffer with mixed audio from all producers"""
-   301                                                   # Initialize output data with zeros
-   302                                                   outdata.fill(0)
-   303                                                   
-   304                                                   # Get output channel count
-   305                                                   num_channels = outdata.shape[1]
-   306                                                   
-   307                                                   # Track active producers and audio status
-   308                                                   active_producers = 0
-   309                                                   has_audio = False
-   310                                                   
-   311                                                   # Mix audio from all active producers
-   312                                                   with self._producers_lock:
-   313                                                       for name, producer in self._producers.items():
-   314                                                           if not producer.active:
-   315                                                               continue
-   316                                                               
-   317                                                           # Get volume-adjusted data from producer buffer
-   318                                                           data = producer.get()
-   319                                                           
-   320                                                           if data is not None:
-   321                                                               # Check data shape and size
-   322                                                               if data.size == 0:
-   323                                                                   continue
-   324                                                                   
-   325                                                               # Mix mono data into all output channels
-   326                                                               frames_to_mix = min(len(data), frames)
-   327                                                               
-   328                                                               # Make sure data is int16 to prevent unexpected behavior
-   329                                                               if data.dtype != np.int16:
-   330                                                                   data = data.astype(np.int16)
-   331                                                               
-   332                                                               # Special handling for sound effect producer
-   333                                                               if name == "sound_effect" and frames_to_mix > 0:
-   334                                                                   logging.debug(f"Mixing sound_effect: {frames_to_mix} frames")
-   335                                                               
-   336                                                               # Efficient duplication to all output channels
-   337                                                               for c in range(num_channels):
-   338                                                                   outdata[:frames_to_mix, c] += data[:frames_to_mix]
-   339                                                               
-   340                                                               active_producers += 1
-   341                                                               has_audio = True
-   342                                                   
-   343                                                   # Check if any audio was produced
-   344                                                   if has_audio and np.max(np.abs(outdata)) > 32700:
-   345                                                       # Only clip if necessary to prevent distortion
-   346                                                       np.clip(outdata, -32767, 32767, out=outdata)
+   401                                               def _process_output(self, outdata, frames):
+   402                                                   """Fill output buffer with mixed audio from all producers"""
+   403                                                   # Initialize output data with zeros
+   404                                                   outdata.fill(0)
+   405                                                   
+   406                                                   # Get output channel count
+   407                                                   num_channels = outdata.shape[1]
+   408                                                   
+   409                                                   # OPTIMIZATION: Capture producer data under lock, then process without lock
+   410                                                   # This minimizes the time we hold the lock to just the data acquisition
+   411                                                   active_producers_data = []
+   412                                                   
+   413                                                   # Use a shorter critical section - only acquire data while holding lock
+   414                                                   with self._producers_lock:
+   415                                                       # Only get references to active producers and their data
+   416                                                       for name, producer in self._producers.items():
+   417                                                           if producer.active:
+   418                                                               data = producer.get()  # Get data while holding lock
+   419                                                               if data is not None and data.size > 0:
+   420                                                                   active_producers_data.append((name, data))
+   421                                                   
+   422                                                   # Process the data WITHOUT holding the lock
+   423                                                   has_audio = False
+   424                                                   
+   425                                                   # Mix audio from active producers outside the lock
+   426                                                   for name, data in active_producers_data:
+   427                                                       # Mix mono data into all output channels
+   428                                                       frames_to_mix = min(len(data), frames)
+   429                                                       
+   430                                                       # Make sure data is int16 to prevent unexpected behavior
+   431                                                       if data.dtype != np.int16:
+   432                                                           data = data.astype(np.int16)
+   433                                                       
+   434                                                       # Special handling for sound effect producer
+   435                                                       if name == "sound_effect" and frames_to_mix > 0:
+   436                                                           logging.debug(f"Mixing sound_effect: {frames_to_mix} frames")
+   437                                                       
+   438                                                       # Efficient duplication to all output channels
+   439                                                       for c in range(num_channels):
+   440                                                           outdata[:frames_to_mix, c] += data[:frames_to_mix]
+   441                                                       
+   442                                                       has_audio = True
+   443                                                   
+   444                                                   # Check if any audio was produced
+   445                                                   if has_audio and np.max(np.abs(outdata)) > 32700:
+   446                                                       # Only clip if necessary to prevent distortion
+   447                                                       np.clip(outdata, -32767, 32767, out=outdata)
 
 Total time: 0 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/managers/audio_manager.py
-Function: _audio_callback at line 348
+Function: _audio_callback at line 449
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
-   348                                               def _audio_callback(self, indata, outdata, frames, time, status):
-   349                                                   """
-   350                                                   Unified callback for audio processing (handles both input and output)
-   351                                                   
-   352                                                   Args:
-   353                                                       indata: Input audio data from the microphone (can be None for output-only streams)
-   354                                                       outdata: Output buffer to fill with audio data
-   355                                                       frames: Number of frames to process
-   356                                                       time: Time info from SoundDevice
-   357                                                       status: Status info from SoundDevice
-   358                                                   """
-   359                                                   if status:
-   360                                                       logging.warning(f"Audio callback status: {status}")
-   361                                                   
-   362                                                   try:
-   363                                                       # Process input (distribute to consumers)
-   364                                                       self._process_input(indata, frames)
-   365                                                       
-   366                                                       # Process output (mix from producers)
-   367                                                       self._process_output(outdata, frames)
-   368                                                           
-   369                                                   except Exception as e:
-   370                                                       logging.error(f"Error in audio callback: {e}", exc_info=True)
-   371                                                       # Fill with zeros on error to prevent noise
-   372                                                       outdata.fill(0)
+   449                                               def _audio_callback(self, indata, outdata, frames, time, status):
+   450                                                   """
+   451                                                   Unified callback for audio processing (handles both input and output)
+   452                                                   
+   453                                                   Args:
+   454                                                       indata: Input audio data from the microphone (can be None for output-only streams)
+   455                                                       outdata: Output buffer to fill with audio data
+   456                                                       frames: Number of frames to process
+   457                                                       time: Time info from SoundDevice
+   458                                                       status: Status info from SoundDevice
+   459                                                   """
+   460                                                   # Check for any issues with the audio hardware
+   461                                                   if status:
+   462                                                       # Only log at warning level for occasional issues
+   463                                                       if status.input_overflow:
+   464                                                           logging.warning("Audio input overflow - input data may be lost")
+   465                                                       elif status.output_underflow:
+   466                                                           logging.warning("Audio output underflow - output may have gaps")
+   467                                                       else:
+   468                                                           logging.warning(f"Audio callback status: {status}")
+   469                                                   
+   470                                                   try:
+   471                                                       # Process input (distribute to consumers)
+   472                                                       # Only process input if we actually have input data
+   473                                                       if indata is not None and frames > 0:
+   474                                                           self._process_input(indata, frames)
+   475                                                       
+   476                                                       # Process output (mix from producers)
+   477                                                       # Always process output to ensure we fill the buffer
+   478                                                       self._process_output(outdata, frames)
+   479                                                           
+   480                                                   except Exception as e:
+   481                                                       # Log error but continue audio processing to avoid crashes
+   482                                                       logging.error(f"Error in audio callback: {e}", exc_info=True)
+   483                                                       # Fill with zeros on error to prevent noise
+   484                                                       outdata.fill(0)
 
 Total time: 0 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/managers/audio_manager.py
-Function: play_audio at line 473
+Function: play_audio at line 592
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
-   473                                               def play_audio(self, audio_data: np.ndarray, producer_name: str = "default", loop: bool = False):
-   474                                                   """
-   475                                                   Play mono audio data through a specific producer.
-   476                                                   
-   477                                                   Args:
-   478                                                       audio_data: Mono audio data as numpy array (will be converted to int16)
-   479                                                       producer_name: Name of the producer to use 
-   480                                                       loop: Whether to loop the audio (default: False)
-   481                                                   """
-   482                                                   logging.info(f"play_audio called for producer '{producer_name}' with {len(audio_data)} samples, loop={loop}")
-   483                                                   
-   484                                                   try:
-   485                                                       if not self._running:
-   486                                                           logging.warning("play_audio called but AudioManager is not running")
-   487                                                           return
-   488                                                           
-   489                                                       # Create producer if needed
-   490                                                       with self._producers_lock:
-   491                                                           if producer_name not in self._producers:
-   492                                                               logging.info(f"Creating new producer '{producer_name}'")
-   493                                                               producer = self.add_producer(producer_name, buffer_size=1000)
-   494                                                           producer = self._producers[producer_name]
-   495                                                           
-   496                                                           if not producer.active:
-   497                                                               logging.warning(f"Producer '{producer_name}' is not active")
-   498                                                               return
-   499                                                       
-   500                                                       # Check if audio data has the expected shape (1D array for mono)
-   501                                                       if len(audio_data.shape) > 1:
-   502                                                           logging.warning(f"Expected mono audio but got shape {audio_data.shape}. Converting to mono.")
-   503                                                           # Handle multi-dimensional arrays by flattening or taking first channel
-   504                                                           if audio_data.shape[1] > 1:
-   505                                                               audio_data = audio_data[:, 0]  # Take first channel if stereo
-   506                                                           else:
-   507                                                               audio_data = audio_data.flatten()
-   508                                                           
-   509                                                       # Ensure data is in int16 format
-   510                                                       if audio_data.dtype != np.int16:
-   511                                                           # Handle conversion from float to int16
-   512                                                           if np.issubdtype(audio_data.dtype, np.floating):
-   513                                                               # Normalize and scale
-   514                                                               max_val = np.max(np.abs(audio_data))
-   515                                                               if max_val > 0:
-   516                                                                   # Scale to use full int16 range
-   517                                                                   normalized = audio_data / max_val
-   518                                                                   audio_data = (normalized * 32767).astype(np.int16)
-   519                                                               else:
-   520                                                                   # Silent audio - just convert
-   521                                                                   audio_data = audio_data.astype(np.int16)
-   522                                                           else:
-   523                                                               # Direct conversion for other integer types
-   524                                                               audio_data = audio_data.astype(np.int16)
-   525                                                       
-   526                                                       # Set loop data if looping is enabled
-   527                                                       if loop:
-   528                                                           producer.set_loop_data(audio_data, self.config.chunk)
-   529                                                           producer.loop = True
-   530                                                       else:
-   531                                                           producer.loop = False
-   532                                                       
-   533                                                       # Split audio data into chunks matching the configured chunk size
-   534                                                       chunk_size = self.config.chunk
-   535                                                       
-   536                                                       # Clear existing data first
-   537                                                       producer.clear()
-   538                                                       
-   539                                                       # Add chunked data to the producer
-   540                                                       chunks_added = 0
-   541                                                       for i in range(0, len(audio_data), chunk_size):
-   542                                                           end = min(i + chunk_size, len(audio_data))
-   543                                                           chunk = audio_data[i:end]
-   544                                                           
-   545                                                           # Pad the last chunk if necessary
-   546                                                           if len(chunk) < chunk_size:
-   547                                                               chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
-   548                                                           
-   549                                                           if producer.put(chunk):
-   550                                                               chunks_added += 1
-   551                                                           else:
-   552                                                               logging.warning(f"Buffer full for producer '{producer_name}', dropping chunk")
-   553                                                               break
-   554                                                       
-   555                                                       logging.info(f"Added {chunks_added} mono chunks to producer '{producer_name}'")
-   556                                                           
-   557                                                   except Exception as e:
-   558                                                       logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
+   592                                               def play_audio(self, audio_data: np.ndarray, producer_name: str = "default", loop: bool = False):
+   593                                                   """
+   594                                                   Play mono audio data through a specific producer.
+   595                                                   
+   596                                                   Args:
+   597                                                       audio_data: Mono audio data as numpy array (will be converted to int16)
+   598                                                       producer_name: Name of the producer to use 
+   599                                                       loop: Whether to loop the audio (default: False)
+   600                                                   """
+   601                                                   logging.info(f"play_audio called for producer '{producer_name}' with {len(audio_data)} samples, loop={loop}")
+   602                                                   
+   603                                                   try:
+   604                                                       if not self._running:
+   605                                                           logging.warning("play_audio called but AudioManager is not running")
+   606                                                           return
+   607                                                           
+   608                                                       # Create producer if needed
+   609                                                       with self._producers_lock:
+   610                                                           if producer_name not in self._producers:
+   611                                                               logging.info(f"Creating new producer '{producer_name}'")
+   612                                                               producer = self.add_producer(producer_name, buffer_size=1000)
+   613                                                           producer = self._producers[producer_name]
+   614                                                           
+   615                                                           if not producer.active:
+   616                                                               logging.warning(f"Producer '{producer_name}' is not active")
+   617                                                               return
+   618                                                       
+   619                                                       # Check if audio data has the expected shape (1D array for mono)
+   620                                                       if len(audio_data.shape) > 1:
+   621                                                           logging.warning(f"Expected mono audio but got shape {audio_data.shape}. Converting to mono.")
+   622                                                           # Handle multi-dimensional arrays by flattening or taking first channel
+   623                                                           if audio_data.shape[1] > 1:
+   624                                                               audio_data = audio_data[:, 0]  # Take first channel if stereo
+   625                                                           else:
+   626                                                               audio_data = audio_data.flatten()
+   627                                                           
+   628                                                       # Ensure data is in int16 format
+   629                                                       if audio_data.dtype != np.int16:
+   630                                                           # Handle conversion from float to int16
+   631                                                           if np.issubdtype(audio_data.dtype, np.floating):
+   632                                                               # Normalize and scale
+   633                                                               max_val = np.max(np.abs(audio_data))
+   634                                                               if max_val > 0:
+   635                                                                   # Scale to use full int16 range
+   636                                                                   normalized = audio_data / max_val
+   637                                                                   audio_data = (normalized * 32767).astype(np.int16)
+   638                                                               else:
+   639                                                                   # Silent audio - just convert
+   640                                                                   audio_data = audio_data.astype(np.int16)
+   641                                                           else:
+   642                                                               # Direct conversion for other integer types
+   643                                                               audio_data = audio_data.astype(np.int16)
+   644                                                       
+   645                                                       # Set loop data if looping is enabled
+   646                                                       if loop:
+   647                                                           producer.set_loop_data(audio_data, self.config.chunk)
+   648                                                           producer.loop = True
+   649                                                       else:
+   650                                                           producer.loop = False
+   651                                                       
+   652                                                       # Split audio data into chunks matching the configured chunk size
+   653                                                       chunk_size = self.config.chunk
+   654                                                       
+   655                                                       # Clear existing data first
+   656                                                       producer.clear()
+   657                                                       
+   658                                                       # Add chunked data to the producer
+   659                                                       chunks_added = 0
+   660                                                       for i in range(0, len(audio_data), chunk_size):
+   661                                                           end = min(i + chunk_size, len(audio_data))
+   662                                                           chunk = audio_data[i:end]
+   663                                                           
+   664                                                           # Pad the last chunk if necessary
+   665                                                           if len(chunk) < chunk_size:
+   666                                                               chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
+   667                                                           
+   668                                                           if producer.put(chunk):
+   669                                                               chunks_added += 1
+   670                                                           else:
+   671                                                               logging.warning(f"Buffer full for producer '{producer_name}', dropping chunk")
+   672                                                               break
+   673                                                       
+   674                                                       logging.info(f"Added {chunks_added} mono chunks to producer '{producer_name}'")
+   675                                                           
+   676                                                   except Exception as e:
+   677                                                       logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
 
-Total time: 8.4e-05 s
+Total time: 8.3e-05 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/profiling/line_profile_main_app.py
 Function: profiled_run at line 107
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
    107                                                   async def profiled_run():
-   108         1      84000.0  84000.0    100.0              await run_main_with_timeout()
+   108         1      83000.0  83000.0    100.0              await run_main_with_timeout()
 
-Total time: 0.001194 s
+Total time: 0.001646 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/services/audio_service.py
-Function: handle_event at line 42
+Function: handle_event at line 47
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
-    42                                               async def handle_event(self, event: Dict[str, Any]):
-    43                                                   """Handle events from other services"""
-    44        41      29000.0    707.3      2.4          event_type = event.get("type")
-    45                                                   
-    46                                                   # Handle sound control requests
-    47        41      27000.0    658.5      2.3          if event_type == "play_sound":
-    48                                                       effect_name = event.get("effect_name")
-    49                                                       loop = event.get("loop", False)  # Get loop parameter with default False
-    50                                                       volume = event.get("volume", None)  # Allow specifying custom volume
-    51                                                       
-    52                                                       if not self.audio_manager:
-    53                                                           self.logger.error(f"Cannot play sound '{effect_name}': audio manager not initialized")
-    54                                                           return
-    55                                                           
-    56                                                       if effect_name.lower() == "purr" and loop:
-    57                                                           self._purring_active = True
-    58                                                           
-    59                                                       if volume is not None:
-    60                                                           # Set volume for this sound effect
-    61                                                           self.audio_manager.set_producer_volume("sound_effect", volume)
-    62                                                           
-    63                                                       self.logger.info(f"Playing sound effect: {effect_name}, loop={loop}")
-    64                                                       success = self.audio_manager.play_sound(effect_name, loop=loop)
-    65                                                       
-    66                                                       if not success:
-    67                                                           self.logger.warning(f"Failed to play sound effect: {effect_name}")
-    68                                                           
-    69        41      28000.0    682.9      2.3          elif event_type == "stop_sound":
-    70                                                       effect_name = event.get("effect_name")
-    71                                                       
-    72                                                       if not self.audio_manager:
-    73                                                           self.logger.error(f"Cannot stop sound '{effect_name}': audio manager not initialized")
-    74                                                           return
-    75                                                           
-    76                                                       self.logger.info(f"Stopping sound effect: {effect_name}")
-    77                                                       
-    78                                                       if effect_name.lower() == "purr":
-    79                                                           self._purring_active = False
+    47                                               async def handle_event(self, event: Dict[str, Any]):
+    48                                                   """Handle events from other services"""
+    49        40      47000.0   1175.0      2.9          event_type = event.get("type")
+    50                                                   
+    51                                                   # Handle sound control requests
+    52        40      31000.0    775.0      1.9          if event_type == "play_sound":
+    53                                                       effect_name = event.get("effect_name")
+    54                                                       loop = event.get("loop", False)  # Get loop parameter with default False
+    55                                                       volume = event.get("volume", None)  # Allow specifying custom volume
+    56                                                       
+    57                                                       if not self.audio_manager:
+    58                                                           self.logger.error(f"Cannot play sound '{effect_name}': audio manager not initialized")
+    59                                                           return
+    60                                                           
+    61                                                       if effect_name.lower() == "purr" and loop:
+    62                                                           self._purring_active = True
+    63                                                           
+    64                                                       if volume is not None:
+    65                                                           # Set volume for this sound effect
+    66                                                           self.audio_manager.set_producer_volume("sound_effect", volume)
+    67                                                           
+    68                                                       self.logger.info(f"Playing sound effect: {effect_name}, loop={loop}")
+    69                                                       success = self.audio_manager.play_sound(effect_name, loop=loop)
+    70                                                       
+    71                                                       if not success:
+    72                                                           self.logger.warning(f"Failed to play sound effect: {effect_name}")
+    73                                                           
+    74        40      24000.0    600.0      1.5          elif event_type == "stop_sound":
+    75                                                       effect_name = event.get("effect_name")
+    76                                                       
+    77                                                       if not self.audio_manager:
+    78                                                           self.logger.error(f"Cannot stop sound '{effect_name}': audio manager not initialized")
+    79                                                           return
     80                                                           
-    81                                                       self.audio_manager.stop_sound(effect_name)
+    81                                                       self.logger.info(f"Stopping sound effect: {effect_name}")
     82                                                       
-    83        41      18000.0    439.0      1.5          elif event_type == "set_sound_volume":
-    84                                                       producer_name = event.get("producer_name", "sound_effect")
-    85                                                       volume = event.get("volume", 0.5)
-    86                                                       
-    87                                                       if not self.audio_manager:
-    88                                                           self.logger.error(f"Cannot set volume for '{producer_name}': audio manager not initialized")
-    89                                                           return
-    90                                                           
-    91                                                       self.logger.info(f"Setting volume for {producer_name} to {volume}")
-    92                                                       self.audio_manager.set_producer_volume(producer_name, volume)
-    93                                                       
-    94                                                   # Play acknowledgment sound when conversation starts
-    95        41      14000.0    341.5      1.2          elif event_type == "conversation_starting":
-    96         2     182000.0  91000.0     15.2              await self._play_sound("YAWN2")
-    97                                                           
-    98                                                   # Play yawn sound when conversation ends
-    99        39      17000.0    435.9      1.4          elif event_type == "conversation_ended":
-   100         2      78000.0  39000.0      6.5              await self._play_sound("YAWN")
-   101                                           
-   102                                                   # Play a random chirp sound when wakeword is detected
-   103        37      16000.0    432.4      1.3          elif event_type == "intent_detection_started":
-   104         3     625000.0 208333.3     52.3              await self._play_random_chirp()
-   105                                           
-   106        34      12000.0    352.9      1.0          elif event_type == "intent_detected":
-   107         2       2000.0   1000.0      0.2              intent = event.get("intent")
-   108                                                       # TODO: Have a different chirp for each intent
-   109         2      11000.0   5500.0      0.9              if intent != "wake_up":
-   110                                                           await self._play_random_chirp()
-   111                                                           
-   112        32     135000.0   4218.8     11.3          elif event_type == "touch_stroke_intensity":
-   113                                                       # Handle purring sound based on touch intensity
-   114                                                       # Only handle if we're not in a conversation
-   115                                                       if self.global_state.conversation_active:
-   116                                                           return
-   117                                                           
-   118                                                       intensity = event.get("intensity", 0.0)
-   119                                                       if intensity > 0:
-   120                                                           # Start or adjust purring based on intensity
-   121                                                           if not self._purring_active:
-   122                                                               # Start purring with looping
-   123                                                               await self.publish({
-   124                                                                   "type": "play_sound",
-   125                                                                   "effect_name": "purr",
-   126                                                                   "loop": True,
-   127                                                                   "volume": min(0.1 + intensity * 0.9, 1.0)  # Scale volume with intensity
-   128                                                               })
-   129                                                           else:
-   130                                                               # Just adjust volume
-   131                                                               await self.publish({
-   132                                                                   "type": "set_sound_volume",
-   133                                                                   "producer_name": "sound_effect", 
-   134                                                                   "volume": min(0.1 + intensity * 0.9, 1.0)
-   135                                                               })
-   136                                                       elif self._purring_active:
-   137                                                           # Stop purring if intensity dropped to 0
-   138                                                           await self.publish({
-   139                                                               "type": "stop_sound",
-   140                                                               "effect_name": "purr"
-   141                                                           })
+    83                                                       if effect_name.lower() == "purr":
+    84                                                           self._purring_active = False
+    85                                                           
+    86                                                       self.audio_manager.stop_sound(effect_name)
+    87                                                       
+    88        40      25000.0    625.0      1.5          elif event_type == "set_sound_volume":
+    89                                                       producer_name = event.get("producer_name", "sound_effect")
+    90                                                       volume = event.get("volume", 0.5)
+    91                                                       
+    92                                                       if not self.audio_manager:
+    93                                                           self.logger.error(f"Cannot set volume for '{producer_name}': audio manager not initialized")
+    94                                                           return
+    95                                                           
+    96                                                       self.logger.info(f"Setting volume for {producer_name} to {volume}")
+    97                                                       self.audio_manager.set_producer_volume(producer_name, volume)
+    98                                                       
+    99                                                   # Play acknowledgment sound when conversation starts
+   100        40      16000.0    400.0      1.0          elif event_type == "conversation_starting":
+   101         2     258000.0 129000.0     15.7              await self._play_sound("YAWN2")
+   102                                                           
+   103                                                   # Play yawn sound when conversation ends
+   104        38      13000.0    342.1      0.8          elif event_type == "conversation_ended":
+   105         1      97000.0  97000.0      5.9              await self._play_sound("YAWN")
+   106                                           
+   107                                                   # Play a random chirp sound when wakeword is detected
+   108        37      10000.0    270.3      0.6          elif event_type == "intent_detection_started":
+   109         5     964000.0 192800.0     58.6              await self._play_random_chirp()
+   110                                           
+   111        32      14000.0    437.5      0.9          elif event_type == "intent_detected":
+   112         2       2000.0   1000.0      0.1              intent = event.get("intent")
+   113                                                       # TODO: Have a different chirp for each intent
+   114         2       8000.0   4000.0      0.5              if intent != "wake_up":
+   115                                                           await self._play_random_chirp()
+   116                                                           
+   117        30     137000.0   4566.7      8.3          elif event_type == "touch_stroke_intensity":
+   118                                                       # Handle purring sound based on touch intensity
+   119                                                       # Only handle if we're not in a conversation
+   120                                                       if self.global_state.conversation_active:
+   121                                                           return
+   122                                                           
+   123                                                       intensity = event.get("intensity", 0.0)
+   124                                                       if intensity > 0:
+   125                                                           # Start or adjust purring based on intensity
+   126                                                           if not self._purring_active:
+   127                                                               # Start purring with looping
+   128                                                               await self.publish({
+   129                                                                   "type": "play_sound",
+   130                                                                   "effect_name": "purr",
+   131                                                                   "loop": True,
+   132                                                                   "volume": min(0.1 + intensity * 0.9, 1.0)  # Scale volume with intensity
+   133                                                               })
+   134                                                           else:
+   135                                                               # Just adjust volume
+   136                                                               await self.publish({
+   137                                                                   "type": "set_sound_volume",
+   138                                                                   "producer_name": "sound_effect", 
+   139                                                                   "volume": min(0.1 + intensity * 0.9, 1.0)
+   140                                                               })
+   141                                                       elif self._purring_active:
+   142                                                           # Stop purring if intensity dropped to 0
+   143                                                           await self.publish({
+   144                                                               "type": "stop_sound",
+   145                                                               "effect_name": "purr"
+   146                                                           })
 
-Total time: 0.000871 s
+Total time: 0.00111 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/services/audio_service.py
-Function: _play_sound at line 143
+Function: _play_sound at line 148
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
-   143                                               async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
-   144                                                   """Helper method to play a sound effect with error handling
-   145                                                   Args:
-   146                                                       effect_name: Name of the sound effect to play
-   147                                                       loop: Whether to loop the sound effect (default: False)
-   148                                                       volume: Optional specific volume to use (default: None, uses default volume)
-   149                                                   Returns:
-   150                                                       bool: True if sound played successfully, False otherwise
-   151                                                   """
-   152         7       9000.0   1285.7      1.0          if not self.audio_manager:
-   153                                                       self.logger.warning("Cannot play sound - audio manager not initialized")
-   154                                                       return False
-   155                                                       
-   156         7       2000.0    285.7      0.2          try:
-   157                                                       # Start playing the sound first
-   158         7       8000.0   1142.9      0.9              event_loop = asyncio.get_event_loop()
-   159        14     673000.0  48071.4     77.3              success = await event_loop.run_in_executor(
-   160         7       2000.0    285.7      0.2                  None,
-   161         7       5000.0    714.3      0.6                  self.audio_manager.play_sound,
-   162         7       1000.0    142.9      0.1                  effect_name,
-   163         7       2000.0    285.7      0.2                  loop
-   164                                                       )
-   165                                                       
-   166         7       3000.0    428.6      0.3              if not success:
-   167                                                           self.logger.error(f"Failed to play sound effect: {effect_name}")
-   168                                                           return False
-   169                                           
-   170                                                       # Now set the volume after the producer has been created
-   171        14      11000.0    785.7      1.3              with self.audio_manager._producers_lock:
-   172         7      11000.0   1571.4      1.3                  has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
-   173                                                       
-   174                                                       # Use provided volume if specified, otherwise use default logic
-   175         7       1000.0    142.9      0.1              if volume is not None:
-   176                                                           self.audio_manager.set_producer_volume("sound_effect", volume)
-   177         7       1000.0    142.9      0.1              elif has_active_call:
-   178         2      71000.0  35500.0      8.2                  self.logger.info("Active call detected, setting sound effect volume to 0.1")
-   179         2       8000.0   4000.0      0.9                  self.audio_manager.set_producer_volume("sound_effect", 0.1)
-   180                                                       else:
-   181         5      53000.0  10600.0      6.1                  self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME)
-   182                                           
-   183         7      10000.0   1428.6      1.1              return True
-   184                                                       
-   185                                                   except Exception as e:
-   186                                                       self.logger.error(f"Error playing sound effect {effect_name}: {e}")
-   187                                                       return False
+   148                                               async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
+   149                                                   """Helper method to play a sound effect with error handling
+   150                                                   Args:
+   151                                                       effect_name: Name of the sound effect to play
+   152                                                       loop: Whether to loop the sound effect (default: False)
+   153                                                       volume: Optional specific volume to use (default: None, uses default volume)
+   154                                                   Returns:
+   155                                                       bool: True if sound played successfully, False otherwise
+   156                                                   """
+   157         8      12000.0   1500.0      1.1          if not self.audio_manager:
+   158                                                       self.logger.warning("Cannot play sound - audio manager not initialized")
+   159                                                       return False
+   160                                                       
+   161         8          0.0      0.0      0.0          try:
+   162                                                       # Start playing the sound using the dedicated audio thread pool
+   163                                                       # This avoids creating new threads for each sound effect
+   164         8       8000.0   1000.0      0.7              event_loop = asyncio.get_event_loop()
+   165        16     936000.0  58500.0     84.3              success = await event_loop.run_in_executor(
+   166         8      24000.0   3000.0      2.2                  self.audio_manager._audio_thread_pool,  # Use dedicated thread pool
+   167         8      10000.0   1250.0      0.9                  self.audio_manager.play_sound,
+   168         8       3000.0    375.0      0.3                  effect_name,
+   169         8          0.0      0.0      0.0                  loop
+   170                                                       )
+   171                                                       
+   172         8       7000.0    875.0      0.6              if not success:
+   173                                                           self.logger.error(f"Failed to play sound effect: {effect_name}")
+   174                                                           return False
+   175                                           
+   176                                                       # Now set the volume after the producer has been created
+   177        16      14000.0    875.0      1.3              with self.audio_manager._producers_lock:
+   178         8       7000.0    875.0      0.6                  has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
+   179                                                       
+   180                                                       # Use provided volume if specified, otherwise use default logic
+   181         8       2000.0    250.0      0.2              if volume is not None:
+   182                                                           self.audio_manager.set_producer_volume("sound_effect", volume)
+   183         8       4000.0    500.0      0.4              elif has_active_call:
+   184                                                           self.logger.info("Active call detected, setting sound effect volume to 0.1")
+   185                                                           self.audio_manager.set_producer_volume("sound_effect", 0.1)
+   186                                                       else:
+   187         8      68000.0   8500.0      6.1                  self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME)
+   188                                           
+   189         8      15000.0   1875.0      1.4              return True
+   190                                                       
+   191                                                   except Exception as e:
+   192                                                       self.logger.error(f"Error playing sound effect {effect_name}: {e}")
+   193                                                       return False
 
-Total time: 0.009809 s
+Total time: 0.005978 s
 File: /Users/ash/develop/phoenix/phoenix-vapi/src/services/service.py
 Function: publish at line 198
 
@@ -481,36 +522,23 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
 ==============================================================
    198                                               async def publish(self, event: Dict[str, Any]):
    199                                                   """Publish an event to subscribers"""
-   200        43      38000.0    883.7      0.4          if not self._should_run:
-   201         2       2000.0   1000.0      0.0              return
+   200        45      57000.0   1266.7      1.0          if not self._should_run:
+   201         5       9000.0   1800.0      0.2              return
    202                                                       
-   203        41      36000.0    878.0      0.4          event_type = event.get("type")
-   204        41      16000.0    390.2      0.2          if not event_type:
+   203        40      34000.0    850.0      0.6          event_type = event.get("type")
+   204        40      20000.0    500.0      0.3          if not event_type:
    205                                                       self.logger.warning("Received event without type")
    206                                                       return
    207                                                       
-   208        41    3826000.0  93317.1     39.0          self.logger.debug(f"Publishing event: {event}")
+   208                                                   # self.logger.info("Publishing event: " + str(event))
    209                                                   
-   210        82     437000.0   5329.3      4.5          async with self._lock:
+   210        80     541000.0   6762.5      9.0          async with self._lock:
    211                                                       # Get both specific handlers and wildcard handlers
-   212        41     150000.0   3658.5      1.5              handlers = self._subscribers.get(event_type, set()) | self._subscribers.get("*", set())
+   212        40     198000.0   4950.0      3.3              handlers = self._subscribers.get(event_type, set()) | self._subscribers.get("*", set())
    213                                                       
-   214        41      20000.0    487.8      0.2          if not handlers:
-   215                                                       self.logger.debug(f"No handlers for event type: {event_type}")
-   216                                                       return
-   217                                                       
-   218                                                   # Create tasks for all handlers
-   219        41      12000.0    292.7      0.1          tasks = []
-   220       275     136000.0    494.5      1.4          for handler in handlers:
-   221       234    2824000.0  12068.4     28.8              task = asyncio.create_task(self._safe_handle_event(handler, event))
-   222       234      86000.0    367.5      0.9              tasks.append(task)
-   223                                                       
-   224                                                   # Wait for all handlers to complete
-   225        41      11000.0    268.3      0.1          if tasks:
-   226        41    1962000.0  47853.7     20.0              results = await asyncio.gather(*tasks, return_exceptions=True)
-   227                                                       
-   228                                                       # Log any errors
-   229       275     154000.0    560.0      1.6              for result in results:
-   230       234      99000.0    423.1      1.0                  if isinstance(result, Exception):
-   231                                                               self.logger.error(f"Error in event handler: {result}", exc_info=True)
+   214        40      23000.0    575.0      0.4          if not handlers:
+   215                                                       return
+   216                                                       
+   217                                                   # Create and gather tasks efficiently
+   218       271    5096000.0  18804.4     85.2          await asyncio.gather(*[self._safe_handle_event(handler, event) for handler in handlers], return_exceptions=True)
 
