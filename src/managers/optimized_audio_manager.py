@@ -22,6 +22,8 @@ class AudioConfig:
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
     default_volume: float = AudioBaseConfig.DEFAULT_VOLUME
+    # Preferred data format for audio processing
+    dtype: str = 'int16'  # Options: 'int16', 'float32'
     
     def __post_init__(self):
         """Initialize derived values if not explicitly set"""
@@ -29,6 +31,10 @@ class AudioConfig:
             self.input_channels = self.channels
         if self.output_channels is None:
             self.output_channels = self.channels
+        # Validate dtype
+        if self.dtype not in ('int16', 'float32'):
+            logging.warning(f"Unsupported dtype '{self.dtype}', defaulting to 'int16'")
+            self.dtype = 'int16'
             
     def get_input_channels(self) -> int:
         """Get the number of input channels to use"""
@@ -41,34 +47,50 @@ class AudioConfig:
 
 class AudioBuffer:
     """Minimal thread-safe audio buffer with volume control"""
-    def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE):
+    def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE, dtype: str = 'int16'):
         self.buffer = queue.Queue(maxsize=maxsize)
         self._lock = threading.Lock()
         self._volume = 1.0  # Default volume
+        self.dtype = dtype  # Store buffer's native dtype
         
     def put(self, data: np.ndarray) -> bool:
         """
-        Put raw audio data into buffer, dropping if full.
+        Put audio data into buffer, dropping if full.
         
-        For SoundDevice compatibility, all data is converted to float32 in range [-1.0, 1.0].
+        Handles both int16 and float32 formats based on buffer's configured dtype.
         """
         try:
-            # Ensure data is in float32 format for consistency
-            if data.dtype != np.float32:
-                # Convert int16 to float32 in range [-1.0, 1.0]
+            # If data is already in the right format, use it directly
+            if data.dtype == np.dtype(self.dtype):
+                self.buffer.put_nowait(data)
+                return True
+                
+            # Convert to the buffer's native format
+            if self.dtype == 'int16':
+                # Convert to int16
+                if data.dtype == np.float32 or data.dtype == np.float64:
+                    # Scale from [-1.0, 1.0] to int16 range
+                    data = (data * 32767).astype(np.int16)
+                    logging.debug(f"Converted float data to int16 on put")
+                else:
+                    # For other formats, just convert to int16
+                    data = data.astype(np.int16)
+                    
+            elif self.dtype == 'float32':
+                # Convert to float32
                 if data.dtype == np.int16:
-                    data = data.astype(np.float32) / 32768.0
-                    logging.debug(f"Buffer converted int16 data to float32 on put")
+                    # Scale from int16 to [-1.0, 1.0] float32 range
+                    data = data.astype(np.float32) / 32767.0
+                    logging.debug(f"Converted int16 data to float32 on put")
                 else:
                     # For other formats, just convert to float32
                     data = data.astype(np.float32)
-                    logging.debug(f"Buffer converted {data.dtype} data to float32 on put")
                     
-            # Ensure values are within [-1.0, 1.0]
-            if np.max(np.abs(data)) > 1.0:
-                max_val = np.max(np.abs(data))
-                data = np.clip(data, -1.0, 1.0)
-                logging.debug(f"Clipped data from max={max_val:.4f} to 1.0 on put")
+                # Ensure values are within [-1.0, 1.0]
+                if np.max(np.abs(data)) > 1.0:
+                    max_val = np.max(np.abs(data))
+                    data = np.clip(data, -1.0, 1.0)
+                    logging.debug(f"Clipped float32 data from max={max_val:.4f} to 1.0 on put")
                     
             self.buffer.put_nowait(data)
             return True
@@ -79,27 +101,24 @@ class AudioBuffer:
         """
         Get volume-adjusted audio data from buffer.
         
-        Returns float32 data in range [-1.0, 1.0] for SoundDevice compatibility.
+        Returns data in the buffer's native format (int16 or float32).
         """
         try:
             data = self.buffer.get_nowait()
             if data is None:
                 return None
                 
-            # Ensure data is float32
-            if data.dtype != np.float32:
-                data = data.astype(np.float32)
-                if data.dtype == np.int16:
-                    data = data / 32768.0
-                logging.debug(f"Buffer converted data to float32 on get")
-                
-            # Apply volume
+            # Apply volume based on data type
             if self._volume != 1.0:
-                data = data * self._volume
-                
-                # Ensure we didn't exceed [-1.0, 1.0] range
-                if np.max(np.abs(data)) > 1.0:
-                    data = np.clip(data, -1.0, 1.0)
+                if self.dtype == 'int16':
+                    # For int16, scale using integer math
+                    data = (data.astype(np.int32) * int(self._volume * 32767) // 32767).astype(np.int16)
+                else:  # float32
+                    # For float32, simple multiplication
+                    data = data * self._volume
+                    # Ensure we didn't exceed [-1.0, 1.0] range
+                    if np.max(np.abs(data)) > 1.0:
+                        data = np.clip(data, -1.0, 1.0)
                     
             return data
         except queue.Empty:
@@ -131,13 +150,14 @@ class AudioConsumer:
 
 class AudioProducer:
     """Represents a producer of audio output data"""
-    def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100):
+    def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, dtype: str = 'int16'):
         self.name = name
-        self.buffer = AudioBuffer(maxsize=buffer_size)
+        self.buffer = AudioBuffer(maxsize=buffer_size, dtype=dtype)
         self._volume = AudioBaseConfig.DEFAULT_VOLUME
         self.active = True
         self.chunk_size = chunk_size
-        self._remainder = np.array([], dtype=np.float32)  # Use float32 for remainder
+        # Remainder should match buffer's dtype
+        self._remainder = np.array([], dtype=np.dtype(dtype))
         self.loop = False  # Whether to loop the audio
         self._original_audio = None  # Store original audio data for looping
 
@@ -235,7 +255,7 @@ class OptimizedAudioManager:
         """Create a new producer instance without adding it to the producers dictionary"""
         logging.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}")
         
-        producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size)
+        producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size, dtype=self.config.dtype)
         producer.active = True
         if initial_volume is not None:
             producer.volume = initial_volume
@@ -289,12 +309,14 @@ class OptimizedAudioManager:
             num_channels = outdata.shape[1]
             
             # Initialize output data with zeros
-            # SoundDevice expects float32 data in range [-1.0, 1.0]
-            outdata.fill(0.0)
+            outdata.fill(0)
             
             # Track active producers for mixing
             active_producers = 0
             has_audio_data = False
+            
+            # Optimized mixing based on data type
+            is_int16_output = outdata.dtype == np.int16
             
             # Mix audio from all active producers
             with self._producers_lock:
@@ -306,12 +328,6 @@ class OptimizedAudioManager:
                         if data is not None:
                             has_audio_data = True
                             logging.debug(f"Got data from producer '{name}': shape={data.shape}, dtype={data.dtype}")
-                            
-                            # CRITICAL: Convert data to proper format for SoundDevice (float32 in [-1.0, 1.0])
-                            if data.dtype != np.float32:
-                                # Convert from int16 to float32
-                                logging.info(f"Converting data from {data.dtype} to float32 in callback")
-                                data = data.astype(np.float32) / 32768.0
                             
                             # Check if the data matches the expected output format
                             # We need [frames, channels] format for SoundDevice
@@ -333,15 +349,17 @@ class OptimizedAudioManager:
                                     continue
                             
                             # Mix audio data into output buffer
-                            # Data is now in [frames, channels] format
                             frames_to_mix = min(data.shape[0], frames)
                             
-                            # Don't scale by 0.8, use full volume (scaled by producer's volume)
+                            # Direct addition - no scaling needed since volume is already applied
                             outdata[:frames_to_mix] += data[:frames_to_mix]
                             
                             # Log some stats about the data we're mixing
                             if frames_to_mix > 0:
-                                max_val = np.max(np.abs(data[:frames_to_mix]))
+                                if is_int16_output:
+                                    max_val = np.max(np.abs(data[:frames_to_mix])) / 32767.0
+                                else:
+                                    max_val = np.max(np.abs(data[:frames_to_mix]))
                                 logging.debug(f"Mixed {frames_to_mix} frames from '{name}', max value: {max_val:.4f}")
                             
                             active_producers += 1
@@ -352,14 +370,17 @@ class OptimizedAudioManager:
                                 self._requeue_queue.put((name, producer._original_audio, producer.loop))
                                 logging.debug(f"Requeuing looped audio for producer '{name}'")
             
-            # Apply clipping prevention to the final output
-            if np.max(np.abs(outdata)) > 0.05:  # Only log if there's significant audio
+            # Apply clipping prevention based on output format
+            if is_int16_output and np.max(np.abs(outdata)) > 100:  # Threshold for int16
+                max_before = np.max(np.abs(outdata)) / 32767.0  # Normalize for logging
+                np.clip(outdata, -32767, 32767, out=outdata)
+                max_after = np.max(np.abs(outdata)) / 32767.0  # Normalize for logging
+                logging.debug(f"Output max value: {max_before:.4f} -> {max_after:.4f} after clipping")
+            elif not is_int16_output and np.max(np.abs(outdata)) > 0.05:  # Threshold for float32
                 max_before = np.max(np.abs(outdata))
                 np.clip(outdata, -1.0, 1.0, out=outdata)
                 max_after = np.max(np.abs(outdata))
                 logging.debug(f"Output max value: {max_before:.4f} -> {max_after:.4f} after clipping")
-            else:
-                np.clip(outdata, -1.0, 1.0, out=outdata)
             
             if active_producers > 0:
                 if has_audio_data:
@@ -370,7 +391,7 @@ class OptimizedAudioManager:
         except Exception as e:
             logging.error(f"Error in audio output callback: {e}", exc_info=True)
             # Fill with zeros on error to prevent noise
-            outdata.fill(0.0)
+            outdata.fill(0)
             
     def _audio_callback(self, indata, outdata, frames, time, status):
         """Callback function for audio processing in duplex mode"""
@@ -442,7 +463,7 @@ class OptimizedAudioManager:
                         samplerate=self.config.rate,
                         blocksize=self.config.chunk, 
                         channels=(self.config.get_input_channels(), self.config.get_output_channels()),
-                        dtype='float32',  # Use float32 for best compatibility
+                        dtype=self.config.dtype,  # Use the configured dtype
                         callback=self._audio_callback,
                         device=(self.config.input_device_index, self.config.output_device_index)
                     )
@@ -450,17 +471,17 @@ class OptimizedAudioManager:
                 elif self._producers:
                     # Just output, no input needed
                     logging.info("Creating output-only stream")
-                    logging.debug(f"Stream config: rate={self.config.rate}, blocksize={self.config.chunk}, channels={self.config.get_output_channels()}")
+                    logging.debug(f"Stream config: rate={self.config.rate}, blocksize={self.config.chunk}, channels={self.config.get_output_channels()}, dtype={self.config.dtype}")
                     
                     self._stream = sd.OutputStream(
                         samplerate=self.config.rate,
                         blocksize=self.config.chunk, 
                         channels=self.config.get_output_channels(),
-                        dtype='float32',  # Use float32 for best compatibility
+                        dtype=self.config.dtype,  # Use the configured dtype
                         callback=self._output_callback,
                         device=self.config.output_device_index
                     )
-                    logging.info(f"Created output-only stream with {self.config.get_output_channels()} channels")
+                    logging.info(f"Created output-only stream with {self.config.get_output_channels()} channels using {self.config.dtype} format")
                 else:
                     logging.error("No consumers or producers registered, not starting stream")
                     return
@@ -562,34 +583,13 @@ class OptimizedAudioManager:
             # Log the audio data's initial properties
             logging.debug(f"Original audio data: shape={audio_data.shape}, dtype={audio_data.dtype}, min={np.min(audio_data):.4f}, max={np.max(audio_data):.4f}")
             
-            # Detect audio data format and convert as needed
-            data_format = "unknown"
+            # Process based on the stream's dtype
+            target_dtype = self.config.dtype
             num_channels = self.config.get_output_channels()
             
-            # Ensure audio data is in the right format
-            if audio_data.dtype == np.float32:
-                # Already float32, ensure in range [-1.0, 1.0]
-                if np.max(np.abs(audio_data)) > 1.0:
-                    logging.info("Normalizing float32 audio data to [-1.0, 1.0] range")
-                    audio_data = np.clip(audio_data, -1.0, 1.0)
-                data_format = "float32"
-            else:
-                # Convert to float32 for consistent processing
-                logging.info(f"Converting audio from {audio_data.dtype} to float32")
-                
-                # Handle different original types appropriately
-                if audio_data.dtype == np.int16:
-                    audio_data = audio_data.astype(np.float32) / 32768.0
-                elif audio_data.dtype == np.float64:
-                    audio_data = audio_data.astype(np.float32)
-                else:
-                    # Generic conversion for other types
-                    audio_data = audio_data.astype(np.float32)
-                    
-                data_format = "converted_to_float32"
-            
-            # Log the converted data's properties
-            logging.debug(f"After conversion: shape={audio_data.shape}, dtype={audio_data.dtype}, min={np.min(audio_data):.4f}, max={np.max(audio_data):.4f}")
+            # Detect audio data format and convert as needed
+            is_int16_target = target_dtype == 'int16'
+            is_float32_target = target_dtype == 'float32'
             
             # Detect stereo/mono format (interleaved or shaped)
             is_stereo_data = False
@@ -614,28 +614,29 @@ class OptimizedAudioManager:
             
             # Log audio data properties
             logging.info(f"Audio data: shape={audio_data.shape}, dtype={audio_data.dtype}, " +
-                        f"stereo={is_stereo_data}, shaped={is_shaped_format}, output_channels={num_channels}")
+                        f"stereo={is_stereo_data}, shaped={is_shaped_format}, target_format={target_dtype}")
             
             # Convert to the format expected by SoundDevice (non-interleaved [frames, channels])
             if is_stereo_data and not is_shaped_format and num_channels == 2:
                 # Convert from interleaved to [frames, channels]
                 frames = len(audio_data) // 2
-                reshaped_data = np.empty((frames, 2), dtype=np.float32)
+                reshaped_data = np.empty((frames, 2), dtype=audio_data.dtype)
                 reshaped_data[:, 0] = audio_data[0::2]  # Left channel
                 reshaped_data[:, 1] = audio_data[1::2]  # Right channel
                 audio_data = reshaped_data
                 logging.info(f"Converted interleaved stereo data to [frames, channels] format: {audio_data.shape}")
             
             # Double-check there's actual audio content (not all zeroes)
-            max_val = np.max(np.abs(audio_data))
+            if is_int16_target:
+                max_val = np.max(np.abs(audio_data)) / 32767 if audio_data.dtype == np.int16 else np.max(np.abs(audio_data))
+            else:
+                max_val = np.max(np.abs(audio_data)) if audio_data.dtype == np.float32 else np.max(np.abs(audio_data)) / 32767
+                
             if max_val < 0.001:
                 logging.warning(f"Audio data has very low amplitude: {max_val:.6f}, may not be audible")
             
-            # Apply a gain to ensure the audio is loud enough
-            if max_val > 0 and max_val < 0.1:
-                gain = 0.5 / max_val  # Boost to 50% amplitude
-                audio_data = audio_data * gain
-                logging.info(f"Applied gain of {gain:.2f} to boost low-amplitude audio")
+            # Skip unnecessary format conversions if possible
+            # The AudioBuffer.put() method will handle specific conversions
             
             # Split audio data into chunks matching the configured chunk size
             chunk_size = self.config.chunk
@@ -764,20 +765,28 @@ class OptimizedAudioManager:
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
                     
-                    # Read audio data and convert for our system
+                    # Read audio data in the most efficient format
                     audio_data = wf.readframes(frames)
-                    audio_array = np.frombuffer(audio_data, dtype=np.int16)
+                    
+                    # Convert based on the target dtype
+                    if width == 2:  # 16-bit audio
+                        audio_array = np.frombuffer(audio_data, dtype=np.int16)
+                    elif width == 1:  # 8-bit audio
+                        audio_array = np.frombuffer(audio_data, dtype=np.uint8).astype(np.int16) * 256
+                    elif width == 4:  # 32-bit audio
+                        audio_array = np.frombuffer(audio_data, dtype=np.int32).astype(np.int16) // 65536
+                    else:
+                        logging.warning(f"Unusual bit depth: {width*8}-bit, trying to convert")
+                        audio_array = np.frombuffer(audio_data, dtype=np.int16)
                     
                     # Reshape for stereo if necessary
                     if channels == 2:
                         # Reshape to [frames, channels] for SoundDevice
                         audio_array = audio_array.reshape(-1, 2)
                     
-                    # Convert to float32 for consistent processing
-                    audio_float = audio_array.astype(np.float32) / 32768.0
-                    
-                    # Play through the producer
-                    self.play_audio(audio_float, producer_name=producer_name, loop=loop)
+                    # Play through the producer using audio_array directly
+                    # The AudioBuffer.put() will handle any needed conversion
+                    self.play_audio(audio_array, producer_name=producer_name, loop=loop)
                     logging.info(f"Playing WAV file: {wav_path}, channels={channels}, rate={rate}, frames={frames}")
                     
             except FileNotFoundError:
