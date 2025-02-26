@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Callable, Union, Tuple
 from config import AudioBaseConfig, SoundEffect
+import random
 
 @dataclass
 class AudioConfig:
@@ -47,39 +48,107 @@ class AudioConsumer:
         self._audio_buffer = np.array([], dtype=np.int16) if chunk_size else None
 
 class AudioProducer:
-    """Audio producer that generates audio data with integrated buffer"""
+    """
+    Audio producer that generates audio data for playback
+    
+    Optimized for CPU efficiency and minimal memory allocation
+    """
     
     def __init__(self, name: str, max_buffer_size: int = 100):
         """
-        Initialize a new audio producer with integrated buffer
+        Initialize a new audio producer
         
         Args:
-            name: Name of the producer
-            max_buffer_size: Maximum number of chunks to buffer
+            name: Name of the producer (for debugging)
+            max_buffer_size: Maximum size of the producer's buffer
         """
         self.name = name
-        self._buffer = queue.Queue(maxsize=max_buffer_size)
         self.active = True
         self.loop = False
-        self._volume = 1.0
-        self._loop_chunks = []  # Pre-chunked data for looping
+        
+        # Volume control
+        self._volume = 1.0  # Default to max volume
+        
+        # Buffer for audio data
+        self._buffer = queue.Queue(maxsize=max_buffer_size)
+        
+        # Storage for loop data chunks
+        self._loop_chunks = []
+        
+    @property
+    def volume(self) -> float:
+        """Get current volume level (0.0 to 1.0)"""
+        return self._volume
+        
+    @volume.setter
+    def volume(self, value: float):
+        """
+        Set volume level (0.0 to 1.0)
+        Args:
+            value: Volume level to set
+        """
+        self._volume = max(0.0, min(1.0, value))
+        logging.info(f"Producer '{self.name}' volume set to {self._volume}")
         
     def put(self, data: np.ndarray) -> bool:
         """
-        Add audio data to the producer's buffer
+        Put audio data in the buffer
         
         Args:
-            data: Audio data to add
+            data: Audio data as numpy array
             
         Returns:
-            bool: True if data was added, False if buffer is full
+            bool: True if successful, False if buffer is full
         """
+        if not self.active:
+            return False
+            
         try:
+            # Non-blocking put to avoid deadlocks
             self._buffer.put_nowait(data)
             return True
         except queue.Full:
             return False
     
+    def clear(self):
+        """Clear all audio data from the buffer"""
+        try:
+            # Clear the buffer
+            while not self._buffer.empty():
+                self._buffer.get_nowait()
+                
+            # Also clear loop chunks
+            self._loop_chunks = []
+            
+            logging.debug(f"Producer '{self.name}' buffer cleared")
+        except Exception as e:
+            logging.error(f"Error clearing producer buffer: {e}")
+            
+    def set_loop_data(self, audio_data: np.ndarray, chunk_size: int):
+        """
+        Set audio data for looping playback
+        
+        Args:
+            audio_data: Audio data as numpy array
+            chunk_size: Size of chunks to split the data into
+        """
+        # Clear existing loop data
+        self._loop_chunks = []
+        
+        # Split audio data into chunks for looping
+        for i in range(0, len(audio_data), chunk_size):
+            end = min(i + chunk_size, len(audio_data))
+            chunk = audio_data[i:end]
+            
+            # Pad the last chunk if necessary
+            if len(chunk) < chunk_size:
+                chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
+                
+            # Store the chunk for looping
+            self._loop_chunks.append(chunk)
+            
+        logging.debug(f"Producer '{self.name}' loop data set with {len(self._loop_chunks)} chunks")
+        
     def get(self) -> Optional[np.ndarray]:
         """
         Get audio data from the buffer with volume applied
@@ -100,6 +169,10 @@ class AudioProducer:
                     (data.astype(np.float32) / 32767.0 * self._volume * 32767.0), 
                     -32767, 32767
                 ).astype(np.int16)
+                
+            # Log at debug level for troubleshooting
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                logging.debug(f"Producer '{self.name}' returned {len(data)} samples with volume {self._volume}")
                 
             return data
         except queue.Empty:
@@ -131,52 +204,15 @@ class AudioProducer:
                             (data.astype(np.float32) / 32767.0 * self._volume * 32767.0), 
                             -32767, 32767
                         ).astype(np.int16)
+                        
+                    # Log at debug level for troubleshooting
+                    if logging.getLogger().isEnabledFor(logging.DEBUG):
+                        logging.debug(f"Producer '{self.name}' returned {len(data)} looped samples with volume {self._volume}")
+                        
                     return data
                 except queue.Empty:
                     pass
             return None
-    
-    def clear(self):
-        """Clear all data from the buffer"""
-        while not self._buffer.empty():
-            try:
-                self._buffer.get_nowait()
-            except queue.Empty:
-                break
-    
-    @property
-    def volume(self) -> float:
-        """Get the current volume"""
-        return self._volume
-    
-    @volume.setter
-    def volume(self, value: float):
-        """Set the volume (0.0 to 1.0)"""
-        self._volume = max(0.0, min(1.0, value))
-        
-    def set_loop_data(self, audio_data: np.ndarray, chunk_size: int):
-        """
-        Set data for looping, pre-chunked for efficiency
-        
-        Args:
-            audio_data: Audio data to loop
-            chunk_size: Size of chunks to split data into
-        """
-        if not audio_data.size:
-            self._loop_chunks = []
-            return
-            
-        # Pre-chunk the audio data for efficient looping
-        self._loop_chunks = []
-        for i in range(0, len(audio_data), chunk_size):
-            end = min(i + chunk_size, len(audio_data))
-            chunk = audio_data[i:end]
-            
-            # Pad the last chunk if necessary
-            if len(chunk) < chunk_size:
-                chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
-                
-            self._loop_chunks.append(chunk)
 
 class AudioManager:
     """Manages audio resources using SoundDevice for 16kHz mono int16 audio"""
@@ -225,6 +261,9 @@ class AudioManager:
         # Cache for sound effects to avoid repeated loading from disk
         self._sound_effect_cache = {}
         self._sound_effect_cache_lock = threading.Lock()
+        
+        # Track sound effect producers for easier management
+        self._sound_effect_producers = {}  # Maps effect_name -> producer_name
         
     def add_consumer(self, callback: Callable[[np.ndarray], None], 
                      chunk_size: Optional[int] = None, 
@@ -413,14 +452,25 @@ class AudioManager:
         # Use a shorter critical section - only acquire data while holding lock
         with self._producers_lock:
             # Only get references to active producers and their data
+            producer_count = 0
             for name, producer in self._producers.items():
                 if producer.active:
+                    producer_count += 1
                     data = producer.get()  # Get data while holding lock
                     if data is not None and data.size > 0:
                         active_producers_data.append((name, data))
+            
+            # Occasionally log info about active producers for debugging
+            if logging.getLogger().isEnabledFor(logging.DEBUG) and random.random() < 0.01:  # ~1% of callbacks
+                logging.debug(f"Active producers: {producer_count}, with data: {len(active_producers_data)}")
         
         # Process the data WITHOUT holding the lock
         has_audio = False
+        
+        # Log debug info about active producers with data
+        if active_producers_data and logging.getLogger().isEnabledFor(logging.DEBUG) and random.random() < 0.05:  # ~5% of callbacks with data
+            producer_names = [name for name, _ in active_producers_data]
+            logging.debug(f"Processing audio from producers: {producer_names}")
         
         # Mix audio from active producers outside the lock
         for name, data in active_producers_data:
@@ -431,9 +481,10 @@ class AudioManager:
             if data.dtype != np.int16:
                 data = data.astype(np.int16)
             
-            # Special handling for sound effect producer
-            if name == "sound_effect" and frames_to_mix > 0:
-                logging.debug(f"Mixing sound_effect: {frames_to_mix} frames")
+            # Detailed logging for sound effect producers
+            if name.startswith("sound_effect_") and logging.getLogger().isEnabledFor(logging.DEBUG) and random.random() < 0.1:
+                max_val = np.max(np.abs(data))
+                logging.debug(f"Mixing {name}: {frames_to_mix} frames, max amplitude: {max_val}")
             
             # Efficient duplication to all output channels
             for c in range(num_channels):
@@ -445,6 +496,16 @@ class AudioManager:
         if has_audio and np.max(np.abs(outdata)) > 32700:
             # Only clip if necessary to prevent distortion
             np.clip(outdata, -32767, 32767, out=outdata)
+            
+            # Log clipping for debugging
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                logging.debug("Audio clipping detected - mixing multiple sources at high volume")
+                
+        # Log when we have no audio but should (debug potential silence issues)
+        elif not has_audio and len(self._producers) > 0 and logging.getLogger().isEnabledFor(logging.DEBUG) and random.random() < 0.01:
+            active_count = sum(1 for p in self._producers.values() if p.active)
+            if active_count > 0:
+                logging.debug(f"No audio data available from {active_count} active producers")
     
     def _audio_callback(self, indata, outdata, frames, time, status):
         """
@@ -566,6 +627,9 @@ class AudioManager:
                 
             self._running = False
             
+            # Stop all sound effects first
+            self.stop_all_sound_effects()
+            
             # Stop all consumers and producers
             with self._consumers_lock:
                 for consumer in self._consumers:
@@ -610,7 +674,15 @@ class AudioManager:
                 if producer_name not in self._producers:
                     logging.info(f"Creating new producer '{producer_name}'")
                     producer = self.add_producer(producer_name, buffer_size=1000)
-                producer = self._producers[producer_name]
+                else:
+                    # Get existing producer and ensure it's active
+                    producer = self._producers[producer_name]
+                    if not producer.active:
+                        producer.active = True
+                        logging.info(f"Reactivated producer '{producer_name}'")
+                
+                # Clear any existing audio in the producer buffer
+                producer.clear()
                 
                 if not producer.active:
                     logging.warning(f"Producer '{producer_name}' is not active")
@@ -643,17 +715,16 @@ class AudioManager:
                     audio_data = audio_data.astype(np.int16)
             
             # Set loop data if looping is enabled
+            producer = self._producers[producer_name]  # Get the producer again without the lock
             if loop:
                 producer.set_loop_data(audio_data, self.config.chunk)
                 producer.loop = True
+                logging.debug(f"Set loop data for producer '{producer_name}' with {len(audio_data)} samples")
             else:
                 producer.loop = False
             
             # Split audio data into chunks matching the configured chunk size
             chunk_size = self.config.chunk
-            
-            # Clear existing data first
-            producer.clear()
             
             # Add chunked data to the producer
             chunks_added = 0
@@ -685,56 +756,94 @@ class AudioManager:
         Returns:
             bool: True if the sound effect was found and playback started, False otherwise
         """
-        filename = SoundEffect.get_filename(effect_name)
-        if not filename:
-            logging.error(f"Unknown sound effect: {effect_name}")
-            return False
-        
-        wav_path = os.path.join("assets", filename)
-        
-        # Check the cache first for this sound effect
-        audio_data = None
-        with self._sound_effect_cache_lock:
-            if effect_name.lower() in self._sound_effect_cache:
-                audio_data = self._sound_effect_cache[effect_name.lower()]
-                if logging.getLogger().isEnabledFor(logging.DEBUG):
-                    logging.debug(f"Using cached sound effect: {effect_name}")
-        
-        # If not in cache, load it and add to cache
-        if audio_data is None:
-            if not os.path.exists(wav_path):
-                logging.error(f"Sound effect file not found: {wav_path}")
-                return False
-                
-            # Load the sound data
-            try:
-                audio_data = self._load_wav_file_data(wav_path)
-                
-                # Cache the sound effect for future use
-                with self._sound_effect_cache_lock:
-                    self._sound_effect_cache[effect_name.lower()] = audio_data
-                    
-                if logging.getLogger().isEnabledFor(logging.DEBUG):
-                    logging.debug(f"Cached sound effect: {effect_name}")
-            except Exception as e:
-                logging.error(f"Failed to load sound effect {effect_name}: {e}")
-                return False
-        
-        # Remove existing sound_effect producer if it exists
-        with self._producers_lock:
-            if "sound_effect" in self._producers:
-                old_producer = self._producers["sound_effect"]
-                old_producer.active = False
-                old_producer.clear()
-                del self._producers["sound_effect"]
-                logging.info("Removed existing sound_effect producer")
-                
-        # Create a new producer with maximum volume for sound effects
-        producer = self.add_producer("sound_effect", buffer_size=1000, initial_volume=1.0)
-        logging.info(f"Created new sound_effect producer with volume 1.0")
+        try:
+            # Check for debug environment variable to enable additional diagnostics
+            debug_audio = os.environ.get("PHOENIX_AUDIO_DEBUG", "0").lower() in ("1", "true", "yes")
             
-        # Play the sound data through the producer
-        return self._play_audio_data(audio_data, producer_name="sound_effect", loop=loop)
+            effect_name_lower = effect_name.lower()
+            filename = SoundEffect.get_filename(effect_name)
+            if not filename:
+                logging.error(f"Unknown sound effect: {effect_name}")
+                return False
+            
+            wav_path = os.path.join("assets", filename)
+            
+            # Log diagnostic information in debug mode
+            if debug_audio:
+                logging.info(f"Sound effect request: '{effect_name}' -> filename: '{filename}'")
+                logging.info(f"Using path: {wav_path} (exists: {os.path.exists(wav_path)})")
+            
+            # Check the cache first for this sound effect
+            audio_data = None
+            with self._sound_effect_cache_lock:
+                if effect_name_lower in self._sound_effect_cache:
+                    audio_data = self._sound_effect_cache[effect_name_lower]
+                    if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                        logging.debug(f"Using cached sound effect: {effect_name} ({len(audio_data)} samples)")
+            
+            # If not in cache, load it and add to cache
+            if audio_data is None:
+                if not os.path.exists(wav_path):
+                    logging.error(f"Sound effect file not found: {wav_path}")
+                    # Try to help diagnose the issue
+                    if debug_audio:
+                        # Check if assets directory exists and list files
+                        assets_dir = "assets"
+                        if os.path.exists(assets_dir):
+                            files = os.listdir(assets_dir)
+                            logging.info(f"Assets directory contains {len(files)} files, first 5: {files[:5]}")
+                        else:
+                            logging.error(f"Assets directory '{assets_dir}' does not exist")
+                            # Check the current working directory
+                            cwd = os.getcwd()
+                            logging.info(f"Current working directory: {cwd}")
+                    return False
+                    
+                # Load the sound data
+                try:
+                    if debug_audio:
+                        logging.info(f"Loading sound effect from disk: {wav_path}")
+                    
+                    audio_data = self._load_wav_file_data(wav_path)
+                    
+                    if audio_data is None or len(audio_data) == 0:
+                        logging.error(f"Failed to load sound data from {wav_path}: Empty audio data")
+                        return False
+                    
+                    # Cache the sound effect for future use
+                    with self._sound_effect_cache_lock:
+                        self._sound_effect_cache[effect_name_lower] = audio_data
+                        
+                    if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                        logging.debug(f"Cached sound effect: {effect_name} ({len(audio_data)} samples)")
+                except Exception as e:
+                    logging.error(f"Failed to load sound effect {effect_name}: {e}")
+                    if debug_audio:
+                        import traceback
+                        logging.error(traceback.format_exc())
+                    return False
+            
+            # Create a producer name based on the effect name
+            producer_name = f"sound_effect_{effect_name_lower}"
+            
+            # Track this producer in our sound effect producers map
+            self._sound_effect_producers[effect_name_lower] = producer_name
+            
+            # Play the sound data through the dedicated producer
+            success = self._play_audio_data(audio_data, producer_name=producer_name, loop=loop)
+            
+            if success:
+                if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                    logging.debug(f"Successfully played sound effect '{effect_name}' using producer '{producer_name}'")
+            else:
+                logging.error(f"Failed to play sound effect '{effect_name}' using producer '{producer_name}'")
+                
+            return success
+        except Exception as e:
+            logging.error(f"Unexpected error playing sound effect '{effect_name}': {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+            return False
 
     def _load_wav_file_data(self, wav_path: str) -> np.ndarray:
         """
@@ -787,48 +896,104 @@ class AudioManager:
             
     def _play_audio_data(self, audio_data: np.ndarray, producer_name: str = "sound_effect", loop: bool = False) -> bool:
         """
-        Play audio data through a producer.
+        Play audio data through a producer
         
         Args:
-            audio_data: Audio data as numpy array
-            producer_name: Name of the producer to use
-            loop: Whether to loop the audio
+            audio_data: Audio data to play
+            producer_name: Name of the producer to use (default: sound_effect)
+            loop: Whether to loop the audio (default: False)
             
         Returns:
             bool: True if successful, False otherwise
         """
-        if not self._running:
-            logging.error("Cannot play audio data - AudioManager not running")
+        if audio_data is None or len(audio_data) == 0:
+            logging.error("Cannot play empty audio data")
             return False
             
+        if not self.is_running:
+            logging.warning("Cannot play audio: Audio Manager is not running")
+            return False
+            
+        # Ensure audio_data is in the expected format (mono int16)
+        if audio_data.ndim > 1:
+            # Take just the first channel if multi-channel
+            audio_data = audio_data[:, 0]
+            
+        if audio_data.dtype != np.int16:
+            # Convert to int16 if needed
+            audio_data = audio_data.astype(np.int16)
+            
         try:
-            # Play the audio through the producer
-            self.play_audio(audio_data, producer_name=producer_name, loop=loop)
-            logging.info(f"Playing audio data: {len(audio_data)} samples, loop={loop}")
-            return True
+            # Efficiently handle playing audio data through the producer
+            with self._producers_lock:
+                # Check if the producer exists, create it if it doesn't
+                if producer_name not in self._producers:
+                    logging.debug(f"Creating new producer '{producer_name}' for audio playback")
+                    self._producers[producer_name] = AudioProducer(producer_name)
+                    
+                producer = self._producers[producer_name]
+                
+                # Reactivate the producer if it's not active
+                if not producer.active:
+                    producer.active = True
+                    
+                # Clear existing audio from the producer if it exists
+                producer.clear()
+                
+                # Set producer to loop if requested
+                producer.loop = loop
+                
+                # If looping, set up the loop chunks
+                if loop:
+                    # Use chunk size from config
+                    chunk_size = self.config.chunk
+                    producer.set_loop_data(audio_data, chunk_size)
+                    logging.debug(f"Set up looping audio with {len(audio_data) // chunk_size + 1} chunks")
+                    return True
+                    
+                # Otherwise, split data into chunks and add to buffer
+                chunk_size = self.config.chunk
+                
+                # Add chunks to producer (outside of lock to minimize lock time)
+                has_chunks = False
+                for i in range(0, len(audio_data), chunk_size):
+                    end = min(i + chunk_size, len(audio_data))
+                    chunk = audio_data[i:end]
+                    
+                    # Pad the last chunk if necessary
+                    if len(chunk) < chunk_size:
+                        chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
+                        
+                    # Add the chunk to the producer's buffer
+                    if not producer.put(chunk):
+                        logging.warning(f"Producer buffer full for '{producer_name}', dropping chunk")
+                        break
+                    has_chunks = True
+                    
+                if not has_chunks:
+                    logging.error(f"Failed to add any chunks to producer '{producer_name}'")
+                    return False
+                    
+                logging.debug(f"Added {len(audio_data) // chunk_size + 1} audio chunks to producer '{producer_name}'")
+                return True
                 
         except Exception as e:
-            logging.error(f"Failed to play audio data: {str(e)}", exc_info=True)
-        
-        return False
+            logging.error(f"Error playing audio through producer '{producer_name}': {e}")
+            return False
         
     def preload_sound_effects(self, sound_names=None):
         """
         Preload commonly used sound effects into the cache for faster playback.
-        If sound_names is not provided, preloads all chirp sounds and other common effects.
+        If sound_names is not provided, does not preload any effects (they will be
+        loaded on-demand when first used, then cached).
         
         Args:
             sound_names: Optional list of sound effect names to preload
         """
         if sound_names is None:
-            # Preload commonly used sound effects
-            sound_names = [
-                SoundEffect.CHIRP1, SoundEffect.CHIRP2, 
-                SoundEffect.CHIRP3, SoundEffect.CHIRP4, 
-                SoundEffect.CHIRP5, SoundEffect.CHIRP6,
-                SoundEffect.CHIRP7, SoundEffect.CHIRP8,
-                SoundEffect.YAWN, SoundEffect.YAWN2
-            ]
+            # Don't preload anything, just return
+            logging.info("No sound effects specified for preloading. Will load on demand.")
+            return
         
         # Load each sound effect in the background using the thread pool
         def _load_effect(name):
@@ -867,17 +1032,63 @@ class AudioManager:
         logging.info(f"Submitted {len(sound_names)} sound effects for preloading")
 
     def stop_sound(self, effect_name: str):
-        """Stop the currently playing sound effect and clean up resources"""
+        """
+        Stop a specific sound effect and clean up resources
+        
+        Args:
+            effect_name: Name of the sound effect to stop
+        """
+        # Check for debug environment variable to enable additional diagnostics
+        debug_audio = os.environ.get("PHOENIX_AUDIO_DEBUG", "0").lower() in ("1", "true", "yes")
+        
+        effect_name_lower = effect_name.lower()
+        producer_name = f"sound_effect_{effect_name_lower}"
+        
+        # First check if this producer exists
+        producer_found = False
         with self._producers_lock:
-            # TODO: Change to use effect_name instead of "sound_effect" so we have a producer for each sound effect
-            if "sound_effect" in self._producers:
-                producer = self._producers["sound_effect"]
+            # Check if this specific sound effect producer exists
+            if producer_name in self._producers:
+                producer = self._producers[producer_name]
                 producer.loop = False  # Ensure loop flag is cleared
                 producer.clear()  # Clear any pending audio
                 producer.active = False  # Mark as inactive
-                del self._producers["sound_effect"]  # Remove from active producers
-                logging.info("Sound effect stopped and cleaned up")
+                producer_found = True
+                
+                # We don't delete the producer so it can be reused
+                # Only set it to inactive so it's not processed in audio callbacks
+                # This avoids the overhead of creating and destroying producers
+                
+                if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                    logging.debug(f"Sound effect '{effect_name}' stopped using producer '{producer_name}'")
+            
+        # Also check if we have a record in the sound effect producers map
+        if effect_name_lower in self._sound_effect_producers:
+            mapped_producer = self._sound_effect_producers[effect_name_lower]
+            
+            # If this is a different producer than the one we already checked,
+            # also stop it to be thorough (in case of mapping changes)
+            if mapped_producer != producer_name:
+                with self._producers_lock:
+                    if mapped_producer in self._producers:
+                        producer = self._producers[mapped_producer]
+                        producer.loop = False
+                        producer.clear()
+                        producer.active = False
+                        producer_found = True
+                        
+                        if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                            logging.debug(f"Sound effect '{effect_name}' stopped using mapped producer '{mapped_producer}'")
+            
+            # Keep the mapping but don't remove it - we may need to 
+            # reference it again if the sound is restarted
         
+        if not producer_found:
+            if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                logging.debug(f"No active producer found for sound effect: {effect_name}")
+        else:
+            logging.info(f"Sound effect '{effect_name}' stopped")
+
     def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", loop: bool = False) -> bool:
         """
         Play a mono WAV file.
@@ -977,4 +1188,79 @@ class AudioManager:
                     devices[i] = dev['name']
         except Exception as e:
             logging.error(f"Error getting output devices: {e}")
-        return devices 
+        return devices
+
+    def stop_all_sound_effects(self):
+        """Stop all currently playing sound effects"""
+        # Check for debug environment variable to enable additional diagnostics
+        debug_audio = os.environ.get("PHOENIX_AUDIO_DEBUG", "0").lower() in ("1", "true", "yes")
+        
+        # Find and stop all sound effect producers
+        sound_effect_count = 0
+        with self._producers_lock:
+            # Find all sound effect producers (they start with "sound_effect_")
+            sound_effect_producers = [name for name in self._producers.keys() 
+                                     if name.startswith("sound_effect_")]
+            
+            # Stop each one
+            for producer_name in sound_effect_producers:
+                producer = self._producers[producer_name]
+                if producer.active:
+                    producer.loop = False
+                    producer.clear()
+                    producer.active = False
+                    sound_effect_count += 1
+                    
+                    if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                        logging.debug(f"Stopped sound effect producer: {producer_name}")
+        
+        # Log the result            
+        if sound_effect_count > 0:
+            logging.info(f"Stopped {sound_effect_count} sound effect(s)")
+        elif debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+            logging.debug("No active sound effects to stop")
+            
+        # Don't clear the tracking map - we keep the mappings for reuse
+
+    def set_sound_effect_volume(self, effect_name: str, volume: float):
+        """
+        Set the volume for a specific sound effect
+        
+        Args:
+            effect_name: Name of the sound effect
+            volume: Volume level (0.0 to 1.0)
+        """
+        # Check for debug environment variable to enable additional diagnostics
+        debug_audio = os.environ.get("PHOENIX_AUDIO_DEBUG", "0").lower() in ("1", "true", "yes")
+        
+        # Clamp volume to valid range
+        volume = max(0.0, min(1.0, volume))
+        
+        effect_name_lower = effect_name.lower()
+        producer_name = f"sound_effect_{effect_name_lower}"
+        
+        # Set volume for the producer if it exists
+        volume_set = False
+        with self._producers_lock:
+            if producer_name in self._producers:
+                self._producers[producer_name].volume = volume
+                volume_set = True
+                
+                if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                    logging.debug(f"Set volume for sound effect '{effect_name}' to {volume}")
+            
+            # Also check if we have a record in our tracking map that points to a different producer
+            elif effect_name_lower in self._sound_effect_producers:
+                mapped_producer = self._sound_effect_producers[effect_name_lower]
+                if mapped_producer in self._producers:
+                    self._producers[mapped_producer].volume = volume
+                    volume_set = True
+                    
+                    if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                        logging.debug(f"Set volume for sound effect '{effect_name}' to {volume} using mapped producer '{mapped_producer}'")
+        
+        if volume_set:
+            logging.info(f"Set volume for sound effect '{effect_name}' to {volume}")
+        else:
+            if debug_audio or logging.getLogger().isEnabledFor(logging.DEBUG):
+                logging.debug(f"Cannot set volume - sound effect '{effect_name}' not found") 

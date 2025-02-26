@@ -23,10 +23,8 @@ class AudioService(BaseService):
             self.audio_manager = AudioManager.get_instance(config)
             self.audio_manager.start()
             
-            # Preload commonly used sound effects in the background
-            # This reduces latency when playing sounds during operation
-            self.audio_manager.preload_sound_effects()
-            
+            # Don't preload sound effects, they'll be loaded on first use
+            # and then cached for subsequent uses
             self.logger.info("Audio service started successfully")
             
         except Exception as e:
@@ -63,7 +61,7 @@ class AudioService(BaseService):
                 
             if volume is not None:
                 # Set volume for this sound effect
-                self.audio_manager.set_producer_volume("sound_effect", volume)
+                self.audio_manager.set_sound_effect_volume(effect_name, volume)
                 
             self.logger.info(f"Playing sound effect: {effect_name}, loop={loop}")
             success = self.audio_manager.play_sound(effect_name, loop=loop)
@@ -88,13 +86,20 @@ class AudioService(BaseService):
         elif event_type == "set_sound_volume":
             producer_name = event.get("producer_name", "sound_effect")
             volume = event.get("volume", 0.5)
+            effect_name = event.get("effect_name")
             
             if not self.audio_manager:
-                self.logger.error(f"Cannot set volume for '{producer_name}': audio manager not initialized")
+                self.logger.error(f"Cannot set volume: audio manager not initialized")
                 return
                 
-            self.logger.info(f"Setting volume for {producer_name} to {volume}")
-            self.audio_manager.set_producer_volume(producer_name, volume)
+            # If it's a sound effect with a specific name, use the specialized method
+            if effect_name:
+                self.logger.info(f"Setting volume for sound effect '{effect_name}' to {volume}")
+                self.audio_manager.set_sound_effect_volume(effect_name, volume)
+            else:
+                # Otherwise use the generic producer volume setting (for backward compatibility)
+                self.logger.info(f"Setting volume for producer '{producer_name}' to {volume}")
+                self.audio_manager.set_producer_volume(producer_name, volume)
             
         # Play acknowledgment sound when conversation starts
         elif event_type == "conversation_starting":
@@ -135,7 +140,7 @@ class AudioService(BaseService):
                     # Just adjust volume
                     await self.publish({
                         "type": "set_sound_volume",
-                        "producer_name": "sound_effect", 
+                        "effect_name": "purr",
                         "volume": min(0.1 + intensity * 0.9, 1.0)
                     })
             elif self._purring_active:
@@ -173,18 +178,19 @@ class AudioService(BaseService):
                 self.logger.error(f"Failed to play sound effect: {effect_name}")
                 return False
 
-            # Now set the volume after the producer has been created
+            # Check if there's an active call to adjust volume
+            has_active_call = False
             with self.audio_manager._producers_lock:
                 has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
             
             # Use provided volume if specified, otherwise use default logic
             if volume is not None:
-                self.audio_manager.set_producer_volume("sound_effect", volume)
+                self.audio_manager.set_sound_effect_volume(effect_name, volume)
             elif has_active_call:
                 self.logger.info("Active call detected, setting sound effect volume to 0.1")
-                self.audio_manager.set_producer_volume("sound_effect", 0.1)
+                self.audio_manager.set_sound_effect_volume(effect_name, 0.1)
             else:
-                self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME)
+                self.audio_manager.set_sound_effect_volume(effect_name, AudioBaseConfig.DEFAULT_VOLUME)
 
             return True
             
