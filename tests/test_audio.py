@@ -3,8 +3,14 @@ import os
 import logging
 import numpy as np
 import time
+import threading
 from pathlib import Path
-import sounddevice as sd
+
+# Add the parent directory to the Python path so we can import our modules
+sys.path.append(str(Path(__file__).parent.parent))
+
+# Import our audio manager
+from managers.audio_manager import AudioManager, AudioConfig
 
 # Configure logging
 logging.basicConfig(
@@ -13,9 +19,10 @@ logging.basicConfig(
 )
 
 def list_audio_devices():
-    """List all available audio devices with more details"""
+    """List all available audio devices with details"""
     logging.info("=== AUDIO DEVICE DETAILS ===")
     try:
+        import sounddevice as sd
         devices = sd.query_devices()
         for i, dev in enumerate(devices):
             logging.info(f"Device {i}: {dev['name']}")
@@ -34,7 +41,7 @@ def list_audio_devices():
         logging.error(f"Error listing devices: {e}")
     logging.info("=============================")
 
-def generate_stereo_beep(frequency, duration, sample_rate, volume=0.9):
+def generate_stereo_beep(frequency, duration, sample_rate, volume=0.95):
     """Generate a stereo beep sound with a clear left-right panning effect"""
     t = np.linspace(0, duration, int(sample_rate * duration), False)
     
@@ -43,29 +50,29 @@ def generate_stereo_beep(frequency, duration, sample_rate, volume=0.9):
     right_volume = 0.2 + 0.6 * (t / duration)
     
     # Generate base tone at specified volume
-    # Note: SoundDevice expects float between -1 and 1, not int16
     sine_wave = np.sin(2 * np.pi * frequency * t) * volume
     
     # Create stereo by applying panning volumes
     left_channel = sine_wave * left_volume
     right_channel = sine_wave * right_volume
     
-    # Create stereo data as [frames, channels] format
+    # Create stereo data in [frames, channels] format for SoundDevice
     stereo_data = np.column_stack((left_channel, right_channel))
     
     logging.info(f"Generated stereo beep: {len(stereo_data)} frames at {sample_rate}Hz")
     return stereo_data
 
-def test_direct_audio_playback():
-    """Test direct audio playback through SoundDevice"""
+def test_audio():
+    """Test the AudioManager implementation"""
     print("\n" + "=" * 80)
-    print(" TESTING DIRECT SOUNDDEVICE AUDIO PLAYBACK ".center(80, "="))
+    print(" AUDIO MANAGER TEST ".center(80, "="))
     print("=" * 80 + "\n")
     
     # First list all available devices
     list_audio_devices()
     
     # Get the default output device details
+    import sounddevice as sd
     device_info = sd.query_devices(sd.default.device[1])
     default_samplerate = int(device_info['default_samplerate'])
     default_channels = device_info['max_output_channels']
@@ -74,46 +81,72 @@ def test_direct_audio_playback():
     
     # Generate test tones using the device's default sample rate
     sample_rate = default_samplerate
-    duration = 2.0  # seconds
+    duration = 1.0  # seconds
     
-    # Create different tones
-    high_freq = 880.0  # Higher frequency (A5 note)
+    # Create tone
+    high_freq = 880.0  # A5 note
     
-    # Generate a stereo beep (LOUD volume for testing)
-    beep = generate_stereo_beep(high_freq, duration, sample_rate, volume=0.9)
+    # Generate beep with high volume for testing
+    high_beep = generate_stereo_beep(high_freq, duration, sample_rate, volume=0.95)
     
     try:
-        # Test 1: Direct playback through SoundDevice
-        print("\nPlaying a 2-second beep at FULL volume through SoundDevice...")
-        print("You should hear a stereo tone that pans from left to right...")
+        # Create config matching device settings
+        config = AudioConfig(
+            output_channels=default_channels,
+            rate=sample_rate,
+            chunk=1024  # Use a standard chunk size
+        )
         
-        # Play using default device
-        sd.play(beep, sample_rate)
+        print("\nInitializing AudioManager...")
+        audio_manager = AudioManager.get_instance(config)
         
-        # Wait for playback to finish
-        sd.wait()
+        # Clear any existing producers
+        with audio_manager._producers_lock:
+            audio_manager._producers.clear()
         
-        print("\nDid you hear the beep? If yes, SoundDevice is working correctly.")
-        print("If not, there may be an issue with your audio configuration.")
+        # Register a producer
+        print("Registering producer 'test_tone'...")
+        producer = audio_manager.add_producer("test_tone")
         
-        # Test 2: Try with explicitly specified device
-        output_device = sd.default.device[1]
-        print(f"\nTrying again with explicit device {output_device}...")
+        print("\nStarting AudioManager...")
+        audio_manager.start()
         
-        # Play with explicit device selection
-        sd.play(beep, sample_rate, device=output_device)
+        # Wait for the stream to stabilize
+        time.sleep(0.5)
         
-        # Wait for playback to finish
-        sd.wait()
+        # Play the test sound
+        print("\nPlaying test tone through AudioManager...")
+        logging.debug(f"Playing audio data: shape={high_beep.shape}, dtype={high_beep.dtype}, max={np.max(np.abs(high_beep)):.4f}")
         
-        print("\nDid you hear the second beep? If yes, try the optimized AudioManager again.")
+        # Set max volume
+        audio_manager.set_producer_volume("test_tone", 1.0)
+        
+        # Play and track time
+        start_time = time.time()
+        audio_manager.play_audio(high_beep, producer_name="test_tone")
+        
+        # Wait for duration
+        time.sleep(duration * 1.5)
+        end_time = time.time()
+        
+        print(f"\nPlayback took approximately {end_time - start_time:.2f} seconds")
+        print("You should have heard a beep through the AudioManager!")
+        
+        # Give time for any remaining audio to play
+        time.sleep(0.5)
         
     except Exception as e:
-        logging.error(f"Error in direct audio playback: {e}", exc_info=True)
-    
+        logging.error(f"Error in audio tests: {e}", exc_info=True)
+        
+    finally:
+        # Stop the audio manager if it exists and is running
+        if 'audio_manager' in locals() and hasattr(audio_manager, '_running') and audio_manager._running:
+            print("\nStopping AudioManager...")
+            audio_manager.stop()
+            
     print("\n" + "=" * 80)
     print(" END OF TEST ".center(80, "="))
     print("=" * 80 + "\n")
 
 if __name__ == "__main__":
-    test_direct_audio_playback() 
+    test_audio() 

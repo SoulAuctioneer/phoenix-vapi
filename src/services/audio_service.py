@@ -7,7 +7,7 @@ from services.service import BaseService
 from managers.audio_manager import AudioManager, AudioConfig
 
 class AudioService(BaseService):
-    """Service to manage the AudioManager lifecycle"""
+    """Service to manage the AudioManager lifecycle, with improved CPU efficiency"""
     def __init__(self, manager):
         super().__init__(manager)
         self.audio_manager = None
@@ -48,12 +48,49 @@ class AudioService(BaseService):
             effect_name = event.get("effect_name")
             loop = event.get("loop", False)  # Get loop parameter with default False
             volume = event.get("volume", None)  # Allow specifying custom volume
-            await self._play_sound(effect_name, loop=loop, volume=volume)
+            
+            if not self.audio_manager:
+                self.logger.error(f"Cannot play sound '{effect_name}': audio manager not initialized")
+                return
+                
+            if effect_name.lower() == "purr" and loop:
+                self._purring_active = True
+                
+            if volume is not None:
+                # Set volume for this sound effect
+                self.audio_manager.set_producer_volume("sound_effect", volume)
+                
+            self.logger.info(f"Playing sound effect: {effect_name}, loop={loop}")
+            success = self.audio_manager.play_sound(effect_name, loop=loop)
+            
+            if not success:
+                self.logger.warning(f"Failed to play sound effect: {effect_name}")
+                
         elif event_type == "stop_sound":
-            effect_name = event.get("effect_name")  # For logging purposes
+            effect_name = event.get("effect_name")
+            
+            if not self.audio_manager:
+                self.logger.error(f"Cannot stop sound '{effect_name}': audio manager not initialized")
+                return
+                
+            self.logger.info(f"Stopping sound effect: {effect_name}")
+            
+            if effect_name.lower() == "purr":
+                self._purring_active = False
+                
             self.audio_manager.stop_sound(effect_name)
-            self.logger.info(f"Stopped sound effect: {effect_name}")
-        
+            
+        elif event_type == "set_sound_volume":
+            producer_name = event.get("producer_name", "sound_effect")
+            volume = event.get("volume", 0.5)
+            
+            if not self.audio_manager:
+                self.logger.error(f"Cannot set volume for '{producer_name}': audio manager not initialized")
+                return
+                
+            self.logger.info(f"Setting volume for {producer_name} to {volume}")
+            self.audio_manager.set_producer_volume(producer_name, volume)
+            
         # Play acknowledgment sound when conversation starts
         elif event_type == "conversation_starting":
             await self._play_sound("YAWN2")
@@ -71,33 +108,37 @@ class AudioService(BaseService):
             # TODO: Have a different chirp for each intent
             if intent != "wake_up":
                 await self._play_random_chirp()
-
-        # Handle touch stroke intensity for purring sound
+                
         elif event_type == "touch_stroke_intensity":
-            # Only trigger purring if we're not in a conversation
-            if not self.global_state.conversation_active:
-                intensity = event.get('intensity', 0.0)
-                if intensity > 0:
-                    # Linear mapping from intensity to volume (0.001-0.5)
-                    # Start very quiet and increase linearly to max volume
-                    min_volume = 0.001   # Start nearly silent (0.1%)
-                    max_volume = 0.5     # Maximum volume (50%)
-                    volume = min_volume + (intensity * (max_volume - min_volume))
-                    
-                    # Start or update purring sound with new volume
-                    self.logger.info(f"Starting or updating purring sound with volume {volume:.3f} based on intensity {intensity:.2f}")
-                    
-                    # Set volume and play/update sound
-                    if not self._purring_active:
-                        self._purring_active = True
-                        await self._play_sound("PURRING", loop=True, volume=volume)
-                    else:
-                        self.audio_manager.set_producer_volume("sound_effect", volume)
+            # Handle purring sound based on touch intensity
+            # Only handle if we're not in a conversation
+            if self.global_state.conversation_active:
+                return
+                
+            intensity = event.get("intensity", 0.0)
+            if intensity > 0:
+                # Start or adjust purring based on intensity
+                if not self._purring_active:
+                    # Start purring with looping
+                    await self.publish({
+                        "type": "play_sound",
+                        "effect_name": "purr",
+                        "loop": True,
+                        "volume": min(0.1 + intensity * 0.9, 1.0)  # Scale volume with intensity
+                    })
                 else:
-                    # When intensity drops to 0, stop the purring sound
-                    self._purring_active = False
-                    self.logger.info("Touch intensity ended, stopping purring sound")
-                    self.audio_manager.stop_sound("PURRING")
+                    # Just adjust volume
+                    await self.publish({
+                        "type": "set_sound_volume",
+                        "producer_name": "sound_effect", 
+                        "volume": min(0.1 + intensity * 0.9, 1.0)
+                    })
+            elif self._purring_active:
+                # Stop purring if intensity dropped to 0
+                await self.publish({
+                    "type": "stop_sound",
+                    "effect_name": "purr"
+                })
 
     async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
         """Helper method to play a sound effect with error handling
