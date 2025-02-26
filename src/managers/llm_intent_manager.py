@@ -11,6 +11,7 @@ from textwrap import dedent
 from typing import Callable, Awaitable, Optional, Dict, Any
 from managers.audio_manager import AudioManager, AudioConfig
 from config import OPENAI_API_KEY, IntentConfig, AudioBaseConfig
+import time
 
 class LLMIntentManager:
     """
@@ -78,36 +79,75 @@ class LLMIntentManager:
             return
             
         try:
+            # Skip silent audio (prevent accumulating noise)
+            if np.max(np.abs(audio_data)) < 100:  # Very quiet, likely just noise
+                return
+            
+            # Check if we have valid audio data
+            if audio_data.size == 0:
+                logging.warning("Received empty audio data chunk")
+                return
+                
+            # Log debug info about received audio
+            logging.debug(f"Received audio chunk: shape={audio_data.shape}, max={np.max(np.abs(audio_data)):.1f}")
+                
             # Buffer the audio data
-            self._audio_buffer.append(audio_data)
+            self._audio_buffer.append(audio_data.copy())  # Use copy to prevent reference issues
+            
+            # Log total audio collected
+            total_samples = sum(chunk.size for chunk in self._audio_buffer)
+            logging.debug(f"Total audio buffered: {total_samples} samples, {total_samples/AudioBaseConfig.SAMPLE_RATE:.2f} seconds")
             
         except Exception as e:
             logging.error(f"Error processing audio in speech intent detection: {e}")
+            logging.exception(e)
 
     async def _process_buffer(self):
         """Periodically process the buffered audio to detect intents"""
         try:
+            # Track the time since we started collecting
+            collection_start_time = time.time()
+            min_collection_time = 1.0  # Collect at least 1 second of audio before attempting transcription
+            
             while self.running:
-                # Process every 2 seconds if we have audio
-                if len(self._audio_buffer) > 0:
-                    text = await self._transcribe_audio()
-                    if text.strip():  # Only process non-empty transcriptions
-                        logging.info(f"Transcribed text: {text}")
-                        intent_data = await self._classify_intent(text)
-                        if intent_data["intent"]:  # If we detected an intent
-                            logging.info(f"Detected intent: {intent_data}")
-                            if self.on_intent:
-                                await self.on_intent(intent_data)
-                            # Clear buffer after successful intent detection
-                            self._audio_buffer = []
-                            return  # Exit after first intent detection
+                current_time = time.time()
+                collection_time = current_time - collection_start_time
                 
-                await asyncio.sleep(2.0)  # Wait before next processing
+                # Check if we have enough audio data
+                if len(self._audio_buffer) > 0:
+                    # Check if we've been collecting long enough
+                    if collection_time >= min_collection_time:
+                        text = await self._transcribe_audio()
+                        
+                        if text.strip():  # Only process non-empty transcriptions
+                            logging.info(f"Transcribed text: {text}")
+                            intent_data = await self._classify_intent(text)
+                            if intent_data["intent"]:  # If we detected an intent
+                                logging.info(f"Detected intent: {intent_data}")
+                                if self.on_intent:
+                                    await self.on_intent(intent_data)
+                                # Clear buffer after successful intent detection
+                                self._audio_buffer = []
+                                return  # Exit after first intent detection
+                            else:
+                                # No intent detected, keep listening 
+                                logging.info("No intent detected, continuing to listen")
+                                # Reset the collection start time but keep some context
+                                collection_start_time = current_time - 0.5  # Keep last 0.5 seconds for context
+                    else:
+                        # Not enough time has passed, continue collecting
+                        logging.debug(f"Collecting audio: {len(self._audio_buffer)} chunks, {collection_time:.2f}s elapsed")
+                else:
+                    # Reset the timer if we don't have any audio
+                    collection_start_time = current_time
+                
+                await asyncio.sleep(0.5)  # Check more frequently
                 
         except asyncio.CancelledError:
             logging.info("Processing task cancelled")
         except Exception as e:
             logging.error(f"Error in processing loop: {e}")
+            logging.exception(e)
 
     async def _transcribe_audio(self) -> str:
         """
@@ -120,6 +160,15 @@ class LLMIntentManager:
         try:
             # Combine all audio chunks
             audio = np.concatenate(self._audio_buffer)
+            
+            # Check if we have enough audio data (at least 0.1 seconds required by OpenAI)
+            min_required_samples = int(AudioBaseConfig.SAMPLE_RATE * 0.1)  # 0.1 seconds of audio
+            
+            if len(audio) < min_required_samples:
+                logging.warning(f"Audio buffer too short ({len(audio)} samples, {len(audio)/AudioBaseConfig.SAMPLE_RATE:.3f}s), need at least {min_required_samples} samples (0.1s). Waiting for more audio.")
+                return ""  # Return empty to indicate we need more audio
+            
+            logging.info(f"Transcribing audio: {len(audio)} samples, {len(audio)/AudioBaseConfig.SAMPLE_RATE:.2f} seconds")
             
             # Save audio to a temporary file
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as temp_file:

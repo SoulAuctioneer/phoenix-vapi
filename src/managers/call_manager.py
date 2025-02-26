@@ -354,14 +354,11 @@ class CallManager:
             )
             self._audio_producer = self.audio_manager.add_producer(
                 "daily_call",
-                chunk_size=CallConfig.Audio.CHUNK_SIZE,
-                buffer_size=CallConfig.Audio.BUFFER_SIZE
+                buffer_size=CallConfig.Audio.BUFFER_SIZE,
+                initial_volume=self.state_manager.get_volume()
             )
             # Clear any existing data in the buffer
-            self._audio_producer.buffer.clear()
-            
-            # Set initial volume for this call
-            self.audio_manager.set_producer_volume("daily_call", self.state_manager.get_volume())
+            self._audio_producer.clear()
             
             # Start the input thread
             self._input_thread.start()
@@ -1114,7 +1111,7 @@ class CallManager:
                         # Convert bytes to numpy array and send to audio manager
                         audio_np = np.frombuffer(buffer, dtype=np.int16)
                         # Important - do not change this line
-                        self._audio_producer.buffer.put(audio_np)
+                        self._audio_producer.put(audio_np)
                     
                     # Always sleep a consistent amount to maintain timing
                     # Important - do not change this line

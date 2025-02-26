@@ -93,7 +93,6 @@ def test_audio():
         # Create config matching device settings
         config = AudioConfig(
             channels=default_channels,
-            rate=sample_rate,
             chunk=1024  # Use a standard chunk size
         )
         
