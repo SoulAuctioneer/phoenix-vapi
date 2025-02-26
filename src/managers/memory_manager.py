@@ -33,21 +33,18 @@ class MemoryManager:
     - "event" (for events in the user's life)
     - "conversation_topic" (for topics discussed)
     - "activity" (for briefly describing any activities played together)
-    - "story_progress" (for summarizing a partially or fully completed story)
+    - "story_progress" (for summarizing a story activity. Briefly summarize what happened in the story so far.)
     
-    Include only factual information, preferences, events, activities, stories, conversational topics, personal details etc. that came up in the conversation.
-    Do NOT include pleasantries, greetings, or meta-conversation details.
-    
-    IMPORTANT: Do NOT create duplicate memories that convey the same information as existing memories.
-    Review the list of existing memories below and only add new information or significantly different details.
-    
-    Return ONLY the JSON array of memories, nothing else.
+    IMPORTANT:
+    - Include only factual information, preferences, events, activities, stories, conversational topics, personal details etc. that came up in the conversation.
+    - Do NOT include pleasantries, greetings, or meta-conversation details.    
+    - Return ONLY the JSON array of memories, nothing else.
+    - Do NOT generate memories from the first system prompt, only from the conversation.
 
     Here is the conversation to extract memories from:
-
     {conversation_text}
 
-    Here are memories that are already known (DO NOT duplicate these):
+    Review the list of existing memories below and only add new information or significantly different details. Do NOT create duplicate memories that convey the same information as existing memories:
     {existing_memories}
     """).strip()
 
