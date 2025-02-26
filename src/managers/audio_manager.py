@@ -6,92 +6,48 @@ import queue
 import logging
 import time
 import os
-from typing import Optional, Dict, Any, List, Callable, Set
+from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
 from config import SoundEffect, AudioBaseConfig
 
 @dataclass
 class AudioConfig:
-    """Audio configuration parameters"""
+    """Audio configuration parameters for mono int16 audio processing"""
     channels: int = AudioBaseConfig.NUM_CHANNELS
-    input_channels: Optional[int] = None  # Separate input channels setting
-    output_channels: Optional[int] = None  # Separate output channels setting
     rate: int = AudioBaseConfig.SAMPLE_RATE
     chunk: int = AudioBaseConfig.CHUNK_SIZE
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
     default_volume: float = AudioBaseConfig.DEFAULT_VOLUME
-    # Preferred data format for audio processing
-    dtype: str = 'int16'  # Options: 'int16', 'float32'
     
-    def __post_init__(self):
-        """Initialize derived values if not explicitly set"""
-        if self.input_channels is None:
-            self.input_channels = self.channels
-        if self.output_channels is None:
-            self.output_channels = self.channels
-        # Validate dtype
-        if self.dtype not in ('int16', 'float32'):
-            logging.warning(f"Unsupported dtype '{self.dtype}', defaulting to 'int16'")
-            self.dtype = 'int16'
-            
-    def get_input_channels(self) -> int:
-        """Get the number of input channels to use"""
-        return self.input_channels or self.channels
-        
-    def get_output_channels(self) -> int:
+    def get_channels(self) -> int:
         """Get the number of output channels to use"""
-        return self.output_channels or self.channels
+        return max(1, self.channels)  # Ensure at least mono
 
 
 class AudioBuffer:
-    """Minimal thread-safe audio buffer with volume control"""
-    def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE, dtype: str = 'int16'):
+    """Minimal thread-safe audio buffer with volume control for int16 audio"""
+    def __init__(self, maxsize: int = AudioBaseConfig.BUFFER_SIZE):
         self.buffer = queue.Queue(maxsize=maxsize)
         self._lock = threading.Lock()
         self._volume = 1.0  # Default volume
-        self.dtype = dtype  # Store buffer's native dtype
         
     def put(self, data: np.ndarray) -> bool:
         """
-        Put audio data into buffer, dropping if full.
+        Put int16 audio data into buffer, dropping if full.
         
-        Handles both int16 and float32 formats based on buffer's configured dtype.
+        Args:
+            data: Audio data as numpy array with dtype=int16
+        
+        Returns:
+            bool: True if data was successfully queued, False if buffer was full
         """
         try:
-            # If data is already in the right format, use it directly
-            if data.dtype == np.dtype(self.dtype):
-                self.buffer.put_nowait(data)
-                return True
+            # Ensure data is int16
+            if data.dtype != np.int16:
+                data = data.astype(np.int16)
                 
-            # Convert to the buffer's native format
-            if self.dtype == 'int16':
-                # Convert to int16
-                if data.dtype == np.float32 or data.dtype == np.float64:
-                    # Scale from [-1.0, 1.0] to int16 range
-                    data = (data * 32767).astype(np.int16)
-                    logging.debug(f"Converted float data to int16 on put")
-                else:
-                    # For other formats, just convert to int16
-                    data = data.astype(np.int16)
-                    
-            elif self.dtype == 'float32':
-                # Convert to float32
-                if data.dtype == np.int16:
-                    # Scale from int16 to [-1.0, 1.0] float32 range
-                    data = data.astype(np.float32) / 32767.0
-                    logging.debug(f"Converted int16 data to float32 on put")
-                else:
-                    # For other formats, just convert to float32
-                    data = data.astype(np.float32)
-                    
-                # Ensure values are within [-1.0, 1.0]
-                if np.max(np.abs(data)) > 1.0:
-                    max_val = np.max(np.abs(data))
-                    data = np.clip(data, -1.0, 1.0)
-                    logging.debug(f"Clipped float32 data from max={max_val:.4f} to 1.0 on put")
-                    
             self.buffer.put_nowait(data)
             return True
         except queue.Full:
@@ -101,24 +57,18 @@ class AudioBuffer:
         """
         Get volume-adjusted audio data from buffer.
         
-        Returns data in the buffer's native format (int16 or float32).
+        Returns:
+            np.ndarray: int16 audio data with volume applied, or None if buffer is empty
         """
         try:
             data = self.buffer.get_nowait()
             if data is None:
                 return None
                 
-            # Apply volume based on data type
+            # Apply volume (efficient int16 scaling)
             if self._volume != 1.0:
-                if self.dtype == 'int16':
-                    # For int16, scale using integer math
-                    data = (data.astype(np.int32) * int(self._volume * 32767) // 32767).astype(np.int16)
-                else:  # float32
-                    # For float32, simple multiplication
-                    data = data * self._volume
-                    # Ensure we didn't exceed [-1.0, 1.0] range
-                    if np.max(np.abs(data)) > 1.0:
-                        data = np.clip(data, -1.0, 1.0)
+                # Fast integer-based volume scaling for int16
+                data = (data.astype(np.int32) * int(self._volume * 32767) // 32767).astype(np.int16)
                     
             return data
         except queue.Empty:
@@ -143,21 +93,19 @@ class AudioConsumer:
     """Represents a consumer of audio input data"""
     def __init__(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None):
         self.callback = callback
-        self.buffer = AudioBuffer()
         self.active = True
         self.chunk_size = chunk_size
 
 
 class AudioProducer:
     """Represents a producer of audio output data"""
-    def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, dtype: str = 'int16'):
+    def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100):
         self.name = name
-        self.buffer = AudioBuffer(maxsize=buffer_size, dtype=dtype)
+        self.buffer = AudioBuffer(maxsize=buffer_size)
         self._volume = AudioBaseConfig.DEFAULT_VOLUME
         self.active = True
         self.chunk_size = chunk_size
-        # Remainder should match buffer's dtype
-        self._remainder = np.array([], dtype=np.dtype(dtype))
+        self._remainder = np.array([], dtype=np.int16)  # Always int16
         self.loop = False  # Whether to loop the audio
         self._original_audio = None  # Store original audio data for looping
 
@@ -197,12 +145,12 @@ class AudioProducer:
         return chunks
 
 
-class OptimizedAudioManager:
-    """Manages audio resources using SoundDevice for improved performance"""
+class AudioManager:
+    """Manages audio resources using SoundDevice for improved performance with int16 mono audio"""
     _instance = None
 
     @classmethod
-    def get_instance(cls, config: AudioConfig = None) -> 'OptimizedAudioManager':
+    def get_instance(cls, config: AudioConfig = None) -> 'AudioManager':
         """Get or create the AudioManager singleton instance"""
         if cls._instance is None:
             if config is None:
@@ -211,8 +159,8 @@ class OptimizedAudioManager:
         return cls._instance
 
     def __init__(self, config: AudioConfig = AudioConfig()):
-        if OptimizedAudioManager._instance is not None:
-            raise RuntimeError("Use OptimizedAudioManager.get_instance() to get the AudioManager instance")
+        if AudioManager._instance is not None:
+            raise RuntimeError("Use AudioManager.get_instance() to get the AudioManager instance")
             
         self.config = config
         self._stream = None
@@ -225,17 +173,10 @@ class OptimizedAudioManager:
         self._consumers_lock = threading.Lock()
         self._producers_lock = threading.Lock()
         
-        # Reusable chunk resizer
-        self._chunk_resizer: Optional[AudioProducer] = None
-        self._chunk_resizer_lock = threading.Lock()
-
         # Queue for requeuing audio data
         self._requeue_queue = queue.Queue()
         self._requeue_thread = None
         self._requeue_stop = threading.Event()
-        
-        # Keep track of device information
-        self._device_info = None
         
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
@@ -253,9 +194,9 @@ class OptimizedAudioManager:
                 
     def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = None) -> AudioProducer:
         """Create a new producer instance without adding it to the producers dictionary"""
-        logging.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}")
+        logging.info(f"Creating producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}")
         
-        producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size, dtype=self.config.dtype)
+        producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size)
         producer.active = True
         if initial_volume is not None:
             producer.volume = initial_volume
@@ -293,7 +234,7 @@ class OptimizedAudioManager:
         Callback for output-only audio processing.
         
         This function is called by SoundDevice to fill the output buffer with audio data.
-        It mixes audio from all active producers and handles proper format conversion.
+        It mixes audio from all active producers, duplicating mono audio across all output channels.
         
         Args:
             outdata: numpy array to fill with output data, shape is [frames, channels]
@@ -305,88 +246,56 @@ class OptimizedAudioManager:
             logging.warning(f"Audio output callback status: {status}")
         
         try:
-            # Get output channel count (outdata shape is [frames, channels])
+            # Get output channel count
             num_channels = outdata.shape[1]
             
             # Initialize output data with zeros
             outdata.fill(0)
             
-            # Track active producers for mixing
+            # Track active producers and audio status
             active_producers = 0
             has_audio_data = False
-            
-            # Optimized mixing based on data type
-            is_int16_output = outdata.dtype == np.int16
             
             # Mix audio from all active producers
             with self._producers_lock:
                 for name, producer in self._producers.items():
                     if producer.active:
-                        # Get data from producer buffer
-                        data = producer.buffer.get()  # Volume already applied here
+                        # Get volume-adjusted data from producer buffer
+                        data = producer.buffer.get()
                         
                         if data is not None:
                             has_audio_data = True
-                            logging.debug(f"Got data from producer '{name}': shape={data.shape}, dtype={data.dtype}")
                             
-                            # Check if the data matches the expected output format
-                            # We need [frames, channels] format for SoundDevice
-                            if len(data.shape) == 1:
-                                # This is interleaved or mono data, reshape based on channels
-                                logging.debug(f"Reshaping 1D data of length {len(data)}")
-                                if len(data) % num_channels == 0:
-                                    # Interleaved stereo data, reshape to [frames, channels]
-                                    frames_in_chunk = len(data) // num_channels
-                                    data = data.reshape((frames_in_chunk, num_channels))
-                                    logging.debug(f"Reshaped interleaved data to {data.shape}")
-                                else:
-                                    # Mono data, duplicate to all channels
-                                    mono_frames = min(len(data), frames)
-                                    logging.debug(f"Duplicating mono data to {num_channels} channels")
-                                    for c in range(num_channels):
-                                        outdata[:mono_frames, c] += data[:mono_frames]
-                                    active_producers += 1
-                                    continue
+                            # Mix mono data into all output channels
+                            frames_to_mix = min(len(data), frames)
                             
-                            # Mix audio data into output buffer
-                            frames_to_mix = min(data.shape[0], frames)
+                            # Efficient duplication to all output channels
+                            for c in range(num_channels):
+                                outdata[:frames_to_mix, c] += data[:frames_to_mix]
                             
-                            # Direct addition - no scaling needed since volume is already applied
-                            outdata[:frames_to_mix] += data[:frames_to_mix]
-                            
-                            # Log some stats about the data we're mixing
                             if frames_to_mix > 0:
-                                if is_int16_output:
-                                    max_val = np.max(np.abs(data[:frames_to_mix])) / 32767.0
-                                else:
-                                    max_val = np.max(np.abs(data[:frames_to_mix]))
+                                # Log normalized max value for consistency
+                                max_val = np.max(np.abs(data[:frames_to_mix])) / 32767.0
                                 logging.debug(f"Mixed {frames_to_mix} frames from '{name}', max value: {max_val:.4f}")
                             
                             active_producers += 1
                             
-                        # If buffer is empty and looping is enabled, requeue
+                        # Requeue looping audio if buffer is empty
                         elif producer.loop and producer._original_audio is not None:
                             if producer.buffer.buffer.empty():
-                                self._requeue_queue.put((name, producer._original_audio, producer.loop))
+                                self._requeue_queue.put((name, producer._original_audio.copy(), producer.loop))
                                 logging.debug(f"Requeuing looped audio for producer '{name}'")
             
-            # Apply clipping prevention based on output format
-            if is_int16_output and np.max(np.abs(outdata)) > 100:  # Threshold for int16
-                max_before = np.max(np.abs(outdata)) / 32767.0  # Normalize for logging
+            # Apply clipping if needed (prevent integer overflow distortion)
+            if np.max(np.abs(outdata)) > 32700:  # Close to int16 max
+                max_before = np.max(np.abs(outdata)) / 32767.0  # Normalized value
                 np.clip(outdata, -32767, 32767, out=outdata)
-                max_after = np.max(np.abs(outdata)) / 32767.0  # Normalize for logging
-                logging.debug(f"Output max value: {max_before:.4f} -> {max_after:.4f} after clipping")
-            elif not is_int16_output and np.max(np.abs(outdata)) > 0.05:  # Threshold for float32
-                max_before = np.max(np.abs(outdata))
-                np.clip(outdata, -1.0, 1.0, out=outdata)
-                max_after = np.max(np.abs(outdata))
+                max_after = np.max(np.abs(outdata)) / 32767.0  # Normalized value
                 logging.debug(f"Output max value: {max_before:.4f} -> {max_after:.4f} after clipping")
             
             if active_producers > 0:
                 if has_audio_data:
-                    logging.debug(f"Mixed audio from {active_producers} producers with data")
-                else:
-                    logging.debug(f"Had {active_producers} active producers but no audio data")
+                    logging.debug(f"Mixed audio from {active_producers} producers")
                 
         except Exception as e:
             logging.error(f"Error in audio output callback: {e}", exc_info=True)
@@ -399,31 +308,23 @@ class OptimizedAudioManager:
             logging.warning(f"Audio callback status: {status}")
         
         try:
-            # Process input data (indata is a 2D array with shape [frames, channels])
+            # Process input data (get mono from first channel)
             if indata is not None and frames > 0:
-                # Convert to mono and desired format
                 audio_data = indata[:, 0].copy().astype(np.int16)
                 
                 # Distribute to all active consumers
                 with self._consumers_lock:
                     for consumer in self._consumers:
                         if consumer.active:
-                            if consumer.chunk_size and consumer.chunk_size != frames:
-                                # If consumer needs a different chunk size
-                                chunk_resizer = self._get_chunk_resizer(consumer.chunk_size)
-                                resized_chunks = chunk_resizer.resize_chunk(audio_data)
-                                for chunk in resized_chunks:
-                                    consumer.callback(chunk)
-                            else:
-                                consumer.callback(audio_data)
+                            consumer.callback(audio_data)
             
-            # Forward to output callback for consistent handling
+            # Forward to output callback
             self._output_callback(outdata, frames, time, status)
                 
         except Exception as e:
             logging.error(f"Error in audio callback: {e}", exc_info=True)
             # Fill with zeros on error to prevent noise
-            outdata.fill(0.0)
+            outdata.fill(0)
         
     def start(self):
         """Start audio processing"""
@@ -451,43 +352,46 @@ class OptimizedAudioManager:
                         
                         # Update config with default device's sample rate if needed
                         if self.config.rate != default_device_info['default_samplerate']:
-                            logging.warning(f"Adjusting sample rate from {self.config.rate} to match device: {default_device_info['default_samplerate']}")
+                            logging.warning(f"Adjusting sample rate to match device: {default_device_info['default_samplerate']}")
                             self.config.rate = int(default_device_info['default_samplerate'])
                     except Exception as e:
                         logging.warning(f"Couldn't get default device info: {e}")
                 
-                # Check if we need to create a duplex stream or just output
-                if self.config.input_device_index is not None and self._consumers:
-                    # Create a duplex stream with proper channel configuration for both input and output
+                # Determine what type of stream to create
+                # Always create at least an input stream for wakeword detection and other services
+                if self.config.input_device_index is not None or len(input_devices) > 0:
+                    # Create a duplex stream for both input and output even if no consumers yet
+                    # This ensures audio capture is available for wakeword detection
+                    input_device = self.config.input_device_index
+                    if input_device is None and len(input_devices) > 0:
+                        # Use the default input device if none specified
+                        input_device = sd.default.device[0]
+                    
                     self._stream = sd.Stream(
                         samplerate=self.config.rate,
-                        blocksize=self.config.chunk, 
-                        channels=(self.config.get_input_channels(), self.config.get_output_channels()),
-                        dtype=self.config.dtype,  # Use the configured dtype
+                        blocksize=self.config.chunk,
+                        channels=(1, self.config.get_channels()),  # Always mono input, but allow multiple output channels
+                        dtype='int16',  # Always use int16
                         callback=self._audio_callback,
-                        device=(self.config.input_device_index, self.config.output_device_index)
+                        device=(input_device, self.config.output_device_index)
                     )
-                    logging.info(f"Created duplex stream with {self.config.get_input_channels()} input channels and {self.config.get_output_channels()} output channels")
+                    logging.info(f"Created duplex stream with 1 input channel and {self.config.get_channels()} output channels")
                 elif self._producers:
-                    # Just output, no input needed
+                    # Only output needed, no input capabilities
                     logging.info("Creating output-only stream")
-                    logging.debug(f"Stream config: rate={self.config.rate}, blocksize={self.config.chunk}, channels={self.config.get_output_channels()}, dtype={self.config.dtype}")
                     
                     self._stream = sd.OutputStream(
                         samplerate=self.config.rate,
-                        blocksize=self.config.chunk, 
-                        channels=self.config.get_output_channels(),
-                        dtype=self.config.dtype,  # Use the configured dtype
+                        blocksize=self.config.chunk,
+                        channels=self.config.get_channels(),  # Allow multiple output channels
+                        dtype='int16',  # Always use int16
                         callback=self._output_callback,
                         device=self.config.output_device_index
                     )
-                    logging.info(f"Created output-only stream with {self.config.get_output_channels()} channels using {self.config.dtype} format")
+                    logging.info(f"Created output-only stream with {self.config.get_channels()} channels using int16 format")
                 else:
-                    logging.error("No consumers or producers registered, not starting stream")
+                    logging.warning("No input devices found and no producers registered. Audio functionality will be limited.")
                     return
-                
-                # Log stream details before starting
-                logging.debug(f"Stream configuration: {self._stream}")
                 
                 # Start the stream
                 self._stream.start()
@@ -534,23 +438,13 @@ class OptimizedAudioManager:
                 self._stream = None
                 
             logging.info("AudioManager stopped successfully")
-                
-    def _get_chunk_resizer(self, chunk_size: int) -> AudioProducer:
-        """Get or create a reusable chunk resizer with the specified chunk size"""
-        with self._chunk_resizer_lock:
-            if self._chunk_resizer is None or self._chunk_resizer.chunk_size != chunk_size:
-                if self._chunk_resizer is not None:
-                    # Clear any existing data
-                    self._chunk_resizer.buffer.clear()
-                self._chunk_resizer = AudioProducer("chunk_resizer", chunk_size=chunk_size)
-            return self._chunk_resizer
 
     def play_audio(self, audio_data: np.ndarray, producer_name: str = "default", loop: bool = False):
         """
-        Play audio data through a specific producer.
+        Play mono audio data through a specific producer.
         
         Args:
-            audio_data: Audio data to play as numpy array
+            audio_data: Mono audio data as numpy array (will be converted to int16)
             producer_name: Name of the producer to use 
             loop: Whether to loop the audio (default: False)
         """
@@ -578,118 +472,61 @@ class OptimizedAudioManager:
                 if loop:
                     producer._original_audio = audio_data.copy()
                 else:
-                    producer._original_audio = None  # Clear any previous audio data if not looping
+                    producer._original_audio = None  # Clear any previous audio data
             
-            # Log the audio data's initial properties
-            logging.debug(f"Original audio data: shape={audio_data.shape}, dtype={audio_data.dtype}, min={np.min(audio_data):.4f}, max={np.max(audio_data):.4f}")
-            
-            # Process based on the stream's dtype
-            target_dtype = self.config.dtype
-            num_channels = self.config.get_output_channels()
-            
-            # Detect audio data format and convert as needed
-            is_int16_target = target_dtype == 'int16'
-            is_float32_target = target_dtype == 'float32'
-            
-            # Detect stereo/mono format (interleaved or shaped)
-            is_stereo_data = False
-            is_shaped_format = False
-            
-            # Check if data is already in [frames, channels] format
-            if len(audio_data.shape) == 2:
-                is_shaped_format = True
-                if audio_data.shape[1] == 2:
-                    is_stereo_data = True
-                    logging.info("Detected stereo audio data in [frames, channels] format")
-                else:
-                    logging.info(f"Detected shaped audio data with {audio_data.shape[1]} channels")
-            # Check if interleaved stereo data
-            elif num_channels == 2 and len(audio_data) % 2 == 0:
-                # Might be interleaved stereo
-                left_samples = audio_data[0::2]
-                right_samples = audio_data[1::2]
-                if not np.allclose(left_samples, right_samples, rtol=0.1):
-                    is_stereo_data = True
-                    logging.info("Detected interleaved stereo audio data")
-            
-            # Log audio data properties
-            logging.info(f"Audio data: shape={audio_data.shape}, dtype={audio_data.dtype}, " +
-                        f"stereo={is_stereo_data}, shaped={is_shaped_format}, target_format={target_dtype}")
-            
-            # Convert to the format expected by SoundDevice (non-interleaved [frames, channels])
-            if is_stereo_data and not is_shaped_format and num_channels == 2:
-                # Convert from interleaved to [frames, channels]
-                frames = len(audio_data) // 2
-                reshaped_data = np.empty((frames, 2), dtype=audio_data.dtype)
-                reshaped_data[:, 0] = audio_data[0::2]  # Left channel
-                reshaped_data[:, 1] = audio_data[1::2]  # Right channel
-                audio_data = reshaped_data
-                logging.info(f"Converted interleaved stereo data to [frames, channels] format: {audio_data.shape}")
-            
-            # Double-check there's actual audio content (not all zeroes)
-            if is_int16_target:
-                max_val = np.max(np.abs(audio_data)) / 32767 if audio_data.dtype == np.int16 else np.max(np.abs(audio_data))
-            else:
-                max_val = np.max(np.abs(audio_data)) if audio_data.dtype == np.float32 else np.max(np.abs(audio_data)) / 32767
+            # Check if audio data has the expected shape (1D array for mono)
+            if len(audio_data.shape) > 1:
+                logging.warning(f"Expected mono audio but got shape {audio_data.shape}. Treating as mono.")
+                # Handle unexpected multi-dimensional arrays by flattening
+                audio_data = audio_data.flatten()
                 
-            if max_val < 0.001:
-                logging.warning(f"Audio data has very low amplitude: {max_val:.6f}, may not be audible")
+            # Ensure data is in int16 format
+            if audio_data.dtype != np.int16:
+                # Handle conversion from float to int16
+                if np.issubdtype(audio_data.dtype, np.floating):
+                    # Normalize and scale
+                    max_val = np.max(np.abs(audio_data))
+                    if max_val > 0:
+                        # Scale to use full int16 range
+                        normalized = audio_data / max_val
+                        audio_data = (normalized * 32767).astype(np.int16)
+                    else:
+                        # Silent audio - just convert
+                        audio_data = audio_data.astype(np.int16)
+                else:
+                    # Direct conversion for other integer types
+                    audio_data = audio_data.astype(np.int16)
+                
+                logging.debug(f"Converted audio to int16, max amplitude: {np.max(np.abs(audio_data))}")
             
-            # Skip unnecessary format conversions if possible
-            # The AudioBuffer.put() method will handle specific conversions
+            # Check for low amplitude
+            max_amplitude = np.max(np.abs(audio_data))
+            if max_amplitude < 100:  # Very low for int16
+                logging.warning(f"Audio data has very low amplitude: {max_amplitude}, may not be audible")
             
             # Split audio data into chunks matching the configured chunk size
             chunk_size = self.config.chunk
+            num_samples = len(audio_data)
             
-            if len(audio_data.shape) == 2:  # [frames, channels] format
-                total_frames = audio_data.shape[0]
+            chunks_added = 0
+            for i in range(0, num_samples, chunk_size):
+                # Calculate chunk range
+                end_sample = min(i + chunk_size, num_samples)
+                chunk = audio_data[i:end_sample]
                 
-                chunks_added = 0
-                for i in range(0, total_frames, chunk_size):
-                    # Calculate frame range
-                    end_frame = min(i + chunk_size, total_frames)
-                    chunk = audio_data[i:end_frame]
-                    
-                    # Pad the last chunk if needed
-                    if chunk.shape[0] < chunk_size:
-                        padding = ((0, chunk_size - chunk.shape[0]), (0, 0))
-                        chunk = np.pad(chunk, padding, mode='constant')
-                    
-                    # Log one chunk sample to verify data
-                    if i == 0:
-                        logging.debug(f"First chunk: shape={chunk.shape}, min={np.min(chunk):.4f}, max={np.max(chunk):.4f}")
-                        
-                    success = producer.buffer.put(chunk)
-                    if success:
-                        chunks_added += 1
-                    else:
-                        logging.warning(f"Buffer full for producer '{producer_name}', chunk {i+1}/{total_frames//chunk_size + 1} dropped")
-                        break
+                # Pad the last chunk if needed
+                if len(chunk) < chunk_size:
+                    chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
                 
-                logging.info(f"Added {chunks_added} shaped audio chunks to producer '{producer_name}'")
-            else:  # mono or other format
-                num_samples = len(audio_data)
-                num_chunks = (num_samples + chunk_size - 1) // chunk_size  # Round up
+                success = producer.buffer.put(chunk)
+                if success:
+                    chunks_added += 1
+                else:
+                    logging.warning(f"Buffer full for producer '{producer_name}', chunk {i+1}/{(num_samples//chunk_size) + 1} dropped")
+                    break
+            
+            logging.info(f"Added {chunks_added} mono chunks to producer '{producer_name}'")
                 
-                chunks_added = 0
-                for i in range(num_chunks):
-                    start = i * chunk_size
-                    end = min(start + chunk_size, num_samples)
-                    chunk = audio_data[start:end]
-                    
-                    # Pad the last chunk with zeros if needed
-                    if len(chunk) < chunk_size:
-                        chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
-                    
-                    success = producer.buffer.put(chunk)
-                    if success:
-                        chunks_added += 1
-                    else:
-                        logging.warning(f"Buffer full for producer '{producer_name}', chunk {i+1}/{num_chunks} dropped")
-                        break
-                
-                logging.info(f"Added {chunks_added} mono chunks to producer '{producer_name}'")
-                    
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
             
@@ -728,7 +565,17 @@ class OptimizedAudioManager:
                 logging.info("Sound effect stopped and cleaned up")
         
     def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", loop: bool = False) -> bool:
-        """Play a WAV file through the audio system"""
+        """
+        Play a mono WAV file through the audio system.
+        
+        Args:
+            wav_path: Path to the WAV file
+            producer_name: Name of the producer to use
+            loop: Whether to loop the audio
+            
+        Returns:
+            bool: True if playback started successfully, False otherwise
+        """
         if not self._running:
             logging.error("Cannot play WAV file - AudioManager not running")
             return False
@@ -748,11 +595,13 @@ class OptimizedAudioManager:
                     rate = wf.getframerate()
                     frames = wf.getnframes()
                     
-                    # Verify WAV format matches our configuration
-                    if channels > self.config.get_output_channels():
-                        logging.warning(f"WAV channels ({channels}) greater than config ({self.config.get_output_channels()}), audio will be downmixed")
+                    # Verify WAV format
                     if rate != self.config.rate:
                         logging.warning(f"WAV rate ({rate}) doesn't match config ({self.config.rate}), playback may be distorted")
+                        
+                    # Verify WAV is mono (since all WAVs should be mono)
+                    if channels != 1:
+                        logging.warning(f"Expected mono WAV file but got {channels} channels. File: {wav_path}")
                                         
                     # Create or get producer and set volume
                     with self._producers_lock:
@@ -765,10 +614,10 @@ class OptimizedAudioManager:
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
                     
-                    # Read audio data in the most efficient format
+                    # Read audio data efficiently
                     audio_data = wf.readframes(frames)
                     
-                    # Convert based on the target dtype
+                    # Convert to int16 if needed
                     if width == 2:  # 16-bit audio
                         audio_array = np.frombuffer(audio_data, dtype=np.int16)
                     elif width == 1:  # 8-bit audio
@@ -779,13 +628,7 @@ class OptimizedAudioManager:
                         logging.warning(f"Unusual bit depth: {width*8}-bit, trying to convert")
                         audio_array = np.frombuffer(audio_data, dtype=np.int16)
                     
-                    # Reshape for stereo if necessary
-                    if channels == 2:
-                        # Reshape to [frames, channels] for SoundDevice
-                        audio_array = audio_array.reshape(-1, 2)
-                    
-                    # Play through the producer using audio_array directly
-                    # The AudioBuffer.put() will handle any needed conversion
+                    # Play through the producer
                     self.play_audio(audio_array, producer_name=producer_name, loop=loop)
                     logging.info(f"Playing WAV file: {wav_path}, channels={channels}, rate={rate}, frames={frames}")
                     
@@ -808,7 +651,7 @@ class OptimizedAudioManager:
     def get_recorder(self, filename: str):
         """Context manager for recording audio to a file"""
         wf = wave.open(filename, 'wb')
-        wf.setnchannels(self.config.channels)
+        wf.setnchannels(1)  # Always mono for recording
         wf.setsampwidth(2)  # 16-bit audio = 2 bytes
         wf.setframerate(self.config.rate)
         
@@ -859,8 +702,4 @@ class OptimizedAudioManager:
                 
             except Exception as e:
                 logging.error(f"Error in requeue loop: {e}", exc_info=True)
-                time.sleep(0.1)  # Prevent tight loop on error
-
-# Compatibility layer - remap AudioManager to OptimizedAudioManager
-# This ensures existing code can still use AudioManager
-AudioManager = OptimizedAudioManager 
+                time.sleep(0.1)  # Prevent tight loop on error 

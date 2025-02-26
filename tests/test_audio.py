@@ -92,7 +92,7 @@ def test_audio():
     try:
         # Create config matching device settings
         config = AudioConfig(
-            output_channels=default_channels,
+            channels=default_channels,
             rate=sample_rate,
             chunk=1024  # Use a standard chunk size
         )
@@ -118,12 +118,20 @@ def test_audio():
         print("\nPlaying test tone through AudioManager...")
         logging.debug(f"Playing audio data: shape={high_beep.shape}, dtype={high_beep.dtype}, max={np.max(np.abs(high_beep)):.4f}")
         
+        # Extract first channel for mono processing
+        if high_beep.ndim == 2 and high_beep.shape[1] > 1:
+            # Extract left channel only (our simplified implementation expects mono)
+            mono_beep = high_beep[:, 0]
+            logging.debug(f"Extracted mono from stereo data: {len(mono_beep)} samples")
+        else:
+            mono_beep = high_beep
+        
         # Set max volume
         audio_manager.set_producer_volume("test_tone", 1.0)
         
         # Play and track time
         start_time = time.time()
-        audio_manager.play_audio(high_beep, producer_name="test_tone")
+        audio_manager.play_audio(mono_beep, producer_name="test_tone")
         
         # Wait for duration
         time.sleep(duration * 1.5)
