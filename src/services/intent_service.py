@@ -2,15 +2,14 @@ import logging
 import asyncio
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from config import IntentConfig, PLATFORM
+from config import IntentConfig
 
-# Import the appropriate intent manager based on platform
-if PLATFORM == "macos":
-    from managers.llm_intent_manager import LLMIntentManager as SpeechIntentManager
-elif PLATFORM == "raspberry-pi":
+# Import the appropriate intent manager. Use Rhino if model path is set, otherwise use LLM.
+if IntentConfig.MODEL_PATH:
     from managers.speech_intent_manager import SpeechIntentManager as SpeechIntentManager
 else:
-    raise ValueError(f"Unsupported platform: {PLATFORM}")
+    from managers.llm_intent_manager import LLMIntentManager as SpeechIntentManager
+
 
 class IntentService(BaseService):
     """

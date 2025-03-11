@@ -5,7 +5,7 @@ import os
 import asyncio
 from managers.audio_manager import AudioManager
 import threading
-from config import PICOVOICE_ACCESS_KEY, WAKE_WORD_BUILTIN, WAKE_WORD_PATH
+from config import PICOVOICE_ACCESS_KEY, WakeWordConfig
 from typing import Callable, Awaitable, Optional
 
 class WakeWordManager:
@@ -28,15 +28,15 @@ class WakeWordManager:
             if not access_key:
                 raise ValueError("Picovoice access key not found in environment")
                 
-            if WAKE_WORD_BUILTIN:
+            if WakeWordConfig.WAKE_WORD_BUILTIN:
                 self.porcupine = pvporcupine.create(
                     access_key=access_key,
-                    keywords=[WAKE_WORD_BUILTIN]
+                    keywords=[WakeWordConfig.WAKE_WORD_BUILTIN]
                 )
             else:
                 self.porcupine = pvporcupine.create(
                     access_key=access_key,
-                    keyword_paths=[WAKE_WORD_PATH]
+                    keyword_paths=[WakeWordConfig.MODEL_PATH]
                 )
             logging.info("Porcupine initialized successfully")
         except Exception as e:

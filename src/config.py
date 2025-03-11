@@ -39,27 +39,17 @@ OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API 
 class IntentConfig:
     """Configuration for intent detection"""
     # Path to the Rhino context file for intent detection
-    if PLATFORM == "macos":
-        CONTEXT_PATH = "assets/models/text-to-intent-rpi.rhn" # TODO: Only get one training a month, hope this works...
-    elif PLATFORM == "raspberry-pi":
-        CONTEXT_PATH = "assets/models/text-to-intent-rpi.rhn"
-    else:
-        raise ValueError(f"Unsupported platform: {system} {machine}")
-    
+    MODEL_PATH = clean_env_value(os.getenv('RHINO_MODEL_PATH'))    
     # How long to listen for an intent after wake word (in seconds)
     DETECTION_TIMEOUT = 7.0
 
 # Wake Word Configuration
-# Available built-in wake words:
-# alexa, americano, blueberry, bumblebee, computer, grapefruit, grasshopper, hey barista, hey google, hey siri, jarvis, ok google, pico clock, picovoice, porcupine, terminator
-WAKE_WORD_BUILTIN = None
-# Platform-specific custom wake word file paths
-if PLATFORM == "macos":
-    WAKE_WORD_PATH = "assets/models/wake-word-mac.ppn"
-elif PLATFORM == "raspberry-pi":
-    WAKE_WORD_PATH = "assets/models/wake-word-rpi.ppn"
-else:
-    raise ValueError(f"Unsupported platform: {system} {machine}")
+class WakeWordConfig:
+    # Available built-in wake words:
+    # alexa, americano, blueberry, bumblebee, computer, grapefruit, grasshopper, hey barista, hey google, hey siri, jarvis, ok google, pico clock, picovoice, porcupine, terminator
+    WAKE_WORD_BUILTIN = None
+    # Or custom wake word file path
+    MODEL_PATH = clean_env_value(os.getenv('PORCUPINE_MODEL_PATH'))
 
 # LED Configuration
 LED_PIN = 21  # GPIO10 for NeoPixel data - Using this to keep audio enabled on GPIO18

@@ -33,6 +33,12 @@ if [ ! -f ".env" ]; then
     echo "# Picovoice access key" >> .env
     echo "PICOVOICE_ACCESS_KEY=your_key_here" >> .env
     echo "" >> .env
+    echo "# Picovoice wake word file path" >> .env
+    echo "PORCUPINE_MODEL_PATH=assets/models/wake-word-mac.ppn" >> .env
+    echo "" >> .env
+    echo "# PicoVoice Rhino context file path" >> .env
+    echo "RHINO_MODEL_PATH=assets/models/text-to-intent-mac.rhn" >> .env
+    echo "" >> .env
     echo "# Vapi private key" >> .env
     echo "VAPI_API_KEY=your_vapi_api_key_here" >> .env
     echo "" >> .env
@@ -119,21 +125,10 @@ fi
 echo ""
 echo "Installation complete!"
 echo "Next steps:"
-echo "1. Get your free Picovoice access key from console.picovoice.ai"
+echo "1. Get your Picovoice access key from console.picovoice.ai and download Porcupine and Rhino models"
 echo "2. Get your Vapi API key from vapi.ai"
 echo "3. Get your OpenAI API key from openai.com"
-echo "4. Add service keys to .env file:"
-echo "   # Picovoice access key"
-echo "   PICOVOICE_ACCESS_KEY=your_key_here"
-echo ""
-echo "   # Vapi private key"
-echo "   VAPI_API_KEY=your_vapi_api_key_here"
-echo ""
-echo "   # Vapi public key"
-echo "   VAPI_CLIENT_KEY=your_vapi_client_key_here"
-echo ""
-echo "   # OpenAI API key"
-echo "   OPENAI_API_KEY=your_openai_api_key_here"
+echo "4. Add service keys to .env file"
 echo "5. Run the app: ./run.sh"
 
 # Add Raspberry Pi specific instructions if applicable
