@@ -43,7 +43,9 @@ cd phoenix-vapi
 ./install.sh
 ```
 
-3. Get your API keys:
+3. Reboot the device (maybe?)
+
+4. Get your API keys:
    - Picovoice access key:
      - Go to [console.picovoice.ai](https://console.picovoice.ai)
      - Sign up for a free account
@@ -53,7 +55,7 @@ cd phoenix-vapi
      - Go to [vapi.ai](https://vapi.ai)
      - Sign up and get your API key
 
-4. Configure your API keys:
+5. Configure your API keys:
    - Open the `.env` file in the project root
    - Add your keys:
      ```
