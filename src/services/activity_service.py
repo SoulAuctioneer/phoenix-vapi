@@ -244,7 +244,7 @@ class ActivityService(BaseService):
             intent = event.get("intent")
             
             # Handle activity-related intents
-            if intent == "wake_up":
+            if intent == "conversation":
                 # Start conversation activity
                 # TODO: Remove this after testing
                 await self._queue_transition(ActivityType.CONVERSATION)

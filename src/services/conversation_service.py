@@ -95,9 +95,9 @@ class ConversationService(BaseService):
                 # await self.call_manager.unmute()
 
         elif event_type == "intent_detected":
-            # Only handle wake_up intent if we're already active
+            # Only handle conversation intent if we're already active
             intent = event.get("intent")
-            if intent == "wake_up" and self.is_active:
+            if intent == "conversation" and self.is_active:
                 self.logger.info("Conversation already active, passing along the `wake up` message")
                 self.call_manager.add_message("user", "Wake up!")
                                     

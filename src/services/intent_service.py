@@ -138,10 +138,15 @@ class IntentService(BaseService):
         """Callback handler for when an intent is detected by the manager"""
         logging.info("Intent detected, stopping detection")
         
+        # Re-map old intent names to new ones
+        intent = intent_data["intent"]
+        if intent == "wake_up":
+            intent = "conversation"
+
         # Publish the intent event first
         await self.publish({
             "type": "intent_detected",
-            "intent": intent_data["intent"],
+            "intent": intent,
             "slots": intent_data["slots"]
         })
         

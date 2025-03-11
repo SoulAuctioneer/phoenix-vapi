@@ -69,7 +69,7 @@ class AudioService(BaseService):
         elif event_type == "intent_detected":
             intent = event.get("intent")
             # TODO: Have a different chirp for each intent
-            if intent != "wake_up":
+            if intent != "conversation":
                 await self._play_random_chirp()
 
         # Handle touch stroke intensity for purring sound

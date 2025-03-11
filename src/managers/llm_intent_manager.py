@@ -157,7 +157,7 @@ class LLMIntentManager:
                      * "cuddle/snuggle/hug me"
                    - Any of the above with optional "please"
 
-                2. wake_up - Match when someone:
+                2. conversation - Match when someone:
                    - Says "time to wake up" or "time to start the day"
                    - Asks to talk/chat
                    - Asks "are you awake" or "are you there"
