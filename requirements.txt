@@ -22,4 +22,4 @@ adafruit-circuitpython-max1704x; sys_platform == 'linux'  # battery monitor
 
 # System dependencies that need pip install
 pyaudio; sys_platform == 'darwin'  # macOS needs brew install portaudio first
-python3-pyaudio; sys_platform == 'linux'  # Linux needs apt-get install python3-pyaudio first
+# python3-pyaudio; sys_platform == 'linux'  # Linux needs apt-get install python3-pyaudio first

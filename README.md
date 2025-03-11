@@ -18,20 +18,27 @@ A voice-enabled AI assistant using Porcupine for wake word detection and Vapi fo
 - A free Picovoice access key (get one from [console.picovoice.ai](https://console.picovoice.ai))
 - A Vapi API key (get one from [vapi.ai](https://vapi.ai))
 
+## Setting up Raspberry Pi
+
+1. Install Raspberry Pi OS: Bookworm Lite 64 bit image
+2. SSH into the Pi
+3. Install Git: `sudo apt install git`
+4. Install the sound card driver if necessary (for Respeaker Lite, not needed for Respeaker Mic Array)
+
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/phoenix-vapi.git
+git clone https://github.com/SoulAuctioneer/phoenix-vapi.git
 cd phoenix-vapi
 ```
 
 2. Run the install script:
 ```bash
-# On macOS/Linux:
+# On macOS/Linux/Rasperry Pi OS:
 ./install.sh
 
-# On Windows:
+# On Windows (UNTESTED!):
 # First ensure you have Python and Visual C++ Build Tools installed
 ./install.sh
 ```
