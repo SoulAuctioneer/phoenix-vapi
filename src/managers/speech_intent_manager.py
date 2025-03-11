@@ -41,7 +41,7 @@ class SpeechIntentManager:
                 
             self.rhino = pvrhino.create(
                 access_key=access_key,
-                context_path=IntentConfig.RHINO_MODEL_PATH
+                context_path=IntentConfig.MODEL_PATH
             )
             logging.info("Rhino speech-to-intent engine initialized successfully")
         except Exception as e:
