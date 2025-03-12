@@ -53,7 +53,7 @@ class WakeWordConfig:
 
 # LED Configuration
 LED_PIN = 21  # GPIO10 for NeoPixel data - Using this to keep audio enabled on GPIO18
-LED_COUNT = 155  # Number of NeoPixels in the ring
+LED_COUNT = 158  # Number of NeoPixels in the ring
 LED_BRIGHTNESS = 1.0  # LED brightness (0.0 to 1.0)
 LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 
