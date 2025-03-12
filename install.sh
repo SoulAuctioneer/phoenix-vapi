@@ -77,27 +77,37 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     
     # Raspberry Pi specific setup
     if is_raspberry_pi; then
-        echo "Detected Raspberry Pi - Setting up NeoPixel requirements..."
+        echo "Detected Raspberry Pi - Setting up requirements..."
         
-        # Install additional dependencies
-        sudo apt-get install -y python3-pip python3-dev
+        # Determine config.txt location
+        if [ -f "/boot/firmware/config.txt" ]; then
+            CONFIG_PATH="/boot/firmware/config.txt"
+        else
+            CONFIG_PATH="/boot/config.txt"
+        fi
+        
+        # Install I2C tools
+        sudo apt-get install -y i2c-tools
+        
+        # Enable I2C interface
+        if ! grep -q "^dtparam=i2c" "$CONFIG_PATH"; then
+            echo "Enabling I2C interface..."
+            sudo sh -c "echo 'dtparam=i2c=on' >> $CONFIG_PATH"
+            REBOOT_REQUIRED=1
+        fi
         
         # Enable Bluetooth interface
-        if ! grep -q "^dtparam=bluetooth=on" /boot/config.txt; then
+        if ! grep -q "^dtparam=bluetooth=on" "$CONFIG_PATH"; then
             echo "Enabling Bluetooth interface..."
-            sudo sh -c 'echo "dtparam=bluetooth=on" >> /boot/config.txt'
-            echo "Bluetooth interface will be enabled after reboot"
+            sudo sh -c "echo 'dtparam=bluetooth=on' >> $CONFIG_PATH"
+            REBOOT_REQUIRED=1
         fi
 
-        # Start and enable Bluetooth service
-        sudo systemctl enable bluetooth
-        sudo systemctl start bluetooth
-        
         # Enable SPI interface
-        if ! grep -q "dtparam=spi=on" /boot/config.txt; then
+        if ! grep -q "^dtparam=spi=on" "$CONFIG_PATH"; then
             echo "Enabling SPI interface..."
-            sudo sh -c 'echo "dtparam=spi=on" >> /boot/config.txt'
-            echo "SPI interface will be enabled after reboot"
+            sudo sh -c "echo 'dtparam=spi=on' >> $CONFIG_PATH"
+            REBOOT_REQUIRED=1
         fi
         
         # Add user to gpio group if not already added
