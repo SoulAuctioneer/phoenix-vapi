@@ -133,7 +133,7 @@ class LEDManager:
         revert_thread.daemon = True
         revert_thread.start()
 
-    def start_or_update_effect(self, effect: LEDEffect, speed=None, brightness=LED_BRIGHTNESS, duration=None):
+    def start_or_update_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None):
         """Start an LED effect if it's not already running, or update its parameters if it is.
         
         This function allows for smooth transitions in effect parameters without restarting the effect
@@ -143,7 +143,7 @@ class LEDManager:
         Args:
             effect: The LEDEffect to start or update
             speed: Speed of the effect (if None, uses effect's default speed)
-            brightness: Brightness level from 0.0 to 1.0 (default: LED_BRIGHTNESS from config)
+            brightness: Brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
             duration: Optional duration in milliseconds before reverting to previous effect
         """
         if effect not in self._EFFECT_MAP:
@@ -165,7 +165,7 @@ class LEDManager:
         if effect == self._current_effect and self._effect_thread and self._effect_thread.is_alive():
             self._current_speed = effect_speed
             self._current_brightness = brightness
-            self.pixels.brightness = brightness
+            self._set_relative_brightness(brightness)
             logging.info(f"Updated {effect.name} parameters: speed={effect_speed}, brightness={brightness}")
             
             # Handle duration-based revert for parameter updates
@@ -205,7 +205,7 @@ class LEDManager:
         self._current_speed = effect_speed
         self._current_effect = effect
         self._current_brightness = brightness
-        self.pixels.brightness = brightness
+        self._set_relative_brightness(brightness)
         self._effect_thread = Thread(target=effect_method, args=(effect_speed,))
         self._effect_thread.daemon = True
         self._effect_thread.start()
@@ -232,6 +232,14 @@ class LEDManager:
         self._current_effect = None
         self._current_speed = None
         self.clear()
+
+    def _set_relative_brightness(self, brightness):
+        """Set the brightness relative to the configured global brightness.
+        e.g. if global LED_BRIGHTNESS is 0.5 and brightness is 0.8, the actual brightness will be 0.5 * 0.8 = 0.4
+        Args:
+            brightness: Brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
+        """
+        self.pixels.brightness = LED_BRIGHTNESS * brightness
 
 
     # ********** Effect methods **********
