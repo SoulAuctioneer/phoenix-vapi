@@ -18,6 +18,11 @@ A voice-enabled AI assistant using Porcupine for wake word detection and Vapi fo
 - A free Picovoice access key (get one from [console.picovoice.ai](https://console.picovoice.ai))
 - A Vapi API key (get one from [vapi.ai](https://vapi.ai))
 
+## Wiring the Raspberry Pi
+I2C Qwiic: bottom left: red, blue, yellow, skip, black
+Power: top left: skip, red, black
+LED data: top right
+
 ## Setting up Raspberry Pi
 
 1. Install Raspberry Pi OS: Bookworm Lite 64 bit image
