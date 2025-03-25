@@ -34,13 +34,9 @@ TOOL_CONFIGS = {
               "properties": {
                   "effect_name": {
                       "type": "string", 
+                      "enum": ["magical_spell", "lightning", "rain", "rainbow"],
                       "description": dedent("""
                         The name of the special effect to play. 
-                        Valid values are:
-                        - "magical_spell": When magical spells are cast.
-                        - "lightning": Thunder and lightning.
-                        - "rain": Raindrops falling.
-                        - "rainbow": A rainbow of colors and mysterious sounds.
                         """).strip()
                   }
               },
@@ -73,6 +69,7 @@ TOOL_CONFIGS = {
               "properties": {
                   "color": {
                       "type": "string",
+                      "enum": ["red", "orange", "yellow", "green", "blue", "purple", "pink"],
                       "description": dedent("""
                         The color to show. One of: red, orange, yellow, green, blue, purple, pink
                         """).strip()
@@ -128,8 +125,9 @@ TOOL_CONFIGS = {
               "properties": {
                   "activity_key": {
                       "type": "string",
+                      "enum": ["poem", "story", "color_hunt", "obstacle_quest", "magic_spell", "discovery"],
                       "description": dedent("""
-                        The name of the activity to start. One of: poem, story, color_hunt, obstacle_quest, magic_spell, discovery
+                        The name of the activity to start. One of: poem, story, color_hunt, obstacle_quest, magic_spell, discovery.
                         """).strip()
                   }
               },
