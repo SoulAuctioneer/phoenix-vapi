@@ -9,7 +9,7 @@ import math
 from typing import Dict, Any, Optional
 from services.service import BaseService, ServiceManager
 from managers.haptic_manager import HapticManager, WaveformEffect
-import config
+from config import HapticConfig
 
 class HapticService(BaseService):
     """
@@ -59,7 +59,7 @@ class HapticService(BaseService):
         """
         try:
             # Fixed modulation frequency based on configured cycle period
-            mod_freq = 1.0 / config.PURR_CYCLE_PERIOD
+            mod_freq = 1.0 / HapticConfig.PURR_CYCLE_PERIOD
             
             # Time tracking
             start_time = asyncio.get_event_loop().time()
@@ -79,12 +79,12 @@ class HapticService(BaseService):
                 
                 # Transform wave to create longer peaks and shorter troughs
                 # This makes the purr feel more natural with longer "on" periods
-                wave = math.copysign(abs(wave) ** config.PURR_WAVE_SHAPING, wave)
+                wave = math.copysign(abs(wave) ** HapticConfig.PURR_WAVE_SHAPING, wave)
                 
                 # Map wave from [-1, 1] to [min_power, max_power]
                 # Higher intensity = higher power range and higher minimum power
-                min_power = int(config.PURR_MIN_POWER_BASE + (intensity * config.PURR_MIN_POWER_SCALE))
-                max_power = int(config.PURR_MAX_POWER_BASE + (intensity * config.PURR_MAX_POWER_SCALE))
+                min_power = int(HapticConfig.PURR_MIN_POWER_BASE + (intensity * HapticConfig.PURR_MIN_POWER_SCALE))
+                max_power = int(HapticConfig.PURR_MAX_POWER_BASE + (intensity * HapticConfig.PURR_MAX_POWER_SCALE))
                 
                 # Linear interpolation between min and max power
                 normalized = (wave + 1) / 2  # Map [-1,1] to [0,1]
@@ -98,7 +98,7 @@ class HapticService(BaseService):
                 self.haptic_manager.set_realtime_value(motor_value)
                 
                 # Small delay for update rate
-                await asyncio.sleep(1.0 / config.PURR_UPDATE_RATE)
+                await asyncio.sleep(1.0 / HapticConfig.PURR_UPDATE_RATE)
                 
         except asyncio.CancelledError:
             self.haptic_manager.set_realtime_value(0)

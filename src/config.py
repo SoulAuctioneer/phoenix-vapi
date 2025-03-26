@@ -276,6 +276,8 @@ class TouchConfig:
     # Touch sensor sampling configuration
     SAMPLE_RATE_HZ = 100  # Default sampling rate in Hz
 
+# Haptic motor configuration
+class HapticConfig:
     # Haptic purr effect configuration
     PURR_CYCLE_PERIOD = 2.573  # Duration of one complete purr cycle in seconds
     PURR_WAVE_SHAPING = 0.7  # Power for wave shaping (higher = longer peaks)
