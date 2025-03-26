@@ -69,6 +69,7 @@ from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple
 from services.service import BaseService
 from math import atan2, sqrt, pi
+from config import AccelerometerConfig
 
 class AccelerometerService(BaseService):
     """Service for reading accelerometer data"""
@@ -101,55 +102,6 @@ class AccelerometerService(BaseService):
         #     self.logger.error(f"Failed to initialize accelerometer: {e}")
         #     raise
             
-    async def _check_and_calibrate(self):
-        """Check calibration status and perform calibration if needed"""
-        try:
-            # Get current calibration status
-            calibration_status = self.imu.calibration_status
-            self.logger.info(f"Initial calibration status: {REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})")
-            
-            # If calibration is not good (status < 2), perform calibration
-            if calibration_status < 2:
-                self.logger.info("Calibration needed. Starting calibration process...")
-                await self._perform_calibration()
-            else:
-                self._calibration_good = True
-                self.logger.info("Calibration already good, no calibration needed")
-                
-        except Exception as e:
-            self.logger.error(f"Error during calibration check: {e}")
-            raise
-            
-    async def _perform_calibration(self):
-        """Perform the calibration process"""
-        try:
-            # Start calibration
-            self.imu.begin_calibration()
-            self.logger.info("Calibration started. Please move the device in a figure-8 pattern...")
-            
-            # Monitor calibration status
-            calibration_good_at = None
-            while not self._calibration_good:
-                calibration_status = self.imu.calibration_status
-                self.logger.info(f"Calibration status: {REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})")
-                
-                if calibration_status >= 2 and not calibration_good_at:
-                    calibration_good_at = asyncio.get_event_loop().time()
-                    self.logger.info("Calibration quality reached good level!")
-                    
-                if calibration_good_at and (asyncio.get_event_loop().time() - calibration_good_at > 5.0):
-                    # Save calibration data
-                    self.imu.save_calibration_data()
-                    self._calibration_good = True
-                    self.logger.info("Calibration completed and saved!")
-                    break
-                    
-                await asyncio.sleep(0.1)  # Check every 100ms
-                
-        except Exception as e:
-            self.logger.error(f"Error during calibration: {e}")
-            raise
-            
     async def stop(self):
         """Stop the accelerometer service"""
         if self.read_task:
@@ -170,7 +122,8 @@ class AccelerometerService(BaseService):
                 data = self._read_sensor_data()
                 
                 # Print data to console for debugging
-                self.print_data(data)
+                if AccelerometerConfig.PRINT_DEBUG_DATA:
+                    self._print_data(data)
                 
                 # Publish sensor data event
                 await self.publish({
@@ -303,7 +256,56 @@ class AccelerometerService(BaseService):
             self.logger.error(f"Error reading sensor data: {e}")
             return {}
 
-    def print_data(self, data):
+    async def _check_and_calibrate(self):
+        """Check calibration status and perform calibration if needed"""
+        try:
+            # Get current calibration status
+            calibration_status = self.imu.calibration_status
+            self.logger.info(f"Initial calibration status: {REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})")
+            
+            # If calibration is not good (status < 2), perform calibration
+            if calibration_status < 2:
+                self.logger.info("Calibration needed. Starting calibration process...")
+                await self._perform_calibration()
+            else:
+                self._calibration_good = True
+                self.logger.info("Calibration already good, no calibration needed")
+                
+        except Exception as e:
+            self.logger.error(f"Error during calibration check: {e}")
+            raise
+            
+    async def _perform_calibration(self):
+        """Perform the calibration process"""
+        try:
+            # Start calibration
+            self.imu.begin_calibration()
+            self.logger.info("Calibration started. Please move the device in a figure-8 pattern...")
+            
+            # Monitor calibration status
+            calibration_good_at = None
+            while not self._calibration_good:
+                calibration_status = self.imu.calibration_status
+                self.logger.info(f"Calibration status: {REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})")
+                
+                if calibration_status >= 2 and not calibration_good_at:
+                    calibration_good_at = asyncio.get_event_loop().time()
+                    self.logger.info("Calibration quality reached good level!")
+                    
+                if calibration_good_at and (asyncio.get_event_loop().time() - calibration_good_at > 5.0):
+                    # Save calibration data
+                    self.imu.save_calibration_data()
+                    self._calibration_good = True
+                    self.logger.info("Calibration completed and saved!")
+                    break
+                    
+                await asyncio.sleep(0.1)  # Check every 100ms
+                
+        except Exception as e:
+            self.logger.error(f"Error during calibration: {e}")
+            raise
+            
+    def _print_data(self, data):
         """Print data to console for debugging"""
         for key, value in data.items():
             if isinstance(value, tuple):

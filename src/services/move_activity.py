@@ -11,7 +11,7 @@ import asyncio
 import math
 from typing import Dict, Any, Tuple
 from services.service import BaseService
-
+from config import MoveActivityConfig
 class MoveActivity(BaseService):
     """
     A service that maintains activity state and movement energy level.
@@ -29,11 +29,6 @@ class MoveActivity(BaseService):
         self.current_energy = 0.0
         self.previous_energy = 0.0
         self.energy_window = []  # Keep a window of recent energy values for smoothing
-        self.window_size = 10  # Size of the buffer for smoothing
-        
-        # Energy calculation weights
-        self.ACCEL_WEIGHT = 0.7  # Weight for acceleration in energy calculation
-        self.GYRO_WEIGHT = 0.3   # Weight for rotation in energy calculation
         
     async def start(self):
         """Start the move activity service"""
@@ -67,7 +62,7 @@ class MoveActivity(BaseService):
             
             # Update energy window for smoothing
             self.energy_window.append(energy)
-            if len(self.energy_window) > self.window_size:
+            if len(self.energy_window) > MoveActivityConfig.ENERGY_WINDOW_SIZE:
                 self.energy_window.pop(0)
             
             # Calculate smoothed energy
@@ -125,5 +120,5 @@ class MoveActivity(BaseService):
         gyro_energy = min(1.0, gyro_magnitude / 10.0)
         
         # Combine energies with weights
-        return (accel_energy * self.ACCEL_WEIGHT + 
-                gyro_energy * self.GYRO_WEIGHT) 
+        return (accel_energy * MoveActivityConfig.ACCEL_WEIGHT + 
+                gyro_energy * MoveActivityConfig.GYRO_WEIGHT) 

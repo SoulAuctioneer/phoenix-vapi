@@ -316,6 +316,20 @@ class BatteryConfig:
     DISABLE_ANALOG_COMPARATOR = True  # Disable comparator if battery won't be removed
     ENABLE_QUICK_START = False  # Enable quick start for instant calibration (use with caution)
 
+
+# Accelerometer Configuration
+class AccelerometerConfig:
+    """Configuration for accelerometer service"""
+    PRINT_DEBUG_DATA = False
+
+
+class MoveActivityConfig:
+    """Configuration for move activity service"""
+    ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation
+    ACCEL_WEIGHT = 0.7 # Weight for acceleration in energy calculation
+    GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
+
+
 # AI Assistant Configuration
 
 ASSISTANT_ID = "22526ed1-6961-4760-8d93-c3759d64557c"
