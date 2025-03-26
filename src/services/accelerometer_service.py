@@ -91,7 +91,7 @@ class AccelerometerService(BaseService):
             self._enable_sensor_reports()
             
             # Check and perform calibration if needed
-            await self._check_and_calibrate()
+            # await self._check_and_calibrate()
             
             # Start continuous reading
             self.read_task = asyncio.create_task(self._read_loop())
