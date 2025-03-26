@@ -1,5 +1,7 @@
 """
-This service maintains a state machine for the current activity and movement energy level.
+This activity service is for movement-based play, such as dancing, running, throwing the ball, composing music, etc.
+For our first implementation, we will use the accelerometer to detect movement energy and trigger sounds and lights matching the energy level.
+It maintains a state machine for the current activity and movement energy level.
 
 It subscribes to accelerometer data and:
 1. Uses the activity classification from the accelerometer

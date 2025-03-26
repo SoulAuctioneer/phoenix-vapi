@@ -1,6 +1,25 @@
 # Phoenix Voice Assistant
 
-A voice-enabled AI assistant using Porcupine for wake word detection and Vapi for voice interaction.
+The Phoenix is an interactive, smart, beautiful, and screen-free AI-powered companion and toy for children. It provides emotional, social, and cognitive engagement and support via dynamic nurturing mechanics, guided play, tutoring, and wellness practices. 
+
+It is run on a Raspberry Pi that is embedded in a bouncy ball toy.
+
+Physical Design
+- A soft, tennis-ball-sized plush ball with a glowing exterior featuring vibrant, detailed LED patterns.
+- Highly context-aware via motion, sound, and touch sensors.
+- Haptic feedback.
+
+Key Functionality
+- AI voice chat.
+- Stroking and purring.
+- Intelligent: Highly context-aware, interactive, and smart.
+- Guided Play: Offers collaborative quests, puzzles, and storytelling activities that stimulate creativity and critical thinking.
+- Nurture Mechanics: Enables children to care for and bond with their Phoenix through interactions that promote empathy and responsibility.
+- Adaptive Personalization: Phoenix evolves and unlocks new capabilities based on the child’s interaction patterns. It develops a personality and memory tied to the child’s traits and choices, and their shared experiences.
+- Adaptive Teaching.
+- Emotional Regulation.
+- Private and Secure.
+
 
 ## Features
 
@@ -76,7 +95,7 @@ python src/main.py
 ```
 
 2. Say the wake word to activate the assistant
-3. Speak your command or question
+3. Speak your command or question: one of "wake up", "play catch", "cuddle", hide and seek".
 4. The assistant will respond using Vapi's voice AI
 
 ### Customizing Voice Interaction
