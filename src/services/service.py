@@ -118,10 +118,7 @@ class ServiceManager:
                     self.global_state.user_speaking = is_speaking
                     
             elif event_type == "sensor_data":
-                if event["sensor"] == "accelerometer":
-                    self.global_state.acceleration = event["data"]["acceleration"]
-                    self.global_state.gyro = event["data"]["gyro"]
-                    self.global_state.temperature = event["data"]["temperature"]
+                self.global_state.accelerometer_state = event["data"]
                     
             elif event_type == "touch_state":
                 self.global_state.touch_state = event["is_touching"]

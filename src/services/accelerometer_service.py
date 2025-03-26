@@ -278,7 +278,6 @@ class AccelerometerService(BaseService):
             # Classification Reports
             stability = self.imu.stability_classification
             activity = self.imu.activity_classification
-            tap_detected = self.imu.tap_detected
             step_count = self.imu.steps
             
             return {
@@ -299,7 +298,6 @@ class AccelerometerService(BaseService):
                 # Classification Reports
                 "stability": stability,
                 "activity": activity,
-                "tap_detected": tap_detected,
                 "step_count": step_count,
 
                 "timestamp": self.imu._last_accel_timestamp
@@ -308,7 +306,7 @@ class AccelerometerService(BaseService):
             self.logger.error(f"Error reading sensor data: {e}")
             return {}
 
-    async def print_data(self, data):
+    def print_data(self, data):
         """Print data to console for debugging"""
         for key, value in data.items():
             if isinstance(value, tuple):
