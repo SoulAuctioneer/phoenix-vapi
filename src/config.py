@@ -51,10 +51,11 @@ class WakeWordConfig:
     MODEL_PATH = clean_env_value(os.getenv('PORCUPINE_MODEL_PATH'))
 
 # LED Configuration
-LED_PIN = 21  # GPIO10 for NeoPixel data - Using this to keep audio enabled on GPIO18
-LED_COUNT = 160  # Number of NeoPixels in the ring / strip - 24 for ring, 160 for COB strip
-LED_BRIGHTNESS = 0.1  # LED brightness (0.0 to 1.0)
-LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
+class LEDConfig:
+    LED_PIN = 21  # GPIO10 for NeoPixel data - Using this to keep audio enabled on GPIO18
+    LED_COUNT = 160  # Number of NeoPixels in the ring / strip - 24 for ring, 160 for COB strip
+    LED_BRIGHTNESS = 0.1  # LED brightness (0.0 to 1.0)
+    LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
 
 # Base Audio Configuration (used by both CallConfig and AudioConfig)
 class AudioBaseConfig:
@@ -130,7 +131,6 @@ class SoundEffect(str, Enum):
     CHIRP7 = "chirp7.wav"
     CHIRP8 = "chirp8.wav"
     
-    
     @classmethod
     def get_filename(cls, effect_name: Union[str, 'SoundEffect']) -> Union[str, None]:
         """Get the filename for a sound effect by its name or enum value (case-insensitive)
@@ -167,6 +167,8 @@ class Distance(Enum):
     VERY_FAR = auto()  # 6-8m
     UNKNOWN = auto()   # No signal or too weak
 
+
+# BLE and Location Configuration
 class BLEConfig:
     """Configuration for BLE scanning and beacons"""
 
@@ -276,6 +278,7 @@ class TouchConfig:
     # Touch sensor sampling configuration
     SAMPLE_RATE_HZ = 100  # Default sampling rate in Hz
 
+
 # Haptic motor configuration
 class HapticConfig:
     # Haptic purr effect configuration
@@ -325,6 +328,7 @@ class AccelerometerConfig:
     PRINT_DEBUG_DATA = False
 
 
+# Movement Activity Configuration
 class MoveActivityConfig:
     """Configuration for move activity service"""
     ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation

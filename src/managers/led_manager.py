@@ -2,7 +2,7 @@ import time
 import colorsys
 import math
 from threading import Thread, Event
-from config import LED_PIN, LED_COUNT, LED_BRIGHTNESS, LED_ORDER, PLATFORM
+from config import LEDConfig
 import logging
 import random
 from enum import Enum, auto
@@ -64,20 +64,20 @@ class LEDManager:
         self._current_speed = None
         # Track current effect state
         self._current_effect = None
-        self._current_brightness = LED_BRIGHTNESS
+        self._current_brightness = LEDConfig.LED_BRIGHTNESS
         
         # Initialize the NeoPixel object only on Raspberry Pi
         if LEDS_AVAILABLE:
             # Get the correct board pin based on LED_PIN configuration
-            pin = getattr(board, f'D{LED_PIN}') if hasattr(board, f'D{LED_PIN}') else LED_PIN
+            pin = getattr(board, f'D{LEDConfig.LED_PIN}') if hasattr(board, f'D{LEDConfig.LED_PIN}') else LEDConfig.LED_PIN
             self.pixels = neopixel.NeoPixel(
                 pin,
-                LED_COUNT,
-                brightness=LED_BRIGHTNESS,
+                LEDConfig.LED_COUNT,
+                brightness=LEDConfig.LED_BRIGHTNESS,
                 auto_write=False,
-                pixel_order=LED_ORDER
+                pixel_order=LEDConfig.LED_ORDER
             )
-            logging.info(f"NeoPixel initialized on pin {LED_PIN} with {LED_COUNT} LEDs")
+            logging.info(f"NeoPixel initialized on pin {LEDConfig.LED_PIN} with {LEDConfig.LED_COUNT} LEDs")
         else:
             # Mock pixels for non-Raspberry Pi platforms
             class MockPixels:
@@ -100,8 +100,8 @@ class LEDManager:
                     #logging.info("Mock: LED state updated")
                     pass
 
-            self.pixels = MockPixels(LED_COUNT)
-            logging.info(f"Mock NeoPixel initialized with {LED_COUNT} LEDs")
+            self.pixels = MockPixels(LEDConfig.LED_COUNT)
+            logging.info(f"Mock NeoPixel initialized with {LEDConfig.LED_COUNT} LEDs")
         
         self.clear()
 
@@ -175,13 +175,13 @@ class LEDManager:
             # Different effect or no effect running, start new effect
             self.start_effect(effect, speed, brightness, duration)
 
-    def start_effect(self, effect: LEDEffect, speed=None, brightness=LED_BRIGHTNESS, duration=None):
+    def start_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None):
         """Start an LED effect
         
         Args:
             effect: The LEDEffect to start
             speed: Speed of the effect (if None, uses effect's default speed)
-            brightness: Brightness level from 0.0 to 1.0 (default: LED_BRIGHTNESS from config)
+            brightness: Relative brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
             duration: Optional duration in milliseconds before reverting to previous effect
         """
         if effect not in self._EFFECT_MAP:
@@ -239,7 +239,7 @@ class LEDManager:
         Args:
             brightness: Brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
         """
-        self.pixels.brightness = LED_BRIGHTNESS * brightness
+        self.pixels.brightness = LEDConfig.LED_BRIGHTNESS * brightness
 
 
     # ********** Effect methods **********
@@ -281,8 +281,8 @@ class LEDManager:
             for j in range(255):
                 if self._stop_event.is_set():
                     break
-                for i in range(LED_COUNT):
-                    hue = (i / LED_COUNT) + (j / 255.0)
+                for i in range(LEDConfig.LED_COUNT):
+                    hue = (i / LEDConfig.LED_COUNT) + (j / 255.0)
                     hue = hue % 1.0
                     r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 1.0, 1.0)]
                     self.pixels[i] = (r, g, b)
@@ -299,9 +299,9 @@ class LEDManager:
                 if self._stop_event.is_set():
                     break
                 # Create a moving gradient across all pixels
-                for i in range(LED_COUNT):
+                for i in range(LEDConfig.LED_COUNT):
                     # Calculate position in the gradient cycle
-                    position = (i / LED_COUNT + j / 100.0) % 1.0
+                    position = (i / LEDConfig.LED_COUNT + j / 100.0) % 1.0
                     # Interpolate between pink and blue
                     if position < 0.5:
                         # Transition from pink to blue
@@ -319,7 +319,7 @@ class LEDManager:
         """Create random twinkling pixels with dynamic fade speeds"""
         # Track the state of each pixel
         pixel_states = []
-        for _ in range(LED_COUNT):
+        for _ in range(LEDConfig.LED_COUNT):
             pixel_states.append({
                 'active': False,
                 'brightness': 0.0,
@@ -394,7 +394,7 @@ class LEDManager:
                 # If not yet fully moved to center, draw and keep the drop
                 if drop['radius'] < 1.0:
                     # Calculate which LED to light based on position around ring
-                    led_position = int(drop['position'] * LED_COUNT) % LED_COUNT
+                    led_position = int(drop['position'] * LEDConfig.LED_COUNT) % LEDConfig.LED_COUNT
                     intensity = drop['intensity'] * (1.0 - drop['radius'])  # Fade as it moves inward
                     
                     # Blue color for the raindrop
@@ -414,8 +414,8 @@ class LEDManager:
                     if trail_length > 0:
                         for i in range(1, trail_length + 1):
                             # Calculate trail positions (both clockwise and counter-clockwise)
-                            trail_pos_cw = (led_position + i) % LED_COUNT
-                            trail_pos_ccw = (led_position - i) % LED_COUNT
+                            trail_pos_cw = (led_position + i) % LEDConfig.LED_COUNT
+                            trail_pos_ccw = (led_position - i) % LEDConfig.LED_COUNT
                             
                             # Calculate trail intensity - reduces with distance and overall drop intensity
                             trail_intensity = intensity * (1 - (i / (trail_length + 1))) * splash_progress * 0.7
@@ -442,7 +442,7 @@ class LEDManager:
             clockwise = random.choice([True, False])
             
             # Choose random starting point
-            start_led = random.randint(0, LED_COUNT - 1)
+            start_led = random.randint(0, LEDConfig.LED_COUNT - 1)
             
             # Main lightning strike
             for intensity in [1.0, 0.8]:  # Two quick flashes
@@ -450,21 +450,21 @@ class LEDManager:
                 self.pixels.fill((0, 0, 0))
                 
                 # Calculate arc length (between 1/3 and 2/3 of the ring)
-                arc_length = random.randint(LED_COUNT // 3, (LED_COUNT * 2) // 3)
+                arc_length = random.randint(LEDConfig.LED_COUNT // 3, (LEDConfig.LED_COUNT * 2) // 3)
                 
                 # Create the main lightning arc
                 for i in range(arc_length):
                     if self._stop_event.is_set():
                         return
                         
-                    current_pos = (start_led + (i if clockwise else -i)) % LED_COUNT
+                    current_pos = (start_led + (i if clockwise else -i)) % LEDConfig.LED_COUNT
                     
                     # Add some randomness to the arc path
                     if random.random() < 0.3:  # 30% chance to create a branch
                         branch_length = random.randint(2, 5)
                         branch_direction = random.choice([1, -1])
                         for j in range(branch_length):
-                            branch_pos = (current_pos + (j * branch_direction)) % LED_COUNT
+                            branch_pos = (current_pos + (j * branch_direction)) % LEDConfig.LED_COUNT
                             # Dimmer branch
                             brightness = min(1.0, (1 - (j / branch_length)) * intensity * 0.7)
                             # Ensure blue tint doesn't exceed 255
@@ -495,7 +495,7 @@ class LEDManager:
                     
                 # Apply afterglow only to the pixels that were part of the lightning
                 for i in range(arc_length):
-                    current_pos = (start_led + (i if clockwise else -i)) % LED_COUNT
+                    current_pos = (start_led + (i if clockwise else -i)) % LEDConfig.LED_COUNT
                     # Ensure color values stay within range
                     safe_color = tuple(min(255, int(c * brightness)) for c in color)
                     self.pixels[current_pos] = safe_color

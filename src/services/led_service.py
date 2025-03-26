@@ -1,6 +1,6 @@
 from services.service import BaseService
 from managers.led_manager import LEDManager, LEDEffect
-from config import PLATFORM, LED_BRIGHTNESS
+from config import PLATFORM
 import logging
 
 
@@ -107,7 +107,7 @@ class LEDService(BaseService):
             # Handle manual LED commands
             effect_name = event.get('data', {}).get('effectName')
             speed = event.get('data', {}).get('speed', 0.02)
-            brightness = event.get('data', {}).get('brightness', LED_BRIGHTNESS)
+            brightness = event.get('data', {}).get('brightness', 1.0)
             
             # Map string effect names to enum values
             effect_map = {
