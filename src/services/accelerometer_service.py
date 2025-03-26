@@ -87,11 +87,11 @@ class AccelerometerService(BaseService):
             self.i2c = busio.I2C(board.SCL, board.SDA, frequency=800000)
             self.imu = BNO08X_I2C(self.i2c)
             
-            # Check and perform calibration if needed
-            await self._check_and_calibrate()
-            
             # Enable features
             self._enable_sensor_reports()
+            
+            # Check and perform calibration if needed
+            await self._check_and_calibrate()
             
             # Start continuous reading
             self.read_task = asyncio.create_task(self._read_loop())
