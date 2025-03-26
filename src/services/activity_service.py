@@ -10,7 +10,6 @@ from services.hide_seek_service import HideSeekService
 from services.accelerometer_service import AccelerometerService
 from services.move_activity import MoveActivity
 import asyncio
-from config import ASSISTANT_CONFIG_FIRST_MEETING
 
 class ActivityType(Enum):
     """Types of activities the device can be in"""
