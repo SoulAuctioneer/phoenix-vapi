@@ -298,10 +298,7 @@ class AccelerometerService(BaseService):
                 # Classification Reports
                 "stability": stability,
                 "activity": activity,
-                "step_count": step_count,
-
-                "timestamp": self.imu._last_accel_timestamp
-            }
+                "step_count": step_count            }
         except Exception as e:
             self.logger.error(f"Error reading sensor data: {e}")
             return {}
