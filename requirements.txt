@@ -18,7 +18,7 @@ adafruit-circuitpython-neopixel; sys_platform == 'linux'
 adafruit-circuitpython-ads1x15; sys_platform == 'linux'  # ADC for force sensor
 adafruit-circuitpython-drv2605; sys_platform == 'linux'  # vibration motor
 adafruit-circuitpython-max1704x; sys_platform == 'linux'  # battery monitor
-# adafruit-circuitpython-mpu6050; sys_platform == 'linux' # accelerometer
+adafruit-circuitpython-bno08x; sys_platform == 'linux' # accelerometer
 
 # System dependencies that need pip install
 pyaudio; sys_platform == 'darwin'  # macOS needs brew install portaudio first
