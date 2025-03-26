@@ -83,23 +83,23 @@ class AccelerometerService(BaseService):
     async def start(self):
         """Start the accelerometer service"""
         await super().start()
-        try:
-            # Initialize I2C and MPU6050
-            self.i2c = busio.I2C(board.SCL, board.SDA)
-            self.imu = BNO08X_I2C(self.i2c)
-            
-            # Enable features
-            self._enable_sensor_reports()
-            
-            # Check and perform calibration if needed
-            # await self._check_and_calibrate()
-            
-            # Start continuous reading
-            self.read_task = asyncio.create_task(self._read_loop())
-            self.logger.info("Accelerometer service started")
-        except Exception as e:
-            self.logger.error(f"Failed to initialize accelerometer: {e}")
-            raise
+        # try:
+        # Initialize I2C and MPU6050
+        self.i2c = busio.I2C(board.SCL, board.SDA)
+        self.imu = BNO08X_I2C(self.i2c)
+        
+        # Enable features
+        self._enable_sensor_reports()
+        
+        # Check and perform calibration if needed
+        # await self._check_and_calibrate()
+        
+        # Start continuous reading
+        self.read_task = asyncio.create_task(self._read_loop())
+        self.logger.info("Accelerometer service started")
+        # except Exception as e:
+        #     self.logger.error(f"Failed to initialize accelerometer: {e}")
+        #     raise
             
     async def _check_and_calibrate(self):
         """Check calibration status and perform calibration if needed"""
