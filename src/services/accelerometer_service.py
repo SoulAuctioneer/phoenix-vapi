@@ -295,7 +295,6 @@ class AccelerometerService(BaseService):
             self.imu.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
             
             # Classification Reports
-            self.imu.enable_feature(BNO_REPORT_TAP_DETECTOR)
             self.imu.enable_feature(BNO_REPORT_STEP_COUNTER)
             self.imu.enable_feature(BNO_REPORT_STABILITY_CLASSIFIER)
             self.imu.enable_feature(BNO_REPORT_ACTIVITY_CLASSIFIER)
