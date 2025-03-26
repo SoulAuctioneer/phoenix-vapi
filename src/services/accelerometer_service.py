@@ -84,7 +84,7 @@ class AccelerometerService(BaseService):
         await super().start()
         try:
             # Initialize I2C and MPU6050
-            self.i2c = busio.I2C(board.SCL, board.SDA, frequency=800000)
+            self.i2c = busio.I2C(board.SCL, board.SDA)
             self.imu = BNO08X_I2C(self.i2c)
             
             # Enable features
