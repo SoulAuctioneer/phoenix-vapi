@@ -4,7 +4,7 @@ Core sensor functionality for reading and processing touch sensor data.
 
 import time
 import logging
-import config
+from config import TouchConfig, PLATFORM
 import asyncio
 import platform
 import random
@@ -12,7 +12,7 @@ import math
 from typing import Callable, Optional, List, Awaitable, Union
 
 # Only import hardware-specific libraries on Raspberry Pi
-if config.PLATFORM == "raspberry-pi":
+if PLATFORM == "raspberry-pi":
     import board
     import busio
     import adafruit_ads1x15.ads1115 as ADS
@@ -43,9 +43,9 @@ class TouchManager:
         
         # Stroke activity tracking for dynamic decay
         self.recent_strokes = []  # List of (timestamp, intensity_increase) tuples
-        self.activity_window = config.STROKE_ACTIVITY_WINDOW  # Track strokes in last N seconds
+        self.activity_window = TouchConfig.STROKE_ACTIVITY_WINDOW  # Track strokes in last N seconds
         
-        if config.PLATFORM == "raspberry-pi":
+        if PLATFORM == "raspberry-pi":
             self.ads, self.chan = self._setup_adc()
         else:
             # Mock ADC for non-Raspberry Pi platforms
@@ -144,11 +144,11 @@ class TouchManager:
         # More strokes and higher intensity increases = higher activity
         if self.recent_strokes:
             # Weight recent strokes more heavily using exponential decay
-            weighted_activity = sum(i * math.exp(-(now - t) / config.STROKE_ACTIVITY_DECAY_TIME) 
+            weighted_activity = sum(i * math.exp(-(now - t) / TouchConfig.STROKE_ACTIVITY_DECAY_TIME) 
                                  for t, i in self.recent_strokes)
             # Normalize to 0-1 range based on expected strokes per window
             activity_level = min(1.0, weighted_activity / 
-                               (config.STROKE_ACTIVITY_STROKES_PER_WINDOW * config.STROKE_INTENSITY_MAX_INCREASE))
+                               (TouchConfig.STROKE_ACTIVITY_STROKES_PER_WINDOW * TouchConfig.STROKE_INTENSITY_MAX_INCREASE))
             
             # Add extra weight to very recent strokes (last 2 seconds) to maintain intensity better
             very_recent_strokes = sum(1 for t, _ in self.recent_strokes if now - t <= 2.0)
@@ -160,9 +160,9 @@ class TouchManager:
         # Calculate dynamic decay rate:
         # - At activity_level = 0: decay = BASE_DECAY * MAX_MULTIPLIER (faster decay)
         # - At activity_level = 1: decay = BASE_DECAY * MIN_MULTIPLIER (slower decay)
-        base_decay = config.STROKE_INTENSITY_DECAY_RATE
-        decay_range = config.STROKE_MAX_DECAY_MULTIPLIER - config.STROKE_MIN_DECAY_MULTIPLIER
-        decay_rate = base_decay * (config.STROKE_MAX_DECAY_MULTIPLIER - (decay_range * activity_level))
+        base_decay = TouchConfig.STROKE_INTENSITY_DECAY_RATE
+        decay_range = TouchConfig.STROKE_MAX_DECAY_MULTIPLIER - TouchConfig.STROKE_MIN_DECAY_MULTIPLIER
+        decay_rate = base_decay * (TouchConfig.STROKE_MAX_DECAY_MULTIPLIER - (decay_range * activity_level))
         
         # Add non-linear decay: slower at low intensities for gentler fade-out
         if self.stroke_intensity_level < 0.3:  # Slow down decay at low intensities
@@ -205,20 +205,20 @@ class TouchManager:
             float: Amount to increase stroke intensity (0-1 range)
         """
         # Ensure minimum speed to prevent very slow strokes from causing large increases
-        speed = max(config.STROKE_INTENSITY_MIN_SPEED, speed)
+        speed = max(TouchConfig.STROKE_INTENSITY_MIN_SPEED, speed)
         
         # Increase is proportional to distance and inversely proportional to speed
         # Add a small constant (0.1) to speed to prevent division by very small numbers
-        increase = (distance * config.STROKE_INTENSITY_DISTANCE_FACTOR) / ((speed * config.STROKE_INTENSITY_SPEED_FACTOR) + 0.1)
+        increase = (distance * TouchConfig.STROKE_INTENSITY_DISTANCE_FACTOR) / ((speed * TouchConfig.STROKE_INTENSITY_SPEED_FACTOR) + 0.1)
         
         # Clamp the increase to configured maximum
-        return min(config.STROKE_INTENSITY_MAX_INCREASE, max(0.0, increase))
+        return min(TouchConfig.STROKE_INTENSITY_MAX_INCREASE, max(0.0, increase))
     
-    async def start(self, sample_rate_hz: float = config.SAMPLE_RATE_HZ):
+    async def start(self, sample_rate_hz: float = TouchConfig.SAMPLE_RATE_HZ):
         """Start the sensor reading loop
         
         Args:
-            sample_rate_hz: Sampling rate in Hz (defaults to config.SAMPLE_RATE_HZ)
+            sample_rate_hz: Sampling rate in Hz (defaults to TouchConfig.SAMPLE_RATE_HZ)
         """
         if self.running:
             return
@@ -247,7 +247,7 @@ class TouchManager:
                     
                     if is_touching:
                         # Calculate normalized position
-                        position = ((value - config.LEFT_MIN) / (config.RIGHT_MAX - config.LEFT_MIN))
+                        position = ((value - TouchConfig.LEFT_MIN) / (TouchConfig.RIGHT_MAX - TouchConfig.LEFT_MIN))
                         position = max(0, min(position, 1.0))
                         
                         # Notify position updates
@@ -323,7 +323,7 @@ class StrokeDetector:
         if is_touching != self.was_touching:
             if self.was_touching and not is_touching:  # Finger lifted
                 # Check for stroke only when finger is lifted
-                if len(self.touch_history) >= config.MIN_STROKE_POINTS:
+                if len(self.touch_history) >= TouchConfig.MIN_STROKE_POINTS:
                     self.pending_stroke = self._check_stroke()
             else:  # New touch started
                 self.touch_history = []  # Clear history only on new touch
@@ -343,7 +343,7 @@ class StrokeDetector:
             return False, None
             
         # Convert value to normalized position (0 to 1)
-        position = ((value - config.LEFT_MIN) / (config.RIGHT_MAX - config.LEFT_MIN))
+        position = ((value - TouchConfig.LEFT_MIN) / (TouchConfig.RIGHT_MAX - TouchConfig.LEFT_MIN))
         position = max(0, min(position, 1.0))  # Clamp to valid range
         
         # Only add non-zero positions to history
@@ -384,8 +384,8 @@ class StrokeDetector:
                     logging.info(f"Trimmed {original_len - len(positions)} points from end of stroke")
                     break
         
-        if len(positions) < config.MIN_STROKE_POINTS:
-            logging.info(f"Not enough points for stroke: {len(positions)} < {config.MIN_STROKE_POINTS}")
+        if len(positions) < TouchConfig.MIN_STROKE_POINTS:
+            logging.info(f"Not enough points for stroke: {len(positions)} < {TouchConfig.MIN_STROKE_POINTS}")
             return False, None
             
         # Calculate stroke metrics
@@ -412,14 +412,14 @@ class StrokeDetector:
         
         # Check if stroke criteria are met
         now = time.time()
-        if total_distance < config.MIN_STROKE_DISTANCE:
-            logging.info(f"Distance too small: {total_distance:.3f} < {config.MIN_STROKE_DISTANCE}")
+        if total_distance < TouchConfig.MIN_STROKE_DISTANCE:
+            logging.info(f"Distance too small: {total_distance:.3f} < {TouchConfig.MIN_STROKE_DISTANCE}")
         elif not is_monotonic:
             logging.info("Movement not monotonic enough")
-        elif speed < config.MIN_STROKE_SPEED:
-            logging.info(f"Speed too low: {speed:.3f} < {config.MIN_STROKE_SPEED}")
-        elif now - self.last_stroke_time < config.STROKE_TIME_WINDOW:
-            logging.info(f"Too soon after last stroke: {now - self.last_stroke_time:.3f}s < {config.STROKE_TIME_WINDOW}s")
+        elif speed < TouchConfig.MIN_STROKE_SPEED:
+            logging.info(f"Speed too low: {speed:.3f} < {TouchConfig.MIN_STROKE_SPEED}")
+        elif now - self.last_stroke_time < TouchConfig.STROKE_TIME_WINDOW:
+            logging.info(f"Too soon after last stroke: {now - self.last_stroke_time:.3f}s < {TouchConfig.STROKE_TIME_WINDOW}s")
         else:
             self.last_stroke_time = now
             return True, direction
@@ -475,7 +475,7 @@ class StrokeDetector:
         
         for i in range(1, len(positions)):
             diff = positions[i] - positions[i-1]
-            if abs(diff) > config.DIRECTION_REVERSAL_TOLERANCE:
+            if abs(diff) > TouchConfig.DIRECTION_REVERSAL_TOLERANCE:
                 if (diff * expected_sign) < 0:
                     # Add the time spent in this reversal
                     reversal_time += times[i] - times[i-1]
@@ -503,8 +503,8 @@ class TouchState:
         now = time.time()
         
         # Check if value has changed significantly from last reading
-        if value < config.NO_TOUCH_THRESHOLD:
-            if self.last_value >= config.NO_TOUCH_THRESHOLD:
+        if value < TouchConfig.NO_TOUCH_THRESHOLD:
+            if self.last_value >= TouchConfig.NO_TOUCH_THRESHOLD:
                 self.stable_start = now
         else:
             self.stable_start = now
@@ -513,11 +513,11 @@ class TouchState:
         
         # Update touch state with hysteresis
         if not self.is_touching:
-            if value >= config.NO_TOUCH_THRESHOLD:
+            if value >= TouchConfig.NO_TOUCH_THRESHOLD:
                 self.is_touching = True
         else:
             # Use time-based stability check (20ms) instead of sample count
-            if value < config.NO_TOUCH_THRESHOLD and (now - self.stable_start) >= 0.02:
+            if value < TouchConfig.NO_TOUCH_THRESHOLD and (now - self.stable_start) >= 0.02:
                 self.is_touching = False
         
         return self.is_touching
@@ -526,7 +526,7 @@ class TouchState:
 class MockAnalogIn:
     """Mock implementation of AnalogIn for development on non-Raspberry Pi platforms"""
     def __init__(self):
-        self._value = config.NO_TOUCH_THRESHOLD - 100  # Start below threshold
+        self._value = TouchConfig.NO_TOUCH_THRESHOLD - 100  # Start below threshold
         self._last_update = time.time()
         self._touch_active = False
         self._touch_position = 0.5  # Center position
@@ -559,15 +559,15 @@ class MockAnalogIn:
             if self._touch_position <= 0 or self._touch_position >= 1:
                 if random.random() < 0.7:  # 70% chance to end touch sequence
                     self._touch_active = False
-                    self._value = config.NO_TOUCH_THRESHOLD - 100  # Return to no-touch state
+                    self._value = TouchConfig.NO_TOUCH_THRESHOLD - 100  # Return to no-touch state
                 else:
                     self._touch_direction *= -1  # Reverse direction
                     
             if self._touch_active:  # Still active after checks
                 self._touch_position = max(0, min(1, self._touch_position))
                 # Convert position (0-1) to raw sensor value range, ensuring it's above threshold
-                self._value = int(config.LEFT_MIN + (self._touch_position * (config.RIGHT_MAX - config.LEFT_MIN)))
-                self._value = max(config.NO_TOUCH_THRESHOLD + 100, self._value)  # Ensure it's above threshold
+                self._value = int(TouchConfig.LEFT_MIN + (self._touch_position * (TouchConfig.RIGHT_MAX - TouchConfig.LEFT_MIN)))
+                self._value = max(TouchConfig.NO_TOUCH_THRESHOLD + 100, self._value)  # Ensure it's above threshold
         
         return self._value
 

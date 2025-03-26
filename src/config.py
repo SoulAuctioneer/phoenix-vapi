@@ -242,49 +242,49 @@ class HideSeekConfig:
 
 
 # Touch Sensor Configuration
-# Softpot calibration values
-LEFT_MIN = 8500   # Minimum value (far left)
-RIGHT_MAX = 17500   # Maximum value (far right)
-POSITION_WIDTH = 40  # Width of the visual indicator in characters
+class TouchConfig:
+    # Softpot calibration values
+    LEFT_MIN = 8500   # Minimum value (far left)
+    RIGHT_MAX = 17500   # Maximum value (far right)
+    POSITION_WIDTH = 40  # Width of the visual indicator in characters
 
-# Touch detection thresholds
-NO_TOUCH_THRESHOLD = 8500  # Values below this indicate no touch
-NOISE_WINDOW = 50        # Ignore value changes smaller than this when not touching
+    # Touch detection thresholds
+    NO_TOUCH_THRESHOLD = 8500  # Values below this indicate no touch
+    NOISE_WINDOW = 50        # Ignore value changes smaller than this when not touching
 
-# Stroke detection parameters
-STROKE_TIME_WINDOW = 0.5     # Time window to detect stroke (seconds)
-MIN_STROKE_DISTANCE = 0.2    # Minimum distance (as percentage) to consider a stroke
-MIN_STROKE_POINTS = 5        # Minimum number of touch points to consider a stroke
-MIN_STROKE_SPEED = 0.25      # Minimum speed (position units per second)
-DIRECTION_REVERSAL_TOLERANCE = 0.05  # Tolerance for small direction reversals
+    # Stroke detection parameters
+    STROKE_TIME_WINDOW = 0.5     # Time window to detect stroke (seconds)
+    MIN_STROKE_DISTANCE = 0.2    # Minimum distance (as percentage) to consider a stroke
+    MIN_STROKE_POINTS = 5        # Minimum number of touch points to consider a stroke
+    MIN_STROKE_SPEED = 0.25      # Minimum speed (position units per second)
+    DIRECTION_REVERSAL_TOLERANCE = 0.05  # Tolerance for small direction reversals
 
-# Stroke intensity tracking parameters
-STROKE_INTENSITY_DECAY_RATE = 0.02   # Level lost per second
-STROKE_INTENSITY_SPEED_FACTOR = 2.2  # Higher speeds reduce intensity gain (divisor)
-STROKE_INTENSITY_DISTANCE_FACTOR = 0.6  # Multiplier for distance contribution
-STROKE_INTENSITY_MIN_SPEED = 0.5  # Minimum speed threshold to prevent large increases from very slow strokes
-STROKE_INTENSITY_MAX_INCREASE = 0.1  # Maximum intensity increase per stroke (0-1)
+    # Stroke intensity tracking parameters
+    STROKE_INTENSITY_DECAY_RATE = 0.02   # Level lost per second
+    STROKE_INTENSITY_SPEED_FACTOR = 2.2  # Higher speeds reduce intensity gain (divisor)
+    STROKE_INTENSITY_DISTANCE_FACTOR = 0.6  # Multiplier for distance contribution
+    STROKE_INTENSITY_MIN_SPEED = 0.5  # Minimum speed threshold to prevent large increases from very slow strokes
+    STROKE_INTENSITY_MAX_INCREASE = 0.1  # Maximum intensity increase per stroke (0-1)
 
-# Stroke activity and decay behavior
-STROKE_ACTIVITY_WINDOW = 15.0  # Time window to track strokes for activity level (seconds)
-STROKE_ACTIVITY_DECAY_TIME = 5.0  # Time constant for activity level exponential decay (seconds)
-STROKE_MAX_DECAY_MULTIPLIER = 2.0  # Maximum decay rate multiplier when inactive (was 3.0)
-STROKE_MIN_DECAY_MULTIPLIER = 0.25  # Minimum decay rate multiplier when very active (was 0.25)
-STROKE_ACTIVITY_STROKES_PER_WINDOW = 3  # Expected number of strokes per window for normalization
+    # Stroke activity and decay behavior
+    STROKE_ACTIVITY_WINDOW = 15.0  # Time window to track strokes for activity level (seconds)
+    STROKE_ACTIVITY_DECAY_TIME = 5.0  # Time constant for activity level exponential decay (seconds)
+    STROKE_MAX_DECAY_MULTIPLIER = 2.0  # Maximum decay rate multiplier when inactive (was 3.0)
+    STROKE_MIN_DECAY_MULTIPLIER = 0.25  # Minimum decay rate multiplier when very active (was 0.25)
+    STROKE_ACTIVITY_STROKES_PER_WINDOW = 3  # Expected number of strokes per window for normalization
 
-# Touch sensor sampling configuration
-SAMPLE_RATE_HZ = 100  # Default sampling rate in Hz
+    # Touch sensor sampling configuration
+    SAMPLE_RATE_HZ = 100  # Default sampling rate in Hz
 
+    # Haptic purr effect configuration
+    PURR_CYCLE_PERIOD = 2.573  # Duration of one complete purr cycle in seconds
+    PURR_WAVE_SHAPING = 0.7  # Power for wave shaping (higher = longer peaks)
+    PURR_MIN_POWER_BASE = 10  # Base minimum power level - lowered for gentler low-intensity purrs
+    PURR_MIN_POWER_SCALE = 35  # How much minimum power increases with intensity - reduced for smoother progression
+    PURR_MAX_POWER_BASE = 100  # Base maximum power level
+    PURR_MAX_POWER_SCALE = 60  # How much maximum power increases with intensity
+    PURR_UPDATE_RATE = 200  # Updates per second (Hz)
 
-# Haptics Configuration
-# Haptic purr effect configuration
-PURR_CYCLE_PERIOD = 2.573  # Duration of one complete purr cycle in seconds
-PURR_WAVE_SHAPING = 0.7  # Power for wave shaping (higher = longer peaks)
-PURR_MIN_POWER_BASE = 10  # Base minimum power level - lowered for gentler low-intensity purrs
-PURR_MIN_POWER_SCALE = 35  # How much minimum power increases with intensity - reduced for smoother progression
-PURR_MAX_POWER_BASE = 100  # Base maximum power level
-PURR_MAX_POWER_SCALE = 60  # How much maximum power increases with intensity
-PURR_UPDATE_RATE = 200  # Updates per second (Hz)
 
 # Battery Monitoring Configuration
 class BatteryConfig:

@@ -12,11 +12,11 @@ in a sequence. Effects can be combined with pauses for complex haptic patterns.
 import time
 import logging
 import asyncio
-import config
+from config import PLATFORM
 from typing import List, Union, Optional, Tuple
 
 # Only import hardware-specific libraries on Raspberry Pi
-if config.PLATFORM == "raspberry-pi":
+if PLATFORM == "raspberry-pi":
     import board
     import busio
     import adafruit_drv2605
@@ -161,7 +161,7 @@ class HapticManager:
         self._current_sequence: Optional[List[Tuple[Union[int, float], bool]]] = None  # (value, is_pause)
         self._sequence_task = None
         
-        if config.PLATFORM == "raspberry-pi":
+        if PLATFORM == "raspberry-pi":
             try:
                 # Initialize I2C and DRV2605L
                 i2c = busio.I2C(board.SCL, board.SDA)
