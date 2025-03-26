@@ -1,4 +1,4 @@
-# Phoenix Voice Assistant
+# Phoenix AI Companion Toy
 
 The Phoenix is an interactive, smart, beautiful, and screen-free AI-powered companion and toy for children. It provides emotional, social, and cognitive engagement and support via dynamic nurturing mechanics, guided play, tutoring, and wellness practices. 
 
