@@ -1,4 +1,4 @@
-# Phoenix Voice Assistant - Architecture Guide
+# Phoenix AI Companion Toy - Architecture Guide
 
 ## Application Purpose
 
@@ -29,6 +29,50 @@ The Phoenix application is built on an event-driven, service-based architecture 
 4. **Activity-Based Orchestration**: The system uses an activity-based approach where different modes (conversation, hide & seek, sleep, etc.) are represented as activities that coordinate specific services they require.
 
 5. **Asynchronous Operation**: Built using Python's asyncio for non-blocking, concurrent execution of services.
+
+### Event System
+
+The application uses a publish/subscribe event system where services can publish events and subscribe to events from other services. Events are the primary method of communication between services and are used to coordinate activities, report state changes, and trigger actions.
+
+#### Event Types
+
+Below is a comprehensive list of events used throughout the system:
+
+| Event Type | Description | Producers | Consumers | Payload Fields |
+|------------|-------------|-----------|-----------|----------------|
+| `wake_word_detected` | Triggered when the wake word is detected | WakeWordService | IntentService | - |
+| `intent_detection_started` | Indicates that intent detection has started | IntentService | ConversationService | `timeout`: duration in seconds |
+| `intent_detection_timeout` | Triggered when intent detection times out | IntentService | ConversationService | - |
+| `intent_detected` | Indicates that a user intent was detected | IntentService | ActivityService | `intent`: string, `slots`: dict |
+| `application_startup_completed` | Indicates app has finished initializing | Main | ActivityService | - |
+| `conversation_starting` | Indicates a conversation is about to begin | ConversationService | ServiceManager | - |
+| `conversation_started` | Indicates a conversation has started | CallManager | ConversationService | - |
+| `conversation_ended` | Indicates a conversation has ended | ConversationService | ActivityService | - |
+| `conversation_error` | Indicates an error in conversation | ConversationService | ServiceManager | `error`: string |
+| `conversation_joining` | Indicates the system is joining a call | CallManager | - | - |
+| `speech-update` | Updates on speaking status | CallManager | ServiceManager | `role`: string, `status`: string |
+| `call_state` | Reports call state changes | CallManager | ConversationService | `state`: string |
+| `activity_started` | Indicates an activity has started | ActivityService | - | `activity`: string |
+| `activity_stopped` | Indicates an activity has ended | ActivityService | - | `activity`: string |
+| `location_changed` | Reports a change in location | LocationService | ConversationService | `data`: {`location`: string, `previous_location`: string} |
+| `proximity_changed` | Reports a change in proximity to a beacon | LocationService | ConversationService | `data`: {`location`: string, `distance`: enum, `previous_distance`: enum, `rssi`: number} |
+| `start_sensing_phoenix_distance` | Requests location service to start | HideSeekService | ActivityService | - |
+| `stop_sensing_phoenix_distance` | Requests location service to stop | HideSeekService | ActivityService | - |
+| `hide_seek_won` | Indicates the hide and seek game was won | HideSeekService | ActivityService | - |
+| `hide_seek_found` | Indicates the player was found during hide and seek | HideSeekService | - | - |
+| `hide_seek_hint` | Provides a hint during hide and seek | HideSeekService | - | - |
+| `touch_state` | Reports touch sensor state | SensorService | ServiceManager | `is_touching`: boolean |
+| `touch_position` | Reports touch position | SensorService | ServiceManager | `position`: float |
+| `touch_stroke_intensity` | Reports stroking intensity | SensorService | ActivityService | `intensity`: float |
+| `sensor_data` | Reports sensor readings | AccelerometerService | ServiceManager | `data`: object |
+| `volume_changed` | Reports audio volume change | AudioService | ServiceManager | `volume`: float |
+| `microphone_state` | Reports microphone mute state | AudioService | ServiceManager | `is_muted`: boolean |
+| `play_effect` | Requests playing a sound effect | Various | SpecialEffectService | `effect`: string, `volume`: float |
+| `effect_played` | Reports a sound effect was played | SpecialEffectService | - | `effect`: string |
+| `battery_state` | Reports battery state | BatteryService | - | `level`: float, `is_charging`: boolean |
+| `movement_detected` | Reports significant movement | AccelerometerService | - | `magnitude`: float |
+| `sleep_mode_entered` | Indicates sleep mode activation | SleepActivity | - | - |
+| `sleep_mode_exited` | Indicates sleep mode deactivation | SleepActivity | - | - |
 
 ### Sensor Integration
 
