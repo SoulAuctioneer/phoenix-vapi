@@ -68,6 +68,7 @@ from adafruit_bno08x import (
 from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple
 from services.service import BaseService
+from math import atan2, sqrt, pi
 
 class AccelerometerService(BaseService):
     """Service for reading accelerometer data"""
@@ -192,6 +193,44 @@ class AccelerometerService(BaseService):
         # Currently no events to handle
         pass
 
+    def _find_heading(self, dqw: float, dqx: float, dqy: float, dqz: float) -> float:
+        """
+        Calculate heading from quaternion values.
+        
+        This function converts quaternion values to heading in degrees (0-360 clockwise).
+        The heading is calculated using the rotation vector quaternion values.
+        
+        Args:
+            dqw (float): Real component of quaternion
+            dqx (float): i component of quaternion
+            dqy (float): j component of quaternion
+            dqz (float): k component of quaternion
+            
+        Returns:
+            float: Heading in degrees (0-360 clockwise)
+        """
+        # Normalize quaternion
+        norm = sqrt(dqw * dqw + dqx * dqx + dqy * dqy + dqz * dqz)
+        dqw = dqw / norm
+        dqx = dqx / norm
+        dqy = dqy / norm
+        dqz = dqz / norm
+
+        # Calculate heading using quaternion to Euler angle conversion
+        ysqr = dqy * dqy
+        t3 = +2.0 * (dqw * dqz + dqx * dqy)
+        t4 = +1.0 - 2.0 * (ysqr + dqz * dqz)
+        yaw_raw = atan2(t3, t4)
+        yaw = yaw_raw * 180.0 / pi
+        
+        # Convert to 0-360 clockwise
+        if yaw > 0:
+            yaw = 360 - yaw
+        else:
+            yaw = abs(yaw)
+            
+        return yaw
+
     def _read_sensor_data(self) -> Dict[str, Any]:
         """
         Read data from the BNO085 sensor.
@@ -210,6 +249,9 @@ class AccelerometerService(BaseService):
         - geomagnetic_rotation: Low-power orientation as a quaternion (x, y, z, w)
         - game_rotation: Gaming-optimized orientation as a quaternion (x, y, z, w)
         
+        Heading:
+        - heading: Absolute heading in degrees (0-360 clockwise) calculated using rotation vector
+        
         Classification Reports:
         - stability: Current stability classification ("On table", "Stable", or "Motion")
         - activity: Current activity classification with confidence levels
@@ -225,23 +267,19 @@ class AccelerometerService(BaseService):
             mag_x, mag_y, mag_z = self.imu.magnetic  # uT
             lin_accel_x, lin_accel_y, lin_accel_z = self.imu.linear_acceleration  # m/s^2
             
-            # Rotation Vectors
-            rot_x, rot_y, rot_z, rot_w = self.imu.rotation_vector  # quaternion
-            geomag_x, geomag_y, geomag_z, geomag_w = self.imu.geomagnetic_rotation_vector  # quaternion
-            game_x, game_y, game_z, game_w = self.imu.game_rotation_vector  # quaternion
+            # Rotation Vectors - Access quaternion data directly
+            quat_i, quat_j, quat_k, quat_real = self.imu.quaternion  # rotation vector
+            geomag_quat_i, geomag_quat_j, geomag_quat_k, geomag_quat_real = self.imu.geomagnetic_quaternion  # geomagnetic rotation
+            game_quat_i, game_quat_j, game_quat_k, game_quat_real = self.imu.game_quaternion  # game rotation
+            
+            # Calculate heading
+            heading = self._find_heading(quat_real, quat_i, quat_j, quat_k)
             
             # Classification Reports
             stability = self.imu.stability_classification
             activity = self.imu.activity_classification
             tap_detected = self.imu.tap_detected
             step_count = self.imu.steps
-            
-            # Other Reports - not currently used
-            # raw_accel_x, raw_accel_y, raw_accel_z = self.imu.raw_accelerometer
-            # raw_gyro_x, raw_gyro_y, raw_gyro_z = self.imu.raw_gyroscope
-            # raw_mag_x, raw_mag_y, raw_mag_z = self.imu.raw_magnetometer
-            # uncal_gyro_x, uncal_gyro_y, uncal_gyro_z = self.imu.uncalibrated_gyroscope
-            # uncal_mag_x, uncal_mag_y, uncal_mag_z = self.imu.uncalibrated_magnetometer
             
             return {
                 # Motion Vectors
@@ -251,9 +289,12 @@ class AccelerometerService(BaseService):
                 "magnetometer": (mag_x, mag_y, mag_z),
                 
                 # Rotation Vectors
-                "rotation_vector": (rot_x, rot_y, rot_z, rot_w),
-                "geomagnetic_rotation": (geomag_x, geomag_y, geomag_z, geomag_w),
-                "game_rotation": (game_x, game_y, game_z, game_w),
+                "rotation_vector": (quat_i, quat_j, quat_k, quat_real),
+                "geomagnetic_rotation": (geomag_quat_i, geomag_quat_j, geomag_quat_k, geomag_quat_real),
+                "game_rotation": (game_quat_i, game_quat_j, game_quat_k, game_quat_real),
+                
+                # Heading
+                "heading": heading,
                 
                 # Classification Reports
                 "stability": stability,
