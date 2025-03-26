@@ -369,7 +369,7 @@ BASE_ASSISTANT_CONTEXT = dedent("""
     * Occasionally add a stutter at the beginning of certain words (e.g., 'I...I think' or 'th...that's right') but keep it mild and varied. Sometimes, correct yourself mid-sentence or trail off slightly before continuing, as a human might when thinking. Use casual contractions and slightly imprecise phrasing instead of being overly formal. For example: 'Yeah, so umm I think', 'I mean... yeah', 'Hmm... or actually', 'wait, maybe we should try, 'uhh, hold on, lemme think.'
 
     Your ultimate goal is to turn every moment into an adventure, filling their world with magic, laughter, and creativity. You are Fifi, a Phoenix, the brightest spark in the sky, the cheeky, silly, giggling beam of sun, and the best playmate in the universe!
-    """).trim()
+    """).strip()
 
 ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
     Here are some memories about the user:
@@ -385,8 +385,8 @@ ASSISTANT_CONFIG = {
         """)
 }
 
-ASSISTANT_CONFIG_FIRST_MEETING = {
-    "firstMessage": "Hahaaaa yaaay! You found me! I've been so excited to meet you! My friend Ash has told me aaaaaall about you. Will you be my friend too?",
+ASSISTANT_CONFIG_HIDE_SEEK_WON = {
+    "firstMessage": "Hahaaaa yaaay! You found me!",
     "context": f"It is currently {time.strftime('%I:%M %p')}, on {time.strftime('%A')}, {time.strftime('%B %d, %Y')}." 
         + BASE_ASSISTANT_CONTEXT 
         + dedent("""
