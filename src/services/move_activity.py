@@ -60,10 +60,7 @@ class MoveActivity(BaseService):
             activity_data = data.get("activity", {})
             
             # Get the most likely activity from the classification
-            if activity_data:
-                activity = max(activity_data.items(), key=lambda x: x[1])[0]
-            else:
-                activity = "unknown"
+            activity = activity_data.get("most_likely", "unknown")
             
             # Calculate movement energy
             energy = self._calculate_energy(linear_acceleration, gyro)

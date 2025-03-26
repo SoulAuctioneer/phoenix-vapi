@@ -20,7 +20,7 @@ Classification Reports:
 Using its sensor fusion products, the BNO085 can attempt to classify and detect different types of motion it measures.
 - Stability Classification: Uses the accelerometer and gyro to classify the detected motion as "On table", "Stable", or "Motion"
 - Step Counter: Based on the data from the step detector, the sensor tracks the number of steps taken, possibly reclassifying previous events based on the patterns detected.
-- Activity Classification: Classifies the detected motion as one of several activity types, providing a most likely classification along with confidence levels for the most likely and other motion types.
+- Activity Classification: Classifies the detected motion as one of several activity types, providing a most likely classification along with confidence levels for the most likely and other motion types: Unknown, In-Vehicle, On-Bicycle, On-Foot, Still, Tilting, Walking, Running, OnStairs
 - Shake Detector: Detects if the sensor has been shaken
 
 Other Motion Reports (not currently used):
