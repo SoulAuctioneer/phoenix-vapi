@@ -19,10 +19,6 @@ class ConversationService(BaseService):
         # TODO: Don't pass service manager here, pass a callback for event publishing instead
         self.call_manager = await CallManager.create(publish_event_callback=self.publish, memory_manager=self.memory_manager)
 
-    async def publish(self, event: Dict[str, Any]):
-        """Publish an event to the event bus"""
-        await self.publish(event)
-            
     async def stop(self):
         """Stop the service and any active conversation"""
         if self.is_active:
