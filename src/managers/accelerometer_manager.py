@@ -55,12 +55,13 @@ class AccelerometerManager:
         self.motion_state = MotionState.IDLE
         self.motion_history = deque(maxlen=20)  # Store recent measurements for pattern detection
         self.detected_patterns = []
+        self.pattern_history = deque(maxlen=5)  # Store recent pattern detections for sequence recognition
         
         # Thresholds for pattern detection
         self.throw_acceleration_threshold = 10.0  # m/s^2
         self.free_fall_threshold = 2.0  # m/s^2
-        self.impact_threshold = 12.0  # m/s^2
-        self.arc_rotation_threshold = 1.0  # rad/s
+        self.impact_threshold = 8.0  # m/s^2, lowered from 12.0 to better detect catches
+        self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
         self.shake_threshold = 8.0  # m/s^2
         self.rolling_accel_min = 0.5  # m/s^2
         self.rolling_accel_max = 3.0  # m/s^2
@@ -72,6 +73,10 @@ class AccelerometerManager:
         self.max_free_fall_time = 2.0  # seconds
         self.free_fall_start_time = 0
         self.rolling_start_time = 0
+        
+        # Pattern tracking
+        self.throw_detected_time = 0
+        self.throw_in_progress = False
         
     def initialize(self) -> bool:
         """
@@ -173,20 +178,38 @@ class AccelerometerManager:
         
         # Check for specific patterns
         try:
+            current_time = time.time()
+            
             if self._check_throw_pattern():
                 detected_patterns.append(MotionPattern.THROW.name)
+                self.throw_detected_time = current_time
+                self.throw_in_progress = True
                 
             if self._check_catch_pattern(accel_magnitude):
                 detected_patterns.append(MotionPattern.CATCH.name)
+                self.throw_in_progress = False
                 
             if self._check_arc_swing_pattern():
-                detected_patterns.append(MotionPattern.ARC_SWING.name)
+                # Only detect arc swings when not in free fall to avoid false positives
+                if self.motion_state != MotionState.FREE_FALL:
+                    detected_patterns.append(MotionPattern.ARC_SWING.name)
                 
             if self._check_shake_pattern():
-                detected_patterns.append(MotionPattern.SHAKE.name)
+                # Avoid detecting shakes during free fall
+                if self.motion_state != MotionState.FREE_FALL:
+                    detected_patterns.append(MotionPattern.SHAKE.name)
                 
             if self._check_rolling_pattern():
                 detected_patterns.append(MotionPattern.ROLLING.name)
+                
+            # Store patterns in history for sequence detection
+            if detected_patterns:
+                self.pattern_history.append((current_time, detected_patterns))
+                
+            # Expire throw in progress after maximum free fall time
+            if self.throw_in_progress and (current_time - self.throw_detected_time > self.max_free_fall_time):
+                self.throw_in_progress = False
+                
         except Exception as e:
             # Log detailed information about the exception with context
             self.logger.error(f"Error detecting motion patterns: {e}", exc_info=True)
@@ -204,6 +227,9 @@ class AccelerometerManager:
             gyro_magnitude: Magnitude of angular velocity
             timestamp: Current timestamp
         """
+        # Log state transitions for debugging
+        previous_state = self.motion_state
+        
         # State transitions
         if self.motion_state == MotionState.IDLE:
             if accel_magnitude > self.throw_acceleration_threshold:
@@ -217,6 +243,10 @@ class AccelerometerManager:
             if accel_magnitude < self.free_fall_threshold:
                 self.motion_state = MotionState.FREE_FALL
                 self.free_fall_start_time = timestamp
+            elif accel_magnitude > self.impact_threshold:
+                # If a rapid acceleration is followed by an even higher acceleration, 
+                # it might be an impact without free fall (e.g., quick tap)
+                self.motion_state = MotionState.IMPACT
             elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
                   gyro_magnitude > self.rolling_gyro_min):
                 self.motion_state = MotionState.ROLLING
@@ -232,8 +262,10 @@ class AccelerometerManager:
                 self.motion_state = MotionState.IDLE
                 
         elif self.motion_state == MotionState.IMPACT:
-            # Reset to idle after impact
-            self.motion_state = MotionState.IDLE
+            # Impact is a transient state, move to IDLE after detection
+            # Adding a small delay before transitioning to IDLE to ensure the impact is fully processed
+            if accel_magnitude < self.throw_acceleration_threshold:
+                self.motion_state = MotionState.IDLE
             
         elif self.motion_state == MotionState.ROLLING:
             # Check if still rolling
@@ -241,6 +273,11 @@ class AccelerometerManager:
                    gyro_magnitude > self.rolling_gyro_min):
                 self.motion_state = MotionState.IDLE
                 
+        # Log state transition if changed
+        if previous_state != self.motion_state:
+            self.logger.debug(f"Motion state change: {previous_state.name} -> {self.motion_state.name} " +
+                             f"(accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f})")
+        
     def _check_throw_pattern(self) -> bool:
         """
         Check if a throw pattern has been detected.
@@ -282,8 +319,22 @@ class AccelerometerManager:
         Returns:
             bool: True if catch pattern detected
         """
-        return (self.motion_state == MotionState.IMPACT and 
-                MotionPattern.THROW.name in self.detected_patterns)
+        # A catch is detected if:
+        # 1. We're in IMPACT state, indicating sudden deceleration
+        # 2. There was a throw detected recently (within max_free_fall_time)
+        if self.motion_state == MotionState.IMPACT:
+            # Check if we had a throw in progress
+            if self.throw_in_progress:
+                return True
+            
+            # Also check pattern history for recent THROW (backup method)
+            current_time = time.time()
+            for timestamp, patterns in self.pattern_history:
+                if (current_time - timestamp) <= self.max_free_fall_time:
+                    if MotionPattern.THROW.name in patterns:
+                        return True
+            
+        return False
         
     def _check_arc_swing_pattern(self) -> bool:
         """
@@ -297,6 +348,10 @@ class AccelerometerManager:
             bool: True if arc swing detected
         """
         if len(self.motion_history) < 8:
+            return False
+            
+        # Don't detect arc swings during free fall
+        if self.motion_state == MotionState.FREE_FALL:
             return False
             
         # Use game rotation quaternion for smooth rotation detection
@@ -320,9 +375,28 @@ class AccelerometerManager:
                 angle = 2 * acos(min(1.0, abs(dot_product)))
                 total_rotation += angle
             
-            # If total rotation is significant
+            # If total rotation is significant - increased threshold to reduce false positives
             if total_rotation > self.arc_rotation_threshold:
-                return True
+                # Check that rotation is smooth (not erratic as in shaking)
+                # For a smooth rotation, the angle differences should be relatively consistent
+                angles = []
+                for i in range(len(rotations) - 1):
+                    q1 = rotations[i]
+                    q2 = rotations[i+1]
+                    dot_product = q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2] + q1[3]*q2[3]
+                    angle = 2 * acos(min(1.0, abs(dot_product)))
+                    angles.append(angle)
+                
+                # Calculate the standard deviation of angles to check smoothness
+                if len(angles) >= 2:
+                    mean_angle = sum(angles) / len(angles)
+                    variance = sum((angle - mean_angle) ** 2 for angle in angles) / len(angles)
+                    std_dev = sqrt(variance)
+                    
+                    # If the standard deviation is low, rotation is smooth
+                    smoothness_threshold = 0.3  # Radians
+                    if std_dev < smoothness_threshold:
+                        return True
                 
         return False
         
@@ -339,6 +413,10 @@ class AccelerometerManager:
             bool: True if shake detected
         """
         if len(self.motion_history) < 6:
+            return False
+        
+        # Don't detect shake during free fall
+        if self.motion_state == MotionState.FREE_FALL:
             return False
             
         # Get recent acceleration values - convert deque to list before slicing for safety
@@ -366,9 +444,8 @@ class AccelerometerManager:
             
         avg_magnitude = sum(accel_magnitudes) / len(accel_magnitudes)
         
-        # Require a minimum average acceleration magnitude (adjust based on testing)
-        # Typical value during stability is around 0.1-0.3 m/s^2
-        min_shake_magnitude = 2.0  # m/s^2
+        # Require a minimum average acceleration magnitude
+        min_shake_magnitude = 3.0  # Increased from 2.0 to reduce false positives
         
         if avg_magnitude < min_shake_magnitude:
             return False
@@ -384,7 +461,7 @@ class AccelerometerManager:
                 max_component = max(abs(accel[0]), abs(accel[1]), abs(accel[2]))
                 
                 # Ignore very small accelerations (noise)
-                if max_component < 1.0:  # Threshold to ignore minor fluctuations
+                if max_component < 1.5:  # Increased from 1.0 to reduce false positives
                     continue
                     
                 current_direction = None
@@ -400,7 +477,7 @@ class AccelerometerManager:
                     direction_changes += 1
                     
                     # Check if this is a significant change
-                    if max_component > 3.0:  # Higher threshold for significant changes
+                    if max_component > 4.0:  # Increased from 3.0 to reduce false positives
                         significant_changes += 1
                     
                 prev_direction = current_direction
@@ -409,7 +486,6 @@ class AccelerometerManager:
                 self.logger.error(f"Error processing acceleration data at index {idx}: {e}, data: {accel}")
         
         # Require both overall direction changes and some significant ones
-        # Increase the total required changes from 3 to 4
         return direction_changes >= 4 and significant_changes >= 2
         
     def _check_rolling_pattern(self) -> bool:
