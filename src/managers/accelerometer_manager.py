@@ -330,12 +330,14 @@ class AccelerometerManager:
         for accel in accelerations:
             # Use the largest component of acceleration as the primary direction
             max_component = max(abs(accel[0]), abs(accel[1]), abs(accel[2]))
+            current_direction = None
             for i in range(3):
                 if abs(accel[i]) == max_component:
                     current_direction = 1 if accel[i] > 0 else -1
+                    break
                     
             # Count direction changes
-            if prev_direction is not None and current_direction != prev_direction:
+            if prev_direction is not None and current_direction is not None and current_direction != prev_direction:
                 direction_changes += 1
                 
             prev_direction = current_direction

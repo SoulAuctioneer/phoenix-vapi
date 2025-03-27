@@ -138,9 +138,9 @@ class AccelerometerService(BaseService):
 
         except asyncio.CancelledError:
             raise
-        # except Exception as e:
-        #     self.logger.error(f"Error reading accelerometer: {e}")
-        #     raise
+        except Exception as e:
+            self.logger.error(f"Error reading accelerometer: {e}")
+            raise
             
     async def handle_event(self, event: Dict[str, Any]):
         """
