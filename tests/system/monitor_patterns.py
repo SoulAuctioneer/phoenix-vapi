@@ -78,6 +78,32 @@ def format_activity(activity_dict):
     else:
         return f"{color}{most_likely}{Style.RESET_ALL}"
 
+def format_motion_state(state):
+    """Format motion state with color."""
+    color_map = {
+        'IDLE': Fore.WHITE,
+        'ACCELERATION': Fore.YELLOW,
+        'FREE_FALL': Fore.CYAN,
+        'IMPACT': Fore.RED,
+        'ROLLING': Fore.BLUE
+    }
+    color = color_map.get(state, Fore.WHITE)
+    return f"{color}{state}{Style.RESET_ALL}"
+
+def format_energy(energy):
+    """Format energy value with color based on intensity."""
+    # Choose color based on energy level
+    if energy < 0.1:
+        color = Fore.WHITE
+    elif energy < 0.3:
+        color = Fore.CYAN
+    elif energy < 0.6:
+        color = Fore.YELLOW
+    else:
+        color = Fore.RED
+        
+    return f"{color}{energy:.3f}{Style.RESET_ALL}"
+
 def clear_line():
     """Clear the current line in the terminal."""
     print('\r' + ' ' * 100 + '\r', end='', flush=True)
@@ -95,6 +121,11 @@ def main():
     print("Monitoring for motion patterns. Press Ctrl+C to exit.")
     print("-" * 80)
     
+    # Keep track of previous state to detect changes
+    prev_patterns = []
+    prev_motion_state = None
+    line_printed = False
+    
     try:
         while True:
             # Read data
@@ -104,20 +135,40 @@ def main():
             patterns = data.get('detected_patterns', [])
             stability = data.get('stability', 'Unknown')
             activity = data.get('activity', {'most_likely': 'Unknown'})
+            energy = data.get('energy', 0.0)
+            motion_state = manager.get_motion_state()
             
             # Format timestamp
             timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
             
-            # Clear current line
-            clear_line()
+            # Check if there's a new pattern or motion state change
+            patterns_changed = set(patterns) != set(prev_patterns)
+            state_changed = motion_state != prev_motion_state
+            
+            # Start a new line if patterns or motion state changed
+            if patterns_changed or state_changed:
+                if line_printed:
+                    print("")  # Start a new line
+                line_printed = True
+                output_prefix = f"[{timestamp}] "
+            else:
+                # For updates on the same line
+                clear_line()
+                output_prefix = "\r" + f"[{timestamp}] "
             
             # Format the patterns
             pattern_str = "None"
             if patterns:
                 pattern_str = ", ".join(format_pattern(p) for p in patterns)
             
-            # Display only the key information
-            print(f"\r[{timestamp}] Pattern: {pattern_str} | Stability: {format_stability(stability)} | Activity: {format_activity(activity)}", end='', flush=True)
+            # Display the information
+            print(f"{output_prefix}Pattern: {pattern_str} | State: {format_motion_state(motion_state)} | " +
+                  f"Energy: {format_energy(energy)} | Stability: {format_stability(stability)} | " +
+                  f"Activity: {format_activity(activity)}", end='', flush=True)
+            
+            # Update previous state
+            prev_patterns = patterns.copy() if patterns else []
+            prev_motion_state = motion_state
             
             # Wait a bit before next reading
             time.sleep(0.1)

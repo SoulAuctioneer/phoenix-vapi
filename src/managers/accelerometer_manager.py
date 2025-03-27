@@ -333,6 +333,7 @@ class AccelerometerManager:
         A shake involves:
         1. Rapid alternating acceleration in opposite directions
         2. Multiple reversals in a short time
+        3. Sufficient acceleration magnitude to be considered significant
         
         Returns:
             bool: True if shake detected
@@ -350,15 +351,42 @@ class AccelerometerManager:
         if len(accelerations) < 3:
             self.logger.warning("Not enough valid acceleration data points for shake detection")
             return False
+            
+        # Calculate the average acceleration magnitude to filter out small movements
+        accel_magnitudes = []
+        for accel in accelerations:
+            try:
+                magnitude = sqrt(accel[0]**2 + accel[1]**2 + accel[2]**2)
+                accel_magnitudes.append(magnitude)
+            except (TypeError, IndexError):
+                continue
+                
+        if not accel_magnitudes:
+            return False
+            
+        avg_magnitude = sum(accel_magnitudes) / len(accel_magnitudes)
+        
+        # Require a minimum average acceleration magnitude (adjust based on testing)
+        # Typical value during stability is around 0.1-0.3 m/s^2
+        min_shake_magnitude = 2.0  # m/s^2
+        
+        if avg_magnitude < min_shake_magnitude:
+            return False
         
         # Count direction changes
         direction_changes = 0
         prev_direction = None
+        significant_changes = 0  # Count only significant direction changes
         
         for idx, accel in enumerate(accelerations):
             try:
                 # Use the largest component of acceleration as the primary direction
                 max_component = max(abs(accel[0]), abs(accel[1]), abs(accel[2]))
+                
+                # Ignore very small accelerations (noise)
+                if max_component < 1.0:  # Threshold to ignore minor fluctuations
+                    continue
+                    
                 current_direction = None
                 for i in range(3):
                     if abs(accel[i]) == max_component:
@@ -366,18 +394,23 @@ class AccelerometerManager:
                         break
                         
                 # Count direction changes
-                if prev_direction is not None and current_direction is not None and current_direction != prev_direction:
+                if (prev_direction is not None and 
+                    current_direction is not None and 
+                    current_direction != prev_direction):
                     direction_changes += 1
+                    
+                    # Check if this is a significant change
+                    if max_component > 3.0:  # Higher threshold for significant changes
+                        significant_changes += 1
                     
                 prev_direction = current_direction
             except (TypeError, IndexError) as e:
                 # Log invalid entries instead of silently continuing
                 self.logger.error(f"Error processing acceleration data at index {idx}: {e}, data: {accel}")
-                # We could increment a counter of data errors here
-                # If too many errors occur, we might want to signal a sensor problem
         
-        # If we have multiple rapid direction changes
-        return direction_changes >= 3
+        # Require both overall direction changes and some significant ones
+        # Increase the total required changes from 3 to 4
+        return direction_changes >= 4 and significant_changes >= 2
         
     def _check_rolling_pattern(self) -> bool:
         """
