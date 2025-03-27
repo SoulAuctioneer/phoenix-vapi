@@ -326,7 +326,7 @@ class BatteryConfig:
 class AccelerometerConfig:
     """Configuration for accelerometer service"""
     # Print debug data to console
-    PRINT_DEBUG_DATA = True
+    PRINT_DEBUG_DATA = False
     # Update interval in seconds (100Hz sampling rate)
     UPDATE_INTERVAL = 0.01  # Higher frequency for reliable impact and motion detection
 
