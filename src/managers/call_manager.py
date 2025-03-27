@@ -105,14 +105,13 @@ class CallStateManager:
             # Log the transition
             logging.info(f"Call state transition: {old_state.value} -> {new_state.value}")
             
-            # Publish event if we have a manager
-            if self._call_manager.manager:
-                await self._call_manager.manager.publish({
-                    "type": "call_state",
-                    "old_state": old_state.value,
-                    "new_state": new_state.value,
-                    "state": self._get_event_state(new_state)
-                })
+            # Publish event
+            await self._call_manager.publish_event_callback({
+                "type": "call_state",
+                "old_state": old_state.value,
+                "new_state": new_state.value,
+                "state": self._get_event_state(new_state)
+            })
             
             # Execute state handler if one exists
             if new_state in self._state_handlers:
