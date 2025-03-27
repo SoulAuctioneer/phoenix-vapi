@@ -28,6 +28,7 @@ class MotionState(Enum):
     FREE_FALL = auto()
     IMPACT = auto()
     ROLLING = auto()
+    LINEAR_MOTION = auto()  # Movement in a straight line
 
 class MotionPattern(Enum):
     """Types of detectable motion patterns"""
@@ -247,10 +248,15 @@ class AccelerometerManager:
                 self.motion_state = MotionState.ACCELERATION
                 self.free_fall_start_time = timestamp  # Set this here for very short drops
                 self.logger.debug(f"IDLE → ACCELERATION: accel={accel_magnitude:.2f}")
-            elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
-                  gyro_magnitude > self.rolling_gyro_min):
+            elif self._check_rolling_criteria() and not self._check_linear_motion():
+                # Only enter ROLLING if rotation is around a dominant axis (not linear motion)
                 self.motion_state = MotionState.ROLLING
                 self.rolling_start_time = timestamp
+                self.logger.debug(f"IDLE → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+            elif accel_magnitude > self.rolling_accel_min and self._check_linear_motion():
+                # Enter LINEAR_MOTION state if linear motion is detected
+                self.motion_state = MotionState.LINEAR_MOTION
+                self.logger.debug(f"IDLE → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
                 
         elif self.motion_state == MotionState.ACCELERATION:
             # Track consecutive low acceleration readings to detect short free falls
@@ -273,10 +279,14 @@ class AccelerometerManager:
                     # For very short drops, we might not see free fall state, so force throw detection
                     self.throw_in_progress = True
                     self.throw_detected_time = timestamp
-                elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
-                      gyro_magnitude > self.rolling_gyro_min):
+                elif self._check_rolling_criteria() and not self._check_linear_motion():
                     self.motion_state = MotionState.ROLLING
                     self.rolling_start_time = timestamp
+                    self.logger.debug(f"ACCELERATION → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+                elif accel_magnitude < self.throw_acceleration_threshold and self._check_linear_motion():
+                    # Transition to LINEAR_MOTION if acceleration decreases but linear movement continues
+                    self.motion_state = MotionState.LINEAR_MOTION
+                    self.logger.debug(f"ACCELERATION → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
                 
         elif self.motion_state == MotionState.FREE_FALL:
             free_fall_duration = timestamp - self.free_fall_start_time
@@ -297,15 +307,119 @@ class AccelerometerManager:
                 self.logger.debug(f"IMPACT → IDLE: accel={accel_magnitude:.2f}")
             
         elif self.motion_state == MotionState.ROLLING:
-            # Check if still rolling
-            if not (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
-                   gyro_magnitude > self.rolling_gyro_min):
+            # Check if still rolling - need both acceleration in range AND rotation around dominant axis
+            if not self._check_rolling_criteria():
+                if self._check_linear_motion() and accel_magnitude > self.rolling_accel_min:
+                    self.motion_state = MotionState.LINEAR_MOTION
+                    self.logger.debug(f"ROLLING → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+                else:
+                    self.motion_state = MotionState.IDLE
+                    self.logger.debug(f"ROLLING → IDLE: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+        
+        elif self.motion_state == MotionState.LINEAR_MOTION:
+            # Exit LINEAR_MOTION if acceleration drops or motion is no longer linear
+            if accel_magnitude < self.rolling_accel_min:
                 self.motion_state = MotionState.IDLE
+                self.logger.debug(f"LINEAR_MOTION → IDLE: accel={accel_magnitude:.2f}")
+            elif accel_magnitude > self.throw_acceleration_threshold:
+                self.motion_state = MotionState.ACCELERATION
+                self.logger.debug(f"LINEAR_MOTION → ACCELERATION: accel={accel_magnitude:.2f}")
+            elif self._check_rolling_criteria() and not self._check_linear_motion():
+                self.motion_state = MotionState.ROLLING
+                self.rolling_start_time = timestamp
+                self.logger.debug(f"LINEAR_MOTION → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
                 
         # Log state transition if changed
         if previous_state != self.motion_state:
             self.logger.debug(f"Motion state change: {previous_state.name} → {self.motion_state.name} " +
                              f"(accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f})")
+        
+    def _check_rolling_criteria(self) -> bool:
+        """
+        Check if the current motion meets basic rolling criteria based on acceleration and gyro.
+        
+        Returns:
+            bool: True if basic rolling criteria are met
+        """
+        # Get the latest motion data
+        if len(self.motion_history) < 2:
+            return False
+            
+        latest = self.motion_history[-1]
+        
+        # Extract acceleration and gyro values
+        accel = latest.get("linear_acceleration", (0, 0, 0))
+        gyro = latest.get("gyro", (0, 0, 0))
+        
+        if not (isinstance(accel, tuple) and len(accel) == 3 and 
+                isinstance(gyro, tuple) and len(gyro) == 3):
+            return False
+            
+        # Calculate magnitudes
+        accel_magnitude = sqrt(accel[0]**2 + accel[1]**2 + accel[2]**2)
+        gyro_magnitude = sqrt(gyro[0]**2 + gyro[1]**2 + gyro[2]**2)
+        
+        # Check if within rolling criteria
+        return (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
+                gyro_magnitude > self.rolling_gyro_min)
+    
+    def _check_linear_motion(self) -> bool:
+        """
+        Check if the current motion is primarily linear (rather than rotational).
+        
+        Linear motion typically has:
+        1. Consistent acceleration direction
+        2. Low rotation around the acceleration axis
+        3. No dominant rotation axis
+        
+        Returns:
+            bool: True if motion appears to be linear rather than rolling
+        """
+        if len(self.motion_history) < 3:
+            return False
+            
+        # Get recent gyro readings
+        gyro_readings = [entry.get("gyro", (0, 0, 0)) for entry in list(self.motion_history)[-3:]
+                        if isinstance(entry.get("gyro", (0, 0, 0)), tuple) 
+                        and len(entry.get("gyro", (0, 0, 0))) == 3]
+        
+        if len(gyro_readings) < 3:
+            return False
+            
+        # Calculate dominant rotation axis
+        axis_totals = [0, 0, 0]
+        for gyro in gyro_readings:
+            for i in range(3):
+                axis_totals[i] += abs(gyro[i])
+        
+        # Find the dominant axis and its ratio
+        max_axis = max(axis_totals)
+        sum_total = sum(axis_totals) + 0.0001  # Avoid division by zero
+        dominant_ratio = max_axis / sum_total
+        
+        # Get acceleration direction consistency
+        accel_readings = [entry.get("linear_acceleration", (0, 0, 0)) for entry in list(self.motion_history)[-3:]
+                       if isinstance(entry.get("linear_acceleration", (0, 0, 0)), tuple) 
+                       and len(entry.get("linear_acceleration", (0, 0, 0))) == 3]
+        
+        # Check if acceleration direction is consistent (indicating linear motion)
+        direction_consistent = True
+        if len(accel_readings) >= 2:
+            # Find main direction of first reading
+            first_accel = accel_readings[0]
+            main_component = max(range(3), key=lambda i: abs(first_accel[i]))
+            main_direction = 1 if first_accel[main_component] > 0 else -1
+            
+            # Check if direction stays consistent
+            for accel in accel_readings[1:]:
+                if (accel[main_component] * main_direction) < 0:  # Direction changed
+                    direction_consistent = False
+                    break
+        
+        # Linear motion typically has:
+        # 1. No clear dominant rotation axis (dominant_ratio < 0.6)
+        # 2. OR consistent acceleration direction
+        return (dominant_ratio < 0.6) or direction_consistent
         
     def _check_throw_pattern(self) -> bool:
         """
@@ -538,7 +652,7 @@ class AccelerometerManager:
         1. Moderate but consistent linear acceleration (less than throwing but more than stationary)
         2. Continuous rotation around primarily one axis
         3. Sustained motion for a certain duration
-        4. Optional: rotation axis perpendicular to acceleration direction
+        4. Not exhibiting characteristics of linear motion
         
         Returns:
             bool: True if rolling motion detected
@@ -558,6 +672,11 @@ class AccelerometerManager:
             
             # Minimum duration to be considered rolling
             if rolling_duration > self.rolling_duration:
+                # Check if motion is linear rather than rolling
+                if self._check_linear_motion():
+                    self.logger.debug("Motion appears to be linear, not rolling")
+                    return False
+                
                 # Get the last 5 valid gyro readings - convert to list first for safety
                 # Filter out invalid data in the comprehension
                 gyro_readings = [entry.get("gyro", (0, 0, 0)) for entry in list(self.motion_history)[-5:]
@@ -584,9 +703,25 @@ class AccelerometerManager:
                 dominant_ratio = axis_totals[dominant_axis] / sum_total
                 
                 # If one axis dominates the rotation (rolling tends to rotate around one axis)
-                if dominant_ratio > 0.6:  # 60% of rotation is around this axis
+                # Raise the required ratio from 0.6 to 0.7 to be more strict
+                if dominant_ratio > 0.7:  # 70% of rotation is around this axis
                     self.logger.debug(f"Detected rolling around {axis_names[dominant_axis]} axis with ratio {dominant_ratio:.2f}")
-                    return True
+                    
+                    # Verify consistency of rotation direction around dominant axis
+                    last_direction = None
+                    direction_changes = 0
+                    
+                    for gyro in gyro_readings:
+                        current_direction = 1 if gyro[dominant_axis] > 0 else -1
+                        if last_direction is not None and current_direction != last_direction:
+                            direction_changes += 1
+                        last_direction = current_direction
+                    
+                    # True rolling should have consistent rotation direction
+                    if direction_changes <= 1:  # Allow at most one direction change
+                        return True
+                    else:
+                        self.logger.debug(f"Too many direction changes ({direction_changes}) for true rolling")
                 else:
                     self.logger.debug(f"No dominant rotation axis detected. Dominant axis: {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f}")
                 
