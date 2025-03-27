@@ -87,7 +87,8 @@ def format_motion_state(state):
         'FREE_FALL': Fore.CYAN,
         'IMPACT': Fore.RED,
         'ROLLING': Fore.BLUE,
-        'LINEAR_MOTION': Fore.GREEN
+        'LINEAR_MOTION': Fore.GREEN,
+        'HELD_STILL': Fore.MAGENTA
     }
     color = color_map.get(state, Fore.WHITE)
     return f"{color}{state}{Style.RESET_ALL}"

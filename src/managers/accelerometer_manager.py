@@ -34,6 +34,7 @@ class MotionState(Enum):
     IMPACT = auto()
     ROLLING = auto()
     LINEAR_MOTION = auto()  # Movement in a straight line
+    HELD_STILL = auto()  # Being held by a human attempting to keep it still
 
 class MotionPattern(Enum):
     """
@@ -80,6 +81,15 @@ class AccelerometerManager:
         self.rolling_accel_max = 3.0  # m/s^2
         self.rolling_gyro_min = 1.0  # rad/s
         self.rolling_duration = 0.5  # seconds
+        
+        # Human tremor detection
+        self.held_still_max_accel = 1.2  # m/s^2, max acceleration for hand tremor
+        self.held_still_min_accel = 0.05  # m/s^2, min acceleration to detect human tremor
+        self.held_still_duration = 0.3  # seconds required to confirm HELD_STILL state
+        self.held_still_start_time = 0
+        self.idle_linear_transitions = 0  # Count IDLE<->LINEAR_MOTION transitions
+        self.max_transition_interval = 0.5  # seconds between transitions to be considered tremor
+        self.last_transition_time = 0
         
         # Timing parameters
         self.min_free_fall_time = 0.05  # seconds, reduced from 0.15 for shorter drops
@@ -253,6 +263,7 @@ class AccelerometerManager:
         """
         # Log state transitions for debugging
         previous_state = self.motion_state
+        current_time = timestamp
         
         # State transitions
         if self.motion_state == MotionState.IDLE:
@@ -266,9 +277,19 @@ class AccelerometerManager:
                 self.rolling_start_time = timestamp
                 self.logger.debug(f"IDLE → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
             elif accel_magnitude > self.rolling_accel_min and self._check_linear_motion():
-                # Enter LINEAR_MOTION state if linear motion is detected
-                self.motion_state = MotionState.LINEAR_MOTION
-                self.logger.debug(f"IDLE → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+                # Check for hand tremor pattern (repeated transitions between IDLE and LINEAR_MOTION)
+                if hasattr(self, 'last_state_was_linear') and self.last_state_was_linear:
+                    # We're oscillating between IDLE and LINEAR_MOTION, likely hand tremor
+                    self.motion_state = MotionState.HELD_STILL
+                    self.last_held_still_time = timestamp
+                    self.logger.debug(f"IDLE → HELD_STILL (oscillation): accel={accel_magnitude:.2f}")
+                else:
+                    # Normal transition to LINEAR_MOTION
+                    self.motion_state = MotionState.LINEAR_MOTION
+                    self.last_state_was_linear = True
+                    self.logger.debug(f"IDLE → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+            else:
+                self.last_state_was_linear = False
                 
         elif self.motion_state == MotionState.ACCELERATION:
             # Track consecutive low acceleration readings to detect short free falls
@@ -331,20 +352,68 @@ class AccelerometerManager:
         elif self.motion_state == MotionState.LINEAR_MOTION:
             # Exit LINEAR_MOTION if acceleration drops or motion is no longer linear
             if accel_magnitude < self.rolling_accel_min:
-                self.motion_state = MotionState.IDLE
-                self.logger.debug(f"LINEAR_MOTION → IDLE: accel={accel_magnitude:.2f}")
+                # Check for hand tremor pattern (repeated transitions between IDLE and LINEAR_MOTION)
+                if hasattr(self, 'last_state_was_idle') and self.last_state_was_idle:
+                    # We're oscillating between IDLE and LINEAR_MOTION, likely hand tremor
+                    self.motion_state = MotionState.HELD_STILL
+                    self.last_held_still_time = timestamp
+                    self.logger.debug(f"LINEAR_MOTION → HELD_STILL (oscillation): accel={accel_magnitude:.2f}")
+                else:
+                    # Normal transition to IDLE
+                    self.motion_state = MotionState.IDLE
+                    self.last_state_was_idle = True
+                    self.logger.debug(f"LINEAR_MOTION → IDLE: accel={accel_magnitude:.2f}")
             elif accel_magnitude > self.throw_acceleration_threshold:
                 self.motion_state = MotionState.ACCELERATION
+                self.last_state_was_idle = False
                 self.logger.debug(f"LINEAR_MOTION → ACCELERATION: accel={accel_magnitude:.2f}")
             elif self._check_rolling_criteria() and not self._check_linear_motion():
                 self.motion_state = MotionState.ROLLING
+                self.last_state_was_idle = False
                 self.rolling_start_time = timestamp
                 self.logger.debug(f"LINEAR_MOTION → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+            else:
+                self.last_state_was_idle = False
+        
+        elif self.motion_state == MotionState.HELD_STILL:
+            # Define thresholds for exiting HELD_STILL state
+            held_still_max_duration = 30.0  # Maximum time to stay in HELD_STILL without reevaluation
+            held_still_time = timestamp - self.last_held_still_time
+            
+            if accel_magnitude > self.throw_acceleration_threshold:
+                # Strong acceleration - exit to ACCELERATION
+                self.motion_state = MotionState.ACCELERATION
+                self.logger.debug(f"HELD_STILL → ACCELERATION: accel={accel_magnitude:.2f}")
+            elif accel_magnitude < 0.1:
+                # Very low acceleration - device might be on a stable surface
+                self.motion_state = MotionState.IDLE
+                self.logger.debug(f"HELD_STILL → IDLE (very stable): accel={accel_magnitude:.2f}")
+            elif accel_magnitude > 2.0 and self._check_linear_motion():
+                # Definite movement that's not just tremor
+                self.motion_state = MotionState.LINEAR_MOTION
+                self.logger.debug(f"HELD_STILL → LINEAR_MOTION (definite movement): accel={accel_magnitude:.2f}")
+            elif self._check_rolling_criteria():
+                # Rotation detected
+                self.motion_state = MotionState.ROLLING
+                self.rolling_start_time = timestamp
+                self.logger.debug(f"HELD_STILL → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+            elif held_still_time > held_still_max_duration:
+                # Timeout - reevaluate the state
+                if accel_magnitude < self.rolling_accel_min:
+                    self.motion_state = MotionState.IDLE
+                    self.logger.debug(f"HELD_STILL → IDLE (timeout): accel={accel_magnitude:.2f}")
+                else:
+                    self.last_held_still_time = timestamp  # Reset timer but stay in HELD_STILL
                 
         # Log state transition if changed
         if previous_state != self.motion_state:
             self.logger.debug(f"Motion state change: {previous_state.name} → {self.motion_state.name} " +
                              f"(accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f})")
+            
+            # Reset tracking variables when changing states
+            if self.motion_state != MotionState.HELD_STILL:
+                self.last_state_was_idle = False
+                self.last_state_was_linear = False
         
     def _check_rolling_criteria(self) -> bool:
         """
