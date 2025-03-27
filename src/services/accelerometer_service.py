@@ -117,30 +117,30 @@ class AccelerometerService(BaseService):
         """
         Continuous loop to read accelerometer data and publish events.
         """
-        try:
-            while True:
-                # Read data from accelerometer via manager
-                data = self.manager.read_sensor_data()
-                
-                # Print data to console for debugging
-                if AccelerometerConfig.PRINT_DEBUG_DATA:
-                    self.manager.print_data(data)
-                
-                # Publish sensor data event
-                await self.publish({
-                    "type": "sensor_data",
-                    "sensor": "accelerometer",
-                    "data": data
-                })
-                
-                # Wait for the update interval
-                await asyncio.sleep(self.update_interval)
+        # try:
+        while True:
+            # Read data from accelerometer via manager
+            data = self.manager.read_sensor_data()
+            
+            # Print data to console for debugging
+            if AccelerometerConfig.PRINT_DEBUG_DATA:
+                self.manager.print_data(data)
+            
+            # Publish sensor data event
+            await self.publish({
+                "type": "sensor_data",
+                "sensor": "accelerometer",
+                "data": data
+            })
+            
+            # Wait for the update interval
+            await asyncio.sleep(self.update_interval)
 
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger.error(f"Error reading accelerometer: {e}")
-            raise
+        # except asyncio.CancelledError:
+        #     raise
+        # except Exception as e:
+        #     self.logger.error(f"Error reading accelerometer: {e}")
+        #     raise
             
     async def handle_event(self, event: Dict[str, Any]):
         """
