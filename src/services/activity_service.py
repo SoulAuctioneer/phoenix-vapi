@@ -35,8 +35,8 @@ class ActivityService(BaseService):
     Coordinates starting and stopping activities based on events from other services.
     Also manages the lifecycle of activity-specific services.
     """
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.current_activity: Optional[ActivityType] = None
         # Define available activity services
         self.activity_services = {
@@ -124,7 +124,7 @@ class ActivityService(BaseService):
                 if service_name not in self.initialized_services:
                     self.logger.info(f"Initializing service: {service_name}")
                     service_class = self.activity_services[service_name]
-                    service = service_class(self.manager)
+                    service = service_class(self._service_manager)
                     self.initialized_services[service_name] = service
                 else:
                     self.logger.debug(f"Service {service_name} already initialized")
@@ -133,7 +133,7 @@ class ActivityService(BaseService):
                 service = self.initialized_services[service_name]
                 self.logger.info(f"Starting service: {service_name}")
                 try:
-                    await self.manager.start_service(service_name, service)
+                    await self._service_manager.start_service(service_name, service)
                     self.active_services[service_name] = service
                     self.logger.info(f"Successfully started service: {service_name}")
                 except Exception as e:
@@ -156,7 +156,7 @@ class ActivityService(BaseService):
             if service_name in self.active_services:
                 service = self.active_services[service_name]
                 self.logger.info(f"Stopping service: {service_name}")
-                await self.manager.stop_service(service_name)
+                await self._service_manager.stop_service(service_name)
                 del self.active_services[service_name]
         
     async def _start_activity(self, activity: ActivityType):

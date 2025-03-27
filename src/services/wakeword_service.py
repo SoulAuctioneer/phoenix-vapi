@@ -6,8 +6,8 @@ from managers.wakeword_manager import WakeWordManager
 
 class WakeWordService(BaseService):
     """Handles wake word detection"""
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.detector = None
         
     async def start(self):

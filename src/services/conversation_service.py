@@ -6,8 +6,8 @@ from config import ASSISTANT_ID, ASSISTANT_CONFIG
 
 class ConversationService(BaseService):
     """Handles conversations with the AI assistant"""
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.call_manager = None  # Will be initialized in start()
         self.is_active = False
         self._is_stopping = False  # Add state tracking for stop operation
@@ -16,7 +16,12 @@ class ConversationService(BaseService):
         """Start the service (initializes call manager but doesn't start the conversation)"""
         await super().start()
         self.memory_manager = MemoryManager()
-        self.call_manager = await CallManager.create(manager=self.manager, memory_manager=self.memory_manager)
+        # TODO: Don't pass service manager here, pass a callback for event publishing instead
+        self.call_manager = await CallManager.create(publish_event_callback=self.publish, memory_manager=self.memory_manager)
+
+    async def publish(self, event: Dict[str, Any]):
+        """Publish an event to the event bus"""
+        await self.publish(event)
             
     async def stop(self):
         """Stop the service and any active conversation"""

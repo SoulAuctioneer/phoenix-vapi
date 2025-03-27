@@ -67,15 +67,15 @@ class AccelerometerService(BaseService):
     2. Processing sensor events
     3. Handling service lifecycle
     """
-    def __init__(self, manager, update_interval=AccelerometerConfig.UPDATE_INTERVAL):
+    def __init__(self, service_manager, update_interval=AccelerometerConfig.UPDATE_INTERVAL):
         """
         Initialize the AccelerometerService.
         
         Args:
-            manager: Service manager instance
+            service_manager: Service manager instance that handles event bus
             update_interval: How often to read and publish sensor data in seconds
         """
-        super().__init__(manager)
+        super().__init__(service_manager)
         self.update_interval = update_interval
         self.manager = AccelerometerManager()
         self.read_task = None
@@ -117,30 +117,30 @@ class AccelerometerService(BaseService):
         """
         Continuous loop to read accelerometer data and publish events.
         """
-        # try:
-        while True:
-            # Read data from accelerometer via manager
-            data = self.manager.read_sensor_data()
-            
-            # Print data to console for debugging
-            if AccelerometerConfig.PRINT_DEBUG_DATA:
-                self.manager.print_data(data)
-            
-            # Publish sensor data event
-            await self.publish({
-                "type": "sensor_data",
-                "sensor": "accelerometer",
-                "data": data
-            })
-            
-            # Wait for the update interval
-            await asyncio.sleep(self.update_interval)
+        try:
+            while True:
+                # Read data from accelerometer via manager
+                data = self.manager.read_sensor_data()
+                
+                # Print data to console for debugging
+                if AccelerometerConfig.PRINT_DEBUG_DATA:
+                    self.manager.print_data(data)
+                
+                # Publish sensor data event
+                await self.publish({
+                    "type": "sensor_data",
+                    "sensor": "accelerometer",
+                    "data": data
+                })
+                
+                # Wait for the update interval
+                await asyncio.sleep(self.update_interval)
 
-        # except asyncio.CancelledError:
-        #     raise
-        # except Exception as e:
-        #     self.logger.error(f"Error reading accelerometer: {e}")
-        #     raise
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error reading accelerometer: {e}")
+            raise
             
     async def handle_event(self, event: Dict[str, Any]):
         """

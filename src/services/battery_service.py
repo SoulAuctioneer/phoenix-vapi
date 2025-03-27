@@ -33,8 +33,8 @@ class BatteryService(BaseService):
     - Service will continue running in a dormant state if no battery monitor is detected
     """
     
-    def __init__(self, manager: ServiceManager):
-        super().__init__(manager)
+    def __init__(self, service_manager: ServiceManager):
+        super().__init__(service_manager)
         self.max17: Optional[adafruit_max1704x.MAX17048] = None
         self._monitor_task: Optional[asyncio.Task] = None
         self._last_voltage: float = 0.0
@@ -329,7 +329,7 @@ class BatteryService(BaseService):
                         status_update["time_remaining"] = time_remaining  # Hours
                         
                     # Publish update
-                    await self.manager.publish(status_update)
+                    await self.publish(status_update)
                     
                     # Update last known values
                     self._last_voltage = voltage
@@ -364,7 +364,7 @@ class BatteryService(BaseService):
                         self.max17.SOC_change_alert = False
                     
                     if alerts:  # Only publish if we have alerts
-                        await self.manager.publish({
+                        await self.publish({
                             "type": "battery_alert",
                             "alerts": alerts,
                             "voltage": voltage,

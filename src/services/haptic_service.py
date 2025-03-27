@@ -17,8 +17,8 @@ class HapticService(BaseService):
     Creates immersive haptic feedback patterns like purring in response to petting.
     """
     
-    def __init__(self, manager: ServiceManager):
-        super().__init__(manager)
+    def __init__(self, service_manager: ServiceManager):
+        super().__init__(service_manager)
         self.haptic_manager = HapticManager()
         self._purr_task: Optional[asyncio.Task] = None
         self._current_intensity = 0.0

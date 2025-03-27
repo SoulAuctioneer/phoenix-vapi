@@ -14,8 +14,8 @@ class SensorService(BaseService):
     Currently manages touch input, with architecture to support additional sensors.
     """
     
-    def __init__(self, manager: ServiceManager):
-        super().__init__(manager)
+    def __init__(self, service_manager: ServiceManager):
+        super().__init__(service_manager)
         self.touch_manager = TouchManager()
         self._last_intensity = 0.0  # Track last published intensity
         self._last_position = 0.0  # Track last published position

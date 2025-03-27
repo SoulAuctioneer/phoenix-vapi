@@ -46,7 +46,7 @@ for logger_name in [
 
 class PhoenixApp:
     def __init__(self):
-        self.manager = ServiceManager()
+        self.service_manager = ServiceManager()
         self._should_run = True
         self.initialized_services = {}
 
@@ -54,22 +54,22 @@ class PhoenixApp:
         """Initialize and start core services in the correct order"""
         # Initialize all services
         self.initialized_services = {
-            'audio': AudioService(self.manager),
-            'wakeword': WakeWordService(self.manager),
-            'special_effect': SpecialEffectService(self.manager),
-            'intent': IntentService(self.manager),
-            'activity': ActivityService(self.manager)
+            'audio': AudioService(self.service_manager),
+            'wakeword': WakeWordService(self.service_manager),
+            'special_effect': SpecialEffectService(self.service_manager),
+            'intent': IntentService(self.service_manager),
+            'activity': ActivityService(self.service_manager)
         }
         
         # Add platform-specific services on Raspberry Pi
         if PLATFORM == "raspberry-pi":
-            self.initialized_services['led'] = LEDService(self.manager)
-            self.initialized_services['battery'] = BatteryService(self.manager)
+            self.initialized_services['led'] = LEDService(self.service_manager)
+            self.initialized_services['battery'] = BatteryService(self.service_manager)
 
         # Start audio service first, then all other services in parallel
-        await self.manager.start_service('audio', self.initialized_services['audio'])
+        await self.service_manager.start_service('audio', self.initialized_services['audio'])
         await asyncio.gather(
-            *[self.manager.start_service(name, self.initialized_services[name])
+            *[self.service_manager.start_service(name, self.initialized_services[name])
               for name in self.initialized_services.keys() if name != 'audio']
         )
         
@@ -81,7 +81,7 @@ class PhoenixApp:
             await self.initialize_services()
             
             # Notify that application startup is complete
-            await self.manager.publish({
+            await self.service_manager.publish({
                 "type": "application_startup_completed",
                 "producer_name": "main"
             })
@@ -102,7 +102,7 @@ class PhoenixApp:
     async def cleanup(self):
         """Cleanup all resources"""
         logging.info("Cleaning up resources...")
-        await self.manager.stop_all()
+        await self.service_manager.stop_all()
 
     def handle_shutdown(self, sig=None):
         """Handle shutdown signals"""

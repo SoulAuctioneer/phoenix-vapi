@@ -230,8 +230,8 @@ class ServiceManager:
 
 class BaseService:
     """Base class for all services"""
-    def __init__(self, manager: ServiceManager):
-        self.manager = manager
+    def __init__(self, service_manager: ServiceManager):
+        self._service_manager = service_manager
         self._running = False
         # Create a logger with the full module path and class name
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
@@ -249,7 +249,7 @@ class BaseService:
         
     async def publish(self, event: Dict[str, Any]):
         """Helper method to publish events"""
-        await self.manager.publish(event) 
+        await self._service_manager.publish(event) 
 
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services

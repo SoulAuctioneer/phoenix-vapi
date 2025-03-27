@@ -248,11 +248,11 @@ class CallEventHandler(daily.EventHandler):
 class CallManager:
     """Handles Daily call functionality and Vapi API integration"""
     
-    def __init__(self, *, manager=None, memory_manager=None):
+    def __init__(self, *, publish_event_callback=None, memory_manager=None):
         # Public attributes
         self.api_key = CallConfig.Vapi.API_KEY
         self.api_url = CallConfig.Vapi.DEFAULT_API_URL
-        self.manager = manager
+        self.publish_event_callback = publish_event_callback
         self.state_manager = CallStateManager(self)
         self.audio_manager = None
         self.memory_manager = memory_manager
@@ -275,9 +275,9 @@ class CallManager:
         self.conversation = []
 
     @classmethod
-    async def create(cls, *, manager=None, memory_manager=None):
+    async def create(cls, *, publish_event_callback, memory_manager=None):
         """Factory method to create and initialize a CallManager instance"""
-        instance = cls(manager=manager, memory_manager=memory_manager)
+        instance = cls(publish_event_callback=publish_event_callback, memory_manager=memory_manager)
         await instance.initialize()
         return instance
 
@@ -471,8 +471,7 @@ class CallManager:
             # Reset conversation history for new call
             self.conversation = []
             
-            if self.manager:
-                await self.manager.publish({"type": "conversation_joining"})
+            await self.publish_event_callback({"type": "conversation_joining"})
                 
             # Start a timeout task that will move us to error state if joining takes too long
             async def timeout_task():
@@ -502,8 +501,7 @@ class CallManager:
             await self._initialize_call_audio()
             
             self.state_manager.start_event.set()
-            if self.manager:
-                await self.manager.publish({"type": "conversation_started"})
+            await self.publish_event_callback({"type": "conversation_started"})
         except Exception as e:
             logging.error(f"Error in joined state handler: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
@@ -594,8 +592,8 @@ class CallManager:
             
             if name == 'show_lighting_effect':
                 effect_name = arguments.get('effect_name')
-                if effect_name and self.manager:
-                    await self.manager.publish({
+                if effect_name:
+                    await self.publish_event_callback({
                         "type": "start_led_effect",
                         "data": {
                             "effectName": effect_name
@@ -603,23 +601,23 @@ class CallManager:
                     })
             elif name == 'play_sound_effect':
                 effect_name = arguments.get('effect_name', None)
-                if effect_name and self.manager:
-                    await self.manager.publish({
+                if effect_name:
+                    await self.publish_event_callback({
                         "type": "play_sound",
                         "effect_name": effect_name
                     })
             elif name == 'play_special_effect':
                 effect_name = arguments.get('effect_name', None)
-                if effect_name and self.manager:
-                    await self.manager.publish({
+                if effect_name:
+                    await self.publish_event_callback({
                         "type": "play_special_effect",
                         "effect_name": effect_name
                     })
 
             elif name == 'show_color':
                 color = arguments.get('color', None)
-                if color and self.manager:
-                    await self.manager.publish({
+                if color:
+                    await self.publish_event_callback({
                         "type": "start_led_effect",
                         "data": {
                             "effectName": "rotating_color",
@@ -628,16 +626,14 @@ class CallManager:
                     })
 
             elif name == 'start_sensing_phoenix_distance':
-                if self.manager:
-                    await self.manager.publish({
-                        "type": "start_sensing_phoenix_distance"
-                    })
+                await self.publish_event_callback({
+                    "type": "start_sensing_phoenix_distance"
+                })
 
             elif name == 'stop_sensing_phoenix_distance':
-                if self.manager:
-                    await self.manager.publish({
-                        "type": "stop_sensing_phoenix_distance"
-                    })
+                await self.publish_event_callback({
+                    "type": "stop_sensing_phoenix_distance"
+                })
 
             elif name == 'list_activities':
                 # message = {
@@ -654,10 +650,9 @@ class CallManager:
                 self.add_message("tool", ACTIVITIES_PROMPT)
 
             elif name == 'start_activity':
-                # if self.manager:
-                #     await self.manager.publish({
-                #         "type": "start_story"
-                #     })
+                # await self.publish_event_callback({
+                #     "type": "start_story"
+                # })
                 activity_key = arguments.get('activity_key', None)
                 # message = {
                 #     "results": [

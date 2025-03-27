@@ -59,8 +59,8 @@ class SpecialEffect(str, Enum):
 class SpecialEffectService(BaseService):
     """Service for playing combined special effects (sound and/or LED)"""
     
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
     
     async def start(self):
         """Initialize the special effect service"""
@@ -82,7 +82,7 @@ class SpecialEffectService(BaseService):
             
             # Publish sound effect event if applicable
             if sound_effect:
-                await self.manager.publish({
+                await self.publish({
                     "type": "play_sound",
                     "effect_name": sound_effect
                 })
@@ -90,7 +90,7 @@ class SpecialEffectService(BaseService):
             
             # Publish LED effect event if applicable
             if led_effect:
-                await self.manager.publish({
+                await self.publish({
                     "type": "start_led_effect",
                     "data": {
                         "effectName": led_effect

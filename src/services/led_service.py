@@ -5,8 +5,8 @@ import logging
 
 
 class LEDService(BaseService):
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.led_controller = None
         self.platform = PLATFORM
         

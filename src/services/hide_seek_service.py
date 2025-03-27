@@ -13,8 +13,8 @@ from config import HideSeekConfig, Distance, SoundEffect
 class HideSeekService(BaseService):
     """Service that manages the hide and seek game activity"""
     
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self._sound_task: Optional[asyncio.Task] = None
         self._game_active = False
         self._pendant_found = False

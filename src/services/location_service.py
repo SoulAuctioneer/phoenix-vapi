@@ -8,8 +8,8 @@ from config import BLEConfig, PLATFORM, Distance
 
 class LocationService(BaseService):
     """Service for managing location tracking and updates"""
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.logger = logging.getLogger(__name__)
         self._location_manager = LocationManager()
         self._scanning_task: Optional[asyncio.Task] = None

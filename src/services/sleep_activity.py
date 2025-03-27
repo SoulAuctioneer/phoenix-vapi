@@ -13,8 +13,8 @@ class SleepActivity(BaseService):
     2. Sets the LED effect to rotating pink/blue
     """
     
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self._is_active = False
         self._breathing_volume = 0.02  # Store breathing volume for restoration (reduced from 0.1 for quieter effect)
         self._LED_BRIGHTNESS = 0.6 # TODO: Move to config

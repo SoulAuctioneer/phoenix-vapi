@@ -8,8 +8,8 @@ from managers.audio_manager import AudioManager, AudioConfig
 
 class AudioService(BaseService):
     """Service to manage the AudioManager lifecycle"""
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.audio_manager = None
         self._purring_active = False  # Track if purring sound is currently active
         

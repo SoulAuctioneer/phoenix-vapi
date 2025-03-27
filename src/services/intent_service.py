@@ -21,8 +21,8 @@ class IntentService(BaseService):
     Coordinates with the manager to process spoken commands, and emits intent events.
     Intent detection is activated by wake word events and times out after several seconds.
     """
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.detector = None
         self.detection_task: Optional[asyncio.Task] = None
         

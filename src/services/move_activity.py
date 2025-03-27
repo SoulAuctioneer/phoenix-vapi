@@ -24,8 +24,8 @@ class MoveActivity(BaseService):
     3. Publish events when significant changes occur
     """
     
-    def __init__(self, manager):
-        super().__init__(manager)
+    def __init__(self, service_manager):
+        super().__init__(service_manager)
         self.current_activity = "unknown"
         self.previous_activity = "unknown"
         self.current_energy = 0.0
