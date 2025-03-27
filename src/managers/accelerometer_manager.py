@@ -22,7 +22,12 @@ from enum import Enum, auto
 import time
 
 class MotionState(Enum):
-    """States for motion pattern detection"""
+    """
+    States for motion pattern detection.
+    Represents the current physical state of the device at a single moment.
+    Part of a state machine where only one state is active at any time.
+    Updated with every sensor reading.
+    """
     IDLE = auto()
     ACCELERATION = auto()
     FREE_FALL = auto()
@@ -31,7 +36,14 @@ class MotionState(Enum):
     LINEAR_MOTION = auto()  # Movement in a straight line
 
 class MotionPattern(Enum):
-    """Types of detectable motion patterns"""
+    """
+    Types of detectable motion patterns
+    Represents a higher-level recognized gesture or activity.
+    Multiple patterns can be detected simultaneously.
+    Based on sequences of states and motion history.
+    Used for application-level gesture recognition (the "what" the user is doing).
+    Detected when specific criteria are met across multiple readings.
+    """
     THROW = auto()
     CATCH = auto()
     ARC_SWING = auto()
