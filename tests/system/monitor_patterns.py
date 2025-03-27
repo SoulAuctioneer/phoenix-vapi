@@ -12,6 +12,7 @@ import time
 import logging
 from colorama import Fore, Style, init
 from datetime import datetime
+from math import sqrt
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
@@ -126,6 +127,9 @@ def main():
     prev_motion_state = None
     line_printed = False
     
+    # Enable debug logging
+    logging.getLogger('src.managers.accelerometer_manager').setLevel(logging.DEBUG)
+    
     try:
         while True:
             # Read data
@@ -138,8 +142,22 @@ def main():
             energy = data.get('energy', 0.0)
             motion_state = manager.get_motion_state()
             
+            # Extract raw data for debugging
+            accel = data.get('linear_acceleration', (0, 0, 0))
+            gyro = data.get('gyro', (0, 0, 0))
+            
+            # Calculate magnitudes
+            accel_magnitude = 0.0
+            if isinstance(accel, tuple) and len(accel) == 3:
+                accel_magnitude = sqrt(accel[0]**2 + accel[1]**2 + accel[2]**2)
+                
+            gyro_magnitude = 0.0
+            if isinstance(gyro, tuple) and len(gyro) == 3:
+                gyro_magnitude = sqrt(gyro[0]**2 + gyro[1]**2 + gyro[2]**2)
+                
             # Format timestamp
             timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+            current_time = time.time()
             
             # Check if there's a new pattern or motion state change
             patterns_changed = set(patterns) != set(prev_patterns)
@@ -160,10 +178,34 @@ def main():
             pattern_str = "None"
             if patterns:
                 pattern_str = ", ".join(format_pattern(p) for p in patterns)
+                
+            # Debug info based on state
+            debug_info = f"A:{accel_magnitude:.2f} G:{gyro_magnitude:.2f}"
+            
+            # Add state-specific debug info
+            if motion_state == "FREE_FALL" and hasattr(manager, 'free_fall_start_time'):
+                ff_duration = current_time - manager.free_fall_start_time
+                debug_info += f" | FF:{ff_duration:.2f}s"
+                
+            # Add throw tracking info
+            if hasattr(manager, 'throw_in_progress') and manager.throw_in_progress:
+                throw_duration = current_time - manager.throw_detected_time
+                debug_info += f" | Throw:{throw_duration:.2f}s"
+                
+            # Pattern history debug
+            if hasattr(manager, 'pattern_history') and manager.pattern_history:
+                # Just show the most recent pattern
+                if len(manager.pattern_history) > 0:
+                    last_time, last_patterns = manager.pattern_history[-1]
+                    time_ago = current_time - last_time
+                    pattern_names = [p for p in last_patterns]
+                    if pattern_names:
+                        debug_info += f" | Last:{','.join(pattern_names)}({time_ago:.1f}s ago)"
             
             # Display the information
             print(f"{output_prefix}Pattern: {pattern_str} | State: {format_motion_state(motion_state)} | " +
-                  f"Energy: {format_energy(energy)} | Stability: {format_stability(stability)} | " +
+                  f"Energy: {format_energy(energy)} | {debug_info} | " +
+                  f"Stability: {format_stability(stability)} | " +
                   f"Activity: {format_activity(activity)}", end='', flush=True)
             
             # Update previous state
