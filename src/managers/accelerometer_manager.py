@@ -283,7 +283,7 @@ class AccelerometerManager:
             bool: True if catch pattern detected
         """
         return (self.motion_state == MotionState.IMPACT and 
-                any(MotionPattern.THROW.name in self.detected_patterns))
+                MotionPattern.THROW.name in self.detected_patterns)
         
     def _check_arc_swing_pattern(self) -> bool:
         """
