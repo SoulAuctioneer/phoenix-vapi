@@ -59,7 +59,7 @@ class AccelerometerManager:
         
         # Thresholds for pattern detection
         self.throw_acceleration_threshold = 10.0  # m/s^2
-        self.free_fall_threshold = 2.0  # m/s^2
+        self.free_fall_threshold = 3.5  # m/s^2, increased from 2.0 to better detect short drops
         self.impact_threshold = 8.0  # m/s^2, lowered from 12.0 to better detect catches
         self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
         self.shake_threshold = 8.0  # m/s^2
@@ -69,7 +69,7 @@ class AccelerometerManager:
         self.rolling_duration = 0.5  # seconds
         
         # Timing parameters
-        self.min_free_fall_time = 0.15  # seconds
+        self.min_free_fall_time = 0.05  # seconds, reduced from 0.15 for shorter drops
         self.max_free_fall_time = 2.0  # seconds
         self.free_fall_start_time = 0
         self.rolling_start_time = 0
@@ -77,6 +77,9 @@ class AccelerometerManager:
         # Pattern tracking
         self.throw_detected_time = 0
         self.throw_in_progress = False
+        
+        # Debugging
+        self.consecutive_low_accel = 0  # Count consecutive low acceleration readings
         
     def initialize(self) -> bool:
         """
@@ -234,38 +237,50 @@ class AccelerometerManager:
         if self.motion_state == MotionState.IDLE:
             if accel_magnitude > self.throw_acceleration_threshold:
                 self.motion_state = MotionState.ACCELERATION
+                self.logger.debug(f"IDLE → ACCELERATION: accel={accel_magnitude:.2f}")
             elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
                   gyro_magnitude > self.rolling_gyro_min):
                 self.motion_state = MotionState.ROLLING
                 self.rolling_start_time = timestamp
                 
         elif self.motion_state == MotionState.ACCELERATION:
+            # Track consecutive low acceleration readings to detect short free falls
             if accel_magnitude < self.free_fall_threshold:
-                self.motion_state = MotionState.FREE_FALL
-                self.free_fall_start_time = timestamp
-            elif accel_magnitude > self.impact_threshold:
-                # If a rapid acceleration is followed by an even higher acceleration, 
-                # it might be an impact without free fall (e.g., quick tap)
-                self.motion_state = MotionState.IMPACT
-            elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
-                  gyro_magnitude > self.rolling_gyro_min):
-                self.motion_state = MotionState.ROLLING
-                self.rolling_start_time = timestamp
+                self.consecutive_low_accel += 1
+                # Require at least 2 consecutive readings below threshold to confirm free fall
+                if self.consecutive_low_accel >= 2:
+                    self.motion_state = MotionState.FREE_FALL
+                    self.free_fall_start_time = timestamp
+                    self.logger.debug(f"ACCELERATION → FREE_FALL: accel={accel_magnitude:.2f}")
+                    self.consecutive_low_accel = 0
+            else:
+                self.consecutive_low_accel = 0
+                if accel_magnitude > self.impact_threshold:
+                    # If a rapid acceleration is followed by an even higher acceleration, 
+                    # it might be an impact without free fall (e.g., quick tap)
+                    self.motion_state = MotionState.IMPACT
+                elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
+                      gyro_magnitude > self.rolling_gyro_min):
+                    self.motion_state = MotionState.ROLLING
+                    self.rolling_start_time = timestamp
                 
         elif self.motion_state == MotionState.FREE_FALL:
             free_fall_duration = timestamp - self.free_fall_start_time
             
             if accel_magnitude > self.impact_threshold:
                 self.motion_state = MotionState.IMPACT
+                self.logger.debug(f"FREE_FALL → IMPACT: accel={accel_magnitude:.2f} duration={free_fall_duration:.3f}s")
             elif free_fall_duration > self.max_free_fall_time:
                 # Too long in free fall, reset to idle
                 self.motion_state = MotionState.IDLE
+                self.logger.debug(f"FREE_FALL → IDLE (timeout): duration={free_fall_duration:.3f}s")
                 
         elif self.motion_state == MotionState.IMPACT:
             # Impact is a transient state, move to IDLE after detection
             # Adding a small delay before transitioning to IDLE to ensure the impact is fully processed
             if accel_magnitude < self.throw_acceleration_threshold:
                 self.motion_state = MotionState.IDLE
+                self.logger.debug(f"IMPACT → IDLE: accel={accel_magnitude:.2f}")
             
         elif self.motion_state == MotionState.ROLLING:
             # Check if still rolling
@@ -275,7 +290,7 @@ class AccelerometerManager:
                 
         # Log state transition if changed
         if previous_state != self.motion_state:
-            self.logger.debug(f"Motion state change: {previous_state.name} -> {self.motion_state.name} " +
+            self.logger.debug(f"Motion state change: {previous_state.name} → {self.motion_state.name} " +
                              f"(accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f})")
         
     def _check_throw_pattern(self) -> bool:
@@ -289,7 +304,7 @@ class AccelerometerManager:
         Returns:
             bool: True if throw pattern detected
         """
-        if len(self.motion_history) < 5:
+        if len(self.motion_history) < 3:  # Reduced from 5 to better detect short throws
             return False
             
         # Check state sequence for a throw
@@ -299,8 +314,18 @@ class AccelerometerManager:
                 timestamp = self.motion_history[-1]['timestamp']
                 free_fall_duration = timestamp - self.free_fall_start_time
                 
-                # Minimum free fall time to be considered a throw
+                # Log free fall data for debugging
+                self.logger.debug(f"Free fall duration: {free_fall_duration:.3f}s, min required: {self.min_free_fall_time:.3f}s")
+                
+                # Minimum free fall time to be considered a throw - reduced for shorter drops
                 if free_fall_duration > self.min_free_fall_time:
+                    # Check for significant vertical movement (typical in throws/drops)
+                    accel_data = [entry.get("linear_acceleration", (0, 0, 0)) for entry in list(self.motion_history)[-3:]]
+                    
+                    # For debugging
+                    accel_info = ", ".join([f"({a[0]:.1f},{a[1]:.1f},{a[2]:.1f})" for a in accel_data])
+                    self.logger.debug(f"Checking vertical movement in free fall. Accel data: {accel_info}")
+                    
                     return True
                 
         return False

@@ -126,6 +126,8 @@ def main():
     prev_patterns = []
     prev_motion_state = None
     line_printed = False
+    last_print_time = 0
+    force_print_interval = 0.2  # Force print every 200ms during interesting states
     
     # Enable debug logging
     logging.getLogger('src.managers.accelerometer_manager').setLevel(logging.DEBUG)
@@ -163,12 +165,19 @@ def main():
             patterns_changed = set(patterns) != set(prev_patterns)
             state_changed = motion_state != prev_motion_state
             
-            # Start a new line if patterns or motion state changed
-            if patterns_changed or state_changed:
+            # Force more frequent updates during interesting states
+            force_print = False
+            interesting_states = ["ACCELERATION", "FREE_FALL", "IMPACT"]
+            if motion_state in interesting_states and current_time - last_print_time > force_print_interval:
+                force_print = True
+                
+            # Start a new line if patterns or motion state changed or forced print
+            if patterns_changed or state_changed or force_print:
                 if line_printed:
                     print("")  # Start a new line
                 line_printed = True
                 output_prefix = f"[{timestamp}] "
+                last_print_time = current_time
             else:
                 # For updates on the same line
                 clear_line()
@@ -180,7 +189,9 @@ def main():
                 pattern_str = ", ".join(format_pattern(p) for p in patterns)
                 
             # Debug info based on state
-            debug_info = f"A:{accel_magnitude:.2f} G:{gyro_magnitude:.2f}"
+            # Show raw acceleration components
+            raw_accel = f"Ax:{accel[0]:.2f} Ay:{accel[1]:.2f} Az:{accel[2]:.2f}"
+            debug_info = f"A:{accel_magnitude:.2f} {raw_accel} G:{gyro_magnitude:.2f}"
             
             # Add state-specific debug info
             if motion_state == "FREE_FALL" and hasattr(manager, 'free_fall_start_time'):
@@ -191,6 +202,9 @@ def main():
             if hasattr(manager, 'throw_in_progress') and manager.throw_in_progress:
                 throw_duration = current_time - manager.throw_detected_time
                 debug_info += f" | Throw:{throw_duration:.2f}s"
+                
+            # Thresholds info
+            debug_info += f" | FF_Th:{manager.free_fall_threshold:.1f}"
                 
             # Pattern history debug
             if hasattr(manager, 'pattern_history') and manager.pattern_history:
