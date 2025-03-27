@@ -242,12 +242,14 @@ class AccelerometerManager:
             
         # Check state sequence for a throw
         if self.motion_state == MotionState.FREE_FALL:
-            timestamp = self.motion_history[-1]['timestamp']
-            free_fall_duration = timestamp - self.free_fall_start_time
-            
-            # Minimum free fall time to be considered a throw
-            if free_fall_duration > self.min_free_fall_time:
-                return True
+            # Make sure we can safely access the latest entry
+            if len(self.motion_history) > 0 and 'timestamp' in self.motion_history[-1]:
+                timestamp = self.motion_history[-1]['timestamp']
+                free_fall_duration = timestamp - self.free_fall_start_time
+                
+                # Minimum free fall time to be considered a throw
+                if free_fall_duration > self.min_free_fall_time:
+                    return True
                 
         return False
         
@@ -283,7 +285,14 @@ class AccelerometerManager:
             return False
             
         # Use game rotation quaternion for smooth rotation detection
-        rotations = [entry.get("game_rotation", (0, 0, 0, 1)) for entry in self.motion_history]
+        rotations = []
+        for entry in self.motion_history:
+            game_rot = entry.get("game_rotation", (0, 0, 0, 1))
+            if isinstance(game_rot, tuple) and len(game_rot) == 4:
+                rotations.append(game_rot)
+            else:
+                # Skip invalid data
+                continue
         
         # Check if we have significant rotation around a consistent axis
         # This is a simplified approach - a more sophisticated approach would
@@ -369,7 +378,16 @@ class AccelerometerManager:
             # Minimum duration to be considered rolling
             if rolling_duration > self.rolling_duration:
                 # Analyze gyro data to verify consistent rotation axis
-                gyro_readings = [entry.get("gyro", (0, 0, 0)) for entry in self.motion_history[-5:]]
+                gyro_readings = []
+                # Get the last 5 valid gyro readings
+                for entry in list(self.motion_history)[-5:]:
+                    gyro = entry.get("gyro", (0, 0, 0))
+                    if isinstance(gyro, tuple) and len(gyro) == 3:
+                        gyro_readings.append(gyro)
+                
+                # If we don't have enough valid readings, return False
+                if len(gyro_readings) < 3:
+                    return False
                 
                 # Find the dominant rotation axis (x, y, or z)
                 axis_totals = [0, 0, 0]
