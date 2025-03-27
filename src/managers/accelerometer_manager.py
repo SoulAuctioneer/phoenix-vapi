@@ -183,10 +183,18 @@ class AccelerometerManager:
         try:
             current_time = time.time()
             
-            if self._check_throw_pattern():
+            # For short drops directly from ACCELERATION to IMPACT, add THROW pattern
+            if self.motion_state == MotionState.IMPACT and self.throw_in_progress:
+                if not any(MotionPattern.THROW.name in patterns for _, patterns in self.pattern_history):
+                    detected_patterns.append(MotionPattern.THROW.name)
+                    self.logger.debug(f"THROW detected: short drop (ACCEL→IMPACT)")
+            
+            # Normal throw detection for FREE_FALL state
+            elif self._check_throw_pattern():
                 detected_patterns.append(MotionPattern.THROW.name)
                 self.throw_detected_time = current_time
                 self.throw_in_progress = True
+                self.logger.debug(f"THROW detected: via free fall")
                 
             if self._check_catch_pattern(accel_magnitude):
                 detected_patterns.append(MotionPattern.CATCH.name)
@@ -237,6 +245,7 @@ class AccelerometerManager:
         if self.motion_state == MotionState.IDLE:
             if accel_magnitude > self.throw_acceleration_threshold:
                 self.motion_state = MotionState.ACCELERATION
+                self.free_fall_start_time = timestamp  # Set this here for very short drops
                 self.logger.debug(f"IDLE → ACCELERATION: accel={accel_magnitude:.2f}")
             elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
                   gyro_magnitude > self.rolling_gyro_min):
@@ -257,8 +266,13 @@ class AccelerometerManager:
                 self.consecutive_low_accel = 0
                 if accel_magnitude > self.impact_threshold:
                     # If a rapid acceleration is followed by an even higher acceleration, 
-                    # it might be an impact without free fall (e.g., quick tap)
+                    # it might be an impact without free fall (e.g., quick tap or very short drop)
                     self.motion_state = MotionState.IMPACT
+                    # Log this special transition
+                    self.logger.debug(f"ACCELERATION → IMPACT (direct): accel={accel_magnitude:.2f}")
+                    # For very short drops, we might not see free fall state, so force throw detection
+                    self.throw_in_progress = True
+                    self.throw_detected_time = timestamp
                 elif (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
                       gyro_magnitude > self.rolling_gyro_min):
                     self.motion_state = MotionState.ROLLING
@@ -335,7 +349,7 @@ class AccelerometerManager:
         Check if a catch pattern has been detected.
         
         A catch consists of:
-        1. Period of free fall
+        1. Period of free fall (or very short drop with direct ACCELERATION → IMPACT transition)
         2. Sudden deceleration (impact)
         
         Args:
@@ -346,10 +360,12 @@ class AccelerometerManager:
         """
         # A catch is detected if:
         # 1. We're in IMPACT state, indicating sudden deceleration
-        # 2. There was a throw detected recently (within max_free_fall_time)
+        # 2. There was a throw detected recently (within max_free_fall_time) OR
+        #    We came directly from ACCELERATION state (very short drop)
         if self.motion_state == MotionState.IMPACT:
             # Check if we had a throw in progress
             if self.throw_in_progress:
+                self.logger.debug(f"CATCH detected: throw was in progress")
                 return True
             
             # Also check pattern history for recent THROW (backup method)
@@ -357,6 +373,7 @@ class AccelerometerManager:
             for timestamp, patterns in self.pattern_history:
                 if (current_time - timestamp) <= self.max_free_fall_time:
                     if MotionPattern.THROW.name in patterns:
+                        self.logger.debug(f"CATCH detected: via pattern history")
                         return True
             
         return False
