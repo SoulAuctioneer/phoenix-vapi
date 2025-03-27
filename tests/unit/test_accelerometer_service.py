@@ -11,12 +11,20 @@ import asyncio
 import sys
 import os
 
+# Mock hardware modules before imports
+sys.modules['board'] = MagicMock()
+sys.modules['busio'] = MagicMock()
+sys.modules['adafruit_bno08x'] = MagicMock()
+sys.modules['adafruit_bno08x.i2c'] = MagicMock()
+
 # Add src directory to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
 
-from services.accelerometer_service import AccelerometerService
-from managers.accelerometer_manager import AccelerometerManager
-from config import AccelerometerConfig
+# Now import with hardware mocked
+with patch('hardware.acc_bno085.BNO085Interface'):
+    from services.accelerometer_service import AccelerometerService
+    from managers.accelerometer_manager import AccelerometerManager
+    from config import AccelerometerConfig
 
 class TestAccelerometerService(unittest.TestCase):
     """Test cases for the AccelerometerService class."""

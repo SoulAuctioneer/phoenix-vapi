@@ -12,10 +12,18 @@ import os
 import time
 from collections import deque
 
+# Mock hardware modules before imports
+sys.modules['board'] = MagicMock()
+sys.modules['busio'] = MagicMock()
+sys.modules['adafruit_bno08x'] = MagicMock()
+sys.modules['adafruit_bno08x.i2c'] = MagicMock()
+
 # Add src directory to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
 
-from managers.accelerometer_manager import AccelerometerManager, MotionState, MotionPattern
+# Now import the module
+with patch('hardware.acc_bno085.BNO085Interface'):
+    from managers.accelerometer_manager import AccelerometerManager, MotionState, MotionPattern
 
 class TestAccelerometerManager(unittest.TestCase):
     """Test cases for the AccelerometerManager class."""
@@ -165,6 +173,10 @@ class TestAccelerometerManager(unittest.TestCase):
             'game_rotation': {"not": "a tuple"},
             'timestamp': time.time()
         }
+        
+        # Make sure we have a properly initialized motion_history that can be converted to a list
+        if not hasattr(self.manager, 'motion_history') or not isinstance(self.manager.motion_history, deque):
+            self.manager.motion_history = deque(maxlen=20)
         
         # Should not raise an exception
         patterns = self.manager._detect_motion_patterns(data)

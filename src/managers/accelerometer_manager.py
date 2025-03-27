@@ -155,28 +155,43 @@ class AccelerometerManager:
         game_rotation = current_data.get("game_rotation", (0, 0, 0, 1))  # Get game rotation quaternion
         stability = current_data.get("stability", "Unknown")
         
-        # Calculate magnitudes
-        accel_magnitude = sqrt(sum(x*x for x in linear_accel))
-        gyro_magnitude = sqrt(sum(x*x for x in gyro))
+        # Calculate magnitudes with type checking
+        accel_magnitude = 0.0
+        if isinstance(linear_accel, tuple) and all(isinstance(x, (int, float)) for x in linear_accel):
+            accel_magnitude = sqrt(sum(x*x for x in linear_accel))
+        else:
+            self.logger.warning(f"Invalid linear acceleration data: {linear_accel}")
+            
+        gyro_magnitude = 0.0
+        if isinstance(gyro, tuple) and all(isinstance(x, (int, float)) for x in gyro):
+            gyro_magnitude = sqrt(sum(x*x for x in gyro))
+        else:
+            self.logger.warning(f"Invalid gyro data: {gyro}")
         
         # Update motion state based on current data
         self._update_motion_state(accel_magnitude, gyro_magnitude, current_data['timestamp'])
         
         # Check for specific patterns
-        if self._check_throw_pattern():
-            detected_patterns.append(MotionPattern.THROW.name)
-            
-        if self._check_catch_pattern(accel_magnitude):
-            detected_patterns.append(MotionPattern.CATCH.name)
-            
-        if self._check_arc_swing_pattern():
-            detected_patterns.append(MotionPattern.ARC_SWING.name)
-            
-        if self._check_shake_pattern():
-            detected_patterns.append(MotionPattern.SHAKE.name)
-            
-        if self._check_rolling_pattern():
-            detected_patterns.append(MotionPattern.ROLLING.name)
+        try:
+            if self._check_throw_pattern():
+                detected_patterns.append(MotionPattern.THROW.name)
+                
+            if self._check_catch_pattern(accel_magnitude):
+                detected_patterns.append(MotionPattern.CATCH.name)
+                
+            if self._check_arc_swing_pattern():
+                detected_patterns.append(MotionPattern.ARC_SWING.name)
+                
+            if self._check_shake_pattern():
+                detected_patterns.append(MotionPattern.SHAKE.name)
+                
+            if self._check_rolling_pattern():
+                detected_patterns.append(MotionPattern.ROLLING.name)
+        except Exception as e:
+            # Log detailed information about the exception with context
+            self.logger.error(f"Error detecting motion patterns: {e}", exc_info=True)
+            self.logger.debug(f"Current data that caused error: {current_data}")
+            # Could track error frequency or report if errors become too common
             
         return detected_patterns
         
@@ -285,14 +300,10 @@ class AccelerometerManager:
             return False
             
         # Use game rotation quaternion for smooth rotation detection
-        rotations = []
-        for entry in self.motion_history:
-            game_rot = entry.get("game_rotation", (0, 0, 0, 1))
-            if isinstance(game_rot, tuple) and len(game_rot) == 4:
-                rotations.append(game_rot)
-            else:
-                # Skip invalid data
-                continue
+        # Convert to list first for safety and filter out invalid data
+        rotations = [entry.get("game_rotation", (0, 0, 0, 1)) for entry in list(self.motion_history)
+                    if isinstance(entry.get("game_rotation", (0, 0, 0, 1)), tuple) 
+                    and len(entry.get("game_rotation", (0, 0, 0, 1))) == 4]
         
         # Check if we have significant rotation around a consistent axis
         # This is a simplified approach - a more sophisticated approach would
@@ -329,29 +340,43 @@ class AccelerometerManager:
         if len(self.motion_history) < 6:
             return False
             
-        # Get recent acceleration values
-        accelerations = [entry.get("linear_acceleration", (0, 0, 0)) for entry in self.motion_history[-6:]]
+        # Get recent acceleration values - convert deque to list before slicing for safety
+        # Filter out invalid acceleration data in the comprehension
+        accelerations = [entry.get("linear_acceleration", (0, 0, 0)) for entry in list(self.motion_history)[-6:]
+                         if isinstance(entry.get("linear_acceleration", (0, 0, 0)), tuple) 
+                         and len(entry.get("linear_acceleration", (0, 0, 0))) == 3]
+        
+        # If we don't have enough valid data points, return False
+        if len(accelerations) < 3:
+            self.logger.warning("Not enough valid acceleration data points for shake detection")
+            return False
         
         # Count direction changes
         direction_changes = 0
         prev_direction = None
         
-        for accel in accelerations:
-            # Use the largest component of acceleration as the primary direction
-            max_component = max(abs(accel[0]), abs(accel[1]), abs(accel[2]))
-            current_direction = None
-            for i in range(3):
-                if abs(accel[i]) == max_component:
-                    current_direction = 1 if accel[i] > 0 else -1
-                    break
+        for idx, accel in enumerate(accelerations):
+            try:
+                # Use the largest component of acceleration as the primary direction
+                max_component = max(abs(accel[0]), abs(accel[1]), abs(accel[2]))
+                current_direction = None
+                for i in range(3):
+                    if abs(accel[i]) == max_component:
+                        current_direction = 1 if accel[i] > 0 else -1
+                        break
+                        
+                # Count direction changes
+                if prev_direction is not None and current_direction is not None and current_direction != prev_direction:
+                    direction_changes += 1
                     
-            # Count direction changes
-            if prev_direction is not None and current_direction is not None and current_direction != prev_direction:
-                direction_changes += 1
-                
-            prev_direction = current_direction
-            
-        # If we have multiple rapid direction changes and high acceleration
+                prev_direction = current_direction
+            except (TypeError, IndexError) as e:
+                # Log invalid entries instead of silently continuing
+                self.logger.error(f"Error processing acceleration data at index {idx}: {e}, data: {accel}")
+                # We could increment a counter of data errors here
+                # If too many errors occur, we might want to signal a sensor problem
+        
+        # If we have multiple rapid direction changes
         return direction_changes >= 3
         
     def _check_rolling_pattern(self) -> bool:
@@ -372,21 +397,25 @@ class AccelerometerManager:
             
         # Check if in rolling state
         if self.motion_state == MotionState.ROLLING:
+            # Make sure we can safely access the latest entry
+            if len(self.motion_history) == 0 or 'timestamp' not in self.motion_history[-1]:
+                self.logger.warning("Cannot access timestamp in motion history for rolling detection")
+                return False
+            
             timestamp = self.motion_history[-1]['timestamp']
             rolling_duration = timestamp - self.rolling_start_time
             
             # Minimum duration to be considered rolling
             if rolling_duration > self.rolling_duration:
-                # Analyze gyro data to verify consistent rotation axis
-                gyro_readings = []
-                # Get the last 5 valid gyro readings
-                for entry in list(self.motion_history)[-5:]:
-                    gyro = entry.get("gyro", (0, 0, 0))
-                    if isinstance(gyro, tuple) and len(gyro) == 3:
-                        gyro_readings.append(gyro)
+                # Get the last 5 valid gyro readings - convert to list first for safety
+                # Filter out invalid data in the comprehension
+                gyro_readings = [entry.get("gyro", (0, 0, 0)) for entry in list(self.motion_history)[-5:]
+                                if isinstance(entry.get("gyro", (0, 0, 0)), tuple) 
+                                and len(entry.get("gyro", (0, 0, 0))) == 3]
                 
                 # If we don't have enough valid readings, return False
                 if len(gyro_readings) < 3:
+                    self.logger.warning(f"Not enough valid gyro readings for rolling detection. Only found {len(gyro_readings)}")
                     return False
                 
                 # Find the dominant rotation axis (x, y, or z)
@@ -395,12 +424,20 @@ class AccelerometerManager:
                     for i in range(3):
                         axis_totals[i] += abs(gyro[i])
                 
+                # Log the axis data for debugging
+                self.logger.debug(f"Rolling axis totals: x={axis_totals[0]:.2f}, y={axis_totals[1]:.2f}, z={axis_totals[2]:.2f}")
+                
                 dominant_axis = axis_totals.index(max(axis_totals))
-                dominant_ratio = axis_totals[dominant_axis] / (sum(axis_totals) + 0.0001)
+                axis_names = ['x', 'y', 'z']
+                sum_total = sum(axis_totals) + 0.0001  # Avoid division by zero
+                dominant_ratio = axis_totals[dominant_axis] / sum_total
                 
                 # If one axis dominates the rotation (rolling tends to rotate around one axis)
                 if dominant_ratio > 0.6:  # 60% of rotation is around this axis
+                    self.logger.debug(f"Detected rolling around {axis_names[dominant_axis]} axis with ratio {dominant_ratio:.2f}")
                     return True
+                else:
+                    self.logger.debug(f"No dominant rotation axis detected. Dominant axis: {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f}")
                 
         return False
 
