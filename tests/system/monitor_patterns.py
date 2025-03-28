@@ -10,6 +10,7 @@ import sys
 import os
 import time
 import logging
+import csv
 from colorama import Fore, Style, init
 from datetime import datetime
 from math import sqrt
@@ -27,6 +28,33 @@ logging.basicConfig(
     level=logging.WARNING,  # Only show warnings and above
     format='%(levelname)s: %(message)s'
 )
+
+# Create logs directory if it doesn't exist
+LOGS_DIR = "logs"
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
+
+def setup_csv_logger():
+    """Setup CSV logging with headers."""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = os.path.join(LOGS_DIR, f"accelerometer_data_{timestamp}.csv")
+    
+    # Define CSV headers
+    headers = [
+        'timestamp', 'motion_state', 'energy', 'accel_magnitude',
+        'accel_x', 'accel_y', 'accel_z', 'gyro_magnitude',
+        'gyro_x', 'gyro_y', 'gyro_z', 'patterns',
+        'stability', 'activity', 'activity_confidence',
+        'free_fall_duration', 'throw_duration', 'last_patterns',
+        'last_pattern_time'
+    ]
+    
+    # Create and open CSV file
+    csvfile = open(filename, 'w', newline='')
+    writer = csv.DictWriter(csvfile, fieldnames=headers)
+    writer.writeheader()
+    
+    return csvfile, writer
 
 def format_pattern(pattern_name):
     """Format pattern name with color."""
@@ -124,6 +152,10 @@ def main():
     print("Monitoring for motion patterns. Press Ctrl+C to exit.")
     print("-" * 80)
     
+    # Setup CSV logging
+    csvfile, csvwriter = setup_csv_logger()
+    print(f"Logging data to {csvfile.name}")
+    
     # Keep track of previous state to detect changes
     prev_patterns = []
     prev_motion_state = None
@@ -162,6 +194,46 @@ def main():
             # Format timestamp
             timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
             current_time = time.time()
+            
+            # Get additional debug info
+            free_fall_duration = 0.0
+            if motion_state == "FREE_FALL" and hasattr(manager, 'free_fall_start_time'):
+                free_fall_duration = current_time - manager.free_fall_start_time
+                
+            throw_duration = 0.0
+            if hasattr(manager, 'throw_in_progress') and manager.throw_in_progress:
+                throw_duration = current_time - manager.throw_detected_time
+                
+            last_patterns = ""
+            last_pattern_time = 0.0
+            if hasattr(manager, 'pattern_history') and manager.pattern_history:
+                if len(manager.pattern_history) > 0:
+                    last_time, last_patterns = manager.pattern_history[-1]
+                    last_pattern_time = current_time - last_time
+                    last_patterns = ','.join(last_patterns)
+            
+            # Log to CSV
+            csvwriter.writerow({
+                'timestamp': timestamp,
+                'motion_state': motion_state,
+                'energy': energy,
+                'accel_magnitude': accel_magnitude,
+                'accel_x': accel[0] if isinstance(accel, tuple) and len(accel) > 0 else 0,
+                'accel_y': accel[1] if isinstance(accel, tuple) and len(accel) > 1 else 0,
+                'accel_z': accel[2] if isinstance(accel, tuple) and len(accel) > 2 else 0,
+                'gyro_magnitude': gyro_magnitude,
+                'gyro_x': gyro[0] if isinstance(gyro, tuple) and len(gyro) > 0 else 0,
+                'gyro_y': gyro[1] if isinstance(gyro, tuple) and len(gyro) > 1 else 0,
+                'gyro_z': gyro[2] if isinstance(gyro, tuple) and len(gyro) > 2 else 0,
+                'patterns': ','.join(patterns),
+                'stability': stability,
+                'activity': activity.get('most_likely', 'Unknown'),
+                'activity_confidence': activity.get(activity.get('most_likely', 'Unknown'), 0),
+                'free_fall_duration': free_fall_duration,
+                'throw_duration': throw_duration,
+                'last_patterns': last_patterns,
+                'last_pattern_time': last_pattern_time
+            })
             
             # Check if there's a new pattern or motion state change
             patterns_changed = set(patterns) != set(prev_patterns)
@@ -234,6 +306,7 @@ def main():
     except KeyboardInterrupt:
         print("\nMonitoring stopped.")
     finally:
+        csvfile.close()
         manager.deinitialize()
         print("\nAccelerometer hardware deinitialized.")
     
