@@ -61,18 +61,18 @@ class MoveActivity(BaseService):
                     "effect_name": SoundEffect.WEE
                 })
 
-            # If a "CATCH" pattern is detected, stop the "WEE" sound effect and play the "SQUEAK" sound effect
-            if MotionPattern.CATCH.name in newly_detected_patterns:
-                self.logger.info("Catch detected, stopping WEE sound and playing SQUEAK sound")
-                # Emit an event to request the audio service stop the sound
-                await self.publish({
-                    "type": "stop_sound",
-                    "effect_name": SoundEffect.WEE
-                })
-                await self.publish({
-                    "type": "play_sound",
-                    "effect_name": SoundEffect.SQUEAK
-                })
+            # # If a "CATCH" pattern is detected, stop the "WEE" sound effect and play the "SQUEAK" sound effect
+            # if MotionPattern.CATCH.name in newly_detected_patterns:
+            #     self.logger.info("Catch detected, stopping WEE sound and playing SQUEAK sound")
+            #     # Emit an event to request the audio service stop the sound
+            #     await self.publish({
+            #         "type": "stop_sound",
+            #         "effect_name": SoundEffect.WEE
+            #     })
+            #     await self.publish({
+            #         "type": "play_sound",
+            #         "effect_name": SoundEffect.SQUEAK
+            #     })
 
             # TODO: Set LED color based on energy level
 
