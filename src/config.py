@@ -123,6 +123,7 @@ class SoundEffect(str, Enum):
     BREATHING = "breathing.wav"
     PURRING = "purring.wav"
     WEE = "wee.wav"
+    SQUEAK = "squeak.wav"
     CHIRP1 = "chirp1.wav"
     CHIRP2 = "chirp2.wav"
     CHIRP3 = "chirp3.wav"
