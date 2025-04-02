@@ -50,10 +50,10 @@ class MoveActivity(BaseService):
             data = event.get("data", {})
 
             # Check for detected motion patterns
-            detected_patterns = data.get("detected_patterns", [])
+            newly_detected_patterns = data.get("newly_detected_patterns", [])
 
             # If a "THROW" pattern is detected, play the "WEE" sound effect
-            if MotionPattern.THROW.name in detected_patterns:
+            if MotionPattern.THROW.name in newly_detected_patterns:
                 self.logger.info("Throw detected, playing WEE sound")
                 # Emit an event to request the audio service play the sound
                 await self.publish({

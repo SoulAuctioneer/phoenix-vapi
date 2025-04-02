@@ -101,6 +101,9 @@ class AccelerometerManager:
         self.throw_detected_time = 0
         self.throw_in_progress = False
         
+        # Track previously detected patterns to identify new occurrences
+        self.previously_detected_patterns = set()
+        
         # Debugging
         self.consecutive_low_accel = 0  # Count consecutive low acceleration readings
         
@@ -144,10 +147,27 @@ class AccelerometerManager:
             
             # Update motion history and detect patterns
             self._update_motion_history(data)
+            
+            # Detect current motion patterns
             detected_patterns = self._detect_motion_patterns(data)
+            
+            # Determine newly detected patterns
+            current_patterns_set = set(detected_patterns)
+            newly_detected = list(current_patterns_set - self.previously_detected_patterns)
+            
+            # Update the set of previously detected patterns for the next cycle
+            self.previously_detected_patterns = current_patterns_set
+            
+            # Add detected and newly detected patterns to the data dictionary
             if detected_patterns:
                 data["detected_patterns"] = detected_patterns
-                self.detected_patterns = detected_patterns
+                self.detected_patterns = detected_patterns # Keep track of current patterns
+            else:
+                # Ensure detected_patterns is cleared if none are detected currently
+                self.detected_patterns = [] 
+                
+            if newly_detected:
+                data["newly_detected_patterns"] = newly_detected
             
         return data
         
