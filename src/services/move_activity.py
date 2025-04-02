@@ -56,7 +56,7 @@ class MoveActivity(BaseService):
             if MotionPattern.THROW.name in detected_patterns:
                 self.logger.info("Throw detected, playing WEE sound")
                 # Emit an event to request the audio service play the sound
-                await self.emit_event({
+                await self.publish({
                     "type": "play_sound",
                     "effect_name": SoundEffect.WEE
                 })
