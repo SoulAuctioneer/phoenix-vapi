@@ -1,19 +1,15 @@
 """
 This activity service is for movement-based play, such as dancing, running, throwing the ball, composing music, martial arts, yoga etc.
 For our first implementation, we will use the accelerometer to detect movement energy and trigger sounds and lights matching the energy level.
-It maintains a state machine for the current activity and movement energy level.
-
-It subscribes to accelerometer data and:
-1. Uses the activity classification from the accelerometer
-2. Calculates a movement energy level (0-1) based on acceleration and rotation
-3. Publishes events when activity or energy level changes significantly
 """
 
 import asyncio
 import math
 from typing import Dict, Any, Tuple
 from services.service import BaseService
-from config import MoveActivityConfig
+from config import MoveActivityConfig, SoundEffect
+from managers.accelerometer_manager import MotionPattern
+
 class MoveActivity(BaseService):
     """
     A service that maintains activity state and movement energy level.
@@ -52,75 +48,19 @@ class MoveActivity(BaseService):
         if event.get("type") == "sensor_data" and event.get("sensor") == "accelerometer":
             # Extract data from accelerometer event
             data = event.get("data", {})
-            linear_acceleration = data.get("linear_acceleration", (0.0, 0.0, 0.0))
-            gyro = data.get("gyro", (0.0, 0.0, 0.0))
-            activity_data = data.get("activity", {})
-            
-            # Get the most likely activity from the classification
-            activity = activity_data.get("most_likely", "unknown")
-            
-            # Calculate movement energy
-            energy = self._calculate_energy(linear_acceleration, gyro)
-            
-            # Update energy window for smoothing
-            self.energy_window.append(energy)
-            if len(self.energy_window) > MoveActivityConfig.ENERGY_WINDOW_SIZE:
-                self.energy_window.pop(0)
-            
-            # Calculate smoothed energy
-            smoothed_energy = sum(self.energy_window) / len(self.energy_window)
-            
-            # Check if we need to publish updates
-            energy_changed = abs(smoothed_energy - self.previous_energy) > 0.1
-            activity_changed = activity != self.current_activity
-            
-            if energy_changed or activity_changed:
-                self.previous_energy = self.current_energy
-                self.current_energy = smoothed_energy
-                self.previous_activity = self.current_activity
-                self.current_activity = activity
-                
-                # Log the changes
-                self.logger.info(f"Activity: {activity}, Energy: {smoothed_energy:.2f}")
-                
-                # Publish state update event
-                await self.publish({
-                    "type": "movement_state_update",
-                    "activity": activity,
-                    "previous_activity": self.previous_activity,
-                    "energy": smoothed_energy,
-                    "previous_energy": self.previous_energy,
-                    "producer_name": "move_activity"
+
+            # Check for detected motion patterns
+            detected_patterns = data.get("detected_patterns", [])
+
+            # If a "THROW" pattern is detected, play the "WEE" sound effect
+            if MotionPattern.THROW.name in detected_patterns:
+                self.logger.info("Throw detected, playing WEE sound")
+                # Emit an event to request the audio service play the sound
+                await self.emit_event({
+                    "type": "play_sound",
+                    "effect_name": SoundEffect.WEE
                 })
+
+            # TODO: Set LED color based on energy level
+
     
-    def _calculate_energy(self, linear_acceleration: Tuple[float, float, float], 
-                         gyro: Tuple[float, float, float]) -> float:
-        """
-        Calculate movement energy level (0-1) based on acceleration and rotation.
-        
-        Args:
-            linear_acceleration: Linear acceleration values (x, y, z) in m/s^2
-            gyro: Gyroscope values (x, y, z) in rad/s
-            
-        Returns:
-            float: Movement energy level from 0 (still) to 1 (very active)
-        """
-        # Calculate acceleration magnitude (removing gravity)
-        accel_magnitude = math.sqrt(
-            linear_acceleration[0]**2 + 
-            linear_acceleration[1]**2 + 
-            linear_acceleration[2]**2
-        )
-        
-        # Normalize acceleration (assuming max acceleration of 20 m/s^2)
-        accel_energy = min(1.0, accel_magnitude / 20.0)
-        
-        # Calculate rotation magnitude
-        gyro_magnitude = math.sqrt(gyro[0]**2 + gyro[1]**2 + gyro[2]**2)
-        
-        # Normalize rotation (assuming max rotation of 10 rad/s)
-        gyro_energy = min(1.0, gyro_magnitude / 10.0)
-        
-        # Combine energies with weights
-        return (accel_energy * MoveActivityConfig.ACCEL_WEIGHT + 
-                gyro_energy * MoveActivityConfig.GYRO_WEIGHT) 

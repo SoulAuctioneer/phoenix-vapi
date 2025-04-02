@@ -122,6 +122,7 @@ class SoundEffect(str, Enum):
     TADA = "tada.wav"
     BREATHING = "breathing.wav"
     PURRING = "purring.wav"
+    WEE = "wee.wav"
     CHIRP1 = "chirp1.wav"
     CHIRP2 = "chirp2.wav"
     CHIRP3 = "chirp3.wav"
