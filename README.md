@@ -37,10 +37,17 @@ Key Functionality
 - A free Picovoice access key (get one from [console.picovoice.ai](https://console.picovoice.ai))
 - A Vapi API key (get one from [vapi.ai](https://vapi.ai))
 
-## Wiring the Raspberry Pi
-I2C Qwiic: bottom left: red, blue, yellow, skip, black
-Power: top left: skip, red, black
-LED data: top right
+## Wiring 
+Raspberry Pi
+- I2C Qwiic: bottom left: red, blue, yellow, skip, black
+- Power: top left: skip, red, black
+- LED data: top right
+Powerboost From Right:
+- Rightmost: 5V
+- 2nd rightmost: GND
+- 4th rightmost: PWR SWITCH
+- 5th rightmost: PWR SWITCH
+
 
 ## Setting up Raspberry Pi
 
