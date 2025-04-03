@@ -44,6 +44,13 @@ for logger_name in [
 ]:
     logging.getLogger(logger_name).setLevel(logging.WARNING)
 
+
+# Disable the LEDs on the Respeaker 4-mic array
+if PLATFORM == "raspberry-pi":
+    from hardware.respeaker import disable_leds
+    disable_leds()
+
+
 class PhoenixApp:
     def __init__(self):
         self.service_manager = ServiceManager()

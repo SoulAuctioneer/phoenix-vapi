@@ -19,6 +19,7 @@ adafruit-circuitpython-ads1x15; sys_platform == 'linux'  # ADC for force sensor
 adafruit-circuitpython-drv2605; sys_platform == 'linux'  # vibration motor
 adafruit-circuitpython-max1704x; sys_platform == 'linux'  # battery monitor
 adafruit-circuitpython-bno08x; sys_platform == 'linux' # accelerometer
+pyusb; sys_platform == 'linux' # USB for Respeaker
 
 # System dependencies that need pip install
 pyaudio; sys_platform == 'darwin'  # macOS needs brew install portaudio first
