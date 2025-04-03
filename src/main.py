@@ -47,6 +47,7 @@ for logger_name in [
 
 # Disable the LEDs on the Respeaker 4-mic array
 if PLATFORM == "raspberry-pi":
+    logging.info("Disabling LEDs on Respeaker 4-mic array")
     from hardware.respeaker import disable_leds
     disable_leds()
 
