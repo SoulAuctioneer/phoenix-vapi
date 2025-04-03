@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Starting Phoenix App"
 if [ -z "$VIRTUAL_ENV" ]; then
     source .venv/bin/activate
