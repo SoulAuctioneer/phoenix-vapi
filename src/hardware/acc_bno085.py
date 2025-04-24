@@ -52,7 +52,10 @@ from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple, Optional
 import asyncio
 from struct import pack_into # Import pack_into
+import time # Import time for timeout
 
+# Define a timeout for feature enabling (in seconds)
+_FEATURE_ENABLE_TIMEOUT = 2.0
 
 class BNO085Interface:
     """
@@ -157,13 +160,33 @@ class BNO085Interface:
         try:
             self.imu._send_packet(_BNO_CHANNEL_CONTROL, set_feature_report)
             # Optional: Add a small delay between commands if needed
-            # import time
             # time.sleep(0.01) 
         except Exception as e:
             self.logger.error(f"Failed to send feature command for {feature_id}: {e}")
+            return # Exit if sending failed
 
-        # Note: Original library had a wait loop here to confirm feature enable.
-        # Consider adding confirmation logic if necessary.
+        # Wait for confirmation that the feature is enabled
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < _FEATURE_ENABLE_TIMEOUT:
+            try:
+                # Process any available packets from the sensor
+                self.imu._process_available_packets(max_packets=10) 
+            except Exception as e:
+                # Log errors during packet processing but continue trying
+                self.logger.warning(f"Error processing packets while enabling {feature_id}: {e}")
+                time.sleep(0.01) # Small delay before retrying
+            
+            # Check if the feature is now available in the library's readings
+            # Accessing _readings directly as the library does.
+            if feature_id in self.imu._readings: 
+                self.logger.info(f"Feature {feature_id} enabled successfully.")
+                return # Feature is enabled
+                
+            time.sleep(0.01) # Small delay before checking again
+
+        # If the loop finishes without confirmation, raise an error
+        self.logger.error(f"Timeout: Failed to enable feature {feature_id} within {_FEATURE_ENABLE_TIMEOUT}s")
+        raise RuntimeError(f"Was not able to enable feature {feature_id}")
 
     def read_sensor_data(self) -> Dict[str, Any]:
         """
