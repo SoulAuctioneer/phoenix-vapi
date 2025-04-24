@@ -44,10 +44,14 @@ from adafruit_bno08x import (
     BNO_REPORT_STABILITY_CLASSIFIER,
     BNO_REPORT_ACTIVITY_CLASSIFIER,
     REPORT_ACCURACY_STATUS,
+    # Import necessary constants and functions for manual packet sending
+    _SET_FEATURE_COMMAND, 
+    _BNO_CHANNEL_CONTROL,
 )
 from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple, Optional
 import asyncio
+from struct import pack_into # Import pack_into
 
 
 class BNO085Interface:
@@ -76,7 +80,7 @@ class BNO085Interface:
         """
         try:
             # Initialize I2C and BNO085 - Explicitly set frequency to 400kHz
-            self.i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
+            self.i2c = busio.I2C(board.SCL, board.SDA)
             self.imu = BNO08X_I2C(self.i2c)
             
             # Enable features
@@ -99,33 +103,68 @@ class BNO085Interface:
     
     def _enable_sensor_reports(self):
         """
-        Enable all required sensor reports from the BNO085 sensor.
-        (Reverted: CircuitPython library doesn't support setting intervals here)
+        Enable all required sensor reports from the BNO085 sensor
+        with a custom report interval.
         """
-        if self.imu:
-            # Motion Vectors
-            self.imu.enable_feature(BNO_REPORT_ACCELEROMETER)
-            self.imu.enable_feature(BNO_REPORT_GYROSCOPE)
-            self.imu.enable_feature(BNO_REPORT_MAGNETOMETER)
-            self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
+        if not self.imu:
+            return
+
+        # Motion Vectors - Set to 5ms (200Hz) for critical motion detection
+        self._enable_feature_with_interval(BNO_REPORT_ACCELEROMETER, 5)  # 200Hz
+        self._enable_feature_with_interval(BNO_REPORT_GYROSCOPE, 5)      # 200Hz
+        self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION, reporting_interval_ms=5)  # 200Hz
+        
+        # Less critical for high frequency
+        self._enable_feature_with_interval(BNO_REPORT_MAGNETOMETER, 20)  # 50Hz
+        
+        # Rotation Vectors - Can be slightly slower
+        self._enable_feature_with_interval(BNO_REPORT_ROTATION_VECTOR, 10)  # 100Hz
+        self._enable_feature_with_interval(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, 20)  # 50Hz  
+        self._enable_feature_with_interval(BNO_REPORT_GAME_ROTATION_VECTOR, 10)  # 100Hz
+        
+        # Classification Reports - Can be much slower
+        self._enable_feature_with_interval(BNO_REPORT_STEP_COUNTER, 100)  # 20Hz
+        self._enable_feature_with_interval(BNO_REPORT_STABILITY_CLASSIFIER, 50)  # 20Hz
+        self._enable_feature_with_interval(BNO_REPORT_ACTIVITY_CLASSIFIER, 100)  # 10Hz
+        
+        # Other Reports - not used
+        # self._enable_feature_with_interval(BNO_REPORT_RAW_ACCELEROMETER, 5000)
+        # self._enable_feature_with_interval(BNO_REPORT_RAW_GYROSCOPE, 5000)
+        # self._enable_feature_with_interval(BNO_REPORT_RAW_MAGNETOMETER, 20000)
+        # self._enable_feature_with_interval(BNO_REPORT_UNCALIBRATED_GYROSCOPE, 5000)
+        # self._enable_feature_with_interval(BNO_REPORT_UNCALIBRATED_MAGNETOMETER, 20000)
+        
+    def _enable_feature_with_interval(self, feature_id: int, interval_us: int):
+        """
+        Enables a specific feature with a custom report interval by sending the raw command.
+        """
+        if not self.imu:
+            return
             
-            # Rotation Vectors
-            self.imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
-            self.imu.enable_feature(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR)
-            self.imu.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
-            
-            # Classification Reports
-            self.imu.enable_feature(BNO_REPORT_STEP_COUNTER)
-            self.imu.enable_feature(BNO_REPORT_STABILITY_CLASSIFIER)
-            self.imu.enable_feature(BNO_REPORT_ACTIVITY_CLASSIFIER)
-            
-            # Other Reports - not used
-            # self.imu.enable_feature(BNO_REPORT_RAW_ACCELEROMETER)
-            # self.imu.enable_feature(BNO_REPORT_RAW_GYROSCOPE)
-            # self.imu.enable_feature(BNO_REPORT_RAW_MAGNETOMETER)
-            # self.imu.enable_feature(BNO_REPORT_UNCALIBRATED_GYROSCOPE)
-            # self.imu.enable_feature(BNO_REPORT_UNCALIBRATED_MAGNETOMETER)
-            
+        self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us")
+        
+        # Manually construct the _SET_FEATURE_COMMAND packet
+        # This mimics the logic in the library's _get_feature_enable_report
+        set_feature_report = bytearray(17)
+        set_feature_report[0] = _SET_FEATURE_COMMAND # Command
+        set_feature_report[1] = feature_id          # Feature Report ID
+        # Bytes 2-4: Feature flags (default 0)
+        pack_into("<I", set_feature_report, 5, interval_us) # Change Period (LSB)
+        # Bytes 9-12: Batch Interval (default 0)
+        # Bytes 13-16: Sensor-specific config (default 0)
+        
+        # Send the packet
+        try:
+            self.imu._send_packet(_BNO_CHANNEL_CONTROL, set_feature_report)
+            # Optional: Add a small delay between commands if needed
+            # import time
+            # time.sleep(0.01) 
+        except Exception as e:
+            self.logger.error(f"Failed to send feature command for {feature_id}: {e}")
+
+        # Note: Original library had a wait loop here to confirm feature enable.
+        # Consider adding confirmation logic if necessary.
+
     def read_sensor_data(self) -> Dict[str, Any]:
         """
         Read data from the BNO085 sensor.
