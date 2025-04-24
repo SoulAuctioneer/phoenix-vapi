@@ -330,7 +330,7 @@ class AccelerometerConfig:
     # Print debug data to console
     PRINT_DEBUG_DATA = False
     # Service event publishing interval in seconds (i.e. 5 milliseconds) NOTE: Not the same as the sampling rate, which is hardcoded in the BNO085 interface
-    UPDATE_INTERVAL = 0.005  # Higher frequency for reliable impact and motion detection
+    UPDATE_INTERVAL = 0.005
 
 
 # Movement Activity Configuration
