@@ -129,7 +129,7 @@ class BNO085Interface:
         # Classification Reports - Can be much slower
         self._enable_feature_with_interval(BNO_REPORT_STEP_COUNTER, 100)  # 20Hz
         self._enable_feature_with_interval(BNO_REPORT_STABILITY_CLASSIFIER, 50)  # 20Hz
-        self._enable_feature_with_interval(BNO_REPORT_ACTIVITY_CLASSIFIER, 100)  # 10Hz
+        self._enable_feature_with_interval(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # Use default 50ms (20Hz)
         
         # Other Reports - not used
         # self._enable_feature_with_interval(BNO_REPORT_RAW_ACCELEROMETER, 5000)
@@ -178,19 +178,18 @@ class BNO085Interface:
         while time.monotonic() - start_time < _FEATURE_ENABLE_TIMEOUT:
             try:
                 # Process any available packets from the sensor
+                self.logger.debug(f"[{feature_id}] Processing packets...")
                 self.imu._process_available_packets(max_packets=10) 
             except Exception as e:
                 # Log errors during packet processing but continue trying
-                self.logger.warning(f"Error processing packets while enabling {feature_id}: {e}")
-                time.sleep(0.01) # Small delay before retrying
-            
-            # Check if the feature is now available in the library's readings
-            # Accessing _readings directly as the library does.
-            if feature_id in self.imu._readings: 
-                self.logger.info(f"Feature {feature_id} enabled successfully.")
-                return # Feature is enabled
+                # Check if the feature is now available in the library's readings
+                # Accessing _readings directly as the library does.
+                if feature_id in self.imu._readings: 
+                    self.logger.info(f"Feature {feature_id} enabled successfully.")
+                    return # Feature is enabled
                 
-            time.sleep(0.01) # Small delay before checking again
+                self.logger.debug(f"[{feature_id}] Keys in readings: {list(self.imu._readings.keys())}") # Log keys
+                time.sleep(0.01) # Small delay before checking again
 
         # If the loop finishes without confirmation, raise an error
         self.logger.error(f"Timeout: Failed to enable feature {feature_id} within {_FEATURE_ENABLE_TIMEOUT}s")
