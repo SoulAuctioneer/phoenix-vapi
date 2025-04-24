@@ -47,6 +47,7 @@ from adafruit_bno08x import (
     # Import necessary constants and functions for manual packet sending
     _SET_FEATURE_COMMAND, 
     _BNO_CHANNEL_CONTROL,
+    _ENABLED_ACTIVITIES, # Import the specific config for Activity Classifier
 )
 from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple, Optional
@@ -144,7 +145,13 @@ class BNO085Interface:
         if not self.imu:
             return
             
-        self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us")
+        # Determine sensor-specific config
+        sensor_config = 0
+        if feature_id == BNO_REPORT_ACTIVITY_CLASSIFIER:
+            sensor_config = _ENABLED_ACTIVITIES
+            self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us and config {sensor_config}")
+        else:
+            self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us")
         
         # Manually construct the _SET_FEATURE_COMMAND packet
         # This mimics the logic in the library's _get_feature_enable_report
@@ -154,7 +161,8 @@ class BNO085Interface:
         # Bytes 2-4: Feature flags (default 0)
         pack_into("<I", set_feature_report, 5, interval_us) # Change Period (LSB)
         # Bytes 9-12: Batch Interval (default 0)
-        # Bytes 13-16: Sensor-specific config (default 0)
+        # Bytes 13-16: Sensor-specific config
+        pack_into("<I", set_feature_report, 13, sensor_config)
         
         # Send the packet
         try:
