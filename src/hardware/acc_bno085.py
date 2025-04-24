@@ -102,21 +102,23 @@ class BNO085Interface:
         Enable all required sensor reports from the BNO085 sensor.
         """
         if self.imu:
-            # Motion Vectors
-            self.imu.enable_feature(BNO_REPORT_ACCELEROMETER)
-            self.imu.enable_feature(BNO_REPORT_GYROSCOPE)
-            self.imu.enable_feature(BNO_REPORT_MAGNETOMETER)
-            self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
+            # Motion Vectors - Set to 5ms (200Hz) for critical motion detection
+            self.imu.enable_feature(BNO_REPORT_ACCELEROMETER, reporting_interval_ms=5)  # 200Hz
+            self.imu.enable_feature(BNO_REPORT_GYROSCOPE, reporting_interval_ms=5)      # 200Hz
+            self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION, reporting_interval_ms=5)  # 200Hz
             
-            # Rotation Vectors
-            self.imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
-            self.imu.enable_feature(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR)
-            self.imu.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
+            # Less critical for high frequency
+            self.imu.enable_feature(BNO_REPORT_MAGNETOMETER, reporting_interval_ms=20)  # 50Hz
             
-            # Classification Reports
-            self.imu.enable_feature(BNO_REPORT_STEP_COUNTER)
-            self.imu.enable_feature(BNO_REPORT_STABILITY_CLASSIFIER)
-            self.imu.enable_feature(BNO_REPORT_ACTIVITY_CLASSIFIER)
+            # Rotation Vectors - Can be slightly slower
+            self.imu.enable_feature(BNO_REPORT_ROTATION_VECTOR, reporting_interval_ms=10)  # 100Hz
+            self.imu.enable_feature(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, reporting_interval_ms=20)  # 50Hz  
+            self.imu.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR, reporting_interval_ms=10)  # 100Hz
+            
+            # Classification Reports - Can be much slower
+            self.imu.enable_feature(BNO_REPORT_STEP_COUNTER, reporting_interval_ms=50)  # 20Hz
+            self.imu.enable_feature(BNO_REPORT_STABILITY_CLASSIFIER, reporting_interval_ms=50)  # 20Hz
+            self.imu.enable_feature(BNO_REPORT_ACTIVITY_CLASSIFIER, reporting_interval_ms=100)  # 10Hz
             
             # Other Reports - not used
             # self.imu.enable_feature(BNO_REPORT_RAW_ACCELEROMETER)

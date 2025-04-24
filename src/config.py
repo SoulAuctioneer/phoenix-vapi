@@ -329,13 +329,14 @@ class AccelerometerConfig:
     """Configuration for accelerometer service"""
     # Print debug data to console
     PRINT_DEBUG_DATA = False
-    # Update interval in seconds (100Hz sampling rate)
-    UPDATE_INTERVAL = 0.01  # Higher frequency for reliable impact and motion detection
+    # Update interval in seconds (100Hz sampling rate) REMOVED as we're hardcoding in the BNO085 interface
+    # UPDATE_INTERVAL = 0.01  # Higher frequency for reliable impact and motion detection
 
 
 # Movement Activity Configuration
 class MoveActivityConfig:
     """Configuration for move activity service"""
+    # NOTE: Not currently using any of this
     ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation
     ACCEL_WEIGHT = 0.7 # Weight for acceleration in energy calculation
     GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
