@@ -75,8 +75,8 @@ class BNO085Interface:
             bool: True if initialization was successful, False otherwise
         """
         try:
-            # Initialize I2C and BNO085
-            self.i2c = busio.I2C(board.SCL, board.SDA)
+            # Initialize I2C and BNO085 - Explicitly set frequency to 400kHz
+            self.i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
             self.imu = BNO08X_I2C(self.i2c)
             
             # Enable features
@@ -100,25 +100,24 @@ class BNO085Interface:
     def _enable_sensor_reports(self):
         """
         Enable all required sensor reports from the BNO085 sensor.
+        (Reverted: CircuitPython library doesn't support setting intervals here)
         """
         if self.imu:
-            # Motion Vectors - Set to 5ms (200Hz) for critical motion detection
-            self.imu.enable_feature(BNO_REPORT_ACCELEROMETER, reporting_interval_ms=5)  # 200Hz
-            self.imu.enable_feature(BNO_REPORT_GYROSCOPE, reporting_interval_ms=5)      # 200Hz
-            self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION, reporting_interval_ms=5)  # 200Hz
+            # Motion Vectors
+            self.imu.enable_feature(BNO_REPORT_ACCELEROMETER)
+            self.imu.enable_feature(BNO_REPORT_GYROSCOPE)
+            self.imu.enable_feature(BNO_REPORT_MAGNETOMETER)
+            self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
             
-            # Less critical for high frequency
-            self.imu.enable_feature(BNO_REPORT_MAGNETOMETER, reporting_interval_ms=20)  # 50Hz
+            # Rotation Vectors
+            self.imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+            self.imu.enable_feature(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR)
+            self.imu.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
             
-            # Rotation Vectors - Can be slightly slower
-            self.imu.enable_feature(BNO_REPORT_ROTATION_VECTOR, reporting_interval_ms=10)  # 100Hz
-            self.imu.enable_feature(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, reporting_interval_ms=20)  # 50Hz  
-            self.imu.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR, reporting_interval_ms=10)  # 100Hz
-            
-            # Classification Reports - Can be much slower
-            self.imu.enable_feature(BNO_REPORT_STEP_COUNTER, reporting_interval_ms=50)  # 20Hz
-            self.imu.enable_feature(BNO_REPORT_STABILITY_CLASSIFIER, reporting_interval_ms=50)  # 20Hz
-            self.imu.enable_feature(BNO_REPORT_ACTIVITY_CLASSIFIER, reporting_interval_ms=100)  # 10Hz
+            # Classification Reports
+            self.imu.enable_feature(BNO_REPORT_STEP_COUNTER)
+            self.imu.enable_feature(BNO_REPORT_STABILITY_CLASSIFIER)
+            self.imu.enable_feature(BNO_REPORT_ACTIVITY_CLASSIFIER)
             
             # Other Reports - not used
             # self.imu.enable_feature(BNO_REPORT_RAW_ACCELEROMETER)
