@@ -112,7 +112,7 @@ class BNO085Interface:
         # Motion Vectors - Set to 5ms (200Hz) for critical motion detection
         self._enable_feature_with_interval(BNO_REPORT_ACCELEROMETER, 5)  # 200Hz
         self._enable_feature_with_interval(BNO_REPORT_GYROSCOPE, 5)      # 200Hz
-        self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION, reporting_interval_ms=5)  # 200Hz
+        self._enable_feature_with_interval(BNO_REPORT_LINEAR_ACCELERATION, reporting_interval_ms=5)  # 200Hz
         
         # Less critical for high frequency
         self._enable_feature_with_interval(BNO_REPORT_MAGNETOMETER, 20)  # 50Hz
