@@ -75,6 +75,7 @@ class AccelerometerManager:
         self.throw_acceleration_threshold = 10.0  # m/s^2
         self.free_fall_threshold = 3.0  # m/s^2, lowered from 3.5 for shorter drops
         self.impact_threshold = 10.0  # m/s^2, increased from 8.0 to reduce placement impacts
+        self.impact_exit_threshold = 3.5 # m/s^2, Threshold to exit IMPACT state (slightly higher than free fall)
         self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
         self.shake_threshold = 8.0  # m/s^2
         self.rolling_accel_min = 0.5  # m/s^2
@@ -87,9 +88,6 @@ class AccelerometerManager:
         self.held_still_min_accel = 0.05  # m/s^2, min acceleration to detect human tremor
         self.held_still_duration = 0.3  # seconds required to confirm HELD_STILL state
         self.held_still_start_time = 0
-        self.idle_linear_transitions = 0  # Count IDLE<->LINEAR_MOTION transitions
-        self.max_transition_interval = 0.5  # seconds between transitions to be considered tremor
-        self.last_transition_time = 0
         
         # Timing parameters - Adjusted based on analysis
         self.min_free_fall_time = 0.04  # seconds, reduced from 0.05 for shorter drops
@@ -359,9 +357,7 @@ class AccelerometerManager:
                     # For very short drops, we might not see free fall state, so force throw detection
                     # Set the time and flag here, duration starts ticking.
                     if not self.throw_in_progress: # Avoid resetting time if already in progress from free fall
-                         self.throw_in_progress = True
-                         self.throw_detected_time = timestamp
-                         self.logger.debug(f"Setting throw_in_progress=True due to ACCEL->IMPACT transition.")
+                         self.logger.debug(f"ACCEL->IMPACT transition detected, but not setting throw_in_progress.")
 
                 elif self._check_rolling_criteria() and not self._check_linear_motion():
                     self.motion_state = MotionState.ROLLING
@@ -385,8 +381,8 @@ class AccelerometerManager:
                 
         elif self.motion_state == MotionState.IMPACT:
             # Impact is transient. Stay in IMPACT until accel is low for a short delay.
-            # Use a lower threshold (e.g. free_fall_threshold) to confirm exit from impact.
-            if accel_magnitude < self.free_fall_threshold:
+            # Use a higher threshold than free fall to confirm exit from impact.
+            if accel_magnitude < self.impact_exit_threshold: # Use new exit threshold
                 if self.impact_exit_timer == 0:
                      self.impact_exit_timer = timestamp # Start timer
                 elif timestamp - self.impact_exit_timer > self.impact_exit_delay:
@@ -405,69 +401,73 @@ class AccelerometerManager:
         elif self.motion_state == MotionState.ROLLING:
             # Check if still rolling - need both acceleration in range AND rotation around dominant axis
             if not self._check_rolling_criteria():
-                if self._check_linear_motion() and accel_magnitude > self.rolling_accel_min:
+                # Check HELD_STILL possibility first
+                if self.held_still_min_accel < accel_magnitude < self.held_still_max_accel:
+                    if self.held_still_start_time == 0:
+                         self.held_still_start_time = timestamp
+                    elif timestamp - self.held_still_start_time > self.held_still_duration:
+                         self.motion_state = MotionState.HELD_STILL
+                         self.logger.debug(f"ROLLING → HELD_STILL: accel={accel_magnitude:.2f} (stable low)")
+                elif self._check_linear_motion() and accel_magnitude > self.rolling_accel_min:
                     self.motion_state = MotionState.LINEAR_MOTION
                     self.logger.debug(f"ROLLING → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
                 else:
                     self.motion_state = MotionState.IDLE
                     self.logger.debug(f"ROLLING → IDLE: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+            # If accel is outside held still range, reset timer
+            if not (self.held_still_min_accel < accel_magnitude < self.held_still_max_accel):
+                self.held_still_start_time = 0
         
         elif self.motion_state == MotionState.LINEAR_MOTION:
-            # Exit LINEAR_MOTION if acceleration drops or motion is no longer linear
-            if accel_magnitude < self.rolling_accel_min:
-                # Check for hand tremor pattern (repeated transitions between IDLE and LINEAR_MOTION)
-                if hasattr(self, 'last_state_was_idle') and self.last_state_was_idle:
-                    # We're oscillating between IDLE and LINEAR_MOTION, likely hand tremor
-                    self.motion_state = MotionState.HELD_STILL
-                    self.last_held_still_time = timestamp
-                    self.logger.debug(f"LINEAR_MOTION → HELD_STILL (oscillation): accel={accel_magnitude:.2f}")
-                else:
-                    # Normal transition to IDLE
-                    self.motion_state = MotionState.IDLE
-                    self.last_state_was_idle = True
-                    self.logger.debug(f"LINEAR_MOTION → IDLE: accel={accel_magnitude:.2f}")
+             # Check for transition to HELD_STILL first
+            if self.held_still_min_accel < accel_magnitude < self.held_still_max_accel:
+                if self.held_still_start_time == 0:
+                     self.held_still_start_time = timestamp
+                elif timestamp - self.held_still_start_time > self.held_still_duration:
+                     self.motion_state = MotionState.HELD_STILL
+                     self.logger.debug(f"LINEAR_MOTION → HELD_STILL: accel={accel_magnitude:.2f} (stable low)")
+            # Exit LINEAR_MOTION if acceleration drops significantly or motion changes
+            elif accel_magnitude < self.rolling_accel_min:
+                # Transition to IDLE (don't need complex oscillation check anymore)
+                self.motion_state = MotionState.IDLE
+                self.logger.debug(f"LINEAR_MOTION → IDLE: accel={accel_magnitude:.2f}")
             elif accel_magnitude > self.throw_acceleration_threshold:
                 self.motion_state = MotionState.ACCELERATION
-                self.last_state_was_idle = False
                 self.logger.debug(f"LINEAR_MOTION → ACCELERATION: accel={accel_magnitude:.2f}")
             elif self._check_rolling_criteria() and not self._check_linear_motion():
                 self.motion_state = MotionState.ROLLING
-                self.last_state_was_idle = False
                 self.rolling_start_time = timestamp
                 self.logger.debug(f"LINEAR_MOTION → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
-            else:
-                self.last_state_was_idle = False
+
+            # Reset held_still timer if accel is outside the band
+            if not (self.held_still_min_accel < accel_magnitude < self.held_still_max_accel):
+                self.held_still_start_time = 0
         
         elif self.motion_state == MotionState.HELD_STILL:
-            # Define thresholds for exiting HELD_STILL state
-            held_still_max_duration = 30.0  # Maximum time to stay in HELD_STILL without reevaluation
-            held_still_time = timestamp - self.last_held_still_time
-            
-            if accel_magnitude > self.throw_acceleration_threshold:
-                # Strong acceleration - exit to ACCELERATION
-                self.motion_state = MotionState.ACCELERATION
-                self.logger.debug(f"HELD_STILL → ACCELERATION: accel={accel_magnitude:.2f}")
-            elif accel_magnitude < 0.1:
-                # Very low acceleration - device might be on a stable surface
-                self.motion_state = MotionState.IDLE
-                self.logger.debug(f"HELD_STILL → IDLE (very stable): accel={accel_magnitude:.2f}")
-            elif accel_magnitude > 2.0 and self._check_linear_motion():
-                # Definite movement that's not just tremor
-                self.motion_state = MotionState.LINEAR_MOTION
-                self.logger.debug(f"HELD_STILL → LINEAR_MOTION (definite movement): accel={accel_magnitude:.2f}")
-            elif self._check_rolling_criteria():
-                # Rotation detected
-                self.motion_state = MotionState.ROLLING
-                self.rolling_start_time = timestamp
-                self.logger.debug(f"HELD_STILL → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
-            elif held_still_time > held_still_max_duration:
-                # Timeout - reevaluate the state
-                if accel_magnitude < self.rolling_accel_min:
-                    self.motion_state = MotionState.IDLE
-                    self.logger.debug(f"HELD_STILL → IDLE (timeout): accel={accel_magnitude:.2f}")
-                else:
-                    self.last_held_still_time = timestamp  # Reset timer but stay in HELD_STILL
-                
+            # Exit HELD_STILL if acceleration goes outside the stable band
+            if not (self.held_still_min_accel < accel_magnitude < self.held_still_max_accel):
+                 # Determine next state based on magnitude
+                 if accel_magnitude > self.throw_acceleration_threshold:
+                      self.motion_state = MotionState.ACCELERATION
+                      self.logger.debug(f"HELD_STILL → ACCELERATION: accel={accel_magnitude:.2f}")
+                 elif self._check_rolling_criteria() and not self._check_linear_motion():
+                      self.motion_state = MotionState.ROLLING
+                      self.rolling_start_time = timestamp
+                      self.logger.debug(f"HELD_STILL → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+                 elif accel_magnitude >= self.rolling_accel_min: # Use rolling_accel_min as threshold for linear motion
+                      self.motion_state = MotionState.LINEAR_MOTION
+                      self.logger.debug(f"HELD_STILL → LINEAR_MOTION: accel={accel_magnitude:.2f}")
+                 else: # If below linear motion threshold, go to IDLE
+                      self.motion_state = MotionState.IDLE
+                      self.logger.debug(f"HELD_STILL → IDLE: accel={accel_magnitude:.2f}")
+                 # Reset the timer when exiting HELD_STILL
+                 self.held_still_start_time = 0
+            # Optional: Add a max duration check if needed, but primary exit is accel band
+            # held_still_max_duration = 30.0
+            # if self.held_still_start_time > 0 and timestamp - self.held_still_start_time > held_still_max_duration:
+            #    # Force re-evaluation similar to above exit logic
+            #    ...
+
         # Log state transition if changed
         if previous_state != self.motion_state:
             self.logger.debug(f"Motion state change: {previous_state.name} → {self.motion_state.name} " +
@@ -481,11 +481,15 @@ class AccelerometerManager:
             if self.motion_state != MotionState.FREE_FALL:
                  self.consecutive_low_accel = 0
 
-            # Reset held still tracking variables when changing states
-            if self.motion_state != MotionState.HELD_STILL:
-                self.last_state_was_idle = False
-                self.last_state_was_linear = False
-        
+            # Reset held still timer when changing state *away* from HELD_STILL
+            if previous_state == MotionState.HELD_STILL and self.motion_state != MotionState.HELD_STILL:
+                 self.held_still_start_time = 0
+            # Also reset if transitioning *away* from IDLE or LINEAR_MOTION
+            # as these are the entry points for HELD_STILL check
+            if previous_state in [MotionState.IDLE, MotionState.LINEAR_MOTION] and \
+               self.motion_state not in [MotionState.IDLE, MotionState.LINEAR_MOTION, MotionState.HELD_STILL]:
+                self.held_still_start_time = 0
+
     def _check_rolling_criteria(self) -> bool:
         """
         Check if the current motion meets basic rolling criteria based on acceleration and gyro.
@@ -879,9 +883,10 @@ class AccelerometerManager:
                 dominant_ratio = axis_totals[dominant_axis] / sum_total
                 
                 # If one axis dominates the rotation (rolling tends to rotate around one axis)
-                # Raise the required ratio from 0.6 to 0.7 to be more strict
-                if dominant_ratio > 0.7:  # 70% of rotation is around this axis
-                    self.logger.debug(f"Detected rolling around {axis_names[dominant_axis]} axis with ratio {dominant_ratio:.2f}")
+                # Relaxed the required ratio from 0.7 to 0.55 to allow more wobble
+                min_dominant_ratio = 0.55
+                if dominant_ratio > min_dominant_ratio:
+                    self.logger.debug(f"Rolling check passed: Dominant axis {axis_names[dominant_axis]} ratio {dominant_ratio:.2f} > {min_dominant_ratio:.2f}")
                     
                     # Verify consistency of rotation direction around dominant axis
                     last_direction = None
@@ -894,12 +899,15 @@ class AccelerometerManager:
                         last_direction = current_direction
                     
                     # True rolling should have consistent rotation direction
-                    if direction_changes <= 1:  # Allow at most one direction change
+                    # Relaxed allowed changes from 1 to 2
+                    max_direction_changes = 2
+                    if direction_changes <= max_direction_changes:
+                        self.logger.debug(f"Rolling check passed: Direction changes {direction_changes} <= {max_direction_changes}")
                         return True
                     else:
-                        self.logger.debug(f"Too many direction changes ({direction_changes}) for true rolling")
+                        self.logger.debug(f"Rolling check failed: Too many direction changes ({direction_changes} > {max_direction_changes})")
                 else:
-                    self.logger.debug(f"No dominant rotation axis detected. Dominant axis: {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f}")
+                    self.logger.debug(f"Rolling check failed: No dominant rotation axis detected. Dominant axis: {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f} <= {min_dominant_ratio:.2f}")
                 
         return False
 

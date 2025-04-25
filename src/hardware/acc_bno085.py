@@ -176,7 +176,6 @@ class BNO085Interface:
         while time.monotonic() - start_time < _FEATURE_ENABLE_TIMEOUT:
             try:
                 # Process any available packets from the sensor
-                self.logger.debug(f"[{feature_id}] Processing packets...")
                 self.imu._process_available_packets(max_packets=10)
             except Exception as e:
                 # Log errors during packet processing but continue trying
@@ -188,7 +187,6 @@ class BNO085Interface:
                 return # Feature is enabled
 
             # Log keys and sleep on every loop iteration
-            self.logger.debug(f"[{feature_id}] Keys in readings: {list(self.imu._readings.keys())}") 
             time.sleep(0.01) # Small delay before checking again
 
         # If the loop finishes without confirmation, raise an error
