@@ -284,7 +284,9 @@ class AccelerometerManager:
             if shake_result:
                  detected_patterns.append(MotionPattern.SHAKE.name)
                 
-            if self._check_rolling_pattern():
+            rolling_result = self._check_rolling_pattern()
+            self.logger.debug(f"Result of _check_rolling_pattern(): {rolling_result}")
+            if rolling_result:
                 detected_patterns.append(MotionPattern.ROLLING.name)
                 
             # Store patterns in history for sequence detection
