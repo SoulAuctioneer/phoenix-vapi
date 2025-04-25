@@ -975,11 +975,13 @@ class AccelerometerManager:
                 axis_names = ['x', 'y', 'z']
                 sum_total = sum(axis_totals) + 0.0001  # Avoid division by zero
                 dominant_ratio = axis_totals[dominant_axis] / sum_total
+                
+                # Define the minimum ratio needed *before* logging it
+                min_dominant_ratio = 0.55
                 self.logger.debug(f"Rolling pattern check: Dominant axis is {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f} (min required: {min_dominant_ratio:.2f})")
                 
                 # If one axis dominates the rotation (rolling tends to rotate around one axis)
                 # Relaxed the required ratio from 0.7 to 0.55 to allow more wobble
-                min_dominant_ratio = 0.55
                 if dominant_ratio > min_dominant_ratio:
                     self.logger.debug(f"Rolling check passed: Dominant axis {axis_names[dominant_axis]} ratio {dominant_ratio:.2f} > {min_dominant_ratio:.2f}")
                     
