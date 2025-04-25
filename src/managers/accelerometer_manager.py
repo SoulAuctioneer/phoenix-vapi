@@ -14,7 +14,7 @@ The manager is responsible for:
 
 import logging
 from typing import Dict, Any, Tuple, List, Optional, Literal
-from hardware.acc_bno85 import BNO085Interface
+from hardware.acc_bno085 import BNO085Interface
 from math import atan2, sqrt, pi, acos
 from config import MoveActivityConfig
 from collections import deque
