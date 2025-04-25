@@ -181,9 +181,9 @@ class AccelerometerManager:
         self.arc_rotation_threshold = 1.5       # rad/s - Min integrated rotation for ARC_SWING
         
         # Shake
-        self.shake_history_size = 15             # Samples (~0.15s at 100Hz) (Increased from 10)
+        self.shake_history_size = 20             # Samples (~0.20s at 100Hz) (Increased from 10)
         self.min_magnitude_for_shake = 4.0       # m/s^2 - Min average accel magnitude
-        self.min_accel_variance_for_shake = 2.0 # Min variance of accel magnitude (Increased from 1.0)
+        self.min_accel_variance_for_shake = 2.0  # Min variance of accel magnitude (Increased from 1.0)
         self.high_gyro_magnitude_threshold = 8.0 # rad/s - Min avg gyro mag for shake (Re-enabled)
         self.max_gyro_dominance_ratio = 0.65     # Max gyro axis dominance for shake (Re-enabled)
         
