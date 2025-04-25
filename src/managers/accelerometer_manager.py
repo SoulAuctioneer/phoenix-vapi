@@ -837,6 +837,11 @@ class AccelerometerManager:
         Returns:
             bool: True if shake detected
         """
+        # Prevent Shake during Rolling
+        if self.motion_state == MotionState.ROLLING:
+            self.logger.debug("Shake check skipped: State is ROLLING.")
+            return False
+
         if len(self.motion_history) < 6:
             return False
         
@@ -997,7 +1002,7 @@ class AccelerometerManager:
                     
                     # True rolling should have consistent rotation direction
                     # Relaxed allowed changes from 1 to 2
-                    max_direction_changes = 2
+                    max_direction_changes = 3 # Relaxed further from 2 to 3
                     if direction_changes <= max_direction_changes:
                         self.logger.debug(f"Rolling check passed: Direction changes {direction_changes} <= {max_direction_changes}")
                         return True

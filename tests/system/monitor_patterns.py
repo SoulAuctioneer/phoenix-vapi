@@ -25,7 +25,7 @@ init()
 
 # Configure minimal logging
 logging.basicConfig(
-    level=logging.WARNING,  # Only show warnings and above
+    level=logging.DEBUG,  # Only show warnings and above
     format='%(levelname)s: %(message)s'
 )
 
