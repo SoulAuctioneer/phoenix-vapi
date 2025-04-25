@@ -974,7 +974,7 @@ class AccelerometerManager:
         """
         history_size = 30 # Use 30 samples for ~0.3s window at 100Hz
         min_magnitude_for_shake = 4.0 # Min average accel magnitude (m/s^2)
-        min_zero_crossings = 3 # Min zero crossings on at least one accel axis (Reduced from 6)
+        min_zero_crossings = 2 # Min zero crossings on at least one accel axis (Reduced from 3)
         gyro_magnitude_threshold = 3.0 # Min average gyro magnitude (rad/s) for high rotation check
         max_gyro_dominance_ratio = 0.7 # Max axis dominance ratio allowed (higher means more like rolling)
 
