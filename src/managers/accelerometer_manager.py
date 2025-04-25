@@ -79,7 +79,7 @@ class AccelerometerManager:
         self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
         self.shake_threshold = 8.0  # m/s^2
         self.rolling_accel_min = 0.5  # m/s^2
-        self.rolling_accel_max = 16.0  # m/s^2 (Increased from 12.0)
+        self.rolling_accel_max = 40.0  # m/s^2 (Increased significantly from 16.0)
         self.rolling_gyro_min = 1.0  # rad/s
         self.rolling_duration = 0.5  # seconds
         
@@ -954,11 +954,11 @@ class AccelerometerManager:
             # Minimum duration to be considered rolling
             if rolling_duration > self.rolling_duration:
                 self.logger.debug(f"Rolling pattern check: Duration requirement met ({rolling_duration:.2f}s > {self.rolling_duration:.2f}s)")
-                # Check if motion is linear rather than rolling - TEMPORARILY DISABLED FOR DEBUGGING
-                # is_linear = self._check_linear_motion()
-                # if is_linear:
-                #     self.logger.debug("Rolling pattern check failed: Motion appears to be linear.")
-                #     return False
+                # Check if motion is linear rather than rolling - RE-ENABLED
+                is_linear = self._check_linear_motion()
+                if is_linear:
+                    self.logger.debug("Rolling pattern check failed: Motion appears to be linear.")
+                    return False
                 
                 # Get the last 5 valid gyro readings - convert to list first for safety
                 # Filter out invalid data in the comprehension
