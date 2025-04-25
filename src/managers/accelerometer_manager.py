@@ -72,14 +72,14 @@ class AccelerometerManager:
         self.pattern_history = deque(maxlen=5)  # Store recent pattern detections for sequence recognition
         
         # Thresholds for pattern detection - Adjusted based on analysis
-        self.throw_acceleration_threshold = 10.0  # m/s^2
+        self.throw_acceleration_threshold = 15.0  # m/s^2 (Increased from 10.0)
         self.free_fall_threshold = 3.0  # m/s^2, lowered from 3.5 for shorter drops
         self.impact_threshold = 10.0  # m/s^2, increased from 8.0 to reduce placement impacts
         self.impact_exit_threshold = 3.5 # m/s^2, Threshold to exit IMPACT state (slightly higher than free fall)
         self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
         self.shake_threshold = 8.0  # m/s^2
         self.rolling_accel_min = 0.5  # m/s^2
-        self.rolling_accel_max = 12.0  # m/s^2 (Increased from 6.0)
+        self.rolling_accel_max = 16.0  # m/s^2 (Increased from 12.0)
         self.rolling_gyro_min = 1.0  # rad/s
         self.rolling_duration = 0.5  # seconds
         
