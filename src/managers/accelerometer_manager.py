@@ -971,19 +971,21 @@ class AccelerometerManager:
             bool: True if shake detected
         """
         # Prevent Shake during Rolling
-        if self.motion_state == MotionState.ROLLING:
-            self.logger.debug("Shake check skipped: State is ROLLING.")
-            return False
+        # REMOVED: Check that prevents shake detection based on state
+        # if self.motion_state == MotionState.ROLLING:
+        #    self.logger.debug("Shake check skipped: State is ROLLING.")
+        #    return False
 
         if len(self.motion_history) < 6:
             return False
         
         # Don't detect shake during free fall or impact
+        # REMOVED: Check that prevents shake detection based on state
         # DEBUG: Log state just before the check
-        self.logger.debug(f"Checking shake pattern. Current state: {self.motion_state.name}")
-        if self.motion_state in [MotionState.FREE_FALL, MotionState.IMPACT]:
-            self.logger.debug("Shake check skipped: State is FREE_FALL or IMPACT.")
-            return False # Should exit here if state is IMPACT
+        # self.logger.debug(f"Checking shake pattern. Current state: {self.motion_state.name}")
+        # if self.motion_state in [MotionState.FREE_FALL, MotionState.IMPACT]:
+        #    self.logger.debug("Shake check skipped: State is FREE_FALL or IMPACT.")
+        #    return False # Should exit here if state is IMPACT
 
         # Get recent acceleration values - convert deque to list before slicing for safety
         accelerations = [entry.get("linear_acceleration", (0, 0, 0))
