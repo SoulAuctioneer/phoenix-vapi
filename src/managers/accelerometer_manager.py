@@ -83,6 +83,12 @@ class AccelerometerManager:
         self.rolling_gyro_min = 1.0  # rad/s
         self.rolling_duration = 0.5  # seconds
         
+        # Linear Motion Detection
+        self.linear_motion_history_samples = 5 # Number of samples to check for consistency
+        self.linear_motion_max_avg_gyro = 0.5 # rad/s (e.g., half of rolling threshold)
+        self.linear_motion_min_avg_dot_product = 0.90 # Min avg dot product for direction consistency
+        self.min_accel_for_direction_check = 0.1 # m/s^2, ignore accel direction if magnitude is too low
+
         # Human tremor detection
         self.held_still_max_accel = 1.2  # m/s^2, max acceleration for hand tremor
         self.held_still_min_accel = 0.05  # m/s^2, min acceleration to detect human tremor
@@ -519,63 +525,94 @@ class AccelerometerManager:
         return (self.rolling_accel_min < accel_magnitude < self.rolling_accel_max and 
                 gyro_magnitude > self.rolling_gyro_min)
     
+    def _normalize_vector(self, vec: Tuple[float, float, float]) -> Optional[Tuple[float, float, float]]:
+        """Normalize a 3D vector."""
+        mag = sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
+        if mag < 1e-6: # Avoid division by zero for near-zero vectors
+            return None
+        return (vec[0] / mag, vec[1] / mag, vec[2] / mag)
+
     def _check_linear_motion(self) -> bool:
         """
-        Check if the current motion is primarily linear (rather than rotational).
+        Check if the current motion is primarily linear (consistent direction, low rotation).
         
-        Linear motion typically has:
-        1. Consistent acceleration direction
-        2. Low rotation around the acceleration axis
-        3. No dominant rotation axis
+        Linear motion must have BOTH:
+        1. Low average angular velocity (gyro magnitude).
+        2. Consistent linear acceleration direction (high dot product between consecutive vectors).
         
         Returns:
-            bool: True if motion appears to be linear rather than rolling
+            bool: True if motion appears to be linear.
         """
-        if len(self.motion_history) < 3:
+        history_size = len(self.motion_history)
+        samples_to_check = self.linear_motion_history_samples
+        
+        if history_size < samples_to_check:
             return False
             
-        # Get recent gyro readings
-        gyro_readings = [entry.get("gyro", (0, 0, 0)) for entry in list(self.motion_history)[-3:]
-                        if isinstance(entry.get("gyro", (0, 0, 0)), tuple) 
-                        and len(entry.get("gyro", (0, 0, 0))) == 3]
+        # Get recent samples
+        recent_samples = list(self.motion_history)[-samples_to_check:]
         
-        if len(gyro_readings) < 3:
-            return False
+        # 1. Check average gyro magnitude
+        gyro_magnitudes = []
+        for entry in recent_samples:
+            gyro = entry.get("gyro", None)
+            if isinstance(gyro, tuple) and len(gyro) == 3:
+                gyro_magnitudes.append(sqrt(gyro[0]**2 + gyro[1]**2 + gyro[2]**2))
+        
+        if not gyro_magnitudes: # Not enough valid gyro data
+             return False
+             
+        avg_gyro_magnitude = sum(gyro_magnitudes) / len(gyro_magnitudes)
+        
+        if avg_gyro_magnitude >= self.linear_motion_max_avg_gyro:
+            self.logger.debug(f"Linear motion check failed: Avg gyro {avg_gyro_magnitude:.2f} >= {self.linear_motion_max_avg_gyro:.2f}")
+            return False # Rotation is too high
             
-        # Calculate dominant rotation axis
-        axis_totals = [0, 0, 0]
-        for gyro in gyro_readings:
-            for i in range(3):
-                axis_totals[i] += abs(gyro[i])
+        # 2. Check acceleration direction consistency using dot product
+        dot_products = []
+        prev_norm_accel = None
+        valid_accel_count = 0
         
-        # Find the dominant axis and its ratio
-        max_axis = max(axis_totals)
-        sum_total = sum(axis_totals) + 0.0001  # Avoid division by zero
-        dominant_ratio = max_axis / sum_total
-        
-        # Get acceleration direction consistency
-        accel_readings = [entry.get("linear_acceleration", (0, 0, 0)) for entry in list(self.motion_history)[-3:]
-                       if isinstance(entry.get("linear_acceleration", (0, 0, 0)), tuple) 
-                       and len(entry.get("linear_acceleration", (0, 0, 0))) == 3]
-        
-        # Check if acceleration direction is consistent (indicating linear motion)
-        direction_consistent = True
-        if len(accel_readings) >= 2:
-            # Find main direction of first reading
-            first_accel = accel_readings[0]
-            main_component = max(range(3), key=lambda i: abs(first_accel[i]))
-            main_direction = 1 if first_accel[main_component] > 0 else -1
+        for entry in recent_samples:
+            accel = entry.get("linear_acceleration", None)
+            if not (isinstance(accel, tuple) and len(accel) == 3):
+                continue # Skip invalid entries
+                
+            # Only consider direction if acceleration is significant
+            accel_mag = sqrt(accel[0]**2 + accel[1]**2 + accel[2]**2)
+            if accel_mag < self.min_accel_for_direction_check:
+                 # Treat low accel as consistent with previous direction if available
+                 if prev_norm_accel is not None:
+                      dot_products.append(1.0) # Assume consistency if motion nearly stopped
+                 continue
+                 
+            norm_accel = self._normalize_vector(accel)
+            if norm_accel is None:
+                 continue # Skip zero vectors
             
-            # Check if direction stays consistent
-            for accel in accel_readings[1:]:
-                if (accel[main_component] * main_direction) < 0:  # Direction changed
-                    direction_consistent = False
-                    break
+            valid_accel_count += 1
+            if prev_norm_accel is not None:
+                dot_product = (norm_accel[0] * prev_norm_accel[0] +
+                               norm_accel[1] * prev_norm_accel[1] +
+                               norm_accel[2] * prev_norm_accel[2])
+                dot_products.append(dot_product)
+                
+            prev_norm_accel = norm_accel
+            
+        # Require at least 2 valid, significant acceleration vectors to compare
+        if len(dot_products) < 1 or valid_accel_count < 2: 
+            self.logger.debug("Linear motion check failed: Not enough valid accel vectors for comparison.")
+            return False 
+            
+        avg_dot_product = sum(dot_products) / len(dot_products)
         
-        # Linear motion typically has:
-        # 1. No clear dominant rotation axis (dominant_ratio < 0.6)
-        # 2. OR consistent acceleration direction
-        return (dominant_ratio < 0.6) or direction_consistent
+        if avg_dot_product < self.linear_motion_min_avg_dot_product:
+            self.logger.debug(f"Linear motion check failed: Avg dot product {avg_dot_product:.3f} < {self.linear_motion_min_avg_dot_product:.3f}")
+            return False # Direction is not consistent enough
+            
+        # If both checks passed:
+        self.logger.debug(f"Linear motion check PASSED: Avg gyro={avg_gyro_magnitude:.2f}, Avg dot={avg_dot_product:.3f}")
+        return True
         
     def _check_throw_pattern(self) -> bool:
         """
