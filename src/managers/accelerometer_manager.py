@@ -14,7 +14,7 @@ The manager is responsible for:
 
 import logging
 from typing import Dict, Any, Tuple, List, Optional, Literal
-from hardware.acc_bno085 import BNO085Interface
+from hardware.acc_bno85 import BNO085Interface
 from math import atan2, sqrt, pi, acos
 from config import MoveActivityConfig
 from collections import deque
@@ -284,10 +284,12 @@ class AccelerometerManager:
             if shake_result:
                  detected_patterns.append(MotionPattern.SHAKE.name)
                 
-            rolling_result = self._check_rolling_pattern()
-            self.logger.debug(f"Result of _check_rolling_pattern(): {rolling_result}")
-            if rolling_result:
+            # Replace the previous check and logging
+            if self._check_rolling_pattern():
+                self.logger.debug("ROLLING pattern detected by _check_rolling_pattern(), appending.")
                 detected_patterns.append(MotionPattern.ROLLING.name)
+            else:
+                self.logger.debug("ROLLING pattern NOT detected by _check_rolling_pattern().")
                 
             # Store patterns in history for sequence detection
             if detected_patterns:
