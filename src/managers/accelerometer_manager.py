@@ -79,7 +79,7 @@ class AccelerometerManager:
         self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
         self.shake_threshold = 8.0  # m/s^2
         self.rolling_accel_min = 0.5  # m/s^2
-        self.rolling_accel_max = 3.0  # m/s^2
+        self.rolling_accel_max = 6.0  # m/s^2 (Increased from 3.0)
         self.rolling_gyro_min = 1.0  # rad/s
         self.rolling_duration = 0.5  # seconds
         
@@ -113,6 +113,7 @@ class AccelerometerManager:
         self.consecutive_low_accel = 0  # Count consecutive low acceleration readings
         self.impact_exit_timer = 0 # Timer for delaying IMPACT -> IDLE transition
         self.impact_exit_delay = 0.05 # Delay in seconds (50ms)
+        self.impact_accel_history = deque(maxlen=3) # Store recent accel magnitudes during impact
         
     def initialize(self) -> bool:
         """
@@ -277,10 +278,11 @@ class AccelerometerManager:
                 if self.motion_state != MotionState.FREE_FALL:
                     detected_patterns.append(MotionPattern.ARC_SWING.name)
                 
-            if self._check_shake_pattern():
-                # Avoid detecting shakes during free fall
-                if self.motion_state != MotionState.FREE_FALL:
-                    detected_patterns.append(MotionPattern.SHAKE.name)
+            # DEBUG: Log before calling shake check
+            shake_result = self._check_shake_pattern()
+            self.logger.debug(f"_check_shake_pattern returned: {shake_result} (Current state: {self.motion_state.name})")
+            if shake_result:
+                 detected_patterns.append(MotionPattern.SHAKE.name)
                 
             if self._check_rolling_pattern():
                 detected_patterns.append(MotionPattern.ROLLING.name)
@@ -386,23 +388,41 @@ class AccelerometerManager:
                 self.logger.debug(f"FREE_FALL → IDLE (timeout): duration={free_fall_duration:.3f}s")
                 
         elif self.motion_state == MotionState.IMPACT:
-            # Impact is transient. Stay in IMPACT until accel is low for a short delay.
-            # Use a higher threshold than free fall to confirm exit from impact.
-            if accel_magnitude < self.impact_exit_threshold: # Use new exit threshold
+            # Store recent acceleration magnitude for averaging
+            self.impact_accel_history.append(accel_magnitude)
+            
+            # Calculate average acceleration during impact (if enough history)
+            avg_impact_accel = accel_magnitude
+            if len(self.impact_accel_history) == self.impact_accel_history.maxlen:
+                avg_impact_accel = sum(self.impact_accel_history) / len(self.impact_accel_history)
+                
+            # Impact is transient. Stay in IMPACT until avg accel is low for a short delay.
+            if avg_impact_accel < self.impact_exit_threshold: 
                 if self.impact_exit_timer == 0:
                      self.impact_exit_timer = timestamp # Start timer
                 elif timestamp - self.impact_exit_timer > self.impact_exit_delay:
-                     # Sufficient delay with low accel, transition to IDLE
-                     self.motion_state = MotionState.IDLE
-                     self.logger.debug(f"IMPACT → IDLE: accel={accel_magnitude:.2f}, stable low for {self.impact_exit_delay}s")
-                     self.impact_exit_timer = 0 # Reset timer
+                     # Sufficient delay with low avg accel, transition based on current magnitude
+                     # Check HELD_STILL possibility first
+                     if self.held_still_min_accel < accel_magnitude < self.held_still_max_accel:
+                          self.motion_state = MotionState.HELD_STILL
+                          self.held_still_start_time = timestamp # Start timer for HELD_STILL duration check
+                          self.logger.debug(f"IMPACT → HELD_STILL: avg_accel={avg_impact_accel:.2f}, cur_accel={accel_magnitude:.2f}")
+                     else:
+                          # Default transition to IDLE if not meeting HELD_STILL criteria
+                          self.motion_state = MotionState.IDLE
+                          self.logger.debug(f"IMPACT → IDLE: avg_accel={avg_impact_accel:.2f}, stable low for {self.impact_exit_delay}s")
+                     # Reset timer and clear history *after* successful transition
+                     self.impact_exit_timer = 0 
+                     self.impact_accel_history.clear()
                      # Ensure throw is no longer in progress after impact fully settles
                      if self.throw_in_progress and not self.catch_detected_last_cycle:
                           self.logger.warning("Clearing throw_in_progress on IMPACT exit without recent catch.")
                           self.throw_in_progress = False
-            else:
-                 # Acceleration went back up, reset timer
-                 self.impact_exit_timer = 0
+            # REMOVED: Don't reset timer if avg_accel goes above threshold. 
+            # Only reset timer upon successful state transition out of IMPACT.
+            # else:
+            #      # Average Acceleration went back up, reset timer
+            #      self.impact_exit_timer = 0
             
         elif self.motion_state == MotionState.ROLLING:
             # Check if still rolling - need both acceleration in range AND rotation around dominant axis
@@ -482,6 +502,7 @@ class AccelerometerManager:
             # Reset impact exit timer on any state change *away* from IMPACT
             if previous_state == MotionState.IMPACT and self.motion_state != MotionState.IMPACT:
                  self.impact_exit_timer = 0
+                 self.impact_accel_history.clear() # Clear history when leaving impact
                  
             # Reset consecutive low accel count if not transitioning TO free fall
             if self.motion_state != MotionState.FREE_FALL:
@@ -788,10 +809,13 @@ class AccelerometerManager:
         if len(self.motion_history) < 6:
             return False
         
-        # Don't detect shake during free fall
-        if self.motion_state == MotionState.FREE_FALL:
-            return False
-            
+        # Don't detect shake during free fall or impact
+        # DEBUG: Log state just before the check
+        self.logger.debug(f"Checking shake pattern. Current state: {self.motion_state.name}")
+        if self.motion_state in [MotionState.FREE_FALL, MotionState.IMPACT]:
+            self.logger.debug("Shake check skipped: State is FREE_FALL or IMPACT.")
+            return False # Should exit here if state is IMPACT
+
         # Get recent acceleration values - convert deque to list before slicing for safety
         # Filter out invalid acceleration data in the comprehension
         accelerations = [entry.get("linear_acceleration", (0, 0, 0)) for entry in list(self.motion_history)[-6:]

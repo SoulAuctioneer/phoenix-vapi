@@ -25,7 +25,7 @@ init()
 
 # Configure minimal logging
 logging.basicConfig(
-    level=logging.WARNING,  # Only show warnings and above
+    level=logging.DEBUG,  # Only show warnings and above
     format='%(levelname)s: %(message)s'
 )
 
@@ -161,7 +161,10 @@ def main():
     prev_motion_state = None
     line_printed = False
     last_print_time = 0
-    force_print_interval = 0.2  # Force print every 200ms during interesting states
+    
+    # CSV Batching
+    csv_batch = []
+    CSV_BATCH_SIZE = 100 # Write every 100 rows
     
     # Enable debug logging
     logging.getLogger('src.managers.accelerometer_manager').setLevel(logging.DEBUG)
@@ -212,8 +215,8 @@ def main():
                     last_pattern_time = current_time - last_time
                     last_patterns = ','.join(last_patterns)
             
-            # Log to CSV
-            csvwriter.writerow({
+            # Prepare row data
+            row_data = {
                 'timestamp': timestamp,
                 'motion_state': motion_state,
                 'energy': f"{energy:.2f}",
@@ -233,29 +236,30 @@ def main():
                 'throw_duration': f"{throw_duration:.2f}",
                 'last_patterns': last_patterns,
                 'last_pattern_time': f"{last_pattern_time:.2f}"
-            })
+            }
+            
+            # Add to CSV batch
+            csv_batch.append(row_data)
+            
+            # Write batch if size reached
+            if len(csv_batch) >= CSV_BATCH_SIZE:
+                try:
+                    csvwriter.writerows(csv_batch)
+                    csv_batch = [] # Clear batch
+                except Exception as e:
+                    logging.error(f"Error writing CSV batch: {e}")
             
             # Check if there's a new pattern or motion state change
             patterns_changed = set(patterns) != set(prev_patterns)
             state_changed = motion_state != prev_motion_state
             
-            # Force more frequent updates during interesting states
-            force_print = False
-            interesting_states = ["ACCELERATION", "FREE_FALL", "IMPACT"]
-            if motion_state in interesting_states and current_time - last_print_time > force_print_interval:
-                force_print = True
-                
-            # Start a new line if patterns or motion state changed or forced print
-            if patterns_changed or state_changed or force_print:
+            # Start a new line ONLY if patterns or motion state changed
+            if patterns_changed or state_changed:
                 if line_printed:
                     print("")  # Start a new line
                 line_printed = True
                 output_prefix = f"[{timestamp}] "
-                last_print_time = current_time
-            else:
-                # For updates on the same line
-                clear_line()
-                output_prefix = "\r" + f"[{timestamp}] "
+                last_print_time = current_time # Update time only when printing new line
             
             # Format the patterns
             pattern_str = "None"
@@ -306,7 +310,17 @@ def main():
     except KeyboardInterrupt:
         print("\nMonitoring stopped.")
     finally:
-        csvfile.close()
+        # Write any remaining data in the batch before closing
+        if csv_batch:
+            try:
+                csvwriter.writerows(csv_batch)
+                logging.info(f"Wrote final {len(csv_batch)} records to CSV.")
+            except Exception as e:
+                logging.error(f"Error writing final CSV batch: {e}")
+        
+        if csvfile:
+            csvfile.close()
+        
         manager.deinitialize()
         print("\nAccelerometer hardware deinitialized.")
     
