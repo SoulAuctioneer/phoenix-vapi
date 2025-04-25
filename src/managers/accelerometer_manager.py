@@ -183,7 +183,7 @@ class AccelerometerManager:
         # Shake
         self.shake_history_size = 30             # Samples (~0.3s at 100Hz)
         self.min_magnitude_for_shake = 4.0       # m/s^2 - Min average accel magnitude
-        self.min_accel_variance_for_shake = 8.0 # Min variance of accel magnitude (Lowered from 15.0)
+        self.min_accel_variance_for_shake = 4.0 # Min variance of accel magnitude (Lowered from 8.0)
         
         # Rolling
         self.rolling_accel_min = 0.5            # m/s^2 - Min accel magnitude for ROLLING state/pattern
