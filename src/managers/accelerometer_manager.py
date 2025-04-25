@@ -79,7 +79,7 @@ class AccelerometerManager:
         self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
         self.shake_threshold = 8.0  # m/s^2
         self.rolling_accel_min = 0.5  # m/s^2
-        self.rolling_accel_max = 6.0  # m/s^2 (Increased from 3.0)
+        self.rolling_accel_max = 12.0  # m/s^2 (Increased from 6.0)
         self.rolling_gyro_min = 1.0  # rad/s
         self.rolling_duration = 0.5  # seconds
         
@@ -327,20 +327,25 @@ class AccelerometerManager:
                 self.motion_state = MotionState.ROLLING
                 self.rolling_start_time = timestamp
                 self.logger.debug(f"IDLE → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
-            elif accel_magnitude > self.rolling_accel_min and self._check_linear_motion():
-                # Check for hand tremor pattern (repeated transitions between IDLE and LINEAR_MOTION)
-                if hasattr(self, 'last_state_was_linear') and self.last_state_was_linear:
-                    # We're oscillating between IDLE and LINEAR_MOTION, likely hand tremor
+            elif self.held_still_min_accel < accel_magnitude < self.held_still_max_accel:
+                if self.held_still_start_time == 0:
+                    self.held_still_start_time = timestamp # Start timer
+                elif timestamp - self.held_still_start_time > self.held_still_duration:
                     self.motion_state = MotionState.HELD_STILL
-                    self.last_held_still_time = timestamp
-                    self.logger.debug(f"IDLE → HELD_STILL (oscillation): accel={accel_magnitude:.2f}")
-                else:
-                    # Normal transition to LINEAR_MOTION
-                    self.motion_state = MotionState.LINEAR_MOTION
-                    self.last_state_was_linear = True
-                    self.logger.debug(f"IDLE → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
-            else:
+                    self.logger.debug(f"IDLE → HELD_STILL: accel={accel_magnitude:.2f} (stable low)")
+                # Keep last_state_was_linear = False if accel is in this range but duration not met yet.
                 self.last_state_was_linear = False
+            elif accel_magnitude > self.rolling_accel_min and self._check_linear_motion():
+                # Normal transition to LINEAR_MOTION (removed oscillation check)
+                self.motion_state = MotionState.LINEAR_MOTION
+                # self.last_state_was_linear = True # Removed, not needed for this logic path now
+                self.logger.debug(f"IDLE → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+            else:
+                # Default case if no other transition matches
+                self.last_state_was_linear = False
+                # Reset HELD_STILL timer if accel is outside the band or below min when in IDLE
+                if not (self.held_still_min_accel < accel_magnitude < self.held_still_max_accel):
+                    self.held_still_start_time = 0
                 
         elif self.motion_state == MotionState.ACCELERATION:
             # Track consecutive low acceleration readings to detect short free falls
@@ -516,6 +521,9 @@ class AccelerometerManager:
             if previous_state in [MotionState.IDLE, MotionState.LINEAR_MOTION] and \
                self.motion_state not in [MotionState.IDLE, MotionState.LINEAR_MOTION, MotionState.HELD_STILL]:
                 self.held_still_start_time = 0
+            # Correction 5: Reset HELD_STILL timer when leaving IDLE for non-HELD_STILL states
+            if previous_state == MotionState.IDLE and self.motion_state != MotionState.HELD_STILL:
+                 self.held_still_start_time = 0
 
     def _check_rolling_criteria(self) -> bool:
         """
@@ -731,6 +739,11 @@ class AccelerometerManager:
         Returns:
             bool: True if arc swing detected
         """
+        # Correction 3: Prevent Arc Swing during Rolling
+        if self.motion_state == MotionState.ROLLING:
+             self.logger.debug("Arc swing check skipped: State is ROLLING.")
+             return False
+
         if len(self.motion_history) < 8:
             return False
             
