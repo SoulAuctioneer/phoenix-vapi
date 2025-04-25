@@ -52,11 +52,10 @@ from adafruit_bno08x import (
 from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple, Optional
 import asyncio
-from struct import pack_into # Import pack_into
 import time # Import time for timeout
 
 # Define a timeout for feature enabling (in seconds)
-_FEATURE_ENABLE_TIMEOUT = 3.0 # Increased timeout
+# _FEATURE_ENABLE_TIMEOUT = 3.0 # Not needed if using library's enable_feature
 
 class BNO085Interface:
     """
@@ -114,90 +113,26 @@ class BNO085Interface:
         if not self.imu:
             return
 
-        # Motion Vectors - Set to 5ms (200Hz) for critical motion detection
-        self._enable_feature_with_interval(BNO_REPORT_ACCELEROMETER, 5)  # 200Hz
-        self._enable_feature_with_interval(BNO_REPORT_GYROSCOPE, 5)      # 200Hz
-        self._enable_feature_with_interval(BNO_REPORT_LINEAR_ACCELERATION, 5)  # 200Hz
-        
-        # Less critical for high frequency
-        self._enable_feature_with_interval(BNO_REPORT_MAGNETOMETER, 20)  # 50Hz
-        
-        # Rotation Vectors - Can be slightly slower
-        self._enable_feature_with_interval(BNO_REPORT_ROTATION_VECTOR, 10)  # 100Hz
-        self._enable_feature_with_interval(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, 20)  # 50Hz  
-        self._enable_feature_with_interval(BNO_REPORT_GAME_ROTATION_VECTOR, 10)  # 100Hz
-        
-        # Classification Reports - Can be much slower
-        self._enable_feature_with_interval(BNO_REPORT_STEP_COUNTER, 100)  # 20Hz
-        self._enable_feature_with_interval(BNO_REPORT_STABILITY_CLASSIFIER, 50)  # 20Hz
-        self._enable_feature_with_interval(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # Use default 50ms (20Hz)
-        
-        # Other Reports - not used
-        # self._enable_feature_with_interval(BNO_REPORT_RAW_ACCELEROMETER, 5000)
-        # self._enable_feature_with_interval(BNO_REPORT_RAW_GYROSCOPE, 5000)
-        # self._enable_feature_with_interval(BNO_REPORT_RAW_MAGNETOMETER, 20000)
-        # self._enable_feature_with_interval(BNO_REPORT_UNCALIBRATED_GYROSCOPE, 5000)
-        # self._enable_feature_with_interval(BNO_REPORT_UNCALIBRATED_MAGNETOMETER, 20000)
-        
-    def _enable_feature_with_interval(self, feature_id: int, interval_us: int):
-        """
-        Enables a specific feature with a custom report interval by sending the raw command.
-        """
-        if not self.imu:
-            return
-            
-        # Determine sensor-specific config
-        sensor_config = 0
-        if feature_id == BNO_REPORT_ACTIVITY_CLASSIFIER:
-            sensor_config = _ENABLED_ACTIVITIES
-            self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us and config {sensor_config}")
-        else:
-            self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us")
-        
-        # Manually construct the _SET_FEATURE_COMMAND packet
-        # This mimics the logic in the library's _get_feature_enable_report
-        set_feature_report = bytearray(17)
-        set_feature_report[0] = _SET_FEATURE_COMMAND # Command
-        set_feature_report[1] = feature_id          # Feature Report ID
-        # Bytes 2-4: Feature flags (default 0)
-        pack_into("<I", set_feature_report, 5, interval_us) # Change Period (LSB)
-        # Bytes 9-12: Batch Interval (default 0)
-        # Bytes 13-16: Sensor-specific config
-        pack_into("<I", set_feature_report, 13, sensor_config)
-        
-        # Send the packet
-        try:
-            self.imu._send_packet(_BNO_CHANNEL_CONTROL, set_feature_report)
-            # Optional: Add a small delay between commands if needed
-            # time.sleep(0.01) 
-        except Exception as e:
-            self.logger.error(f"Failed to send feature command for {feature_id}: {e}")
-            return # Exit if sending failed
+        # === Revert to standard library enable_feature calls for diagnostics ===
+        self.logger.info("Using standard library enable_feature...")
 
-        # Wait for confirmation that the feature is enabled
-        start_time = time.monotonic()
-        while time.monotonic() - start_time < _FEATURE_ENABLE_TIMEOUT:
-            try:
-                # Process any available packets from the sensor
-                self.logger.debug(f"[{feature_id}] Processing packets...")
-                self.imu._process_available_packets(max_packets=10)
-            except Exception as e:
-                # Log errors during packet processing but continue trying
-                self.logger.warning(f"Error processing packets while enabling {feature_id}: {e}")
-            
-            # Check if the feature is now available in the library's readings, regardless of packet processing errors
-            # Accessing _readings directly as the library does.
-            if feature_id in self.imu._readings: 
-                self.logger.info(f"Feature {feature_id} enabled successfully.")
-                return # Feature is enabled
+        # Motion Vectors
+        self.imu.enable_feature(BNO_REPORT_ACCELEROMETER)
+        self.imu.enable_feature(BNO_REPORT_GYROSCOPE)
+        self.imu.enable_feature(BNO_REPORT_MAGNETOMETER) # Add back magnetometer if needed
+        self.imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
 
-            # Log keys and sleep on every loop iteration
-            self.logger.debug(f"[{feature_id}] Keys in readings: {list(self.imu._readings.keys())}") 
-            time.sleep(0.01) # Small delay before checking again
+        # Rotation Vectors
+        self.imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+        self.imu.enable_feature(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR)
+        self.imu.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
 
-        # If the loop finishes without confirmation, raise an error
-        self.logger.error(f"Timeout: Failed to enable feature {feature_id} within {_FEATURE_ENABLE_TIMEOUT}s")
-        raise RuntimeError(f"Was not able to enable feature {feature_id}")
+        # Classification Reports
+        self.imu.enable_feature(BNO_REPORT_STEP_COUNTER)
+        self.imu.enable_feature(BNO_REPORT_STABILITY_CLASSIFIER)
+        self.imu.enable_feature(BNO_REPORT_ACTIVITY_CLASSIFIER) # This is the one failing
+
+        self.logger.info("Finished enabling features using standard library method.")
 
     def read_sensor_data(self) -> Dict[str, Any]:
         """
