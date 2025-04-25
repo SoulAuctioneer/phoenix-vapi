@@ -183,7 +183,7 @@ class AccelerometerManager:
         # Shake
         self.shake_history_size = 30             # Samples (~0.3s at 100Hz)
         self.min_magnitude_for_shake = 4.0       # m/s^2 - Min average accel magnitude
-        self.min_accel_variance_for_shake = 2.0 # Min variance of accel magnitude (Lowered from 4.0)
+        self.min_accel_variance_for_shake = 1.0 # Min variance of accel magnitude (Lowered from 2.0)
         self.high_gyro_magnitude_threshold = 8.0 # rad/s - Min avg gyro mag for shake (Re-enabled)
         self.max_gyro_dominance_ratio = 0.65     # Max gyro axis dominance for shake (Re-enabled)
         
@@ -354,69 +354,79 @@ class AccelerometerManager:
         try:
             current_time = current_data['timestamp'] # Use the timestamp from the data for consistency
 
-            # Throw Detection Logic:
-            # 1. Check for direct ACCELERATION -> IMPACT transition (very short drops)
-            is_short_throw_detected = False
-            if self.motion_state == MotionState.IMPACT and self.throw_in_progress:
-                # Avoid double-counting if FREE_FALL based throw was detected just before impact
-                throw_in_recent_history = any(
-                    MotionPattern.THROW.name in patterns
-                    for _, patterns in list(self.pattern_history)[-2:] # Check last 2 history entries
-                )
-                if not throw_in_recent_history:
-                     # Check against currently detected patterns in *this* cycle to avoid duplicates if _check_throw_pattern runs later
-                    if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
-                        detected_patterns_this_cycle.append(MotionPattern.THROW.name)
-                        is_short_throw_detected = True
-                        self.logger.debug(f"THROW detected (Short Drop): ACCEL→IMPACT. Accel={accel_magnitude:.2f}")
-
-            # 2. Check for normal throw via FREE_FALL state duration
-            #    Only add if not already detected via the short drop logic above.
-            if not is_short_throw_detected and self._check_throw_pattern():
-                if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
-                    detected_patterns_this_cycle.append(MotionPattern.THROW.name)
-                # Set flags regardless, as free fall confirms throw intent even if pattern added above
-                self.throw_detected_time = current_time
-                if not self.throw_in_progress: # Only log if it wasn't already set
-                     self.logger.debug(f"THROW detected (Free Fall): Accel={accel_magnitude:.2f}, starting throw_in_progress.")
-                self.throw_in_progress = True
-
-
-            # Catch Detection:
-            # If detected, set flag for next cycle but DON'T clear throw_in_progress yet.
-            # This ensures throw pattern isn't prematurely ended if catch occurs on the *same* cycle.
-            if self._check_catch_pattern(accel_magnitude):
-                if not any(p == MotionPattern.CATCH.name for p in detected_patterns_this_cycle): # Avoid duplicates
-                    detected_patterns_this_cycle.append(MotionPattern.CATCH.name)
-                    self.logger.debug(f"CATCH detected: Accel={accel_magnitude:.2f}. Setting flag for next cycle.")
-                self.catch_detected_last_cycle = True # Flag to clear throw_in_progress next cycle
-
-            # Arc Swing Detection:
-            if self._check_arc_swing_pattern():
-                # Exclude false positives during free fall.
-                if self.motion_state != MotionState.FREE_FALL:
-                    if not any(p == MotionPattern.ARC_SWING.name for p in detected_patterns_this_cycle):
-                        detected_patterns_this_cycle.append(MotionPattern.ARC_SWING.name)
-                        self.logger.debug("ARC_SWING pattern detected.")
-
-            # Shake Detection:
-            shake_result = self._check_shake_pattern()
-            # self.logger.debug(f"_check_shake_pattern returned: {shake_result} (Current state: {self.motion_state.name})") # Verbose Debug
-            if shake_result:
+            # *** Check for SHAKE first due to potential overlap/priority ***
+            is_shake = self._check_shake_pattern()
+            if is_shake:
                 if not any(p == MotionPattern.SHAKE.name for p in detected_patterns_this_cycle):
                     detected_patterns_this_cycle.append(MotionPattern.SHAKE.name)
                     self.logger.debug("SHAKE pattern detected.")
 
+            # --- Other Pattern Checks (only if SHAKE was NOT detected) ---
+
+            # Throw Detection Logic:
+            # Only check if not shaking
+            if not is_shake:
+                # 1. Check for direct ACCELERATION -> IMPACT transition (very short drops)
+                is_short_throw_detected = False
+                if self.motion_state == MotionState.IMPACT and self.throw_in_progress:
+                    # Avoid double-counting if FREE_FALL based throw was detected just before impact
+                    throw_in_recent_history = any(
+                        MotionPattern.THROW.name in patterns
+                        for _, patterns in list(self.pattern_history)[-2:] # Check last 2 history entries
+                    )
+                    if not throw_in_recent_history:
+                         # Check against currently detected patterns in *this* cycle to avoid duplicates if _check_throw_pattern runs later
+                        if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
+                            detected_patterns_this_cycle.append(MotionPattern.THROW.name)
+                            is_short_throw_detected = True
+                            self.logger.debug(f"THROW detected (Short Drop): ACCEL→IMPACT. Accel={accel_magnitude:.2f}")
+
+                # 2. Check for normal throw via FREE_FALL state duration
+                #    Only add if not already detected via the short drop logic above.
+                if not is_short_throw_detected and self._check_throw_pattern():
+                    if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
+                        detected_patterns_this_cycle.append(MotionPattern.THROW.name)
+                    # Set flags regardless, as free fall confirms throw intent even if pattern added above
+                    self.throw_detected_time = current_time
+                    if not self.throw_in_progress: # Only log if it wasn't already set
+                         self.logger.debug(f"THROW detected (Free Fall): Accel={accel_magnitude:.2f}, starting throw_in_progress.")
+                    self.throw_in_progress = True
+
+
+            # Catch Detection:
+            # Only check if not shaking
+            if not is_shake:
+                # If detected, set flag for next cycle but DON'T clear throw_in_progress yet.
+                # This ensures throw pattern isn't prematurely ended if catch occurs on the *same* cycle.
+                if self._check_catch_pattern(accel_magnitude):
+                    if not any(p == MotionPattern.CATCH.name for p in detected_patterns_this_cycle): # Avoid duplicates
+                        detected_patterns_this_cycle.append(MotionPattern.CATCH.name)
+                        self.logger.debug(f"CATCH detected: Accel={accel_magnitude:.2f}. Setting flag for next cycle.")
+                    self.catch_detected_last_cycle = True # Flag to clear throw_in_progress next cycle
+
+            # Arc Swing Detection:
+            # Only check if not shaking
+            if not is_shake:
+                if self._check_arc_swing_pattern():
+                    # Exclude false positives during free fall.
+                    if self.motion_state != MotionState.FREE_FALL:
+                        if not any(p == MotionPattern.ARC_SWING.name for p in detected_patterns_this_cycle):
+                            detected_patterns_this_cycle.append(MotionPattern.ARC_SWING.name)
+                            self.logger.debug("ARC_SWING pattern detected.")
+
             # Rolling Detection:
-            if self._check_rolling_pattern():
-                # self.logger.debug("ROLLING pattern detected by _check_rolling_pattern(), appending.") # Verbose Debug
-                if not any(p == MotionPattern.ROLLING.name for p in detected_patterns_this_cycle):
-                    detected_patterns_this_cycle.append(MotionPattern.ROLLING.name)
-                    self.logger.debug("ROLLING pattern detected.")
-                # else:
-                    # self.logger.debug("ROLLING pattern NOT detected by _check_rolling_pattern().") # Verbose Debug
+            # Only check if not shaking
+            if not is_shake:
+                if self._check_rolling_pattern():
+                    # self.logger.debug("ROLLING pattern detected by _check_rolling_pattern(), appending.") # Verbose Debug
+                    if not any(p == MotionPattern.ROLLING.name for p in detected_patterns_this_cycle):
+                        detected_patterns_this_cycle.append(MotionPattern.ROLLING.name)
+                        self.logger.debug("ROLLING pattern detected.")
+                    # else:
+                        # self.logger.debug("ROLLING pattern NOT detected by _check_rolling_pattern().") # Verbose Debug
 
             # --- Update History & State ---
+            # Note: We update history even if only SHAKE was detected
             if detected_patterns_this_cycle:
                 self.pattern_history.append((current_time, detected_patterns_this_cycle))
 
