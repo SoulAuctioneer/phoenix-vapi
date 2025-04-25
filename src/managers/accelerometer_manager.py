@@ -61,7 +61,6 @@ Other Features:
 
 import logging
 from typing import Dict, Any, Tuple, List, Optional, Literal
-# NOTE: Do NOT rename acc_bno085 to acc_bno85.
 from hardware.acc_bno085 import BNO085Interface
 from math import atan2, sqrt, pi, acos
 from config import MoveActivityConfig
@@ -180,7 +179,7 @@ class AccelerometerManager:
         self.arc_rotation_threshold = 1.5       # rad/s - Min integrated rotation for ARC_SWING
         
         # Shake
-        # self.shake_threshold = 8.0            # REMOVED - Using hardware shake detection
+        self.shake_threshold = 8.0              # m/s^2 - (Currently unused, shake logic uses magnitude checks directly)
         
         # Rolling
         self.rolling_accel_min = 0.5            # m/s^2 - Min accel magnitude for ROLLING state/pattern
@@ -213,8 +212,6 @@ class AccelerometerManager:
         self.catch_detected_last_cycle = False  # Flag to delay clearing `throw_in_progress` until the cycle *after* CATCH
         
         self.previously_detected_patterns = set() # Set of pattern names detected in the *previous* cycle (for `newly_detected_patterns`)
-        
-        self.previous_shake_state = False # Track previous hardware shake state for edge detection
         
         # --- Internal State / Debugging ---
         self.consecutive_low_accel = 0          # Counter for stable low acceleration readings (used for ACCELERATION -> FREE_FALL)
@@ -327,9 +324,6 @@ class AccelerometerManager:
         game_rotation = current_data.get("game_rotation", (0, 0, 0, 1))  # Get game rotation quaternion
         stability = current_data.get("stability", "Unknown")
         
-        # Hardware shake detection value
-        current_shake_state = current_data.get("shake", False)
-        
         # Calculate magnitudes with type checking
         accel_magnitude = 0.0
         if isinstance(linear_accel, tuple) and all(isinstance(x, (int, float)) for x in linear_accel):
@@ -400,8 +394,9 @@ class AccelerometerManager:
                         self.logger.debug("ARC_SWING pattern detected.")
 
             # Shake Detection:
-            # Use hardware shake detection (detect rising edge)
-            if current_shake_state and not self.previous_shake_state:
+            shake_result = self._check_shake_pattern()
+            # self.logger.debug(f"_check_shake_pattern returned: {shake_result} (Current state: {self.motion_state.name})") # Verbose Debug
+            if shake_result:
                 if not any(p == MotionPattern.SHAKE.name for p in detected_patterns_this_cycle):
                     detected_patterns_this_cycle.append(MotionPattern.SHAKE.name)
                     self.logger.debug("SHAKE pattern detected.")
@@ -428,9 +423,6 @@ class AccelerometerManager:
             # Log detailed information about the exception with context
             self.logger.error(f"Error detecting motion patterns: {e}", exc_info=True)
             self.logger.debug(f"Current data that caused error: {current_data}")
-
-        # Update previous shake state for next cycle's edge detection
-        self.previous_shake_state = current_shake_state
 
         return detected_patterns_this_cycle # Return patterns detected in *this* cycle
         
@@ -922,7 +914,7 @@ class AccelerometerManager:
                 q1 = rotations[i]
                 q2 = rotations[i+1]
                 # Simple quaternion difference - approximation
-                dot_product = q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2]
+                dot_product = q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2] + q1[3]*q2[3]
                 # Calculate angle using dot product (acos)
                 angle = 2 * acos(min(1.0, abs(dot_product)))
                 total_rotation += angle
@@ -935,7 +927,7 @@ class AccelerometerManager:
                 for i in range(len(rotations) - 1):
                     q1 = rotations[i]
                     q2 = rotations[i+1]
-                    dot_product = q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2]
+                    dot_product = q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2] + q1[3]*q2[3]
                     # Ensure dot product is clamped within [-1, 1] for acos stability
                     dot_product = max(-1.0, min(1.0, dot_product))
                     angle = 2 * acos(min(1.0, abs(dot_product)))
@@ -966,32 +958,130 @@ class AccelerometerManager:
 
         return False
         
+    def _check_shake_pattern(self) -> bool:
+        """
+        Check if a shake pattern has been detected.
+        
+        A shake involves:
+        1. Rapid alternating acceleration in opposite directions
+        2. Multiple reversals in a short time
+        3. Sufficient acceleration magnitude to be considered significant
+        
+        Returns:
+            bool: True if shake detected
+        """
+        # Prevent Shake during Rolling
+        # REMOVED: Check that prevents shake detection based on state
+        # if self.motion_state == MotionState.ROLLING:
+        #    self.logger.debug("Shake check skipped: State is ROLLING.")
+        #    return False
+
+        if len(self.motion_history) < 6:
+            return False
+        
+        # Don't detect shake during free fall or impact
+        # REMOVED: Check that prevents shake detection based on state
+        # DEBUG: Log state just before the check
+        # self.logger.debug(f"Checking shake pattern. Current state: {self.motion_state.name}")
+        # if self.motion_state in [MotionState.FREE_FALL, MotionState.IMPACT]:
+        #    self.logger.debug("Shake check skipped: State is FREE_FALL or IMPACT.")
+        #    return False # Should exit here if state is IMPACT
+
+        # Get recent acceleration values - convert deque to list before slicing for safety
+        accelerations = [entry.get("linear_acceleration", (0, 0, 0))
+                         for entry in list(self.motion_history)[-6:]
+                         if isinstance(entry.get("linear_acceleration", (0, 0, 0)), tuple)
+                         and len(entry.get("linear_acceleration", (0, 0, 0))) == 3]
+        
+        # If we don't have enough valid data points, return False
+        if len(accelerations) < 3:
+            self.logger.warning("Not enough valid acceleration data points for shake detection")
+            return False
+            
+        # Calculate the average acceleration magnitude to filter out small movements
+        accel_magnitudes = []
+        for accel in accelerations:
+            try:
+                magnitude = sqrt(accel[0]**2 + accel[1]**2 + accel[2]**2)
+                accel_magnitudes.append(magnitude)
+            except (TypeError, IndexError):
+                continue
+                
+        if not accel_magnitudes:
+            return False
+            
+        avg_magnitude = sum(accel_magnitudes) / len(accel_magnitudes)
+        
+        # Require a minimum average acceleration magnitude
+        min_shake_magnitude = 3.0  # Increased from 2.0 to reduce false positives
+        
+        if avg_magnitude < min_shake_magnitude:
+            return False
+        
+        # Count direction changes
+        direction_changes = 0
+        prev_direction = None
+        significant_changes = 0  # Count only significant direction changes
+        
+        for idx, accel in enumerate(accelerations):
+            try:
+                # Use the largest component of acceleration as the primary direction
+                max_component = max(abs(accel[0]), abs(accel[1]), abs(accel[2]))
+                
+                # Ignore very small accelerations (noise)
+                if max_component < 1.5:  # Increased from 1.0 to reduce false positives
+                    continue
+                    
+                current_direction = None
+                for i in range(3):
+                    if abs(accel[i]) == max_component:
+                        current_direction = 1 if accel[i] > 0 else -1
+                        break
+                        
+                # Count direction changes
+                if (prev_direction is not None and 
+                    current_direction is not None and 
+                    current_direction != prev_direction):
+                    direction_changes += 1
+                    
+                    # Check if this is a significant change
+                    if max_component > 4.0:  # Increased from 3.0 to reduce false positives
+                        significant_changes += 1
+                    
+                prev_direction = current_direction
+            except (TypeError, IndexError) as e:
+                # Log invalid entries instead of silently continuing
+                self.logger.error(f"Error processing acceleration data at index {idx}: {e}, data: {accel}")
+        
+        # Require both overall direction changes and some significant ones
+        return direction_changes >= 4 and significant_changes >= 2
+        
     def _check_rolling_pattern(self) -> bool:
         """
         Check if a rolling pattern has been detected.
-
+        
         A rolling motion is characterized by:
         1. Moderate but consistent linear acceleration (less than throwing but more than stationary)
         2. Continuous rotation around primarily one axis
         3. Sustained motion for a certain duration
         4. Not exhibiting characteristics of linear motion
-
+        
         Returns:
             bool: True if rolling motion detected
         """
         if len(self.motion_history) < 5:
             return False
-
+            
         # Check if in rolling state
         if self.motion_state == MotionState.ROLLING:
             # Make sure we can safely access the latest entry
             if len(self.motion_history) == 0 or 'timestamp' not in self.motion_history[-1]:
                 self.logger.warning("Cannot access timestamp in motion history for rolling detection")
                 return False
-
+            
             timestamp = self.motion_history[-1]['timestamp']
             rolling_duration = timestamp - self.rolling_start_time
-
+            
             # Minimum duration to be considered rolling
             if rolling_duration > self.rolling_duration:
                 self.logger.debug(f"Rolling pattern check: Duration requirement met ({rolling_duration:.2f}s > {self.rolling_duration:.2f}s)")
@@ -1000,18 +1090,18 @@ class AccelerometerManager:
                 if is_linear:
                     self.logger.debug("Rolling pattern check failed: Motion appears to be linear.")
                     return False
-
+                
                 # Get the last 5 valid gyro readings - convert to list first for safety
                 # Filter out invalid data in the comprehension
                 gyro_readings = [entry.get("gyro", (0, 0, 0)) for entry in list(self.motion_history)[-5:]
-                                if isinstance(entry.get("gyro", (0, 0, 0)), tuple)
+                                if isinstance(entry.get("gyro", (0, 0, 0)), tuple) 
                                 and len(entry.get("gyro", (0, 0, 0))) == 3]
-
+                
                 # If we don't have enough valid readings, return False
                 if len(gyro_readings) < 3:
                     self.logger.warning(f"Not enough valid gyro readings for rolling detection. Only found {len(gyro_readings)}")
                     return False
-
+                
                 # Check for a dominant axis of rotation
                 dominant_axis_info = self._dominant_rotation_axis(gyro_readings)
                 if dominant_axis_info is None:
@@ -1020,26 +1110,26 @@ class AccelerometerManager:
 
                 dominant_axis, dominant_ratio = dominant_axis_info
                 axis_names = ['x', 'y', 'z']
-
+                
                 # Define the minimum ratio needed *before* logging it
                 min_dominant_ratio = 0.35 # Lowered from 0.55
                 self.logger.debug(f"Rolling pattern check: Dominant axis is {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f} (min required: {min_dominant_ratio:.2f})")
-
+                
                 # If one axis dominates the rotation (rolling tends to rotate around one axis)
                 # Relaxed the required ratio from 0.7 to 0.55 to allow more wobble
                 if dominant_ratio > min_dominant_ratio:
                     self.logger.debug(f"Rolling check passed: Dominant axis {axis_names[dominant_axis]} ratio {dominant_ratio:.2f} > {min_dominant_ratio:.2f}")
-
+                    
                     # Verify consistency of rotation direction around dominant axis
                     last_direction = None
                     direction_changes = 0
-
+                    
                     for gyro in gyro_readings:
                         current_direction = 1 if gyro[dominant_axis] > 0 else -1
                         if last_direction is not None and current_direction != last_direction:
                             direction_changes += 1
                         last_direction = current_direction
-
+                    
                     # True rolling should have consistent rotation direction
                     # Relaxed allowed changes from 1 to 2
                     max_direction_changes = 3

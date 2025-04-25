@@ -45,13 +45,8 @@ def setup_csv_logger():
         'accel_x', 'accel_y', 'accel_z', 'gyro_magnitude',
         'gyro_x', 'gyro_y', 'gyro_z', 'patterns',
         'stability', 'activity', 'activity_confidence',
-        'free_fall_duration', 'throw_duration', 'most_recent_pattern',
-        'time_since_last_pattern',
-        'shake_hw',
-        'throw_in_progress',
-        'previous_shake_state',
-        'calibration_status',
-        'game_quat_i', 'game_quat_j', 'game_quat_k', 'game_quat_real',
+        'free_fall_duration', 'throw_duration', 'last_patterns',
+        'last_pattern_time'
     ]
     
     # Create and open CSV file
@@ -199,13 +194,6 @@ def main():
             if isinstance(gyro, tuple) and len(gyro) == 3:
                 gyro_magnitude = sqrt(gyro[0]**2 + gyro[1]**2 + gyro[2]**2)
                 
-            # Get game rotation quaternion data
-            game_quat = data.get('game_rotation', (0.0, 0.0, 0.0, 1.0)) # Default to identity quaternion
-            game_quat_i, game_quat_j, game_quat_k, game_quat_real = game_quat if isinstance(game_quat, tuple) and len(game_quat) == 4 else (0.0, 0.0, 0.0, 1.0)
-
-            # Get calibration status
-            calibration_status = data.get('calibration_status', 0)
-            
             # Format timestamp
             timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
             current_time = time.time()
@@ -221,16 +209,11 @@ def main():
                 
             last_patterns = ""
             last_pattern_time = 0.0
-            shake_hw = data.get('shake', False)
             if hasattr(manager, 'pattern_history') and manager.pattern_history:
                 if len(manager.pattern_history) > 0:
                     last_time, last_patterns = manager.pattern_history[-1]
                     last_pattern_time = current_time - last_time
                     last_patterns = ','.join(last_patterns)
-            
-            # Get internal manager states
-            throw_in_progress = getattr(manager, 'throw_in_progress', False)
-            previous_shake_state = getattr(manager, 'previous_shake_state', False)
             
             # Prepare row data
             row_data = {
@@ -251,16 +234,8 @@ def main():
                 'activity_confidence': activity.get(activity.get('most_likely', 'Unknown'), 0),
                 'free_fall_duration': f"{free_fall_duration:.2f}",
                 'throw_duration': f"{throw_duration:.2f}",
-                'most_recent_pattern': last_patterns,
-                'time_since_last_pattern': f"{last_pattern_time:.2f}",
-                'shake_hw': shake_hw,
-                'throw_in_progress': throw_in_progress,
-                'previous_shake_state': previous_shake_state,
-                'calibration_status': calibration_status,
-                'game_quat_i': f"{game_quat_i:.4f}",
-                'game_quat_j': f"{game_quat_j:.4f}",
-                'game_quat_k': f"{game_quat_k:.4f}",
-                'game_quat_real': f"{game_quat_real:.4f}",
+                'last_patterns': last_patterns,
+                'last_pattern_time': f"{last_pattern_time:.2f}"
             }
             
             # Add to CSV batch
@@ -318,9 +293,6 @@ def main():
                     pattern_names = [p for p in last_patterns]
                     if pattern_names:
                         debug_info += f" | Last:{','.join(pattern_names)}({time_ago:.2f}s ago)"
-            
-            # Add hardware shake status to debug output
-            debug_info += f" | ShakeHW:{shake_hw}"
             
             # Display the information
             print(f"{output_prefix}Pattern: {pattern_str} | State: {format_motion_state(motion_state)} | " +

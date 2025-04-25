@@ -43,7 +43,6 @@ from adafruit_bno08x import (
     BNO_REPORT_STEP_COUNTER,
     BNO_REPORT_STABILITY_CLASSIFIER,
     BNO_REPORT_ACTIVITY_CLASSIFIER,
-    BNO_REPORT_SHAKE_DETECTOR,
     REPORT_ACCURACY_STATUS,
     # Import necessary constants and functions for manual packet sending
     _SET_FEATURE_COMMAND, 
@@ -135,7 +134,6 @@ class BNO085Interface:
         self._enable_feature_with_interval(BNO_REPORT_STEP_COUNTER, 100000)       # 100ms (10Hz) - Slower is fine
         self._enable_feature_with_interval(BNO_REPORT_STABILITY_CLASSIFIER, 50000) # 50ms (20Hz)
         self._enable_feature_with_interval(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # 50ms (20Hz) - Library default
-        self._enable_feature_with_interval(BNO_REPORT_SHAKE_DETECTOR, 50000)      # 50ms (20Hz)
 
         self.logger.info("Finished enabling features using custom intervals.")
 
@@ -217,7 +215,6 @@ class BNO085Interface:
         - stability: Current stability classification ("On table", "Stable", or "Motion")
         - activity: Current activity classification with confidence levels
         - step_count: Number of steps detected
-        - shake: Shake detection status
         
         System Information:
         - calibration_status: Numerical calibration status (0-3)
@@ -245,7 +242,6 @@ class BNO085Interface:
             stability = self.imu.stability_classification
             activity = self.imu.activity_classification
             step_count = self.imu.steps
-            shake_detected = self.imu.shake
             
             # System Information
             calibration_status = self.imu.calibration_status
@@ -267,7 +263,6 @@ class BNO085Interface:
                 "stability": stability,
                 "activity": activity,
                 "step_count": step_count,
-                "shake": shake_detected,
                 
                 # System Information
                 "calibration_status": calibration_status,
