@@ -305,7 +305,8 @@ def main():
             prev_motion_state = motion_state
             
             # Wait a bit before next reading
-            time.sleep(0.01)  # Changed from 0.1s to 0.01s for 100Hz sampling rate
+            # Disabled because we want to read as fast as possible
+            # time.sleep(0.01)  # Changed from 0.1s to 0.01s for 100Hz sampling rate
             
     except KeyboardInterrupt:
         print("\nMonitoring stopped.")
