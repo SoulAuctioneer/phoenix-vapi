@@ -10,6 +10,53 @@ The manager is responsible for:
 3. Managing calibration
 4. Computing derived metrics (energy, heading, etc.)
 5. Detecting motion patterns (throws, arcs, shakes, rolls, etc.)
+
+Core Concepts:
+- Motion State (`MotionState` enum): Represents the *instantaneous* physical
+  state of the device (e.g., IDLE, ACCELERATING, FREE_FALL). Only one state
+  is active at a time. Updated on every sensor reading via `_update_motion_state`.
+  Transitions depend on sensor magnitudes (acceleration, gyro) exceeding or
+  falling below defined thresholds.
+- Motion Pattern (`MotionPattern` enum): Represents a *recognized gesture* or
+  activity over a period (e.g., THROW, CATCH, SHAKE, ROLL). Multiple patterns
+  can be detected. Detected in `_detect_motion_patterns` based on sequences
+  of motion states, sensor data history (`motion_history`), and specific
+  criteria defined in `_check_*` helper methods (e.g., duration, magnitude,
+  rotation consistency).
+
+Motion State Machine (`_update_motion_state`):
+- Takes current acceleration and gyro magnitudes and the timestamp.
+- Compares these values against thresholds (e.g., `throw_acceleration_threshold`,
+  `free_fall_threshold`, `impact_threshold`, `rolling_accel_min/max`,
+  `rolling_gyro_min`, `held_still_min/max_accel`).
+- Transitions the `self.motion_state` based on the comparisons and the *current* state.
+  For example:
+    - `IDLE` -> `ACCELERATION` if accel exceeds `throw_acceleration_threshold`.
+    - `ACCELERATION` -> `FREE_FALL` if accel drops below `free_fall_threshold`.
+    - `FREE_FALL` -> `IMPACT` if accel spikes above `impact_threshold`.
+    - `IMPACT` -> `IDLE` or `HELD_STILL` after accel stabilizes below `impact_exit_threshold` for a delay.
+    - `IDLE`/`ACCELERATION`/`LINEAR_MOTION`/`HELD_STILL` -> `ROLLING` if rolling criteria (`_check_rolling_criteria`) are met (moderate accel, significant gyro) and it's not linear motion (`_check_linear_motion`).
+    - `IDLE`/`ACCELERATION`/`ROLLING`/`HELD_STILL` -> `LINEAR_MOTION` if linear criteria (`_check_linear_motion`) are met (low gyro, consistent accel direction) and accel is above minimum.
+    - `IDLE`/`IMPACT`/`ROLLING`/`LINEAR_MOTION` -> `HELD_STILL` if accel is within the low `held_still` band for a minimum duration.
+- Manages timers (`free_fall_start_time`, `rolling_start_time`, `held_still_start_time`, `impact_exit_timer`) to track durations needed for state transitions or pattern detection.
+
+Motion Pattern Detection (`_detect_motion_patterns`):
+- Called after the motion state is updated.
+- Uses the current `self.motion_state` and recent data in `self.motion_history`.
+- Calls specific `_check_*_pattern` methods:
+    - `_check_throw_pattern`: Looks for `FREE_FALL` state lasting longer than `min_free_fall_time`. Also handles very short throws detected via `ACCELERATION` -> `IMPACT`. Sets `throw_in_progress` flag.
+    - `_check_catch_pattern`: Looks for `IMPACT` state while `throw_in_progress` is true. Uses `catch_detected_last_cycle` flag to ensure `throw_in_progress` isn't cleared prematurely.
+    - `_check_arc_swing_pattern`: Uses `game_rotation` history to detect significant, smooth rotation (low standard deviation of rotation angles) above a threshold, excluding `ROLLING`, `FREE_FALL` or `IMPACT` states.
+    - `_check_shake_pattern`: Looks for rapid, significant acceleration reversals over a short history, excluding `ROLLING`, `FREE_FALL` or `IMPACT` states.
+    - `_check_rolling_pattern`: Requires `ROLLING` state for a minimum `rolling_duration`, checks for a dominant rotation axis and consistent direction, and ensures it's not mistaken for `LINEAR_MOTION`.
+- Stores detected patterns in `self.detected_patterns` and `self.pattern_history`.
+- Calculates `newly_detected_patterns` by comparing current patterns to the previous cycle's.
+
+Other Features:
+- Calculates heading from the rotation vector quaternion (`find_heading`).
+- Calculates a normalized movement energy level (`calculate_energy`).
+- Provides calibration checks via the hardware interface (`check_and_calibrate`).
+- Maintains history buffers (`motion_history`, `pattern_history`) using `deque` for efficient fixed-size storage.
 """
 
 import logging
@@ -28,13 +75,13 @@ class MotionState(Enum):
     Part of a state machine where only one state is active at any time.
     Updated with every sensor reading.
     """
-    IDLE = auto()
-    ACCELERATION = auto()
-    FREE_FALL = auto()
-    IMPACT = auto()
-    ROLLING = auto()
-    LINEAR_MOTION = auto()  # Movement in a straight line
-    HELD_STILL = auto()  # Being held by a human attempting to keep it still
+    IDLE = auto()           # Device is relatively stationary or motion is below thresholds
+    ACCELERATION = auto()   # Significant acceleration detected, possibly start of a throw or other energetic movement
+    FREE_FALL = auto()      # Near-zero acceleration, indicating the device is likely falling
+    IMPACT = auto()         # Sharp spike in acceleration, usually after free fall (catch) or hitting a surface
+    ROLLING = auto()        # Moderate acceleration with significant rotation, suggesting rolling on a surface
+    LINEAR_MOTION = auto()  # Movement primarily in one direction with low rotation
+    HELD_STILL = auto()     # Low, stable acceleration within human hand-tremor range, held relatively still by a user
 
 class MotionPattern(Enum):
     """
@@ -45,12 +92,12 @@ class MotionPattern(Enum):
     Used for application-level gesture recognition (the "what" the user is doing).
     Detected when specific criteria are met across multiple readings.
     """
-    THROW = auto()
-    CATCH = auto()
-    ARC_SWING = auto()
-    SHAKE = auto()
-    DROP = auto()
-    ROLLING = auto()
+    THROW = auto()      # High acceleration followed by free fall
+    CATCH = auto()      # Impact detected shortly after a throw (during or after free fall)
+    ARC_SWING = auto()  # Smooth, significant rotation around an axis (like swinging an arm)
+    SHAKE = auto()      # Rapid, repeated changes in acceleration direction
+    DROP = auto()       # Free fall followed by impact (similar to throw/catch but may lack initial acceleration)
+    ROLLING = auto()    # Sustained rolling motion detected
 
 class AccelerometerManager:
     """
@@ -58,6 +105,53 @@ class AccelerometerManager:
     
     This class serves as a bridge between hardware and application layers,
     providing access to accelerometer data and motion detection.
+
+    Core Concepts:
+    - Motion State (`MotionState` enum): Represents the *instantaneous* physical
+      state of the device (e.g., IDLE, ACCELERATING, FREE_FALL). Only one state
+      is active at a time. Updated on every sensor reading via `_update_motion_state`.
+      Transitions depend on sensor magnitudes (acceleration, gyro) exceeding or
+      falling below defined thresholds.
+    - Motion Pattern (`MotionPattern` enum): Represents a *recognized gesture* or
+      activity over a period (e.g., THROW, CATCH, SHAKE, ROLL). Multiple patterns
+      can be detected. Detected in `_detect_motion_patterns` based on sequences
+      of motion states, sensor data history (`motion_history`), and specific
+      criteria defined in `_check_*` helper methods (e.g., duration, magnitude,
+      rotation consistency).
+
+    Motion State Machine (`_update_motion_state`):
+    - Takes current acceleration and gyro magnitudes and the timestamp.
+    - Compares these values against thresholds (e.g., `throw_acceleration_threshold`,
+      `free_fall_threshold`, `impact_threshold`, `rolling_accel_min/max`,
+      `rolling_gyro_min`, `held_still_min/max_accel`).
+    - Transitions the `self.motion_state` based on the comparisons and the *current* state.
+      For example:
+        - `IDLE` -> `ACCELERATION` if accel exceeds `throw_acceleration_threshold`.
+        - `ACCELERATION` -> `FREE_FALL` if accel drops below `free_fall_threshold`.
+        - `FREE_FALL` -> `IMPACT` if accel spikes above `impact_threshold`.
+        - `IMPACT` -> `IDLE` or `HELD_STILL` after accel stabilizes below `impact_exit_threshold` for a delay.
+        - `IDLE`/`ACCELERATION`/`LINEAR_MOTION`/`HELD_STILL` -> `ROLLING` if rolling criteria (`_check_rolling_criteria`) are met (moderate accel, significant gyro) and it's not linear motion (`_check_linear_motion`).
+        - `IDLE`/`ACCELERATION`/`ROLLING`/`HELD_STILL` -> `LINEAR_MOTION` if linear criteria (`_check_linear_motion`) are met (low gyro, consistent accel direction) and accel is above minimum.
+        - `IDLE`/`IMPACT`/`ROLLING`/`LINEAR_MOTION` -> `HELD_STILL` if accel is within the low `held_still` band for a minimum duration.
+    - Manages timers (`free_fall_start_time`, `rolling_start_time`, `held_still_start_time`, `impact_exit_timer`) to track durations needed for state transitions or pattern detection.
+
+    Motion Pattern Detection (`_detect_motion_patterns`):
+    - Called after the motion state is updated.
+    - Uses the current `self.motion_state` and recent data in `self.motion_history`.
+    - Calls specific `_check_*_pattern` methods:
+        - `_check_throw_pattern`: Looks for `FREE_FALL` state lasting longer than `min_free_fall_time`. Also handles very short throws detected via `ACCELERATION` -> `IMPACT`. Sets `throw_in_progress` flag.
+        - `_check_catch_pattern`: Looks for `IMPACT` state while `throw_in_progress` is true. Uses `catch_detected_last_cycle` flag to ensure `throw_in_progress` isn't cleared prematurely.
+        - `_check_arc_swing_pattern`: Uses `game_rotation` history to detect significant, smooth rotation (low standard deviation of rotation angles) above a threshold, excluding `ROLLING`, `FREE_FALL` or `IMPACT` states.
+        - `_check_shake_pattern`: Looks for rapid, significant acceleration reversals over a short history, excluding `ROLLING`, `FREE_FALL` or `IMPACT` states.
+        - `_check_rolling_pattern`: Requires `ROLLING` state for a minimum `rolling_duration`, checks for a dominant rotation axis and consistent direction, and ensures it's not mistaken for `LINEAR_MOTION`.
+    - Stores detected patterns in `self.detected_patterns` and `self.pattern_history`.
+    - Calculates `newly_detected_patterns` by comparing current patterns to the previous cycle's.
+
+    Other Features:
+    - Calculates heading from the rotation vector quaternion (`find_heading`).
+    - Calculates a normalized movement energy level (`calculate_energy`).
+    - Provides calibration checks via the hardware interface (`check_and_calibrate`).
+    - Maintains history buffers (`motion_history`, `pattern_history`) using `deque` for efficient fixed-size storage.
     """
     
     def __init__(self):
@@ -65,55 +159,65 @@ class AccelerometerManager:
         self.interface = BNO085Interface()
         self.logger = logging.getLogger(__name__)
         
-        # Motion detection state
+        # --- Motion State & History ---
         self.motion_state = MotionState.IDLE
-        self.motion_history = deque(maxlen=20)  # Store recent measurements for pattern detection
-        self.detected_patterns = []
-        self.pattern_history = deque(maxlen=5)  # Store recent pattern detections for sequence recognition
+        self.motion_history = deque(maxlen=20)  # Store recent full sensor data dictionaries
+        self.detected_patterns = []             # List of pattern names active in the current cycle
+        self.pattern_history = deque(maxlen=5)  # Store recent (timestamp, [patterns]) tuples
         
-        # Thresholds for pattern detection - Adjusted based on analysis
-        self.throw_acceleration_threshold = 15.0  # m/s^2 (Increased from 10.0)
-        self.free_fall_threshold = 3.0  # m/s^2, lowered from 3.5 for shorter drops
-        self.impact_threshold = 10.0  # m/s^2, increased from 8.0 to reduce placement impacts
-        self.impact_exit_threshold = 3.5 # m/s^2, Threshold to exit IMPACT state (slightly higher than free fall)
-        self.arc_rotation_threshold = 1.5  # rad/s, increased from 1.0 to reduce false positives
-        self.shake_threshold = 8.0  # m/s^2
-        self.rolling_accel_min = 0.5  # m/s^2
-        self.rolling_accel_max = 40.0  # m/s^2 (Increased significantly from 16.0)
-        self.rolling_gyro_min = 1.0  # rad/s
-        self.rolling_duration = 0.5  # seconds
+        # --- Thresholds ---
+        # Note: These values may need tuning based on the specific hardware,
+        # mounting, and expected use case environment.
         
-        # Linear Motion Detection
-        self.linear_motion_history_samples = 5 # Number of samples to check for consistency
-        self.linear_motion_max_avg_gyro = 0.5 # rad/s (e.g., half of rolling threshold)
-        self.linear_motion_min_avg_dot_product = 0.90 # Min avg dot product for direction consistency
-        self.min_accel_for_direction_check = 0.1 # m/s^2, ignore accel direction if magnitude is too low
-
-        # Human tremor detection
-        self.held_still_max_accel = 1.2  # m/s^2, max acceleration for hand tremor
-        self.held_still_min_accel = 0.05  # m/s^2, min acceleration to detect human tremor
-        self.held_still_duration = 0.3  # seconds required to confirm HELD_STILL state
-        self.held_still_start_time = 0
+        # Throw/Catch/Impact
+        self.throw_acceleration_threshold = 15.0  # m/s^2 - Min accel to trigger ACCELERATION state (potential throw start)
+        self.free_fall_threshold = 3.0          # m/s^2 - Max accel magnitude to be considered FREE_FALL
+        self.impact_threshold = 10.0            # m/s^2 - Min accel spike to trigger IMPACT state
+        self.impact_exit_threshold = 3.5        # m/s^2 - Max accel magnitude to exit IMPACT state (must be below this)
         
-        # Timing parameters - Adjusted based on analysis
-        self.min_free_fall_time = 0.04  # seconds, reduced from 0.05 for shorter drops
-        self.max_free_fall_time = 2.0  # seconds
-        self.free_fall_start_time = 0
-        self.rolling_start_time = 0
+        # Arc Swing
+        self.arc_rotation_threshold = 1.5       # rad/s - Min integrated rotation for ARC_SWING
         
-        # Pattern tracking - Added catch flag for duration fix
-        self.throw_detected_time = 0
-        self.throw_in_progress = False
-        self.catch_detected_last_cycle = False # Flag to delay clearing throw_in_progress
+        # Shake
+        self.shake_threshold = 8.0              # m/s^2 - (Currently unused, shake logic uses magnitude checks directly)
         
-        # Track previously detected patterns to identify new occurrences
-        self.previously_detected_patterns = set()
+        # Rolling
+        self.rolling_accel_min = 0.5            # m/s^2 - Min accel magnitude for ROLLING state/pattern
+        self.rolling_accel_max = 40.0           # m/s^2 - Max accel magnitude for ROLLING state/pattern (higher might be impact)
+        self.rolling_gyro_min = 1.0             # rad/s - Min gyro magnitude for ROLLING state/pattern
+        self.rolling_duration = 0.5             # seconds - Min duration in ROLLING state to detect ROLLING pattern
         
-        # Debugging & State Timers
-        self.consecutive_low_accel = 0  # Count consecutive low acceleration readings
-        self.impact_exit_timer = 0 # Timer for delaying IMPACT -> IDLE transition
-        self.impact_exit_delay = 0.05 # Delay in seconds (50ms)
-        self.impact_accel_history = deque(maxlen=3) # Store recent accel magnitudes during impact
+        # Linear Motion
+        self.linear_motion_history_samples = 5  # Number of samples to average for linear motion check
+        self.linear_motion_max_avg_gyro = 0.5   # rad/s - Max average gyro allowed for LINEAR_MOTION
+        self.linear_motion_min_avg_dot_product = 0.90 # Min avg dot product (cosine similarity) between consecutive accel vectors
+        self.min_accel_for_direction_check = 0.1 # m/s^2 - Ignore accel vector direction if magnitude is below this
+        
+        # Held Still (Human Tremor)
+        self.held_still_max_accel = 1.2         # m/s^2 - Max accel magnitude for HELD_STILL state
+        self.held_still_min_accel = 0.05        # m/s^2 - Min accel magnitude for HELD_STILL state (distinguishes from truly idle)
+        self.held_still_duration = 0.3          # seconds - Min duration in accel band to confirm HELD_STILL state
+        
+        # --- Timers & State Tracking ---
+        self.free_fall_start_time = 0.0         # Timestamp when FREE_FALL state began
+        self.min_free_fall_time = 0.04          # seconds - Min duration in FREE_FALL to detect THROW pattern
+        self.max_free_fall_time = 2.0           # seconds - Max duration before FREE_FALL times out to IDLE
+        
+        self.rolling_start_time = 0.0           # Timestamp when ROLLING state began
+        
+        self.held_still_start_time = 0.0        # Timestamp when potential HELD_STILL state began (accel in band)
+        
+        self.throw_detected_time = 0.0          # Timestamp when the THROW pattern was last detected
+        self.throw_in_progress = False          # Flag indicating a throw is likely ongoing (between ACCEL/FREE_FALL and CATCH/timeout)
+        self.catch_detected_last_cycle = False  # Flag to delay clearing `throw_in_progress` until the cycle *after* CATCH
+        
+        self.previously_detected_patterns = set() # Set of pattern names detected in the *previous* cycle (for `newly_detected_patterns`)
+        
+        # --- Internal State / Debugging ---
+        self.consecutive_low_accel = 0          # Counter for stable low acceleration readings (used for ACCELERATION -> FREE_FALL)
+        self.impact_exit_timer = 0.0            # Timestamp when accel first dropped below `impact_exit_threshold` during IMPACT
+        self.impact_exit_delay = 0.05           # seconds - Required delay with low accel before exiting IMPACT state
+        self.impact_accel_history = deque(maxlen=3) # Store recent accel magnitudes during IMPACT for averaging exit condition
         
     def initialize(self) -> bool:
         """
@@ -231,81 +335,96 @@ class AccelerometerManager:
         if isinstance(gyro, tuple) and all(isinstance(x, (int, float)) for x in gyro):
             gyro_magnitude = sqrt(sum(x*x for x in gyro))
         else:
+            # Log warning but proceed with gyro_magnitude = 0.0
             self.logger.warning(f"Invalid gyro data: {gyro}")
-        
-        # Update motion state based on current data
+
+        # --- State Machine Update ---
+        # This is the core logic that determines the instantaneous physical state.
         self._update_motion_state(accel_magnitude, gyro_magnitude, current_data['timestamp'])
-        
-        # Check for specific patterns
+
+        # --- Pattern Detection ---
+        # Based on the current state and history, check for higher-level gestures.
+        detected_patterns_this_cycle = []
         try:
-            current_time = time.time()
-            
-            # Check for throw via direct ACCELERATION -> IMPACT (short drop)
-            # This check relies on throw_in_progress being set in _update_motion_state
-            # Only log/add pattern if it wasn't already added via free fall below
-            is_throw_detected = False
+            current_time = current_data['timestamp'] # Use the timestamp from the data for consistency
+
+            # Throw Detection Logic:
+            # 1. Check for direct ACCELERATION -> IMPACT transition (very short drops)
+            is_short_throw_detected = False
             if self.motion_state == MotionState.IMPACT and self.throw_in_progress:
-                 # Check if a THROW pattern is already in the recent history from free fall
+                # Avoid double-counting if FREE_FALL based throw was detected just before impact
                 throw_in_recent_history = any(
-                    MotionPattern.THROW.name in patterns for _, patterns in list(self.pattern_history)[-2:] # Check last 2 entries
+                    MotionPattern.THROW.name in patterns
+                    for _, patterns in list(self.pattern_history)[-2:] # Check last 2 history entries
                 )
                 if not throw_in_recent_history:
-                    # Avoid adding THROW pattern if it was likely detected via free fall just before impact
-                    if not any(p == MotionPattern.THROW.name for p in detected_patterns):
-                        detected_patterns.append(MotionPattern.THROW.name)
-                        is_throw_detected = True
-                        self.logger.debug(f"THROW detected: short drop (ACCEL→IMPACT). Accel={accel_magnitude:.2f}")
-            
-            # Normal throw detection via FREE_FALL state
-            # Ensure we don't double-add THROW if detected via ACCEL->IMPACT just before
-            if not is_throw_detected and self._check_throw_pattern():
-                # Only add if not already added
-                if not any(p == MotionPattern.THROW.name for p in detected_patterns):
-                    detected_patterns.append(MotionPattern.THROW.name)
-                # Set flags regardless, as free fall confirms throw intent
+                     # Check against currently detected patterns in *this* cycle to avoid duplicates if _check_throw_pattern runs later
+                    if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
+                        detected_patterns_this_cycle.append(MotionPattern.THROW.name)
+                        is_short_throw_detected = True
+                        self.logger.debug(f"THROW detected (Short Drop): ACCEL→IMPACT. Accel={accel_magnitude:.2f}")
+
+            # 2. Check for normal throw via FREE_FALL state duration
+            #    Only add if not already detected via the short drop logic above.
+            if not is_short_throw_detected and self._check_throw_pattern():
+                if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
+                    detected_patterns_this_cycle.append(MotionPattern.THROW.name)
+                # Set flags regardless, as free fall confirms throw intent even if pattern added above
                 self.throw_detected_time = current_time
+                if not self.throw_in_progress: # Only log if it wasn't already set
+                     self.logger.debug(f"THROW detected (Free Fall): Accel={accel_magnitude:.2f}, starting throw_in_progress.")
                 self.throw_in_progress = True
-                self.logger.debug(f"THROW detected: via free fall. Accel={accel_magnitude:.2f}")
-                
-            # Check for CATCH: If detected, flag it for the next cycle but DON'T clear throw_in_progress yet
+
+
+            # Catch Detection:
+            # If detected, set flag for next cycle but DON'T clear throw_in_progress yet.
+            # This ensures throw pattern isn't prematurely ended if catch occurs on the *same* cycle.
             if self._check_catch_pattern(accel_magnitude):
-                if not any(p == MotionPattern.CATCH.name for p in detected_patterns): # Avoid duplicates
-                    detected_patterns.append(MotionPattern.CATCH.name)
+                if not any(p == MotionPattern.CATCH.name for p in detected_patterns_this_cycle): # Avoid duplicates
+                    detected_patterns_this_cycle.append(MotionPattern.CATCH.name)
+                    self.logger.debug(f"CATCH detected: Accel={accel_magnitude:.2f}. Setting flag for next cycle.")
                 self.catch_detected_last_cycle = True # Flag to clear throw_in_progress next cycle
-                
+
+            # Arc Swing Detection:
             if self._check_arc_swing_pattern():
-                # Only detect arc swings when not in free fall to avoid false positives
+                # Exclude false positives during free fall.
                 if self.motion_state != MotionState.FREE_FALL:
-                    detected_patterns.append(MotionPattern.ARC_SWING.name)
-                
-            # DEBUG: Log before calling shake check
+                    if not any(p == MotionPattern.ARC_SWING.name for p in detected_patterns_this_cycle):
+                        detected_patterns_this_cycle.append(MotionPattern.ARC_SWING.name)
+                        self.logger.debug("ARC_SWING pattern detected.")
+
+            # Shake Detection:
             shake_result = self._check_shake_pattern()
-            self.logger.debug(f"_check_shake_pattern returned: {shake_result} (Current state: {self.motion_state.name})")
+            # self.logger.debug(f"_check_shake_pattern returned: {shake_result} (Current state: {self.motion_state.name})") # Verbose Debug
             if shake_result:
-                 detected_patterns.append(MotionPattern.SHAKE.name)
-                
-            # Replace the previous check and logging
+                if not any(p == MotionPattern.SHAKE.name for p in detected_patterns_this_cycle):
+                    detected_patterns_this_cycle.append(MotionPattern.SHAKE.name)
+                    self.logger.debug("SHAKE pattern detected.")
+
+            # Rolling Detection:
             if self._check_rolling_pattern():
-                self.logger.debug("ROLLING pattern detected by _check_rolling_pattern(), appending.")
-                detected_patterns.append(MotionPattern.ROLLING.name)
-            else:
-                self.logger.debug("ROLLING pattern NOT detected by _check_rolling_pattern().")
-                
-            # Store patterns in history for sequence detection
-            if detected_patterns:
-                self.pattern_history.append((current_time, detected_patterns))
-                
-            # Expire throw in progress after maximum free fall time
+                # self.logger.debug("ROLLING pattern detected by _check_rolling_pattern(), appending.") # Verbose Debug
+                if not any(p == MotionPattern.ROLLING.name for p in detected_patterns_this_cycle):
+                    detected_patterns_this_cycle.append(MotionPattern.ROLLING.name)
+                    self.logger.debug("ROLLING pattern detected.")
+                # else:
+                    # self.logger.debug("ROLLING pattern NOT detected by _check_rolling_pattern().") # Verbose Debug
+
+            # --- Update History & State ---
+            if detected_patterns_this_cycle:
+                self.pattern_history.append((current_time, detected_patterns_this_cycle))
+
+            # Expire throw_in_progress if it's been too long since the throw was detected
             if self.throw_in_progress and (current_time - self.throw_detected_time > self.max_free_fall_time):
+                self.logger.debug(f"THROW pattern timed out after {self.max_free_fall_time}s. Clearing throw_in_progress.")
                 self.throw_in_progress = False
-                
+
         except Exception as e:
             # Log detailed information about the exception with context
             self.logger.error(f"Error detecting motion patterns: {e}", exc_info=True)
             self.logger.debug(f"Current data that caused error: {current_data}")
-            # Could track error frequency or report if errors become too common
-            
-        return detected_patterns
+
+        return detected_patterns_this_cycle # Return patterns detected in *this* cycle
         
     def _update_motion_state(self, accel_magnitude: float, gyro_magnitude: float, timestamp: float):
         """
@@ -340,9 +459,8 @@ class AccelerometerManager:
                 # Keep last_state_was_linear = False if accel is in this range but duration not met yet.
                 self.last_state_was_linear = False
             elif accel_magnitude > self.rolling_accel_min and self._check_linear_motion():
-                # Normal transition to LINEAR_MOTION (removed oscillation check)
+                # Normal transition to LINEAR_MOTION
                 self.motion_state = MotionState.LINEAR_MOTION
-                # self.last_state_was_linear = True # Removed, not needed for this logic path now
                 self.logger.debug(f"IDLE → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
             else:
                 # Default case if no other transition matches
@@ -410,8 +528,8 @@ class AccelerometerManager:
                 if self.impact_exit_timer == 0:
                      self.impact_exit_timer = timestamp # Start timer
                 elif timestamp - self.impact_exit_timer > self.impact_exit_delay:
-                     # Sufficient delay with low avg accel, transition based on current magnitude
-                     # Check HELD_STILL possibility first
+                     # Delay met: Transition out of IMPACT based on current conditions.
+                     # Check HELD_STILL first, as a catch might end with the device held.
                      if self.held_still_min_accel < accel_magnitude < self.held_still_max_accel:
                           self.motion_state = MotionState.HELD_STILL
                           self.held_still_start_time = timestamp # Start timer for HELD_STILL duration check
@@ -427,11 +545,10 @@ class AccelerometerManager:
                      if self.throw_in_progress and not self.catch_detected_last_cycle:
                           self.logger.warning("Clearing throw_in_progress on IMPACT exit without recent catch.")
                           self.throw_in_progress = False
-            # REMOVED: Don't reset timer if avg_accel goes above threshold. 
-            # Only reset timer upon successful state transition out of IMPACT.
-            # else:
-            #      # Average Acceleration went back up, reset timer
-            #      self.impact_exit_timer = 0
+            else:
+                 # Still above exit threshold OR within the exit delay period, reset timer if it was running
+                 # This ensures we need a *continuous* period of low acceleration to exit IMPACT.
+                 self.impact_exit_timer = 0
             
         elif self.motion_state == MotionState.ROLLING:
             # Check if still rolling
@@ -544,8 +661,11 @@ class AccelerometerManager:
                self.motion_state not in [MotionState.IDLE, MotionState.LINEAR_MOTION, MotionState.HELD_STILL]:
                 self.held_still_start_time = 0
             # Correction 5: Reset HELD_STILL timer when leaving IDLE for non-HELD_STILL states
-            if previous_state == MotionState.IDLE and self.motion_state != MotionState.HELD_STILL:
-                 self.held_still_start_time = 0
+            # Ensure HELD_STILL timer is reset if we leave a state where it could have been started
+            # (IDLE, LINEAR_MOTION, ROLLING, IMPACT) and *don't* enter HELD_STILL.
+            if previous_state in [MotionState.IDLE, MotionState.LINEAR_MOTION, MotionState.ROLLING, MotionState.IMPACT] and \
+                self.motion_state != MotionState.HELD_STILL:
+                  self.held_still_start_time = 0
 
     def _check_rolling_criteria(self) -> bool:
         """
@@ -582,6 +702,15 @@ class AccelerometerManager:
         if mag < 1e-6: # Avoid division by zero for near-zero vectors
             return None
         return (vec[0] / mag, vec[1] / mag, vec[2] / mag)
+
+    def _dot_product(self, v1: Tuple[float, float, float], v2: Tuple[float, float, float]) -> float:
+        """Calculate the dot product of two 3D vectors."""
+        # Added try-except for robustness against potential non-numeric data
+        try:
+            return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]
+        except (TypeError, IndexError):
+            self.logger.warning(f"Invalid vector component found during dot product: v1={v1}, v2={v2}")
+            return 0.0 # Return neutral value on error
 
     def _check_linear_motion(self) -> bool:
         """
@@ -643,9 +772,8 @@ class AccelerometerManager:
             
             valid_accel_count += 1
             if prev_norm_accel is not None:
-                dot_product = (norm_accel[0] * prev_norm_accel[0] +
-                               norm_accel[1] * prev_norm_accel[1] +
-                               norm_accel[2] * prev_norm_accel[2])
+                # Calculate dot product (cosine of angle between vectors)
+                dot_product = self._dot_product(norm_accel, prev_norm_accel)
                 dot_products.append(dot_product)
                 
             prev_norm_accel = norm_accel
@@ -731,9 +859,8 @@ class AccelerometerManager:
                 else:
                     # Impact state but low magnitude, might be settling after free fall without a hard catch
                     self.logger.debug(f"In IMPACT state with throw_in_progress, but accel {current_accel_magnitude:.2f} < impact_threshold {self.impact_threshold:.2f}. Not a catch.")
-            #else:
-                # Entered IMPACT state but throw was not in progress - could be a bump or drop without prior accel.
-                # self.logger.debug("Entered IMPACT state, but throw_in_progress was False.")
+            #     # Entered IMPACT state but throw was not in progress - could be a bump or drop without prior accel.
+            #     pass # No need to log if not a catch scenario
 
         # Backup check: Look at recent pattern history (less reliable than state flag)
         # Consider removing or reducing reliance on this if the state flag method works well
@@ -743,7 +870,7 @@ class AccelerometerManager:
         #         if MotionPattern.THROW.name in patterns:
         #             # Check if impact also occurred around this time (more robust)
         #             # This requires correlating history which is complex, prefer state flag.
-        #             # self.logger.debug(f"CATCH detected: via pattern history (THROW found {current_time - timestamp:.2f}s ago).")
+        #             # self.logger.debug(f"CATCH detected: via pattern history (THROW found {current_time - timestamp:.2f}s ago).\")
         #             # return True 
         #     else:
         #         break # Stop checking older history
@@ -801,6 +928,8 @@ class AccelerometerManager:
                     q1 = rotations[i]
                     q2 = rotations[i+1]
                     dot_product = q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2] + q1[3]*q2[3]
+                    # Ensure dot product is clamped within [-1, 1] for acos stability
+                    dot_product = max(-1.0, min(1.0, dot_product))
                     angle = 2 * acos(min(1.0, abs(dot_product)))
                     angles.append(angle)
                 
@@ -857,9 +986,9 @@ class AccelerometerManager:
             return False # Should exit here if state is IMPACT
 
         # Get recent acceleration values - convert deque to list before slicing for safety
-        # Filter out invalid acceleration data in the comprehension
-        accelerations = [entry.get("linear_acceleration", (0, 0, 0)) for entry in list(self.motion_history)[-6:]
-                         if isinstance(entry.get("linear_acceleration", (0, 0, 0)), tuple) 
+        accelerations = [entry.get("linear_acceleration", (0, 0, 0))
+                         for entry in list(self.motion_history)[-6:]
+                         if isinstance(entry.get("linear_acceleration", (0, 0, 0)), tuple)
                          and len(entry.get("linear_acceleration", (0, 0, 0))) == 3]
         
         # If we don't have enough valid data points, return False
@@ -954,7 +1083,7 @@ class AccelerometerManager:
             # Minimum duration to be considered rolling
             if rolling_duration > self.rolling_duration:
                 self.logger.debug(f"Rolling pattern check: Duration requirement met ({rolling_duration:.2f}s > {self.rolling_duration:.2f}s)")
-                # Check if motion is linear rather than rolling - RE-ENABLED
+                # Ensure the motion isn't primarily linear (e.g., sliding without much rotation)
                 is_linear = self._check_linear_motion()
                 if is_linear:
                     self.logger.debug("Rolling pattern check failed: Motion appears to be linear.")
@@ -971,19 +1100,14 @@ class AccelerometerManager:
                     self.logger.warning(f"Not enough valid gyro readings for rolling detection. Only found {len(gyro_readings)}")
                     return False
                 
-                # Find the dominant rotation axis (x, y, or z)
-                axis_totals = [0, 0, 0]
-                for gyro in gyro_readings:
-                    for i in range(3):
-                        axis_totals[i] += abs(gyro[i])
-                
-                # Log the axis data for debugging
-                self.logger.debug(f"Rolling axis totals: x={axis_totals[0]:.2f}, y={axis_totals[1]:.2f}, z={axis_totals[2]:.2f}")
-                
-                dominant_axis = axis_totals.index(max(axis_totals))
+                # Check for a dominant axis of rotation
+                dominant_axis_info = self._dominant_rotation_axis(gyro_readings)
+                if dominant_axis_info is None:
+                    self.logger.debug("Rolling pattern check failed: Could not determine dominant axis (negligible/invalid rotation?).")
+                    return False
+
+                dominant_axis, dominant_ratio = dominant_axis_info
                 axis_names = ['x', 'y', 'z']
-                sum_total = sum(axis_totals) + 0.0001  # Avoid division by zero
-                dominant_ratio = axis_totals[dominant_axis] / sum_total
                 
                 # Define the minimum ratio needed *before* logging it
                 min_dominant_ratio = 0.35 # Lowered from 0.55
@@ -1006,7 +1130,7 @@ class AccelerometerManager:
                     
                     # True rolling should have consistent rotation direction
                     # Relaxed allowed changes from 1 to 2
-                    max_direction_changes = 3 # Relaxed further from 2 to 3
+                    max_direction_changes = 3
                     if direction_changes <= max_direction_changes:
                         self.logger.debug(f"Rolling check passed: Direction changes {direction_changes} <= {max_direction_changes}")
                         return True
@@ -1015,9 +1139,52 @@ class AccelerometerManager:
                 else:
                     self.logger.debug(f"Rolling check failed: No dominant rotation axis detected.") # Log updated
             else:
-                 self.logger.debug(f"Rolling pattern check failed: Duration requirement NOT met ({rolling_duration:.2f}s <= {self.rolling_duration:.2f}s)")
-                
+                # Log only if the state is still ROLLING but duration isn't met yet
+                # Avoids log spam if the state changes before duration is met
+                if self.motion_state == MotionState.ROLLING:
+                    self.logger.debug(f"Rolling pattern check: In ROLLING state, but duration requirement NOT met ({rolling_duration:.2f}s <= {self.rolling_duration:.2f}s)")
         return False
+
+    def _dominant_rotation_axis(self, gyro_readings: List[Tuple[float, float, float]]) -> Optional[Tuple[int, float]]:
+        """
+        Find the dominant rotation axis (0=x, 1=y, 2=z) and its ratio over a list of gyro readings.
+
+        Args:
+            gyro_readings: List of (gx, gy, gz) tuples.
+
+        Returns:
+            Tuple containing (dominant_axis_index, dominant_ratio) or None if input is invalid or negligible rotation.
+        """
+        if not gyro_readings:
+            return None
+
+        axis_totals = [0.0, 0.0, 0.0]
+        valid_readings = 0
+        for gyro in gyro_readings:
+            try:
+                # Ensure gyro is a tuple of 3 numbers
+                if isinstance(gyro, tuple) and len(gyro) == 3 and all(isinstance(v, (int, float)) for v in gyro):
+                    axis_totals[0] += abs(gyro[0])
+                    axis_totals[1] += abs(gyro[1])
+                    axis_totals[2] += abs(gyro[2])
+                    valid_readings += 1
+                else:
+                    self.logger.warning(f"Skipping invalid gyro reading in _dominant_rotation_axis: {gyro}")
+            except Exception as e: # Catch potential errors during processing
+                self.logger.warning(f"Error processing gyro reading {gyro} in _dominant_rotation_axis: {e}")
+                continue
+
+        if valid_readings == 0:
+            return None # No valid data to process
+
+        # self.logger.debug(f"Rolling axis totals: x={axis_totals[0]:.2f}, y={axis_totals[1]:.2f}, z={axis_totals[2]:.2f}") # Verbose debug
+        sum_total = sum(axis_totals)
+        if sum_total < 1e-6: # Avoid division by zero if total rotation is negligible
+            return None
+
+        dominant_axis = axis_totals.index(max(axis_totals))
+        dominant_ratio = axis_totals[dominant_axis] / sum_total
+        return dominant_axis, dominant_ratio
 
     def find_heading(self, dqw: float, dqx: float, dqy: float, dqz: float) -> float:
         """
@@ -1162,5 +1329,4 @@ class AccelerometerManager:
             else:
                 print(f"{key}: {value}")
         
-        # Already included in the data dictionary
         print("")
