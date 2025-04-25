@@ -945,11 +945,11 @@ class AccelerometerManager:
             # Minimum duration to be considered rolling
             if rolling_duration > self.rolling_duration:
                 self.logger.debug(f"Rolling pattern check: Duration requirement met ({rolling_duration:.2f}s > {self.rolling_duration:.2f}s)")
-                # Check if motion is linear rather than rolling
-                is_linear = self._check_linear_motion()
-                if is_linear:
-                    self.logger.debug("Rolling pattern check failed: Motion appears to be linear.")
-                    return False
+                # Check if motion is linear rather than rolling - TEMPORARILY DISABLED FOR DEBUGGING
+                # is_linear = self._check_linear_motion()
+                # if is_linear:
+                #     self.logger.debug("Rolling pattern check failed: Motion appears to be linear.")
+                #     return False
                 
                 # Get the last 5 valid gyro readings - convert to list first for safety
                 # Filter out invalid data in the comprehension
