@@ -961,26 +961,24 @@ class AccelerometerManager:
         
     def _check_shake_pattern(self) -> bool:
         """
-        Check if a shake pattern has been detected using zero-crossing counts
-        and gyroscope characteristics to distinguish from rolling.
+        Check if a shake pattern has been detected using acceleration magnitude
+        and gyroscope characteristics (magnitude or low dominance).
         
         A shake involves:
-        1. Rapid alternating acceleration (sign changes / zero-crossings)
-        2. Sufficient acceleration magnitude to be considered significant
-        3. Rotation that is either high magnitude OR not concentrated on one axis
+        1. Sufficient acceleration magnitude to be considered significant
+        2. Rotation that is either high magnitude OR not concentrated on one axis
         
         Returns:
             bool: True if shake detected
         """
         history_size = 30 # Use 30 samples for ~0.3s window at 100Hz
         min_magnitude_for_shake = 4.0 # Min average accel magnitude (m/s^2)
-        min_zero_crossings = 2 # Min zero crossings on at least one accel axis (Reduced from 3)
-        gyro_magnitude_threshold = 3.0 # Min average gyro magnitude (rad/s) for high rotation check
-        max_gyro_dominance_ratio = 0.7 # Max axis dominance ratio allowed (higher means more like rolling)
+        high_gyro_magnitude_threshold = 8.0 # Min average gyro magnitude (rad/s) for high rotation check (Increased from 3.0)
+        max_gyro_dominance_ratio = 0.65 # Max axis dominance ratio allowed (Lowered from 0.7, requires more wobble)
 
         if len(self.motion_history) < history_size:
             return False
-        
+            
         # --- Get recent data --- 
         recent_history = list(self.motion_history)[-history_size:]
         accelerations = [entry.get("linear_acceleration", None) for entry in recent_history]
@@ -996,8 +994,7 @@ class AccelerometerManager:
             # self.logger.debug("Shake check failed: Not enough valid accel/gyro points.")
             return False
             
-        # === Acceleration Checks ===
-        
+        # === Acceleration Check ===
         # 1. Check average acceleration magnitude
         accel_magnitudes = []
         for accel in valid_accelerations:
@@ -1016,32 +1013,6 @@ class AccelerometerManager:
             # self.logger.debug(f"Shake check failed: Avg accel magnitude {avg_accel_magnitude:.2f} < {min_magnitude_for_shake:.2f}")
             return False
         
-        # 2. Count zero-crossings for each acceleration axis
-        accel_zero_crossings = [0, 0, 0] # x, y, z
-        prev_accel_signs = [0, 0, 0]
-        first_accel = valid_accelerations[0]
-        for i in range(3):
-            if abs(first_accel[i]) > 0.1: prev_accel_signs[i] = 1 if first_accel[i] > 0 else -1
-
-        for accel in valid_accelerations[1:]: 
-            for i in range(3): 
-                current_val = accel[i]
-                deadzone = 0.5 # m/s^2
-                current_sign = 0
-                if current_val > deadzone: current_sign = 1
-                elif current_val < -deadzone: current_sign = -1
-                
-                if current_sign != 0 and prev_accel_signs[i] != 0 and current_sign != prev_accel_signs[i]:
-                    accel_zero_crossings[i] += 1
-                    
-                if current_sign != 0: prev_accel_signs[i] = current_sign
-
-        # Check if acceleration zero-crossing criteria met
-        accel_criteria_met = any(crossings >= min_zero_crossings for crossings in accel_zero_crossings)
-        if not accel_criteria_met:
-            # self.logger.debug("Shake check failed: Not enough zero crossings on any accel axis.")
-            return False
-            
         # === Gyroscope Checks (to differentiate from rolling) ===
         
         # 1. Calculate average gyro magnitude
@@ -1055,20 +1026,21 @@ class AccelerometerManager:
             _, gyro_dominance_ratio = dominant_axis_info
         
         # --- Final Decision --- 
-        # A shake requires accel criteria to be met AND
-        # EITHER high gyro magnitude OR low gyro axis dominance (unlike rolling)
-        is_high_magnitude_gyro = avg_gyro_magnitude >= gyro_magnitude_threshold
+        # A shake requires high accel magnitude AND
+        # EITHER very high gyro magnitude OR low gyro axis dominance (unlike rolling)
+        is_high_magnitude_gyro = avg_gyro_magnitude >= high_gyro_magnitude_threshold
         is_low_dominance_gyro = gyro_dominance_ratio < max_gyro_dominance_ratio
         
         # Log gyro info for tuning
-        # self.logger.debug(f"Shake gyro check: AvgMag={avg_gyro_magnitude:.2f} (Thresh={gyro_magnitude_threshold:.2f}), DomRatio={gyro_dominance_ratio:.2f} (Max={max_gyro_dominance_ratio:.2f})")
+        # self.logger.debug(f"Shake gyro check: AvgMag={avg_gyro_magnitude:.2f} (Thresh={high_gyro_magnitude_threshold:.2f}), DomRatio={gyro_dominance_ratio:.2f} (Max={max_gyro_dominance_ratio:.2f})")
 
         if is_high_magnitude_gyro or is_low_dominance_gyro:
-            self.logger.debug(f"SHAKE detected: Accel ZC={accel_zero_crossings}, Avg Accel={avg_accel_magnitude:.2f}. Gyro AvgMag={avg_gyro_magnitude:.2f}, DomRatio={gyro_dominance_ratio:.2f}")
+            # Removed Accel ZC from log message
+            self.logger.debug(f"SHAKE detected: Avg Accel={avg_accel_magnitude:.2f}. Gyro AvgMag={avg_gyro_magnitude:.2f}, DomRatio={gyro_dominance_ratio:.2f}")
             return True
         else:
-            # Accel criteria met, but gyro looks like rolling (moderate mag, high dominance)
-            # self.logger.debug("Shake check failed: Accel criteria met, but gyro signature suggests rolling.")
+            # Accel criteria met, but gyro looks like rolling (lower mag, high dominance)
+            # self.logger.debug("Shake check failed: Accel criteria met, but gyro signature (low mag / high dominance) suggests not a shake.")
             return False
         
     def _check_rolling_pattern(self) -> bool:

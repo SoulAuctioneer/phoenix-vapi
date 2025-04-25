@@ -160,7 +160,7 @@ def main():
     prev_patterns = []
     prev_motion_state = None
     line_printed = False
-    last_print_time = 0
+    output_prefix = "" # Initialize prefix
     
     # CSV Batching
     csv_batch = []
@@ -173,6 +173,10 @@ def main():
         while True:
             # Read data
             data = manager.read_sensor_data()
+            
+            # Format timestamp (always get current time)
+            timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+            current_time = time.time() # Keep this for other calculations
             
             # Extract relevant info
             patterns = data.get('detected_patterns', [])
@@ -194,10 +198,6 @@ def main():
             if isinstance(gyro, tuple) and len(gyro) == 3:
                 gyro_magnitude = sqrt(gyro[0]**2 + gyro[1]**2 + gyro[2]**2)
                 
-            # Format timestamp
-            timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
-            current_time = time.time()
-            
             # Get additional debug info
             free_fall_duration = 0.0
             if motion_state == "FREE_FALL" and hasattr(manager, 'free_fall_start_time'):
@@ -256,10 +256,9 @@ def main():
             # Start a new line ONLY if patterns or motion state changed
             if patterns_changed or state_changed:
                 if line_printed:
-                    print("")  # Start a new line
+                    print("")  # Start a new line before printing the updated state
+                output_prefix = f"[{timestamp}] " # Update prefix ONLY when state changes
                 line_printed = True
-                output_prefix = f"[{timestamp}] "
-                last_print_time = current_time # Update time only when printing new line
             
             # Format the patterns
             pattern_str = "None"
@@ -294,13 +293,17 @@ def main():
                     if pattern_names:
                         debug_info += f" | Last:{','.join(pattern_names)}({time_ago:.2f}s ago)"
             
-            # Display the information
-            print(f"{output_prefix}Pattern: {pattern_str} | State: {format_motion_state(motion_state)} | " +
-                  f"Energy: {format_energy(energy)} | {debug_info} | " +
-                  f"Stability: {format_stability(stability)} | " +
-                  f"Activity: {format_activity(activity)}", end='', flush=True)
-            print("\n")
+            # Construct the data part of the line (without the prefix)
+            data_line = (
+                f"Pattern: {pattern_str} | State: {format_motion_state(motion_state)} | "
+                f"Energy: {format_energy(energy)} | {debug_info} | "
+                f"Stability: {format_stability(stability)} | "
+                f"Activity: {format_activity(activity)}"
+            )
 
+            # Display the information: Overwrite current line unless state/pattern changed
+            # Add padding to ensure overwriting the previous line completely
+            print(f"\r{output_prefix}{data_line}" + " " * 20, end='', flush=True)
             
             # Update previous state
             prev_patterns = patterns.copy() if patterns else []
