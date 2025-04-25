@@ -183,7 +183,9 @@ class AccelerometerManager:
         # Shake
         self.shake_history_size = 30             # Samples (~0.3s at 100Hz)
         self.min_magnitude_for_shake = 4.0       # m/s^2 - Min average accel magnitude
-        self.min_accel_variance_for_shake = 4.0 # Min variance of accel magnitude (Lowered from 8.0)
+        self.min_accel_variance_for_shake = 2.0 # Min variance of accel magnitude (Lowered from 4.0)
+        self.high_gyro_magnitude_threshold = 8.0 # rad/s - Min avg gyro mag for shake (Re-enabled)
+        self.max_gyro_dominance_ratio = 0.65     # Max gyro axis dominance for shake (Re-enabled)
         
         # Rolling
         self.rolling_accel_min = 0.5            # m/s^2 - Min accel magnitude for ROLLING state/pattern
@@ -1023,26 +1025,40 @@ class AccelerometerManager:
              # self.logger.debug(f"Shake check failed: Accel magnitude variance {accel_magnitude_variance:.2f} < {self.min_accel_variance_for_shake:.2f}")
              return False
 
-        # --- Gyroscope Checks (Temporarily Disabled) ---
-        # gyros = [entry.get("gyro", None) for entry in recent_history]
-        # valid_gyros = [gyro for gyro in gyros
-        #                if isinstance(gyro, tuple) and len(gyro) == 3]
-        # if len(valid_gyros) < 3:
-        #     return False # If check enabled, need gyro data
-        # gyro_magnitudes = [sqrt(g[0]**2 + g[1]**2 + g[2]**2) for g in valid_gyros]
-        # avg_gyro_magnitude = statistics.mean(gyro_magnitudes)
-        # dominant_axis_info = self._dominant_rotation_axis(valid_gyros)
-        # gyro_dominance_ratio = 1.0
-        # if dominant_axis_info is not None:
-        #     _, gyro_dominance_ratio = dominant_axis_info
-        # is_high_magnitude_gyro = avg_gyro_magnitude >= self.high_gyro_magnitude_threshold # Need self. attribute
-        # is_low_dominance_gyro = gyro_dominance_ratio < self.max_gyro_dominance_ratio # Need self. attribute
-        # if not (is_high_magnitude_gyro or is_low_dominance_gyro):
-        #      # self.logger.debug("Shake check failed: Gyro signature does not match shake.")
-        #      return False
+        # --- Gyroscope Checks (Re-enabled) ---
+        gyros = [entry.get("gyro", None) for entry in recent_history]
+        valid_gyros = [gyro for gyro in gyros
+                       if isinstance(gyro, tuple) and len(gyro) == 3]
+        if len(valid_gyros) < 3:
+            # self.logger.debug("Shake check failed: Not enough valid gyro points.")
+            return False # If check enabled, need gyro data
+
+        try:
+            gyro_magnitudes = [sqrt(g[0]**2 + g[1]**2 + g[2]**2) for g in valid_gyros]
+            if not gyro_magnitudes:
+                 # self.logger.debug("Shake check failed: No valid gyro magnitudes calculated.")
+                 return False
+            avg_gyro_magnitude = statistics.mean(gyro_magnitudes)
+        except statistics.StatisticsError:
+             # self.logger.debug("Shake check failed: Could not calculate gyro avg magnitude.")
+             return False
+
+        dominant_axis_info = self._dominant_rotation_axis(valid_gyros)
+        gyro_dominance_ratio = 1.0 # Assume high dominance if calculation fails
+        if dominant_axis_info is not None:
+            _, gyro_dominance_ratio = dominant_axis_info
+
+        is_high_magnitude_gyro = avg_gyro_magnitude >= self.high_gyro_magnitude_threshold
+        is_low_dominance_gyro = gyro_dominance_ratio < self.max_gyro_dominance_ratio
+
+        # self.logger.debug(f"Shake gyro check: AvgMag={avg_gyro_magnitude:.2f} (Thresh={self.high_gyro_magnitude_threshold:.2f}), DomRatio={gyro_dominance_ratio:.2f} (Max={self.max_gyro_dominance_ratio:.2f})")
+
+        if not (is_high_magnitude_gyro or is_low_dominance_gyro):
+             # self.logger.debug("Shake check failed: Gyro signature (low mag AND high dominance) does not match shake.")
+             return False
 
         # --- Final Decision ---
-        self.logger.debug(f"SHAKE detected: Avg AccelMag={avg_accel_magnitude:.2f}, AccelMagVariance={accel_magnitude_variance:.2f}")
+        self.logger.debug(f"SHAKE detected: Avg AccelMag={avg_accel_magnitude:.2f}, AccelMagVariance={accel_magnitude_variance:.2f}, Avg GyroMag={avg_gyro_magnitude:.2f}, GyroDominance={gyro_dominance_ratio:.2f}")
         return True
 
     def _check_rolling_pattern(self) -> bool:
