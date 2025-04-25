@@ -972,9 +972,9 @@ class AccelerometerManager:
         Returns:
             bool: True if shake detected
         """
-        history_size = 6 # Use 6 samples for ~0.1s window at 100Hz
+        history_size = 50 # Use 50 samples for ~0.5s window at 100Hz (Increased from 6)
         min_magnitude_for_shake = 4.0 # Min average accel magnitude (m/s^2)
-        min_zero_crossings = 2 # Min zero crossings on at least one accel axis
+        min_zero_crossings = 10 # Min zero crossings on at least one accel axis (Increased proportionally)
         gyro_magnitude_threshold = 3.0 # Min average gyro magnitude (rad/s) for high rotation check
         max_gyro_dominance_ratio = 0.7 # Max axis dominance ratio allowed (higher means more like rolling)
 
