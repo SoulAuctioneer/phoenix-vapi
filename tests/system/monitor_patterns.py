@@ -133,7 +133,7 @@ def format_energy(energy):
     else:
         color = Fore.RED
         
-    return f"{color}{energy:.3f}{Style.RESET_ALL}"
+    return f"{color}{energy:.2f}{Style.RESET_ALL}"
 
 def clear_line():
     """Clear the current line in the terminal."""
@@ -216,23 +216,23 @@ def main():
             csvwriter.writerow({
                 'timestamp': timestamp,
                 'motion_state': motion_state,
-                'energy': energy,
-                'accel_magnitude': accel_magnitude,
-                'accel_x': accel[0] if isinstance(accel, tuple) and len(accel) > 0 else 0,
-                'accel_y': accel[1] if isinstance(accel, tuple) and len(accel) > 1 else 0,
-                'accel_z': accel[2] if isinstance(accel, tuple) and len(accel) > 2 else 0,
-                'gyro_magnitude': gyro_magnitude,
-                'gyro_x': gyro[0] if isinstance(gyro, tuple) and len(gyro) > 0 else 0,
-                'gyro_y': gyro[1] if isinstance(gyro, tuple) and len(gyro) > 1 else 0,
-                'gyro_z': gyro[2] if isinstance(gyro, tuple) and len(gyro) > 2 else 0,
+                'energy': f"{energy:.2f}",
+                'accel_magnitude': f"{accel_magnitude:.2f}",
+                'accel_x': f"{accel[0]:.2f}" if isinstance(accel, tuple) and len(accel) > 0 else '0.00',
+                'accel_y': f"{accel[1]:.2f}" if isinstance(accel, tuple) and len(accel) > 1 else '0.00',
+                'accel_z': f"{accel[2]:.2f}" if isinstance(accel, tuple) and len(accel) > 2 else '0.00',
+                'gyro_magnitude': f"{gyro_magnitude:.2f}",
+                'gyro_x': f"{gyro[0]:.2f}" if isinstance(gyro, tuple) and len(gyro) > 0 else '0.00',
+                'gyro_y': f"{gyro[1]:.2f}" if isinstance(gyro, tuple) and len(gyro) > 1 else '0.00',
+                'gyro_z': f"{gyro[2]:.2f}" if isinstance(gyro, tuple) and len(gyro) > 2 else '0.00',
                 'patterns': ','.join(patterns),
                 'stability': stability,
                 'activity': activity.get('most_likely', 'Unknown'),
                 'activity_confidence': activity.get(activity.get('most_likely', 'Unknown'), 0),
-                'free_fall_duration': free_fall_duration,
-                'throw_duration': throw_duration,
+                'free_fall_duration': f"{free_fall_duration:.2f}",
+                'throw_duration': f"{throw_duration:.2f}",
                 'last_patterns': last_patterns,
-                'last_pattern_time': last_pattern_time
+                'last_pattern_time': f"{last_pattern_time:.2f}"
             })
             
             # Check if there's a new pattern or motion state change
@@ -264,7 +264,7 @@ def main():
                 
             # Debug info based on state
             # Show raw acceleration components
-            raw_accel = f"Ax:{accel[0]:.2f} Ay:{accel[1]:.2f} Az:{accel[2]:.2f}"
+            raw_accel = f"Ax:{accel[0]:.2f} Ay:{accel[1]:.2f} Az:{accel[2]:.2f}" if isinstance(accel, tuple) and len(accel) == 3 else "Ax:0.00 Ay:0.00 Az:0.00"
             debug_info = f"A:{accel_magnitude:.2f} {raw_accel} G:{gyro_magnitude:.2f}"
             
             # Add state-specific debug info
@@ -278,7 +278,7 @@ def main():
                 debug_info += f" | Throw:{throw_duration:.2f}s"
                 
             # Thresholds info
-            debug_info += f" | FF_Th:{manager.free_fall_threshold:.1f}"
+            debug_info += f" | FF_Th:{manager.free_fall_threshold:.2f}"
                 
             # Pattern history debug
             if hasattr(manager, 'pattern_history') and manager.pattern_history:
@@ -288,7 +288,7 @@ def main():
                     time_ago = current_time - last_time
                     pattern_names = [p for p in last_patterns]
                     if pattern_names:
-                        debug_info += f" | Last:{','.join(pattern_names)}({time_ago:.1f}s ago)"
+                        debug_info += f" | Last:{','.join(pattern_names)}({time_ago:.2f}s ago)"
             
             # Display the information
             print(f"{output_prefix}Pattern: {pattern_str} | State: {format_motion_state(motion_state)} | " +
