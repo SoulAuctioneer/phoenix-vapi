@@ -173,7 +173,7 @@ class AccelerometerManager:
         # Throw/Catch/Impact
         self.throw_acceleration_threshold = 15.0  # m/s^2 - Min accel to trigger ACCELERATION state (potential throw start)
         self.free_fall_threshold = 3.0          # m/s^2 - Max accel magnitude to be considered FREE_FALL
-        self.impact_threshold = 10.0            # m/s^2 - Min accel spike to trigger IMPACT state
+        self.impact_threshold = 20.0            # m/s^2 - Min accel spike to trigger IMPACT state (Increased from 10.0)
         self.impact_exit_threshold = 3.5        # m/s^2 - Max accel magnitude to exit IMPACT state (must be below this)
         
         # Arc Swing
