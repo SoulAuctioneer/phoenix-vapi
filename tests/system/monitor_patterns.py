@@ -299,6 +299,8 @@ def main():
                   f"Energy: {format_energy(energy)} | {debug_info} | " +
                   f"Stability: {format_stability(stability)} | " +
                   f"Activity: {format_activity(activity)}", end='', flush=True)
+            print("")
+
             
             # Update previous state
             prev_patterns = patterns.copy() if patterns else []
