@@ -966,6 +966,138 @@ class AccelerometerManager:
 
         return False
         
+    def _check_rolling_pattern(self) -> bool:
+        """
+        Check if a rolling pattern has been detected.
+
+        A rolling motion is characterized by:
+        1. Moderate but consistent linear acceleration (less than throwing but more than stationary)
+        2. Continuous rotation around primarily one axis
+        3. Sustained motion for a certain duration
+        4. Not exhibiting characteristics of linear motion
+
+        Returns:
+            bool: True if rolling motion detected
+        """
+        if len(self.motion_history) < 5:
+            return False
+
+        # Check if in rolling state
+        if self.motion_state == MotionState.ROLLING:
+            # Make sure we can safely access the latest entry
+            if len(self.motion_history) == 0 or 'timestamp' not in self.motion_history[-1]:
+                self.logger.warning("Cannot access timestamp in motion history for rolling detection")
+                return False
+
+            timestamp = self.motion_history[-1]['timestamp']
+            rolling_duration = timestamp - self.rolling_start_time
+
+            # Minimum duration to be considered rolling
+            if rolling_duration > self.rolling_duration:
+                self.logger.debug(f"Rolling pattern check: Duration requirement met ({rolling_duration:.2f}s > {self.rolling_duration:.2f}s)")
+                # Ensure the motion isn't primarily linear (e.g., sliding without much rotation)
+                is_linear = self._check_linear_motion()
+                if is_linear:
+                    self.logger.debug("Rolling pattern check failed: Motion appears to be linear.")
+                    return False
+
+                # Get the last 5 valid gyro readings - convert to list first for safety
+                # Filter out invalid data in the comprehension
+                gyro_readings = [entry.get("gyro", (0, 0, 0)) for entry in list(self.motion_history)[-5:]
+                                if isinstance(entry.get("gyro", (0, 0, 0)), tuple)
+                                and len(entry.get("gyro", (0, 0, 0))) == 3]
+
+                # If we don't have enough valid readings, return False
+                if len(gyro_readings) < 3:
+                    self.logger.warning(f"Not enough valid gyro readings for rolling detection. Only found {len(gyro_readings)}")
+                    return False
+
+                # Check for a dominant axis of rotation
+                dominant_axis_info = self._dominant_rotation_axis(gyro_readings)
+                if dominant_axis_info is None:
+                    self.logger.debug("Rolling pattern check failed: Could not determine dominant axis (negligible/invalid rotation?).")
+                    return False
+
+                dominant_axis, dominant_ratio = dominant_axis_info
+                axis_names = ['x', 'y', 'z']
+
+                # Define the minimum ratio needed *before* logging it
+                min_dominant_ratio = 0.35 # Lowered from 0.55
+                self.logger.debug(f"Rolling pattern check: Dominant axis is {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f} (min required: {min_dominant_ratio:.2f})")
+
+                # If one axis dominates the rotation (rolling tends to rotate around one axis)
+                # Relaxed the required ratio from 0.7 to 0.55 to allow more wobble
+                if dominant_ratio > min_dominant_ratio:
+                    self.logger.debug(f"Rolling check passed: Dominant axis {axis_names[dominant_axis]} ratio {dominant_ratio:.2f} > {min_dominant_ratio:.2f}")
+
+                    # Verify consistency of rotation direction around dominant axis
+                    last_direction = None
+                    direction_changes = 0
+
+                    for gyro in gyro_readings:
+                        current_direction = 1 if gyro[dominant_axis] > 0 else -1
+                        if last_direction is not None and current_direction != last_direction:
+                            direction_changes += 1
+                        last_direction = current_direction
+
+                    # True rolling should have consistent rotation direction
+                    # Relaxed allowed changes from 1 to 2
+                    max_direction_changes = 3
+                    if direction_changes <= max_direction_changes:
+                        self.logger.debug(f"Rolling check passed: Direction changes {direction_changes} <= {max_direction_changes}")
+                        return True
+                    else:
+                        self.logger.debug(f"Rolling check failed: Too many direction changes ({direction_changes} > {max_direction_changes})")
+                else:
+                    self.logger.debug(f"Rolling check failed: No dominant rotation axis detected.") # Log updated
+            else:
+                # Log only if the state is still ROLLING but duration isn't met yet
+                # Avoids log spam if the state changes before duration is met
+                if self.motion_state == MotionState.ROLLING:
+                    self.logger.debug(f"Rolling pattern check: In ROLLING state, but duration requirement NOT met ({rolling_duration:.2f}s <= {self.rolling_duration:.2f}s)")
+        return False
+
+    def _dominant_rotation_axis(self, gyro_readings: List[Tuple[float, float, float]]) -> Optional[Tuple[int, float]]:
+        """
+        Find the dominant rotation axis (0=x, 1=y, 2=z) and its ratio over a list of gyro readings.
+
+        Args:
+            gyro_readings: List of (gx, gy, gz) tuples.
+
+        Returns:
+            Tuple containing (dominant_axis_index, dominant_ratio) or None if input is invalid or negligible rotation.
+        """
+        if not gyro_readings:
+            return None
+
+        axis_totals = [0.0, 0.0, 0.0]
+        valid_readings = 0
+        for gyro in gyro_readings:
+            try:
+                # Ensure gyro is a tuple of 3 numbers
+                if isinstance(gyro, tuple) and len(gyro) == 3 and all(isinstance(v, (int, float)) for v in gyro):
+                    axis_totals[0] += abs(gyro[0])
+                    axis_totals[1] += abs(gyro[1])
+                    axis_totals[2] += abs(gyro[2])
+                    valid_readings += 1
+                else:
+                    self.logger.warning(f"Skipping invalid gyro reading in _dominant_rotation_axis: {gyro}")
+            except Exception as e: # Catch potential errors during processing
+                self.logger.warning(f"Error processing gyro reading {gyro} in _dominant_rotation_axis: {e}")
+                continue
+
+        if valid_readings == 0:
+            return None # No valid data to process
+
+        # self.logger.debug(f"Rolling axis totals: x={axis_totals[0]:.2f}, y={axis_totals[1]:.2f}, z={axis_totals[2]:.2f}") # Verbose debug
+        sum_total = sum(axis_totals)
+        if sum_total < 1e-6: # Avoid division by zero if total rotation is negligible
+            return None
+
+        dominant_axis = axis_totals.index(max(axis_totals))
+        dominant_ratio = axis_totals[dominant_axis] / sum_total
+        return dominant_axis, dominant_ratio
+
     def find_heading(self, dqw: float, dqx: float, dqy: float, dqz: float) -> float:
         """
         Calculate heading from quaternion values.
