@@ -56,7 +56,7 @@ from struct import pack_into # Import pack_into
 import time # Import time for timeout
 
 # Define a timeout for feature enabling (in seconds)
-_FEATURE_ENABLE_TIMEOUT = 2.0
+_FEATURE_ENABLE_TIMEOUT = 3.0 # Increased timeout
 
 class BNO085Interface:
     """
@@ -86,6 +86,7 @@ class BNO085Interface:
             # Initialize I2C and BNO085 - Explicitly set frequency to 400kHz
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.imu = BNO08X_I2C(self.i2c)
+            time.sleep(0.1) # Small delay after sensor object creation
             
             # Enable features
             self._enable_sensor_reports()
@@ -179,17 +180,20 @@ class BNO085Interface:
             try:
                 # Process any available packets from the sensor
                 self.logger.debug(f"[{feature_id}] Processing packets...")
-                self.imu._process_available_packets(max_packets=10) 
+                self.imu._process_available_packets(max_packets=10)
             except Exception as e:
                 # Log errors during packet processing but continue trying
-                # Check if the feature is now available in the library's readings
-                # Accessing _readings directly as the library does.
-                if feature_id in self.imu._readings: 
-                    self.logger.info(f"Feature {feature_id} enabled successfully.")
-                    return # Feature is enabled
-                
-                self.logger.debug(f"[{feature_id}] Keys in readings: {list(self.imu._readings.keys())}") # Log keys
-                time.sleep(0.01) # Small delay before checking again
+                self.logger.warning(f"Error processing packets while enabling {feature_id}: {e}")
+            
+            # Check if the feature is now available in the library's readings, regardless of packet processing errors
+            # Accessing _readings directly as the library does.
+            if feature_id in self.imu._readings: 
+                self.logger.info(f"Feature {feature_id} enabled successfully.")
+                return # Feature is enabled
+
+            # Log keys and sleep on every loop iteration
+            self.logger.debug(f"[{feature_id}] Keys in readings: {list(self.imu._readings.keys())}") 
+            time.sleep(0.01) # Small delay before checking again
 
         # If the loop finishes without confirmation, raise an error
         self.logger.error(f"Timeout: Failed to enable feature {feature_id} within {_FEATURE_ENABLE_TIMEOUT}s")
