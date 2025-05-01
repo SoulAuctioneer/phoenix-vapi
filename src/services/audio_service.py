@@ -134,8 +134,8 @@ class AudioService(BaseService):
             if volume is not None:
                 self.audio_manager.set_producer_volume("sound_effect", volume)
             elif has_active_call:
-                self.logger.info("Active call detected, setting sound effect volume to 0.1")
-                self.audio_manager.set_producer_volume("sound_effect", 0.1)
+                self.logger.info(f"Active call detected, setting sound effect volume to {AudioBaseConfig.CONVERSATION_SFX_VOLUME}")
+                self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.CONVERSATION_SFX_VOLUME)
             else:
                 self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME)
 
