@@ -53,6 +53,7 @@ class ActivityService(BaseService):
         self.active_services: Dict[str, BaseService] = {}
         self._transition_queue = asyncio.Queue()
         self._transition_task = None
+        self.is_transitioning = False # Flag to track ongoing transitions
         
     async def start(self):
         """Start the activity service. Initial activity will be started after receiving startup completed event."""
@@ -80,14 +81,16 @@ class ActivityService(BaseService):
             try:
                 # Wait for the next transition
                 activity = await self._transition_queue.get()
+                self.is_transitioning = True # Set flag before starting
                 
                 try:
                     await self._start_activity(activity)
                 except Exception as e:
                     self.logger.error(f"Error processing activity transition: {e}")
-                    
-                # Mark the transition as done
-                self._transition_queue.task_done()
+                finally:
+                    # Mark the transition as done and clear the flag
+                    self.is_transitioning = False
+                    self._transition_queue.task_done()
                 
             except asyncio.CancelledError:
                 break
@@ -231,6 +234,11 @@ class ActivityService(BaseService):
             "activity": activity.name
         })
         
+        # Default behavior: If no other transition is queued or running, go to SLEEP
+        if not self.is_transitioning and self._transition_queue.empty():
+            self.logger.info(f"Activity {activity.name} ended, transitioning to default SLEEP activity.")
+            await self._queue_transition(ActivityType.SLEEP)
+        
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
         event_type = event.get("type")
@@ -264,8 +272,8 @@ class ActivityService(BaseService):
                 await self._queue_transition(ActivityType.SLEEP)
                 
         elif event_type == "conversation_ended":
-            # When conversation ends, return to sleep
-            await self._queue_transition(ActivityType.SLEEP)
+            # A conversation has finished. The default transition to SLEEP is handled by _stop_activity if needed.
+            pass 
                 
         elif event_type == "hide_seek_won":
             # TODO: When hide and seek is won, transition to special conversation
