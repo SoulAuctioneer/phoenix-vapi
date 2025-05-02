@@ -54,14 +54,6 @@ class AudioService(BaseService):
             self.audio_manager.stop_sound(effect_name)
             self.logger.info(f"Stopped sound effect: {effect_name}")
         
-        # Play acknowledgment sound when conversation starts
-        elif event_type == "conversation_starting":
-            await self._play_sound("YAWN2")
-                
-        # Play yawn sound when conversation ends
-        elif event_type == "conversation_ended":
-            await self._play_sound("YAWN")
-
         # Play a random chirp sound when wakeword is detected
         elif event_type == "intent_detection_started":
             await self._play_random_chirp()
