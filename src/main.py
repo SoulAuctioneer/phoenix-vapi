@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import signal
-from config import PLATFORM
+from config import PLATFORM, LED_CONFIG
 from services.service import ServiceManager
 from services.audio_service import AudioService
 from services.special_effect_service import SpecialEffectService
@@ -71,8 +71,9 @@ class PhoenixApp:
         
         # Add platform-specific services on Raspberry Pi
         if PLATFORM == "raspberry-pi":
-            self.initialized_services['led'] = LEDService(self.service_manager)
             self.initialized_services['battery'] = BatteryService(self.service_manager)
+            if LED_CONFIG.LEDS_ENABLED:
+                self.initialized_services['led'] = LEDService(self.service_manager)
 
         # Start audio service first, then all other services in parallel
         await self.service_manager.start_service('audio', self.initialized_services['audio'])
