@@ -121,6 +121,7 @@ class LEDService(BaseService):
                 "green_breathing": LEDEffect.GREEN_BREATHING,
                 "rainbow": LEDEffect.ROTATING_RAINBOW,
                 "pink_blue_cycle": LEDEffect.ROTATING_PINK_BLUE,
+                "green_yellow_cycle": LEDEffect.ROTATING_GREEN_YELLOW,
                 "magical_spell": LEDEffect.RANDOM_TWINKLING,
                 "rain": LEDEffect.RAIN,
                 "lightning": LEDEffect.LIGHTNING,
