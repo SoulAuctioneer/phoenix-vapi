@@ -37,7 +37,7 @@ class SleepActivity(BaseService):
         await self.publish({
             "type": "start_led_effect",
             "data": {
-                "effectName": "green_breathing",
+                "effectName": "rotating_green_yellow",
                 "speed": 0.05,  # Slow, gentle rotation
                 "brightness": self._LED_BRIGHTNESS  # Dimmer for sleep mode
             }
@@ -93,7 +93,7 @@ class SleepActivity(BaseService):
                 await self.publish({
                     "type": "start_led_effect",
                     "data": {
-                        "effectName": "pink_blue_cycle",
+                        "effectName": "rotating_pink_blue",
                         "speed": 0.05,  # Slow, gentle rotation
                         "brightness": self._LED_BRIGHTNESS
                     }

@@ -44,8 +44,8 @@ COLORS = {
     "black": (0, 0, 0),
     "white": (255, 255, 255),
     # Custom colors for Magic Garden Pea effect
-    "magic_green": (80, 255, 40),
-    "magic_gold": (255, 210, 0),
+    "magic_green": (0, 255, 0),
+    "magic_gold": (0, 0, 255),
 }
 
 class LEDManager:
