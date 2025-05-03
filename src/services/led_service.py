@@ -114,6 +114,13 @@ class LEDService(BaseService):
             effect_name = event.get('data', {}).get('effectName')
             speed = event.get('data', {}).get('speed', 0.02)
             brightness = event.get('data', {}).get('brightness', 1.0)
+            # --- Extract color specifically for rotating_color ---
+            color = None
+            if effect_name == "rotating_color":
+                color = event.get('data', {}).get('color')
+                if not color:
+                    logging.warning("'rotating_color' effect requested but no color specified in event data. Effect may fail or use default.")
+            # --- End color extraction ---
             
             # Map string effect names to enum values
             effect_map = {
@@ -131,8 +138,8 @@ class LEDService(BaseService):
             
             if effect_name in effect_map:
                 effect = effect_map[effect_name]
-                self.led_controller.start_effect(effect, speed=speed, brightness=brightness)
-                logging.info(f"Started {effect_name} effect with speed {speed} and brightness {brightness}")
+                self.led_controller.start_effect(effect, speed=speed, brightness=brightness, color=color)
+                logging.info(f"Started {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
             elif effect_name == "stop":
                 self.led_controller.stop_effect()
                 logging.info("Stopped LED effect")

@@ -150,7 +150,7 @@ class LEDManager:
         revert_thread.daemon = True
         revert_thread.start()
 
-    def start_or_update_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None):
+    def start_or_update_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None, color: str | None = None):
         """Start an LED effect if it's not already running, or update its parameters if it is.
         
         This function allows for smooth transitions in effect parameters without restarting the effect
@@ -162,6 +162,7 @@ class LEDManager:
             speed: Speed of the effect (if None, uses effect's default speed)
             brightness: Brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
             duration: Optional duration in milliseconds before reverting to previous effect
+            color: Optional color name (used by specific effects like ROTATING_COLOR)
         """
         if effect not in self._EFFECT_MAP:
             raise ValueError(f"Unknown effect: {effect}")
@@ -190,9 +191,9 @@ class LEDManager:
                 self._setup_revert_thread(previous_effect, duration)
         else:
             # Different effect or no effect running, start new effect
-            self.start_effect(effect, speed, brightness, duration)
+            self.start_effect(effect, speed, brightness, duration, color)
 
-    def start_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None):
+    def start_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None, color: str | None = None):
         """Start an LED effect
         
         Args:
@@ -200,6 +201,7 @@ class LEDManager:
             speed: Speed of the effect (if None, uses effect's default speed)
             brightness: Relative brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
             duration: Optional duration in milliseconds before reverting to previous effect
+            color: Optional color name (used by specific effects like ROTATING_COLOR)
         """
         if effect not in self._EFFECT_MAP:
             raise ValueError(f"Unknown effect: {effect}")
@@ -223,10 +225,27 @@ class LEDManager:
         self._current_effect = effect
         self._current_relative_brightness = brightness # Store relative brightness
         self._apply_brightness() # Apply combined brightness
-        self._effect_thread = Thread(target=effect_method, args=(effect_speed,))
+
+        # --- Conditionally build thread arguments ---
+        thread_args = ()
+        if effect == LEDEffect.ROTATING_COLOR:
+            if color is None:
+                 logging.error(f"Color parameter is required for {effect.name} but was not provided. Stopping.")
+                 self.clear() # Or maybe fallback to a default? Stopping seems safer.
+                 return # Don't start the thread
+            thread_args = (color, effect_speed)
+            logging.info(f"Starting {effect.name} with color '{color}' and speed {effect_speed}")
+        else:
+            # Default case for effects only needing speed
+            thread_args = (effect_speed,)
+            logging.info(f"Starting {effect.name} with speed {effect_speed}")
+        # --- End conditional arguments ---
+
+        self._effect_thread = Thread(target=effect_method, args=thread_args) # Use dynamic args
         self._effect_thread.daemon = True
         self._effect_thread.start()
-        logging.info(f"Started {effect.name} effect with speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
+        # Logging moved up slightly to be more accurate about what *parameters* were used to start
+        # logging.info(f"Started {effect.name} effect with speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
         
         if duration is not None:
             self._setup_revert_thread(previous_effect, duration)
