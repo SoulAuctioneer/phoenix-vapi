@@ -1,5 +1,5 @@
 from services.service import BaseService
-from managers.led_manager import LEDManager, LEDEffect
+from managers.led_manager import LEDManager, LEDEffect, LEDManagerRings
 from config import PLATFORM, LEDConfig
 import logging
 
@@ -13,7 +13,13 @@ class LEDService(BaseService):
     async def start(self):
         """Initialize and start the LED service"""
         try:
-            self.led_controller = LEDManager(initial_brightness=LEDConfig.LED_BRIGHTNESS)
+            if LEDConfig.IS_DUAL_RINGS:
+                logging.info("Using dual-ring LED setup.")
+                self.led_controller = LEDManagerRings(initial_brightness=LEDConfig.LED_BRIGHTNESS)
+            else:
+                logging.info("Using single LED strip setup.")
+                self.led_controller = LEDManager(initial_brightness=LEDConfig.LED_BRIGHTNESS)
+            
             if self.platform == "raspberry-pi":
                 logging.info("LED service started")
             else:

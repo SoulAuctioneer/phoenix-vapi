@@ -264,7 +264,6 @@ class LEDManager:
 
     # ********** Effect methods **********
 
-
     def _blue_breathing_effect(self, wait):
         """Gentle breathing effect in a soft blue color"""
         while not self._stop_event.is_set():
@@ -586,3 +585,78 @@ class LEDManager:
             
             self.pixels.show()
             time.sleep(wait)
+
+class LEDManagerRings(LEDManager):
+    """
+    LED Manager specifically for setups with two concentric rings.
+    Assumes the first LED_COUNT_RING1 LEDs belong to the outer ring,
+    and the next LED_COUNT_RING2 LEDs belong to the inner ring.
+    """
+    def __init__(self, initial_brightness=LEDConfig.LED_BRIGHTNESS):
+        super().__init__(initial_brightness)
+        if LEDConfig.LED_COUNT != (LEDConfig.LED_COUNT_RING1 + LEDConfig.LED_COUNT_RING2):
+            logging.warning(f"LED_COUNT ({LEDConfig.LED_COUNT}) does not match sum of RING1 ({LEDConfig.LED_COUNT_RING1}) and RING2 ({LEDConfig.LED_COUNT_RING2}). Ring slicing might be incorrect.")
+        logging.info(f"LEDManagerRings initialized for dual rings: Ring 1 ({LEDConfig.LED_COUNT_RING1} LEDs), Ring 2 ({LEDConfig.LED_COUNT_RING2} LEDs)")
+
+    @property
+    def ring1_pixels(self):
+        """Returns a slice representing the pixels of the first (outer) ring."""
+        return self.pixels[0:LEDConfig.LED_COUNT_RING1]
+
+    @property
+    def ring2_pixels(self):
+        """Returns a slice representing the pixels of the second (inner) ring."""
+        return self.pixels[LEDConfig.LED_COUNT_RING1:LEDConfig.LED_COUNT]
+
+    # We can override specific effects here later if we want them to behave
+    # differently on the two rings. For now, they inherit from LEDManager
+    # and treat the combined strip as one.
+    # Example:
+    # def _some_effect(self, wait):
+    #     # Custom logic for dual rings
+    #     pass
+
+    def _pink_blue_rotation_effect(self, wait):
+        """Override: Generate rotating gradients between pink and blue, counter-rotating on the inner ring."""
+        pink_hue = 0.85
+        blue_hue = 0.6
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+        
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Pink/Blue rotation effect requires both rings to have LEDs. Falling back to default.")
+            # Optionally call the base class implementation if needed
+            # super()._pink_blue_rotation_effect(wait)
+            # Or just do nothing/clear
+            self.clear()
+            return
+
+        while not self._stop_event.is_set():
+            for j in range(100):  # Cycle steps
+                if self._stop_event.is_set():
+                    break
+
+                # Outer ring (Ring 1) - Normal rotation
+                for i in range(num_leds_ring1):
+                    position = (i / num_leds_ring1 + j / 100.0) % 1.0
+                    if position < 0.5:
+                        hue = pink_hue + (blue_hue - pink_hue) * (position * 2)
+                    else:
+                        hue = blue_hue + (pink_hue - blue_hue) * ((position - 0.5) * 2)
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 0.8, 0.7)]
+                    self.pixels[i] = (r, g, b)
+
+                # Inner ring (Ring 2) - Counter-rotation
+                for i in range(num_leds_ring2):
+                    # Use negative j for counter-rotation
+                    position = (i / num_leds_ring2 - j / 100.0) % 1.0 # Corrected division by num_leds_ring2
+                    if position < 0.5:
+                        hue = pink_hue + (blue_hue - pink_hue) * (position * 2)
+                    else:
+                        hue = blue_hue + (pink_hue - blue_hue) * ((position - 0.5) * 2)
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 0.8, 0.7)]
+                    # Apply to the correct slice of pixels
+                    self.pixels[num_leds_ring1 + i] = (r, g, b)
+
+                self.pixels.show()
+                time.sleep(wait)
