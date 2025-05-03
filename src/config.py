@@ -355,7 +355,8 @@ class MoveActivityConfig:
 
 # AI Assistant Configuration
 
-ASSISTANT_ID = "22526ed1-6961-4760-8d93-c3759d64557c"
+# ASSISTANT_ID = "22526ed1-6961-4760-8d93-c3759d64557c" # Fifi the Phoenix
+ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # Mister Wibble
 
 BASE_ASSISTANT_CONTEXT = dedent("""
     YOUR BACKGROUND:
