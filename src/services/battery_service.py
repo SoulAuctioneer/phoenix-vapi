@@ -55,6 +55,9 @@ class BatteryService(BaseService):
             i2c = board.I2C()  # uses board.SCL and board.SDA
             self.max17 = adafruit_max1704x.MAX17048(i2c)
             
+            # Add a small delay to allow the sensor to stabilize after initialization
+            await asyncio.sleep(0.2) 
+            
             # Log device info
             self.logger.info(
                 f"Found MAX1704x with chip version {hex(self.max17.chip_version)} "
