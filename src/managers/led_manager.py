@@ -43,6 +43,9 @@ COLORS = {
     "gray": (128, 128, 128),
     "black": (0, 0, 0),
     "white": (255, 255, 255),
+    # Custom colors for Magic Garden Pea effect
+    "magic_green": (80, 255, 40),
+    "magic_gold": (255, 210, 0),
 }
 
 class LEDManager:
@@ -611,9 +614,9 @@ class LEDManager:
             time.sleep(wait)
 
     def _rotating_green_yellow_effect(self, wait):
-        """Generate a slow rotating gradient between green and yellow colors"""
-        # Call the generalized method
-        self._two_color_rotation_effect("green", "yellow", wait)
+        """Generate a slow rotating gradient between magic green and magic gold colors"""
+        # Call the generalized method with custom colors
+        self._two_color_rotation_effect("magic_green", "magic_gold", wait)
 
 class LEDManagerRings(LEDManager):
     """
@@ -1170,6 +1173,6 @@ class LEDManagerRings(LEDManager):
 
     # Correctly placed override for green/yellow rotation
     def _rotating_green_yellow_effect(self, wait):
-        """Override: Generate rotating green/yellow gradients, counter-rotating on the inner ring."""
-        # Call the generalized method for rings
-        self._two_color_rotation_effect("green", "yellow", wait)
+        """Override: Generate rotating magic green/gold gradients, counter-rotating on the inner ring."""
+        # Call the generalized method for rings with custom colors
+        self._two_color_rotation_effect("magic_green", "magic_gold", wait)
