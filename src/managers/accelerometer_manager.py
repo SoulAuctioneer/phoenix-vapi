@@ -172,26 +172,29 @@ class AccelerometerManager:
         # mounting, and expected use case environment.
         
         # Throw/Catch/Impact
-        self.throw_acceleration_threshold = 15.0  # m/s^2 - Min accel to trigger ACCELERATION state (potential throw start)
-        self.free_fall_threshold = 3.0          # m/s^2 - Max accel magnitude to be considered FREE_FALL
-        self.impact_threshold = 20.0            # m/s^2 - Min accel spike to trigger IMPACT state (Increased from 10.0)
-        self.impact_exit_threshold = 3.5        # m/s^2 - Max accel magnitude to exit IMPACT state (must be below this)
+        self.throw_acceleration_threshold = 12.0  # m/s^2 - Min accel to trigger ACCELERATION state (potential throw start) (Reduced from 15.0)
+        self.free_fall_threshold = 3.0          # m/s^2 - Max accel magnitude to be considered FREE_FALL (Unchanged)
+        self.impact_threshold = 15.0            # m/s^2 - Min accel spike to trigger IMPACT state (Reduced from 20.0)
+        self.impact_exit_threshold = 3.5        # m/s^2 - Max accel magnitude to exit IMPACT state (must be below this) (Unchanged)
         
         # Arc Swing
-        self.arc_rotation_threshold = 1.5       # rad/s - Min integrated rotation for ARC_SWING
+        self.arc_rotation_threshold = 1.5       # rad/s - Min integrated rotation for ARC_SWING (Unchanged)
+        self.arc_smoothness_threshold = 0.3     # Radians - Max std dev of rotation angles for smooth ARC_SWING
         
         # Shake
-        self.shake_history_size = 20             # Samples (~0.20s at 100Hz) (Increased from 10)
-        self.min_magnitude_for_shake = 4.0       # m/s^2 - Min average accel magnitude
-        self.min_accel_variance_for_shake = 2.0  # Min variance of accel magnitude (Increased from 1.0)
-        self.high_gyro_magnitude_threshold = 8.0 # rad/s - Min avg gyro mag for shake (Re-enabled)
-        self.max_gyro_dominance_ratio = 0.65     # Max gyro axis dominance for shake (Re-enabled)
+        self.shake_history_size = 10             # Samples (~0.1s at 100Hz) (Reduced from 20 based on refactor plan)
+        self.min_magnitude_for_shake = 4.0       # m/s^2 - Min average accel magnitude (Keeping this as primary check)
+        # self.min_accel_variance_for_shake = 2.0  # Min variance of accel magnitude (Increased from 1.0) # Refactor: Temporarily disabled
+        # self.high_gyro_magnitude_threshold = 8.0 # rad/s - Min avg gyro mag for shake (Re-enabled) # Refactor: Temporarily disabled
+        # self.max_gyro_dominance_ratio = 0.65     # Max gyro axis dominance for shake (Re-enabled) # Refactor: Temporarily disabled
         
         # Rolling
-        self.rolling_accel_min = 0.5            # m/s^2 - Min accel magnitude for ROLLING state/pattern
-        self.rolling_accel_max = 40.0           # m/s^2 - Max accel magnitude for ROLLING state/pattern (higher might be impact)
-        self.rolling_gyro_min = 1.0             # rad/s - Min gyro magnitude for ROLLING state/pattern
-        self.rolling_duration = 0.5             # seconds - Min duration in ROLLING state to detect ROLLING pattern
+        self.rolling_accel_min = 0.5            # m/s^2 - Min accel magnitude for ROLLING state/pattern (Unchanged)
+        self.rolling_accel_max = 15.0           # m/s^2 - Max accel magnitude for ROLLING state/pattern (Reduced from 40.0, should be lower than impact now)
+        self.rolling_gyro_min = 1.0             # rad/s - Min gyro magnitude for ROLLING state/pattern (Unchanged)
+        self.rolling_duration = 0.5             # seconds - Min duration in ROLLING state to detect ROLLING pattern (Unchanged)
+        self.rolling_min_dominant_ratio = 0.35  # Min ratio for dominant axis during rolling (Lowered from 0.55 in previous tuning)
+        self.rolling_max_direction_changes = 3  # Max allowed direction changes for consistent rolling
         
         # Linear Motion
         self.linear_motion_history_samples = 5  # Number of samples to average for linear motion check
@@ -362,68 +365,61 @@ class AccelerometerManager:
                     self.logger.debug("SHAKE pattern detected.")
 
             # --- Other Pattern Checks (only if SHAKE was NOT detected) ---
+            # Refactor: Removed 'if not is_shake:' guards to allow concurrent detection
 
             # Throw Detection Logic:
-            # Only check if not shaking
-            if not is_shake:
-                # 1. Check for direct ACCELERATION -> IMPACT transition (very short drops)
-                is_short_throw_detected = False
-                if self.motion_state == MotionState.IMPACT and self.throw_in_progress:
-                    # Avoid double-counting if FREE_FALL based throw was detected just before impact
-                    throw_in_recent_history = any(
-                        MotionPattern.THROW.name in patterns
-                        for _, patterns in list(self.pattern_history)[-2:] # Check last 2 history entries
-                    )
-                    if not throw_in_recent_history:
-                         # Check against currently detected patterns in *this* cycle to avoid duplicates if _check_throw_pattern runs later
-                        if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
-                            detected_patterns_this_cycle.append(MotionPattern.THROW.name)
-                            is_short_throw_detected = True
-                            self.logger.debug(f"THROW detected (Short Drop): ACCEL→IMPACT. Accel={accel_magnitude:.2f}")
-
-                # 2. Check for normal throw via FREE_FALL state duration
-                #    Only add if not already detected via the short drop logic above.
-                if not is_short_throw_detected and self._check_throw_pattern():
+            # 1. Check for direct ACCELERATION -> IMPACT transition (very short drops)
+            is_short_throw_detected = False
+            if self.motion_state == MotionState.IMPACT and self.throw_in_progress:
+                # Avoid double-counting if FREE_FALL based throw was detected just before impact
+                throw_in_recent_history = any(
+                    MotionPattern.THROW.name in patterns
+                    for _, patterns in list(self.pattern_history)[-2:] # Check last 2 history entries
+                )
+                if not throw_in_recent_history:
+                     # Check against currently detected patterns in *this* cycle to avoid duplicates if _check_throw_pattern runs later
                     if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
                         detected_patterns_this_cycle.append(MotionPattern.THROW.name)
-                    # Set flags regardless, as free fall confirms throw intent even if pattern added above
-                    self.throw_detected_time = current_time
-                    if not self.throw_in_progress: # Only log if it wasn't already set
-                         self.logger.debug(f"THROW detected (Free Fall): Accel={accel_magnitude:.2f}, starting throw_in_progress.")
-                    self.throw_in_progress = True
+                        is_short_throw_detected = True
+                        self.logger.debug(f"THROW detected (Short Drop): ACCEL→IMPACT. Accel={accel_magnitude:.2f}")
+
+            # 2. Check for normal throw via FREE_FALL state duration
+            #    Only add if not already detected via the short drop logic above.
+            if not is_short_throw_detected and self._check_throw_pattern():
+                if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
+                    detected_patterns_this_cycle.append(MotionPattern.THROW.name)
+                # Set flags regardless, as free fall confirms throw intent even if pattern added above
+                self.throw_detected_time = current_time
+                if not self.throw_in_progress: # Only log if it wasn't already set
+                     self.logger.debug(f"THROW detected (Free Fall): Accel={accel_magnitude:.2f}, starting throw_in_progress.")
+                self.throw_in_progress = True
 
 
             # Catch Detection:
-            # Only check if not shaking
-            if not is_shake:
-                # If detected, set flag for next cycle but DON'T clear throw_in_progress yet.
-                # This ensures throw pattern isn't prematurely ended if catch occurs on the *same* cycle.
-                if self._check_catch_pattern(accel_magnitude):
-                    if not any(p == MotionPattern.CATCH.name for p in detected_patterns_this_cycle): # Avoid duplicates
-                        detected_patterns_this_cycle.append(MotionPattern.CATCH.name)
-                        self.logger.debug(f"CATCH detected: Accel={accel_magnitude:.2f}. Setting flag for next cycle.")
-                    self.catch_detected_last_cycle = True # Flag to clear throw_in_progress next cycle
+            # If detected, set flag for next cycle but DON'T clear throw_in_progress yet.
+            # This ensures throw pattern isn't prematurely ended if catch occurs on the *same* cycle.
+            if self._check_catch_pattern(accel_magnitude):
+                if not any(p == MotionPattern.CATCH.name for p in detected_patterns_this_cycle): # Avoid duplicates
+                    detected_patterns_this_cycle.append(MotionPattern.CATCH.name)
+                    self.logger.debug(f"CATCH detected: Accel={accel_magnitude:.2f}. Setting flag for next cycle.")
+                self.catch_detected_last_cycle = True # Flag to clear throw_in_progress next cycle
 
             # Arc Swing Detection:
-            # Only check if not shaking
-            if not is_shake:
-                if self._check_arc_swing_pattern():
-                    # Exclude false positives during free fall.
-                    if self.motion_state != MotionState.FREE_FALL:
-                        if not any(p == MotionPattern.ARC_SWING.name for p in detected_patterns_this_cycle):
-                            detected_patterns_this_cycle.append(MotionPattern.ARC_SWING.name)
-                            self.logger.debug("ARC_SWING pattern detected.")
+            if self._check_arc_swing_pattern():
+                # Exclude false positives during free fall.
+                if self.motion_state != MotionState.FREE_FALL:
+                    if not any(p == MotionPattern.ARC_SWING.name for p in detected_patterns_this_cycle):
+                        detected_patterns_this_cycle.append(MotionPattern.ARC_SWING.name)
+                        self.logger.debug("ARC_SWING pattern detected.")
 
             # Rolling Detection:
-            # Only check if not shaking
-            if not is_shake:
-                if self._check_rolling_pattern():
-                    # self.logger.debug("ROLLING pattern detected by _check_rolling_pattern(), appending.") # Verbose Debug
-                    if not any(p == MotionPattern.ROLLING.name for p in detected_patterns_this_cycle):
-                        detected_patterns_this_cycle.append(MotionPattern.ROLLING.name)
-                        self.logger.debug("ROLLING pattern detected.")
-                    # else:
-                        # self.logger.debug("ROLLING pattern NOT detected by _check_rolling_pattern().") # Verbose Debug
+            if self._check_rolling_pattern():
+                # self.logger.debug("ROLLING pattern detected by _check_rolling_pattern(), appending.") # Verbose Debug
+                if not any(p == MotionPattern.ROLLING.name for p in detected_patterns_this_cycle):
+                    detected_patterns_this_cycle.append(MotionPattern.ROLLING.name)
+                    self.logger.debug("ROLLING pattern detected.")
+                # else:
+                    # self.logger.debug("ROLLING pattern NOT detected by _check_rolling_pattern().") # Verbose Debug
 
             # --- Update History & State ---
             # Note: We update history even if only SHAKE was detected
@@ -956,8 +952,7 @@ class AccelerometerManager:
                     std_dev = sqrt(variance)
                     
                     # If the standard deviation is low, rotation is smooth
-                    smoothness_threshold = 0.3  # Radians
-                    if std_dev < smoothness_threshold:
+                    if std_dev < self.arc_smoothness_threshold:
                         # ADDED: Check for ongoing rotation
                         latest_gyro_mag = 0.0
                         latest_entry = self.motion_history[-1]
@@ -1023,19 +1018,14 @@ class AccelerometerManager:
             # self.logger.debug(f"Shake check failed: Avg accel magnitude {avg_accel_magnitude:.2f} < {self.min_magnitude_for_shake:.2f}")
             return False
 
-        # 2. Check acceleration magnitude variance
-        try:
-            accel_magnitude_variance = statistics.variance(accel_magnitudes)
-        except statistics.StatisticsError:
-            # Handle case where variance calculation fails (e.g., only one data point after filtering)
-            # self.logger.debug("Shake check failed: Could not calculate variance (likely too few points).")
-            return False
-
-        if accel_magnitude_variance < self.min_accel_variance_for_shake:
-             # self.logger.debug(f"Shake check failed: Accel magnitude variance {accel_magnitude_variance:.2f} < {self.min_accel_variance_for_shake:.2f}")
-             return False
+        # Refactor: Temporarily disabled variance check
+        # if accel_magnitude_variance < self.min_accel_variance_for_shake:
+        #      # self.logger.debug(f"Shake check failed: Accel magnitude variance {accel_magnitude_variance:.2f} < {self.min_accel_variance_for_shake:.2f}")
+        #      return False
 
         # --- Gyroscope Checks (Re-enabled) ---
+        # Refactor: Temporarily disabled gyro checks
+        """
         gyros = [entry.get("gyro", None) for entry in recent_history]
         valid_gyros = [gyro for gyro in gyros
                        if isinstance(gyro, tuple) and len(gyro) == 3]
@@ -1066,10 +1056,11 @@ class AccelerometerManager:
         if not (is_high_magnitude_gyro or is_low_dominance_gyro):
              # self.logger.debug("Shake check failed: Gyro signature (low mag AND high dominance) does not match shake.")
              return False
+        """
 
         # --- Final Decision ---
-        # Reinstate full log message
-        self.logger.debug(f"SHAKE detected: Avg AccelMag={avg_accel_magnitude:.2f}, AccelMagVariance={accel_magnitude_variance:.2f}, Avg GyroMag={avg_gyro_magnitude:.2f}, GyroDominance={gyro_dominance_ratio:.2f}")
+        # Now relies primarily on average acceleration magnitude
+        self.logger.debug(f"SHAKE detected (Simplified): Avg AccelMag={avg_accel_magnitude:.2f}")
         return True
 
     def _check_rolling_pattern(self) -> bool:
@@ -1127,14 +1118,13 @@ class AccelerometerManager:
                 dominant_axis, dominant_ratio = dominant_axis_info
                 axis_names = ['x', 'y', 'z']
                 
-                # Define the minimum ratio needed *before* logging it
-                min_dominant_ratio = 0.35 # Lowered from 0.55
-                self.logger.debug(f"Rolling pattern check: Dominant axis is {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f} (min required: {min_dominant_ratio:.2f})")
+                # Use class attribute for threshold
+                self.logger.debug(f"Rolling pattern check: Dominant axis is {axis_names[dominant_axis]} with ratio {dominant_ratio:.2f} (min required: {self.rolling_min_dominant_ratio:.2f})")
                 
                 # If one axis dominates the rotation (rolling tends to rotate around one axis)
                 # Relaxed the required ratio from 0.7 to 0.55 to allow more wobble
-                if dominant_ratio > min_dominant_ratio:
-                    self.logger.debug(f"Rolling check passed: Dominant axis {axis_names[dominant_axis]} ratio {dominant_ratio:.2f} > {min_dominant_ratio:.2f}")
+                if dominant_ratio > self.rolling_min_dominant_ratio:
+                    self.logger.debug(f"Rolling check passed: Dominant axis {axis_names[dominant_axis]} ratio {dominant_ratio:.2f} > {self.rolling_min_dominant_ratio:.2f}")
                     
                     # Verify consistency of rotation direction around dominant axis
                     last_direction = None
@@ -1147,13 +1137,12 @@ class AccelerometerManager:
                         last_direction = current_direction
                     
                     # True rolling should have consistent rotation direction
-                    # Relaxed allowed changes from 1 to 2
-                    max_direction_changes = 3
-                    if direction_changes <= max_direction_changes:
-                        self.logger.debug(f"Rolling check passed: Direction changes {direction_changes} <= {max_direction_changes}")
+                    # Use class attribute for threshold
+                    if direction_changes <= self.rolling_max_direction_changes:
+                        self.logger.debug(f"Rolling check passed: Direction changes {direction_changes} <= {self.rolling_max_direction_changes}")
                         return True
                     else:
-                        self.logger.debug(f"Rolling check failed: Too many direction changes ({direction_changes} > {max_direction_changes})")
+                        self.logger.debug(f"Rolling check failed: Too many direction changes ({direction_changes} > {self.rolling_max_direction_changes})")
                 else:
                     self.logger.debug(f"Rolling check failed: No dominant rotation axis detected.") # Log updated
             else:

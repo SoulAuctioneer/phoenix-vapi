@@ -45,6 +45,8 @@ class BatteryService(BaseService):
         # Add tracking for time estimates
         self._last_charge_time: Optional[float] = None
         self._charge_rate: Optional[float] = None  # Percent per hour
+        # Add tracking for low battery sound
+        self._last_low_battery_sound_time: Optional[float] = None
         
     async def start(self):
         """Initialize and start the battery monitoring service"""
@@ -149,7 +151,7 @@ class BatteryService(BaseService):
         await super().stop()
         self.logger.info("BatteryService stopped")
         
-    def _update_charging_state(self, voltage: float) -> None:
+    async def _update_charging_state(self, voltage: float) -> None:
         """Update charging state based on voltage changes
         
         Args:
@@ -163,6 +165,11 @@ class BatteryService(BaseService):
                     f"to {voltage:.3f}V (+{voltage - self._last_charging_check_voltage:.3f}V)"
                 )
                 self._is_charging = True
+                # Play CHIME_HIGH sound effect
+                await self.publish({
+                    "type": "play_sound",
+                    "effect_name": "CHIME_HIGH"
+                })
         elif voltage < self._last_charging_check_voltage - BatteryConfig.CHARGING_STOP_HYSTERESIS:
             if self._is_charging:
                 self.logger.info(
@@ -170,6 +177,11 @@ class BatteryService(BaseService):
                     f"to {voltage:.3f}V (-{self._last_charging_check_voltage - voltage:.3f}V)"
                 )
                 self._is_charging = False
+                # Play CHIME_LOW sound effect
+                await self.publish({
+                    "type": "play_sound",
+                    "effect_name": "CHIME_LOW"
+                })
                 
         # Always update last voltage to track small changes
         self._last_charging_check_voltage = voltage
@@ -305,7 +317,7 @@ class BatteryService(BaseService):
                 current_time = asyncio.get_event_loop().time()
                 
                 # Update charging state and charge rate
-                self._update_charging_state(voltage)
+                await self._update_charging_state(voltage)
                 self._update_charge_rate(charge_percent, current_time)
                 
                 # Calculate time estimate
@@ -338,6 +350,18 @@ class BatteryService(BaseService):
                     self._last_voltage = voltage
                     self._last_charge = charge_percent
                 
+                # Check if battery is low and play sound periodically
+                if charge_percent <= BatteryConfig.LOW_BATTERY_THRESHOLD:
+                    if (self._last_low_battery_sound_time is None or
+                            (current_time - self._last_low_battery_sound_time) >= BatteryConfig.LOW_BATTERY_SOUND_INTERVAL):
+                        # Assume 'LOW_BATTERY' is defined in SoundEffect enum/class in config
+                        await self.publish({
+                            "type": "play_sound",
+                            "effect_name": "LOW_BATTERY" 
+                        })
+                        self._last_low_battery_sound_time = current_time
+                        self.logger.info(f"Played LOW_BATTERY sound effect (charge: {charge_percent:.1f}%)")
+                        
                 # Check and publish alerts if active
                 if self.max17.active_alert:
                     alerts = []

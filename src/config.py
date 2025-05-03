@@ -127,6 +127,10 @@ class SoundEffect(str, Enum):
     BREATHING = "breathing.wav"
     PURRING = "purring.wav"
     WEE = "wee.wav"
+    LOW_BATTERY = "low_battery.wav"
+    CHIME_LOW = "chime_low.wav"
+    CHIME_MID = "chime_mid.wav"
+    CHIME_HIGH = "chime_high.wav"
     SQUEAK = "squeak.wav"
     CHIRP1 = "chirp1.wav"
     CHIRP2 = "chirp2.wav"
@@ -320,6 +324,9 @@ class BatteryConfig:
     CHARGING_START_HYSTERESIS = 0.02  # Voltage increase to detect start of charging (V)
     CHARGING_STOP_HYSTERESIS = 0.05   # Voltage decrease to detect end of charging (V)
     
+    # Low battery sound alert interval (in seconds)
+    LOW_BATTERY_SOUND_INTERVAL = 120.0 # 2 minutes
+
     # Power saving configuration
     ACTIVITY_THRESHOLD = 0.15  # Voltage change threshold to exit hibernation (V)
     HIBERNATION_THRESHOLD = 5.0  # Charge rate change threshold to enter hibernation (%)
