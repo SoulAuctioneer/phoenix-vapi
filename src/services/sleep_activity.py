@@ -37,7 +37,7 @@ class SleepActivity(BaseService):
         await self.publish({
             "type": "start_led_effect",
             "data": {
-                "effectName": "pink_blue_cycle",
+                "effectName": "green_yellow_cycle",
                 "speed": 0.05,  # Slow, gentle rotation
                 "brightness": self._LED_BRIGHTNESS  # Dimmer for sleep mode
             }

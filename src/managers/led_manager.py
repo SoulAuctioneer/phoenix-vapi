@@ -22,6 +22,7 @@ class LEDEffect(Enum):
     BLUE_BREATHING = auto()
     GREEN_BREATHING = auto()
     ROTATING_PINK_BLUE = auto()
+    ROTATING_GREEN_YELLOW = auto()
     ROTATING_RAINBOW = auto()
     RANDOM_TWINKLING = auto()
     RAIN = auto()
@@ -50,6 +51,7 @@ class LEDManager:
         LEDEffect.BLUE_BREATHING: {'method': '_blue_breathing_effect', 'default_speed': 0.05},
         LEDEffect.GREEN_BREATHING: {'method': '_green_breathing_effect', 'default_speed': 0.05},
         LEDEffect.ROTATING_PINK_BLUE: {'method': '_pink_blue_rotation_effect', 'default_speed': 0.05},
+        LEDEffect.ROTATING_GREEN_YELLOW: {'method': '_rotating_green_yellow_effect', 'default_speed': 0.05},
         LEDEffect.ROTATING_RAINBOW: {'method': '_rotating_rainbow_effect', 'default_speed': 0.02},
         LEDEffect.RANDOM_TWINKLING: {'method': '_random_twinkling_effect', 'default_speed': 0.03},
         LEDEffect.RAIN: {'method': '_rain_effect', 'default_speed': 0.05},
@@ -310,9 +312,28 @@ class LEDManager:
 
     def _pink_blue_rotation_effect(self, wait):
         """Generate a slow rotating gradient between pink and blue colors"""
-        # Pink and blue hues in HSV (pink ≈ 0.85, blue ≈ 0.6)
-        pink_hue = 0.85
-        blue_hue = 0.6
+        # Call the generalized method
+        self._two_color_rotation_effect("pink", "blue", wait)
+
+    def _two_color_rotation_effect(self, color1_name: str, color2_name: str, wait: float):
+        """Generate a slow rotating gradient between two specified colors"""
+        try:
+            rgb1 = COLORS[color1_name]
+            rgb2 = COLORS[color2_name]
+        except KeyError as e:
+            logging.error(f"Invalid color name for two_color_rotation: {e}. Using pink/blue.")
+            rgb1 = COLORS["pink"]
+            rgb2 = COLORS["blue"]
+
+        # Convert RGB to HSV to easily interpolate hues
+        hsv1 = colorsys.rgb_to_hsv(rgb1[0] / 255.0, rgb1[1] / 255.0, rgb1[2] / 255.0)
+        hsv2 = colorsys.rgb_to_hsv(rgb2[0] / 255.0, rgb2[1] / 255.0, rgb2[2] / 255.0)
+        hue1 = hsv1[0]
+        hue2 = hsv2[0]
+        # Keep saturation and value fixed like in the original pink/blue effect
+        saturation = 0.8
+        value = 0.7
+
         while not self._stop_event.is_set():
             for j in range(100):  # Slower cycle with 100 steps
                 if self._stop_event.is_set():
@@ -321,15 +342,18 @@ class LEDManager:
                 for i in range(LEDConfig.LED_COUNT):
                     # Calculate position in the gradient cycle
                     position = (i / LEDConfig.LED_COUNT + j / 100.0) % 1.0
-                    # Interpolate between pink and blue
+                    # Interpolate between the two hues
                     if position < 0.5:
-                        # Transition from pink to blue
-                        hue = pink_hue + (blue_hue - pink_hue) * (position * 2)
+                        # Transition from color1 to color2
+                        hue = hue1 + (hue2 - hue1) * (position * 2)
                     else:
-                        # Transition from blue back to pink
-                        hue = blue_hue + (pink_hue - blue_hue) * ((position - 0.5) * 2)
-                    # Use high saturation and medium value for vibrant but not too bright colors
-                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 0.8, 0.7)]
+                        # Transition from color2 back to color1
+                        hue = hue2 + (hue1 - hue2) * ((position - 0.5) * 2)
+
+                    # Ensure hue wraps around correctly if interpolation crosses 0/1 boundary
+                    hue %= 1.0
+
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, value)]
                     self.pixels[i] = (r, g, b)
                 self.pixels.show()
                 time.sleep(wait)
@@ -586,6 +610,11 @@ class LEDManager:
             self.pixels.show()
             time.sleep(wait)
 
+    def _rotating_green_yellow_effect(self, wait):
+        """Generate a slow rotating gradient between green and yellow colors"""
+        # Call the generalized method
+        self._two_color_rotation_effect("green", "yellow", wait)
+
 class LEDManagerRings(LEDManager):
     """
     LED Manager specifically for setups with two concentric rings.
@@ -609,25 +638,111 @@ class LEDManagerRings(LEDManager):
         return self.pixels[LEDConfig.LED_COUNT_RING1:LEDConfig.LED_COUNT]
 
     def _blue_breathing_effect(self, wait):
-        """Override: Calls the parent implementation."""
-        super()._blue_breathing_effect(wait)
-
-    def _green_breathing_effect(self, wait):
-        """Override: Calls the parent implementation."""
-        super()._green_breathing_effect(wait)
-
-    def _pink_blue_rotation_effect(self, wait):
-        """Override: Generate rotating gradients between pink and blue, counter-rotating on the inner ring."""
-        pink_hue = 0.85
-        blue_hue = 0.6
+        """Gentle blue breathing, inner ring slightly out of phase."""
         num_leds_ring1 = LEDConfig.LED_COUNT_RING1
         num_leds_ring2 = LEDConfig.LED_COUNT_RING2
         
         if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
-            logging.warning("Pink/Blue rotation effect requires both rings to have LEDs. Falling back to default.")
-            # Optionally call the base class implementation if needed
-            # super()._pink_blue_rotation_effect(wait)
-            # Or just do nothing/clear
+            logging.warning("Blue breathing effect requires both rings to have LEDs. Falling back to default.")
+            return super()._blue_breathing_effect(wait)
+
+        phase_offset = math.pi / 2 # 90 degrees out of phase
+
+        while not self._stop_event.is_set():
+            for i in range(0, 100, 1):
+                if self._stop_event.is_set():
+                    break
+                
+                # Calculate brightness for outer ring
+                angle_outer = i * math.pi / 50
+                brightness_outer = (math.sin(angle_outer) + 1) / 2
+                color_outer = (int(0 * brightness_outer * 255),
+                               int(0.5 * brightness_outer * 255),
+                               int(brightness_outer * 255))
+
+                # Calculate brightness for inner ring (out of phase)
+                angle_inner = angle_outer + phase_offset
+                brightness_inner = (math.sin(angle_inner) + 1) / 2
+                color_inner = (int(0 * brightness_inner * 255),
+                               int(0.5 * brightness_inner * 255),
+                               int(brightness_inner * 255))
+
+                # Apply colors to rings
+                for idx in range(num_leds_ring1):
+                    self.pixels[idx] = color_outer
+                for idx in range(num_leds_ring2):
+                    self.pixels[num_leds_ring1 + idx] = color_inner
+                    
+                self.pixels.show()
+                time.sleep(wait)
+
+    def _green_breathing_effect(self, wait):
+        """Override: Gentle green breathing, inner ring slightly out of phase."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Green breathing effect requires both rings to have LEDs. Falling back to default.")
+            return super()._green_breathing_effect(wait)
+
+        base_hue = 0.3  # Green in HSV
+        phase_offset = math.pi / 2 # 90 degrees out of phase
+
+        while not self._stop_event.is_set():
+            for i in range(0, 100, 1):
+                if self._stop_event.is_set():
+                    break
+                
+                # Calculate brightness for outer ring
+                angle_outer = i * math.pi / 50
+                # Subtle brightness pulsing (0.5 to 0.8)
+                brightness_outer = 0.5 + 0.3 * (math.sin(angle_outer) + 1) / 2
+                r_outer, g_outer, b_outer = [int(x * 255) for x in colorsys.hsv_to_rgb(base_hue, 0.8, brightness_outer)]
+                color_outer = (r_outer, g_outer, b_outer)
+
+                # Calculate brightness for inner ring (out of phase)
+                angle_inner = angle_outer + phase_offset
+                brightness_inner = 0.5 + 0.3 * (math.sin(angle_inner) + 1) / 2
+                r_inner, g_inner, b_inner = [int(x * 255) for x in colorsys.hsv_to_rgb(base_hue, 0.8, brightness_inner)]
+                color_inner = (r_inner, g_inner, b_inner)
+
+                # Apply colors to rings
+                for idx in range(num_leds_ring1):
+                    self.pixels[idx] = color_outer
+                for idx in range(num_leds_ring2):
+                    self.pixels[num_leds_ring1 + idx] = color_inner
+                    
+                self.pixels.show()
+                time.sleep(wait)
+
+    def _pink_blue_rotation_effect(self, wait):
+        """Override: Generate rotating gradients between pink and blue, counter-rotating on the inner ring."""
+        # Call the generalized method for rings
+        self._two_color_rotation_effect("pink", "blue", wait)
+
+    def _two_color_rotation_effect(self, color1_name: str, color2_name: str, wait: float):
+        """Override: Generate rotating gradients between two specified colors, counter-rotating on the inner ring."""
+        try:
+            rgb1 = COLORS[color1_name]
+            rgb2 = COLORS[color2_name]
+        except KeyError as e:
+            logging.error(f"Invalid color name for two_color_rotation (rings): {e}. Using pink/blue.")
+            rgb1 = COLORS["pink"]
+            rgb2 = COLORS["blue"]
+
+        # Convert RGB to HSV
+        hsv1 = colorsys.rgb_to_hsv(rgb1[0] / 255.0, rgb1[1] / 255.0, rgb1[2] / 255.0)
+        hsv2 = colorsys.rgb_to_hsv(rgb2[0] / 255.0, rgb2[1] / 255.0, rgb2[2] / 255.0)
+        hue1 = hsv1[0]
+        hue2 = hsv2[0]
+        saturation = 0.8 # Keep fixed S, V
+        value = 0.7
+
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Two color rotation effect requires both rings to have LEDs. Stopping effect.")
             self.clear()
             return
 
@@ -640,21 +755,23 @@ class LEDManagerRings(LEDManager):
                 for i in range(num_leds_ring1):
                     position = (i / num_leds_ring1 + j / 100.0) % 1.0
                     if position < 0.5:
-                        hue = pink_hue + (blue_hue - pink_hue) * (position * 2)
+                        hue = hue1 + (hue2 - hue1) * (position * 2)
                     else:
-                        hue = blue_hue + (pink_hue - blue_hue) * ((position - 0.5) * 2)
-                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 0.8, 0.7)]
+                        hue = hue2 + (hue1 - hue2) * ((position - 0.5) * 2)
+                    hue %= 1.0
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, value)]
                     self.pixels[i] = (r, g, b)
 
                 # Inner ring (Ring 2) - Counter-rotation
                 for i in range(num_leds_ring2):
                     # Use negative j for counter-rotation
-                    position = (i / num_leds_ring2 - j / 100.0) % 1.0 # Corrected division by num_leds_ring2
+                    position = (i / num_leds_ring2 - j / 100.0) % 1.0
                     if position < 0.5:
-                        hue = pink_hue + (blue_hue - pink_hue) * (position * 2)
+                        hue = hue1 + (hue2 - hue1) * (position * 2)
                     else:
-                        hue = blue_hue + (pink_hue - blue_hue) * ((position - 0.5) * 2)
-                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 0.8, 0.7)]
+                        hue = hue2 + (hue1 - hue2) * ((position - 0.5) * 2)
+                    hue %= 1.0
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, value)]
                     # Apply to the correct slice of pixels
                     self.pixels[num_leds_ring1 + i] = (r, g, b)
 
@@ -694,22 +811,365 @@ class LEDManagerRings(LEDManager):
                 time.sleep(wait)
 
     def _random_twinkling_effect(self, wait):
-        """Override: Calls the parent implementation."""
-        super()._random_twinkling_effect(wait)
+        """Override: Create random twinkling pixels on the outer ring and a slow white pulse on the inner ring."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Random twinkling effect requires both rings to have LEDs. Falling back to default.")
+            return super()._random_twinkling_effect(wait)
+
+        # Track the state of each pixel for the outer ring
+        pixel_states_ring1 = [{'active': False, 'brightness': 0.0, 'hue': random.random(), 'direction': 1} for _ in range(num_leds_ring1)]
+        # Inner ring pulse state
+        pulse_phase = 0.0
+        pulse_speed = 0.5 # Controls the speed of the inner ring pulse (adjust as needed)
+
+        while not self._stop_event.is_set():
+            # Update Ring 1 (Outer Ring) - Twinkling
+            for i, pixel in enumerate(pixel_states_ring1):
+                # Chance to activate
+                if not pixel['active'] and random.random() < 0.01:
+                    pixel['active'] = True
+                    pixel['brightness'] = 0.0
+                    pixel['hue'] = random.random()
+                    pixel['direction'] = 1
+
+                # Update active pixel
+                if pixel['active']:
+                    speed_factor = 1.0 - (pixel['brightness'] ** 2)
+                    base_step = 0.02
+                    step = base_step + (base_step * 2 * speed_factor)
+                    pixel['brightness'] += step * pixel['direction']
+
+                    # Check bounds
+                    if pixel['brightness'] >= 1.0:
+                        pixel['brightness'] = 1.0
+                        pixel['direction'] = -1
+                    elif pixel['brightness'] <= 0.0:
+                        if pixel['direction'] == -1:
+                            pixel['active'] = False
+                        pixel['brightness'] = 0.0
+
+                    # Set pixel color
+                    if pixel['active']:
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(pixel['hue'], 1.0, pixel['brightness'])]
+                        self.pixels[i] = (r, g, b)
+                    else:
+                        self.pixels[i] = (0, 0, 0)
+                elif not pixel['active']: # Ensure inactive pixels are off
+                    self.pixels[i] = (0, 0, 0)
+
+            # Update Ring 2 (Inner Ring) - Slow White Pulse
+            pulse_phase += pulse_speed * wait # Increment phase based on time elapsed
+            # Use sine wave for smooth pulsing (range 0.1 to 0.8 brightness)
+            pulse_brightness = 0.1 + (math.sin(pulse_phase) + 1) / 2 * 0.7
+            pulse_color_val = int(255 * pulse_brightness)
+            inner_ring_color = (pulse_color_val, pulse_color_val, pulse_color_val)
+
+            for i in range(num_leds_ring2):
+                pixel_index_in_strip = num_leds_ring1 + i
+                self.pixels[pixel_index_in_strip] = inner_ring_color
+
+            self.pixels.show()
+            time.sleep(wait)
 
     def _rain_effect(self, wait):
-        """Override: Calls the parent implementation."""
-        super()._rain_effect(wait)
+        """Override: Rain appears as a splash on the inner ring, then falls to the outer ring and fades."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Rain effect requires both rings to have LEDs. Falling back to default.")
+            return super()._rain_effect(wait)
+
+        raindrops = [] # List to store active raindrops
+        # Phase durations (these are relative multipliers for 'wait')
+        splash_duration_factor = 15
+        fall_duration_factor = 10
+        fade_duration_factor = 50
+
+        # Splash visual parameters
+        splash_color = (180, 255, 255) # Bright cyan/white
+        splash_spread = 1 # Number of LEDs adjacent to center to light up
+
+        # Fall/Fade visual parameters
+        fall_color = (50, 50, 255) # Blue
+
+        while not self._stop_event.is_set():
+            # Chance to create new raindrop
+            if random.random() < 0.08: # Adjust probability as needed
+                raindrops.append({
+                    'angle': random.random(), # 0.0 to 1.0
+                    'phase': 'inner_splash',
+                    'progress': 0.0, # Normalized progress within phase (0.0 to 1.0)
+                    'speed': random.uniform(0.8, 1.2) # Slight speed variation per drop
+                })
+
+            # Clear all pixels (using temporary buffer for blending)
+            current_pixels = [(0, 0, 0)] * LEDConfig.LED_COUNT
+
+            new_raindrops = []
+            for drop in raindrops:
+                # Update progress
+                phase_duration = 1.0 # Default, will be overridden
+                if drop['phase'] == 'inner_splash':
+                    phase_duration = splash_duration_factor * wait
+                elif drop['phase'] == 'outer_fall':
+                    phase_duration = fall_duration_factor * wait
+                elif drop['phase'] == 'outer_fade':
+                    phase_duration = fade_duration_factor * wait
+
+                # Avoid division by zero if wait is very small or zero
+                if phase_duration > 0:
+                     drop['progress'] += (drop['speed'] * wait) / phase_duration
+                else: # If duration is zero, instantly finish phase
+                     drop['progress'] = 1.0
+
+                keep_drop = True
+                if drop['phase'] == 'inner_splash':
+                    if drop['progress'] >= 1.0:
+                        drop['phase'] = 'outer_fall'
+                        drop['progress'] = 0.0
+                    else:
+                        # Calculate splash effect - peak brightness mid-phase
+                        brightness = math.sin(drop['progress'] * math.pi) # 0 -> 1 -> 0
+                        center_led = int(drop['angle'] * num_leds_ring2) % num_leds_ring2
+                        for i in range(-splash_spread, splash_spread + 1):
+                            led_index_inner = (center_led + i) % num_leds_ring2
+                            # Fade intensity with distance from center
+                            dist_factor = 1.0 - (abs(i) / (splash_spread + 1))
+                            current_brightness = brightness * dist_factor
+                            color = tuple(int(c * current_brightness) for c in splash_color)
+                            # Apply to inner ring slice
+                            pixel_index_in_strip = num_leds_ring1 + led_index_inner
+                            current_pixels[pixel_index_in_strip] = self._blend_colors(
+                                current_pixels[pixel_index_in_strip], color)
+
+                elif drop['phase'] == 'outer_fall':
+                    if drop['progress'] >= 1.0:
+                        drop['phase'] = 'outer_fade'
+                        drop['progress'] = 0.0
+                    else:
+                        # Light up the single LED on the outer ring
+                        led_index_outer = int(drop['angle'] * num_leds_ring1) % num_leds_ring1
+                        current_pixels[led_index_outer] = self._blend_colors(
+                            current_pixels[led_index_outer], fall_color)
+
+                elif drop['phase'] == 'outer_fade':
+                    if drop['progress'] >= 1.0:
+                        keep_drop = False # Drop fades out completely
+                    else:
+                        # Fade out the LED on the outer ring
+                        brightness = 1.0 - drop['progress']
+                        led_index_outer = int(drop['angle'] * num_leds_ring1) % num_leds_ring1
+                        color = tuple(int(c * brightness) for c in fall_color)
+                        current_pixels[led_index_outer] = self._blend_colors(
+                            current_pixels[led_index_outer], color)
+
+                if keep_drop:
+                    new_raindrops.append(drop)
+
+            raindrops = new_raindrops
+
+            # Update the actual pixels
+            for i in range(LEDConfig.LED_COUNT):
+                self.pixels[i] = current_pixels[i]
+            self.pixels.show()
+            time.sleep(wait)
 
     def _lightning_effect(self, wait):
-        """Override: Calls the parent implementation."""
-        super()._lightning_effect(wait)
+        """Override: Lightning originates with a flicker on the inner ring, then arcs across the outer ring."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Lightning effect requires both rings to have LEDs. Falling back to default.")
+            return super()._lightning_effect(wait)
+
+        flicker_color = (220, 220, 255) # Very light blue/white
+        arc_color_base = (255, 255, 255)
+        arc_color_tint = (0, 0, 50) # Slight blue tint added to arc
+        afterglow_colors = [
+            (150, 150, 180), # Bluish white
+            (80, 80, 120),   # Dimmer blue
+            (30, 30, 50)     # Very dim blue
+        ]
+
+        while not self._stop_event.is_set():
+            # Choose origin angle and calculate corresponding LEDs
+            origin_angle = random.random()
+            origin_led_inner = int(origin_angle * num_leds_ring2) % num_leds_ring2
+            start_led_outer = int(origin_angle * num_leds_ring1) % num_leds_ring1
+
+            # 1. Inner Ring Flicker
+            flicker_frames = random.randint(2, 4)
+            for frame in range(flicker_frames):
+                if self._stop_event.is_set(): return
+                self.pixels.fill((0, 0, 0))
+                # Light up 1 or 2 pixels around origin
+                flicker_brightness = random.uniform(0.6, 1.0)
+                color = tuple(int(c * flicker_brightness) for c in flicker_color)
+                inner_idx1 = num_leds_ring1 + origin_led_inner
+                self.pixels[inner_idx1] = color
+                # Occasionally light adjacent pixel too
+                if random.random() < 0.5:
+                    adj_offset = random.choice([-1, 1])
+                    inner_idx2 = num_leds_ring1 + (origin_led_inner + adj_offset) % num_leds_ring2
+                    self.pixels[inner_idx2] = color
+                self.pixels.show()
+                time.sleep(0.015) # Very quick flicker frames
+
+            # 2. Outer Ring Arc (adapting parent logic)
+            clockwise = random.choice([True, False])
+            arc_length = random.randint(num_leds_ring1 // 3, (num_leds_ring1 * 2) // 3)
+
+            for intensity_factor in [1.0, 0.8]: # Two quick flashes
+                if self._stop_event.is_set(): return
+                # Clear only outer ring for the arc drawing phase
+                for i in range(num_leds_ring1):
+                    self.pixels[i] = (0, 0, 0)
+                # Keep inner flicker briefly visible during first arc flash if desired
+                # Or clear inner ring too: self.pixels.fill((0,0,0))
+
+                arc_pixels_indices = set()
+                for i in range(arc_length):
+                    if self._stop_event.is_set(): return
+                    current_pos_outer = (start_led_outer + (i if clockwise else -i)) % num_leds_ring1
+                    arc_pixels_indices.add(current_pos_outer)
+
+                    # Branching logic (applied to outer ring)
+                    if random.random() < 0.3:
+                        branch_length = random.randint(2, 4)
+                        branch_direction = random.choice([1, -1])
+                        for j in range(branch_length):
+                            branch_pos_outer = (current_pos_outer + (j * branch_direction)) % num_leds_ring1
+                            arc_pixels_indices.add(branch_pos_outer)
+                            brightness = max(0, min(1.0, (1 - (j / branch_length)) * intensity_factor * 0.7))
+                            color = tuple(min(255, int(base * brightness + tint * brightness)) for base, tint in zip(arc_color_base, arc_color_tint))
+                            self.pixels[branch_pos_outer] = self._blend_colors(self.pixels[branch_pos_outer], color)
+
+                    # Main arc segment (applied to outer ring)
+                    brightness = max(0, min(1.0, intensity_factor * (1 - (i / arc_length) * 0.3)))
+                    color = tuple(min(255, int(base * brightness + tint * brightness)) for base, tint in zip(arc_color_base, arc_color_tint))
+                    self.pixels[current_pos_outer] = self._blend_colors(self.pixels[current_pos_outer], color)
+
+                self.pixels.show()
+                time.sleep(0.025) # Quick flash
+
+            # 3. Afterglow (Outer Ring focus)
+            # Store final arc pixels before clearing inner ring
+            final_arc_pixels = {idx: self.pixels[idx] for idx in arc_pixels_indices}
+            self.pixels.fill((0, 0, 0)) # Clear everything before afterglow
+
+            for i, ag_color in enumerate(afterglow_colors):
+                if self._stop_event.is_set(): return
+                # Apply afterglow to the pixels that were part of the outer arc
+                for idx in arc_pixels_indices:
+                     # Use the brightness of the final arc pixel to scale the afterglow color?
+                     # Or just apply the afterglow color directly? Let's try direct first.
+                    self.pixels[idx] = ag_color
+                # Optional: very faint quick afterglow on inner origin
+                if i == 0: # Only on first step
+                     inner_idx = num_leds_ring1 + origin_led_inner
+                     self.pixels[inner_idx] = tuple(int(c*0.3) for c in afterglow_colors[-1]) # Faint version of last afterglow color
+
+                self.pixels.show()
+                time.sleep(0.06)
+
+            # 4. Clear and Wait
+            self.pixels.fill((0, 0, 0))
+            self.pixels.show()
+            time.sleep(random.uniform(0.5, 2.5)) # Wait for next strike
 
     def _purring_effect(self, wait):
-        """Override: Calls the parent implementation."""
-        super()._purring_effect(wait)
+        """Override: Outer ring pulses warm color, inner ring steady warm glow."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Purring effect requires both rings to have LEDs. Falling back to default.")
+            return super()._purring_effect(wait)
+
+        base_color = (255, 180, 147)  # Warm peachy-pink
+        inner_ring_brightness = 0.2 # Dim steady glow for inner ring
+        inner_ring_color = tuple(int(c * inner_ring_brightness) for c in base_color)
+        
+        while not self._stop_event.is_set():
+            # Calculate purring brightness for outer ring
+            for i in range(0, 100, 1):
+                if self._stop_event.is_set():
+                    break
+                    
+                # Use two overlapping sine waves for outer ring pulse
+                wave1 = math.sin(i * math.pi / 25)  # Faster wave
+                wave2 = math.sin(i * math.pi / 50)  # Slower wave
+                
+                # Brightness varies between 0.3 and 1.0 for outer ring
+                brightness_outer = 0.3 + (((wave1 + wave2 + 2) / 4) * 0.7)
+                color_outer = tuple(int(c * brightness_outer) for c in base_color)
+
+                # Apply colors
+                # Outer ring - pulsing purr
+                for idx in range(num_leds_ring1):
+                    self.pixels[idx] = color_outer
+                # Inner ring - steady dim glow
+                for idx in range(num_leds_ring2):
+                    self.pixels[num_leds_ring1 + idx] = inner_ring_color
+                    
+                self.pixels.show()
+                time.sleep(wait)
 
     def _rotating_color_effect(self, color, wait):
-        """Override: Calls the parent implementation."""
-        # Note: This effect takes an additional 'color' argument
-        super()._rotating_color_effect(color, wait)
+        """Override: Rotates hues around a base color, counter-rotating on inner ring."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Rotating color effect requires both rings to have LEDs. Falling back to default.")
+            # Call super, but need to pass the color argument
+            return super()._rotating_color_effect(color, wait) 
+
+        if color not in COLORS:
+            logging.error(f"Invalid color name '{color}' for rotating_color_effect. Falling back to white.")
+            rgb_base_color = COLORS["white"]
+        else:
+            rgb_base_color = COLORS[color]
+
+        # Normalize base color components to 0-1 range for multiplication
+        rgb_base_normalized = tuple(c / 255.0 for c in rgb_base_color)
+
+        offset = 0.0
+        while not self._stop_event.is_set():
+            # Outer ring - Clockwise rotation
+            for i in range(num_leds_ring1):
+                # Calculate hue based on position and time offset
+                hue = (i / num_leds_ring1 + offset) % 1.0
+                # Convert hue to RGB (full saturation and value)
+                r_hue, g_hue, b_hue = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                # Modulate by base color and apply global brightness implicitly via self.pixels.brightness
+                r = int(r_hue * rgb_base_color[0])
+                g = int(g_hue * rgb_base_color[1])
+                b = int(b_hue * rgb_base_color[2])
+                self.pixels[i] = (r, g, b)
+
+            # Inner ring - Counter-clockwise rotation
+            for i in range(num_leds_ring2):
+                # Negative offset for counter-rotation
+                hue = (i / num_leds_ring2 - offset) % 1.0 
+                r_hue, g_hue, b_hue = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                r = int(r_hue * rgb_base_color[0])
+                g = int(g_hue * rgb_base_color[1])
+                b = int(b_hue * rgb_base_color[2])
+                self.pixels[num_leds_ring1 + i] = (r, g, b)
+            
+            self.pixels.show()
+            # Increment offset based on speed (wait time)
+            # Adjust the multiplier (e.g., 10) to control rotation speed relative to 'wait'
+            offset += (wait * 10) 
+            offset %= 1.0 # Keep offset within [0, 1]
+            time.sleep(wait) # Use the actual wait time for frame delay
+
+    # Correctly placed override for green/yellow rotation
+    def _rotating_green_yellow_effect(self, wait):
+        """Override: Generate rotating green/yellow gradients, counter-rotating on the inner ring."""
+        # Call the generalized method for rings
+        self._two_color_rotation_effect("green", "yellow", wait)
