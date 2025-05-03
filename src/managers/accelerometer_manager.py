@@ -476,22 +476,31 @@ class AccelerometerManager:
                     self.free_fall_start_time = timestamp
                     self.logger.debug(f"ACCELERATION → FREE_FALL: accel={accel_magnitude:.2f}")
                     self.consecutive_low_accel = 0 # Reset count after transition
+                    # NOTE: Intentionally skipping further checks in this cycle after transitioning to FREE_FALL
             else:
                 # If not transitioning to FREE_FALL, reset consecutive low accel count
                 self.consecutive_low_accel = 0
 
-                # Check for transitions to ROLLING or LINEAR_MOTION 
-                if self._check_rolling_criteria() and not self._check_linear_motion():
-                    self.motion_state = MotionState.ROLLING
-                    self.rolling_start_time = timestamp
-                    self.logger.debug(f"ACCELERATION → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
-                elif accel_magnitude < self.throw_acceleration_threshold and self._check_linear_motion():
-                    # Transition to LINEAR_MOTION if acceleration decreases below throw threshold 
-                    # AND movement is linear.
-                    self.motion_state = MotionState.LINEAR_MOTION
-                    self.logger.debug(f"ACCELERATION → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
-                # If none of the above, remain in ACCELERATION state.
-
+                # SECONDARY checks: Only consider other transitions if accel drops *below* the initial throw threshold
+                if accel_magnitude < self.throw_acceleration_threshold:
+                    # Now check for ROLLING or LINEAR MOTION
+                    if self._check_rolling_criteria() and not self._check_linear_motion():
+                        self.motion_state = MotionState.ROLLING
+                        self.rolling_start_time = timestamp
+                        self.logger.debug(f"ACCELERATION → ROLLING (Accel dropped below throw thresh): accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+                    elif self._check_linear_motion(): # Assumes linear motion requires accel > some minimum (e.g., rolling_accel_min)
+                        # Transition to LINEAR_MOTION if acceleration decreases but linear movement continues
+                        self.motion_state = MotionState.LINEAR_MOTION
+                        self.logger.debug(f"ACCELERATION → LINEAR_MOTION (Accel dropped below throw thresh): accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
+                    else:
+                        # If accel dropped below threshold but not rolling/linear -> transition to IDLE.
+                        self.motion_state = MotionState.IDLE
+                        self.logger.debug(f"ACCELERATION → IDLE (Accel dropped below throw thresh, not rolling/linear): accel={accel_magnitude:.2f}")
+                # else: (accel_magnitude >= self.throw_acceleration_threshold)
+                    # If still above throw threshold AND not entering free fall, remain in ACCELERATION state.
+                    # No state change needed, pass.
+                    pass 
+                 
         elif self.motion_state == MotionState.FREE_FALL:
             free_fall_duration = timestamp - self.free_fall_start_time
             
@@ -929,6 +938,7 @@ class AccelerometerManager:
                     std_dev = sqrt(variance)
                     
                     # If the standard deviation is low, rotation is smooth
+                    # Use class attribute for threshold
                     if std_dev < self.arc_smoothness_threshold:
                         # ADDED: Check for ongoing rotation
                         latest_gyro_mag = 0.0
