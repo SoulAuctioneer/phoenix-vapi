@@ -500,11 +500,9 @@ class AccelerometerManager:
                     # If a rapid acceleration is followed by an even higher acceleration, 
                     # it might be an impact without free fall (e.g., quick tap or very short drop)
                     self.motion_state = MotionState.IMPACT
-                    self.logger.debug(f"ACCELERATION → IMPACT (direct): accel={accel_magnitude:.2f}")
-                    # For very short drops, we might not see free fall state, so force throw detection
-                    # Set the time and flag here, duration starts ticking.
-                    if not self.throw_in_progress: # Avoid resetting time if already in progress from free fall
-                         self.logger.debug(f"ACCEL->IMPACT transition detected, but not setting throw_in_progress.")
+                    self.logger.debug(f"ACCEL->IMPACT transition detected. Setting throw_in_progress=True")
+                    self.throw_in_progress = True
+                    self.throw_detected_time = timestamp # Start timer for potential timeout
 
                 elif self._check_rolling_criteria() and not self._check_linear_motion():
                     self.motion_state = MotionState.ROLLING
