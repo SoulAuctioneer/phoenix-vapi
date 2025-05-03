@@ -58,13 +58,14 @@ class LEDManager:
         LEDEffect.ROTATING_COLOR: {'method': '_rotating_color_effect', 'default_speed': 0.05},
     }
 
-    def __init__(self):
+    def __init__(self, initial_brightness=LEDConfig.LED_BRIGHTNESS):
         self._effect_thread = None
         self._stop_event = Event()
         self._current_speed = None
         # Track current effect state
         self._current_effect = None
-        self._current_brightness = LEDConfig.LED_BRIGHTNESS
+        self._base_brightness = max(0.0, min(1.0, initial_brightness)) # Store and clamp base brightness
+        self._current_relative_brightness = 1.0 # Track the relative brightness set by effects (defaults to 1.0)
         
         # Initialize the NeoPixel object only on Raspberry Pi
         if LEDS_AVAILABLE:
@@ -73,11 +74,11 @@ class LEDManager:
             self.pixels = neopixel.NeoPixel(
                 pin,
                 LEDConfig.LED_COUNT,
-                brightness=LEDConfig.LED_BRIGHTNESS,
+                brightness=self._base_brightness, # Use base brightness for initial setup
                 auto_write=False,
                 pixel_order=LEDConfig.LED_ORDER
             )
-            logging.info(f"NeoPixel initialized on pin {LEDConfig.LED_PIN} with {LEDConfig.LED_COUNT} LEDs")
+            logging.info(f"NeoPixel initialized on pin {LEDConfig.LED_PIN} with {LEDConfig.LED_COUNT} LEDs at base brightness {self._base_brightness:.2f}")
         else:
             # Mock pixels for non-Raspberry Pi platforms
             class MockPixels:
@@ -99,9 +100,20 @@ class LEDManager:
                 def show(self):
                     #logging.info("Mock: LED state updated")
                     pass
+                
+                # Add brightness property to mock for consistency
+                @property
+                def brightness(self):
+                    return self._brightness
+                
+                @brightness.setter
+                def brightness(self, value):
+                    self._brightness = value
+                    # logging.info(f"Mock: Brightness set to {value}")
 
             self.pixels = MockPixels(LEDConfig.LED_COUNT)
-            logging.info(f"Mock NeoPixel initialized with {LEDConfig.LED_COUNT} LEDs")
+            self.pixels.brightness = self._base_brightness # Set initial mock brightness
+            logging.info(f"Mock NeoPixel initialized with {LEDConfig.LED_COUNT} LEDs at base brightness {self._base_brightness:.2f}")
         
         self.clear()
 
@@ -126,7 +138,7 @@ class LEDManager:
                 self.start_effect(
                     previous_effect['effect'],
                     previous_effect['speed'],
-                    previous_effect['brightness']
+                    previous_effect['brightness'] # This is the relative brightness
                 )
                 
         revert_thread = Thread(target=revert_after_duration)
@@ -158,15 +170,15 @@ class LEDManager:
             previous_effect = {
                 'effect': self._current_effect,
                 'speed': self._current_speed,
-                'brightness': self._current_brightness
+                'brightness': self._current_relative_brightness # Store relative brightness
             }
 
         # If the same effect is already running, just update parameters
         if effect == self._current_effect and self._effect_thread and self._effect_thread.is_alive():
             self._current_speed = effect_speed
-            self._current_brightness = brightness
-            self._set_relative_brightness(brightness)
-            logging.info(f"Updated {effect.name} parameters: speed={effect_speed}, brightness={brightness}")
+            self._current_relative_brightness = brightness # Store new relative brightness
+            self._apply_brightness() # Apply combined brightness
+            logging.info(f"Updated {effect.name} parameters: speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
             
             # Handle duration-based revert for parameter updates
             if duration is not None:
@@ -197,18 +209,19 @@ class LEDManager:
             previous_effect = {
                 'effect': self._current_effect,
                 'speed': self._current_speed,
-                'brightness': self._current_brightness
+                'brightness': self._current_relative_brightness # Store relative brightness
             }
             self.stop_effect()
             
         self._stop_event.clear()
         self._current_speed = effect_speed
         self._current_effect = effect
-        self._current_brightness = brightness
-        self._set_relative_brightness(brightness)
+        self._current_relative_brightness = brightness # Store relative brightness
+        self._apply_brightness() # Apply combined brightness
         self._effect_thread = Thread(target=effect_method, args=(effect_speed,))
         self._effect_thread.daemon = True
         self._effect_thread.start()
+        logging.info(f"Started {effect.name} effect with speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
         
         if duration is not None:
             self._setup_revert_thread(previous_effect, duration)
@@ -233,14 +246,21 @@ class LEDManager:
         self._current_speed = None
         self.clear()
 
-    def _set_relative_brightness(self, brightness):
-        """Set the brightness relative to the configured global brightness.
-        e.g. if global LED_BRIGHTNESS is 0.5 and brightness is 0.8, the actual brightness will be 0.5 * 0.8 = 0.4
-        Args:
-            brightness: Brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
-        """
-        self.pixels.brightness = LEDConfig.LED_BRIGHTNESS * brightness
+    def _apply_brightness(self):
+        """Calculate and apply the effective brightness (base * relative) to the pixels."""
+        effective_brightness = max(0.0, min(1.0, self._base_brightness * self._current_relative_brightness))
+        self.pixels.brightness = effective_brightness
+        # No logging here to avoid spamming, logging happens in start/update methods
 
+    def set_base_brightness(self, new_base_brightness: float):
+        """Set the base brightness level and update the effective brightness."""
+        self._base_brightness = max(0.0, min(1.0, new_base_brightness)) # Clamp between 0.0 and 1.0
+        self._apply_brightness() # Re-apply brightness immediately
+        logging.info(f"Base brightness set to {self._base_brightness:.2f}. Effective brightness now: {self.pixels.brightness:.2f}")
+
+    def get_base_brightness(self) -> float:
+        """Get the current base brightness level."""
+        return self._base_brightness
 
     # ********** Effect methods **********
 
@@ -557,7 +577,7 @@ class LEDManager:
                 r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
                 
                 # Apply brightness to the color
-                brightness = self._current_brightness  # Use the current brightness level
+                brightness = self._current_relative_brightness  # Use the current relative brightness
                 r = int(r * rgb_base_color[0] * brightness)
                 g = int(g * rgb_base_color[1] * brightness)
                 b = int(b * rgb_base_color[2] * brightness)

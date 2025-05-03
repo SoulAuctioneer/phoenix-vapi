@@ -17,7 +17,7 @@ class SleepActivity(BaseService):
         super().__init__(service_manager)
         self._is_active = False
         self._breathing_volume = 0.02  # Store breathing volume for restoration (reduced from 0.1 for quieter effect)
-        self._LED_BRIGHTNESS = 0.6 # TODO: Move to config
+        self._LED_BRIGHTNESS = 0.6
         
     async def start(self):
         """Start the sleep activity"""

@@ -1,6 +1,6 @@
 from services.service import BaseService
 from managers.led_manager import LEDManager, LEDEffect
-from config import PLATFORM
+from config import PLATFORM, LEDConfig
 import logging
 
 
@@ -13,7 +13,7 @@ class LEDService(BaseService):
     async def start(self):
         """Initialize and start the LED service"""
         try:
-            self.led_controller = LEDManager()
+            self.led_controller = LEDManager(initial_brightness=LEDConfig.LED_BRIGHTNESS)
             if self.platform == "raspberry-pi":
                 logging.info("LED service started")
             else:
@@ -131,4 +131,15 @@ class LEDService(BaseService):
                 logging.info("Stopped LED effect")
             elif effect_name == "clear":
                 self.led_controller.clear()
-                logging.info("Cleared all LEDs") 
+                logging.info("Cleared all LEDs")
+
+        elif event_type == "battery_alert":
+            alerts = event.get('alerts', [])
+            if "voltage_low" in alerts:
+                current_base_brightness = self.led_controller.get_base_brightness()
+                new_base_brightness = max(0.0, current_base_brightness - 0.05) # Decrease by 0.05, ensuring it doesn't go below 0
+                if new_base_brightness < current_base_brightness: # Only update if there's a change
+                    self.led_controller.set_base_brightness(new_base_brightness)
+                    logging.warning(f"Low voltage detected! Reducing base LED brightness from {current_base_brightness:.2f} to {new_base_brightness:.2f}")
+                else:
+                    logging.info(f"Low voltage detected, but base brightness already at minimum (0.0)") 
