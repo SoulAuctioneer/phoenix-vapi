@@ -608,13 +608,13 @@ class LEDManagerRings(LEDManager):
         """Returns a slice representing the pixels of the second (inner) ring."""
         return self.pixels[LEDConfig.LED_COUNT_RING1:LEDConfig.LED_COUNT]
 
-    # We can override specific effects here later if we want them to behave
-    # differently on the two rings. For now, they inherit from LEDManager
-    # and treat the combined strip as one.
-    # Example:
-    # def _some_effect(self, wait):
-    #     # Custom logic for dual rings
-    #     pass
+    def _blue_breathing_effect(self, wait):
+        """Override: Calls the parent implementation."""
+        super()._blue_breathing_effect(wait)
+
+    def _green_breathing_effect(self, wait):
+        """Override: Calls the parent implementation."""
+        super()._green_breathing_effect(wait)
 
     def _pink_blue_rotation_effect(self, wait):
         """Override: Generate rotating gradients between pink and blue, counter-rotating on the inner ring."""
@@ -660,3 +660,56 @@ class LEDManagerRings(LEDManager):
 
                 self.pixels.show()
                 time.sleep(wait)
+
+    def _rotating_rainbow_effect(self, wait):
+        """Override: Generate counter-rotating rainbow colors on the two rings."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Rotating rainbow effect requires both rings to have LEDs. Falling back to default.")
+            # Fallback to the original implementation if rings aren't configured properly
+            return super()._rotating_rainbow_effect(wait)
+
+        while not self._stop_event.is_set():
+            for j in range(255):
+                if self._stop_event.is_set():
+                    break
+
+                # Outer ring (Ring 1) - Clockwise rotation
+                for i in range(num_leds_ring1):
+                    hue = (i / num_leds_ring1 + j / 255.0) % 1.0
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 1.0, 1.0)]
+                    self.pixels[i] = (r, g, b)
+
+                # Inner ring (Ring 2) - Counter-clockwise rotation
+                for i in range(num_leds_ring2):
+                    # Use negative j for counter-rotation
+                    hue = (i / num_leds_ring2 - j / 255.0) % 1.0
+                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, 1.0, 1.0)]
+                    # Apply to the correct slice of pixels
+                    self.pixels[num_leds_ring1 + i] = (r, g, b)
+
+                self.pixels.show()
+                time.sleep(wait)
+
+    def _random_twinkling_effect(self, wait):
+        """Override: Calls the parent implementation."""
+        super()._random_twinkling_effect(wait)
+
+    def _rain_effect(self, wait):
+        """Override: Calls the parent implementation."""
+        super()._rain_effect(wait)
+
+    def _lightning_effect(self, wait):
+        """Override: Calls the parent implementation."""
+        super()._lightning_effect(wait)
+
+    def _purring_effect(self, wait):
+        """Override: Calls the parent implementation."""
+        super()._purring_effect(wait)
+
+    def _rotating_color_effect(self, color, wait):
+        """Override: Calls the parent implementation."""
+        # Note: This effect takes an additional 'color' argument
+        super()._rotating_color_effect(color, wait)
