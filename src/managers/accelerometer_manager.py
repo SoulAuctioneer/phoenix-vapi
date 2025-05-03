@@ -368,32 +368,15 @@ class AccelerometerManager:
             # Refactor: Removed 'if not is_shake:' guards to allow concurrent detection
 
             # Throw Detection Logic:
-            # 1. Check for direct ACCELERATION -> IMPACT transition (very short drops)
-            is_short_throw_detected = False
-            if self.motion_state == MotionState.IMPACT and self.throw_in_progress:
-                # Avoid double-counting if FREE_FALL based throw was detected just before impact
-                throw_in_recent_history = any(
-                    MotionPattern.THROW.name in patterns
-                    for _, patterns in list(self.pattern_history)[-2:] # Check last 2 history entries
-                )
-                if not throw_in_recent_history:
-                     # Check against currently detected patterns in *this* cycle to avoid duplicates if _check_throw_pattern runs later
-                    if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
-                        detected_patterns_this_cycle.append(MotionPattern.THROW.name)
-                        is_short_throw_detected = True
-                        self.logger.debug(f"THROW detected (Short Drop): ACCEL→IMPACT. Accel={accel_magnitude:.2f}")
-
-            # 2. Check for normal throw via FREE_FALL state duration
+            # 1. Check for normal throw via FREE_FALL state duration
             #    Only add if not already detected via the short drop logic above.
-            if not is_short_throw_detected and self._check_throw_pattern():
-                if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
+            if not any(p == MotionPattern.THROW.name for p in detected_patterns_this_cycle):
+                if self._check_throw_pattern():
                     detected_patterns_this_cycle.append(MotionPattern.THROW.name)
-                # Set flags regardless, as free fall confirms throw intent even if pattern added above
-                self.throw_detected_time = current_time
-                if not self.throw_in_progress: # Only log if it wasn't already set
-                     self.logger.debug(f"THROW detected (Free Fall): Accel={accel_magnitude:.2f}, starting throw_in_progress.")
-                self.throw_in_progress = True
-
+                    self.throw_detected_time = current_time
+                    if not self.throw_in_progress:
+                        self.logger.debug(f"THROW detected (Free Fall): Accel={accel_magnitude:.2f}, starting throw_in_progress.")
+                    self.throw_in_progress = True
 
             # Catch Detection:
             # If detected, set flag for next cycle but DON'T clear throw_in_progress yet.
@@ -468,8 +451,10 @@ class AccelerometerManager:
                 elif timestamp - self.held_still_start_time > self.held_still_duration:
                     self.motion_state = MotionState.HELD_STILL
                     self.logger.debug(f"IDLE → HELD_STILL: accel={accel_magnitude:.2f} (stable low)")
-                # Keep last_state_was_linear = False if accel is in this range but duration not met yet.
-                self.last_state_was_linear = False
+                    # Keep last_state_was_linear = False if accel is in this range but duration not met yet.
+                    self.last_state_was_linear = False
+                # Keep consecutive low accel count if accel is in this range but duration not met yet.
+                self.consecutive_low_accel = 0
             elif accel_magnitude > self.rolling_accel_min and self._check_linear_motion():
                 # Normal transition to LINEAR_MOTION
                 self.motion_state = MotionState.LINEAR_MOTION
@@ -492,27 +477,21 @@ class AccelerometerManager:
                     self.logger.debug(f"ACCELERATION → FREE_FALL: accel={accel_magnitude:.2f}")
                     self.consecutive_low_accel = 0 # Reset count after transition
             else:
-                # Reset count if acceleration goes back up
+                # If not transitioning to FREE_FALL, reset consecutive low accel count
                 self.consecutive_low_accel = 0
-                
-                # Transition to IMPACT only if acceleration exceeds the *new*, higher threshold
-                if accel_magnitude > self.impact_threshold:
-                    # If a rapid acceleration is followed by an even higher acceleration, 
-                    # it might be an impact without free fall (e.g., quick tap or very short drop)
-                    self.motion_state = MotionState.IMPACT
-                    self.logger.debug(f"ACCEL->IMPACT transition detected. Setting throw_in_progress=True")
-                    self.throw_in_progress = True
-                    self.throw_detected_time = timestamp # Start timer for potential timeout
 
-                elif self._check_rolling_criteria() and not self._check_linear_motion():
+                # Check for transitions to ROLLING or LINEAR_MOTION 
+                if self._check_rolling_criteria() and not self._check_linear_motion():
                     self.motion_state = MotionState.ROLLING
                     self.rolling_start_time = timestamp
                     self.logger.debug(f"ACCELERATION → ROLLING: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
                 elif accel_magnitude < self.throw_acceleration_threshold and self._check_linear_motion():
-                    # Transition to LINEAR_MOTION if acceleration decreases but linear movement continues
+                    # Transition to LINEAR_MOTION if acceleration decreases below throw threshold 
+                    # AND movement is linear.
                     self.motion_state = MotionState.LINEAR_MOTION
                     self.logger.debug(f"ACCELERATION → LINEAR_MOTION: accel={accel_magnitude:.2f}, gyro={gyro_magnitude:.2f}")
-                
+                # If none of the above, remain in ACCELERATION state.
+
         elif self.motion_state == MotionState.FREE_FALL:
             free_fall_duration = timestamp - self.free_fall_start_time
             
