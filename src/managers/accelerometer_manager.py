@@ -106,7 +106,8 @@ class AccelerometerManager:
         # Removed self.held_still_duration
 
         # Free Fall / Impact
-        self.free_fall_threshold = 3.0          # m/s^2 - Max accel magnitude for FREE_FALL
+        # Lowered threshold based on throw/catch analysis (was 3.0)
+        self.free_fall_threshold = 0.4          # m/s^2 - Max accel magnitude for FREE_FALL
         self.impact_threshold = 15.0            # m/s^2 - Min accel spike for IMPACT
 
         # Shake
@@ -244,6 +245,9 @@ class AccelerometerManager:
             return SimplifiedState.STATIONARY
 
         if stability == "Stable":
+            # NOTE: Relying solely on BNO 'Stable' report. Logs showed this can trigger
+            # briefly even during high-G post-catch stabilization. May need refinement
+            # by adding checks for accel magnitude (~1g) and low gyro if issues arise.
             # self.logger.debug("HELD_STILL detected (BNO: Stable)") # Reduce log spam
             self.last_accel_magnitude = accel_magnitude
             return SimplifiedState.HELD_STILL
