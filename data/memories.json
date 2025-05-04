@@ -1,13 +1,6 @@
 {
   "memories": [
     {
-      "content": "The user favors a color combination of brownish black with grey dots.",
-      "topic": "preference",
-      "importance": "medium",
-      "timestamp": "2025-02-25T02:17:55.770358+00:00",
-      "created_at": "February 24, 2025 at 06:17 PM PST"
-    },
-    {
       "content": "The companion claims they hate fun.",
       "topic": "preference",
       "importance": "medium",
@@ -29,25 +22,25 @@
       "created_at": "February 24, 2025 at 07:50 PM PST"
     },
     {
-      "content": "The companion likes the color purple.",
+      "content": "The companion's favorite color is hot pink.",
       "topic": "preference",
       "importance": "medium",
       "timestamp": "2025-02-25T04:09:33.951128+00:00",
       "created_at": "February 24, 2025 at 08:09 PM PST"
     },
     {
-      "content": "The Phoenix was reborn into a tiny glowing form after surfing down on a meteor shower.",
-      "topic": "event",
-      "importance": "high",
-      "timestamp": "2025-02-25T04:21:34.495497+00:00",
-      "created_at": "February 24, 2025 at 08:21 PM PST"
-    },
-    {
-      "content": "The companion chose to go on a color hunt over other suggested activities.",
+      "content": "The companion has travelled from San Francisco to stay in London.",
       "topic": "activity",
       "importance": "medium",
-      "timestamp": "2025-02-25T04:41:45.904494+00:00",
-      "created_at": "February 24, 2025 at 08:41 PM PST"
+      "timestamp": "2025-05-04T04:41:45.904494+00:00",
+      "created_at": "May 4, 2025 at 04:41 PM PST"
+    },
+    {
+      "content": "We told each other a silly story about a boy who found a pea and used its magic to build a garden in the clouds.",
+      "topic": "activity",
+      "importance": "medium",
+      "timestamp": "2025-05-04T04:41:45.904494+00:00",
+      "created_at": "May 4, 2025 at 04:41 PM PST"
     }
   ]
 }
