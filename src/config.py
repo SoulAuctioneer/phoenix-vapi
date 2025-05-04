@@ -415,7 +415,7 @@ BASE_ASSISTANT_CONTEXT = dedent("""
     """).strip()
 
 ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
-    Here are some memories about the user:
+    Here are some memories about your companion. You may wish to start the conversation by playfully referencing one of these:
     {memories}
     """).strip()
 
