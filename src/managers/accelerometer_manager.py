@@ -85,9 +85,8 @@ class AccelerometerManager:
     Simplified manager for accelerometer data access and state detection.
 
     Focuses on detecting basic states: STATIONARY, HELD_STILL, FREE_FALL, IMPACT, SHAKE, MOVING, UNKNOWN.
-    Removes the complex state machine and pattern recognition logic from previous versions.
-    Reads sensor data, updates a motion history, and determines the current state based on
-    acceleration magnitude, thresholds, duration checks, and simple shake detection.
+    Uses the BNO085's stability classification for STATIONARY and HELD_STILL states.
+    Uses acceleration magnitude and history for IMPACT, SHAKE, and FREE_FALL.
     """
 
     def __init__(self):
@@ -99,12 +98,12 @@ class AccelerometerManager:
         self.motion_history = deque(maxlen=20)  # Store recent full sensor data dictionaries
 
         # --- Thresholds ---
-        # Stationary / Held Still
-        self.stationary_max_accel = 0.1         # m/s^2 - Max accel magnitude for STATIONARY
-        self.held_still_min_accel = 0.1         # m/s^2 - Min accel magnitude for HELD_STILL (must be >= stationary_max_accel)
-        self.held_still_max_accel = 1.2         # m/s^2 - Max accel magnitude for HELD_STILL
-        self.stationary_duration = 0.5          # seconds - Min duration for STATIONARY state
-        self.held_still_duration = 0.3          # seconds - Min duration for HELD_STILL state
+        # Stationary / Held Still (Now determined by BNO085 stability report)
+        # Removed self.stationary_max_accel
+        # Removed self.held_still_min_accel
+        # Removed self.held_still_max_accel
+        # Removed self.stationary_duration
+        # Removed self.held_still_duration
 
         # Free Fall / Impact
         self.free_fall_threshold = 3.0          # m/s^2 - Max accel magnitude for FREE_FALL
@@ -115,9 +114,9 @@ class AccelerometerManager:
         self.min_magnitude_for_shake = 4.0      # m/s^2 - Min average accel magnitude for SHAKE
         self.min_accel_reversals_for_shake = 3  # Min number of direction changes for SHAKE in history window
 
-        # --- Timers / State Tracking ---
-        self.in_stationary_band_start_time = 0.0 # Timestamp when accel first entered STATIONARY band
-        self.in_held_still_band_start_time = 0.0 # Timestamp when accel first entered HELD_STILL band
+        # --- State Tracking ---
+        # Removed self.in_stationary_band_start_time
+        # Removed self.in_held_still_band_start_time
         self.last_accel_magnitude = 0.0          # Store previous accel magnitude for impact detection edge
         self.current_state = SimplifiedState.UNKNOWN # Store the determined state
 
@@ -192,8 +191,8 @@ class AccelerometerManager:
     def _determine_current_state(self, current_data: Dict[str, Any]) -> SimplifiedState:
         """
         Determine the current motion state based on simplified criteria.
-        Checks for IMPACT, FREE_FALL, SHAKE, STATIONARY, HELD_STILL in priority order.
-        Requires linear_acceleration data; returns UNKNOWN otherwise.
+        Checks for IMPACT, SHAKE, then uses BNO stability for STATIONARY/HELD_STILL,
+        then checks FREE_FALL. Requires linear_acceleration and stability data.
 
         Args:
             current_data: Current sensor readings dictionary.
@@ -203,111 +202,67 @@ class AccelerometerManager:
         """
         if len(self.motion_history) < 2: # Need at least previous + current
             self.last_accel_magnitude = 0.0 # Reset on insufficient history
-            self._reset_duration_timers()
+            # No timers to reset now
             return SimplifiedState.UNKNOWN
 
         linear_accel = current_data.get("linear_acceleration", None)
         timestamp = current_data.get('timestamp', time.time()) # Use provided or current time
+        stability = current_data.get("stability", "Unknown") # Get stability from BNO
 
         if not (isinstance(linear_accel, tuple) and len(linear_accel) == 3 and
                 all(isinstance(x, (int, float)) for x in linear_accel)):
             self.logger.warning(f"Invalid/missing linear acceleration for state detection: {linear_accel}")
-            # Reset timers and previous magnitude if core data is invalid
-            self._reset_duration_timers()
+            # Reset previous magnitude if core data is invalid
             self.last_accel_magnitude = 0.0
             return SimplifiedState.UNKNOWN
 
         accel_magnitude = sqrt(sum(x*x for x in linear_accel))
 
         # --- State Checks (Prioritized) ---
-        # Order: Impact > Free Fall > Shake > Stationary > Held Still > Moving
+        # Order: Impact > Shake > BNO Stability (Stationary/Held) > Free Fall > Moving
 
         # 1. IMPACT: Check for a sudden spike above threshold
-        #    Triggered if accel crosses threshold upwards in one step.
         is_impact = (accel_magnitude >= self.impact_threshold and
                      self.last_accel_magnitude < self.impact_threshold)
         if is_impact:
             self.logger.debug(f"IMPACT detected: Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude:.2f}")
-            self._reset_duration_timers() # Impact overrides duration checks
+            # No timers to reset
             self.last_accel_magnitude = accel_magnitude # Update last mag *after* check
             return SimplifiedState.IMPACT
 
-        # 2. FREE_FALL: Check if acceleration is very low
-        if accel_magnitude < self.free_fall_threshold:
-            # self.logger.debug(f"FREE_FALL detected: Accel={accel_magnitude:.2f}") # Can be spammy
-            self._reset_duration_timers() # Free fall overrides duration checks
-            self.last_accel_magnitude = accel_magnitude
-            return SimplifiedState.FREE_FALL
-
-        # 3. SHAKE: Check for high magnitude and rapid changes/reversals
+        # 2. SHAKE: Check for high magnitude and rapid changes/reversals
         if self._check_shake():
              self.logger.debug("SHAKE detected.")
-             self._reset_duration_timers() # Shake overrides duration checks
+             # No timers to reset
              self.last_accel_magnitude = accel_magnitude
              return SimplifiedState.SHAKE
 
-        # --- Duration-Based States (STATIONARY / HELD_STILL) ---
-        # Update timers based on current magnitude band
-        self._update_duration_timers(accel_magnitude, timestamp)
-
-        # Check if STATIONARY duration is met
-        if self.in_stationary_band_start_time > 0.0 and \
-           (timestamp - self.in_stationary_band_start_time >= self.stationary_duration):
-            # self.logger.debug(f"STATIONARY confirmed.") # Reduce log spam
+        # 3. STATIONARY / HELD_STILL based on BNO Stability Report
+        if stability == "On table":
+            # self.logger.debug("STATIONARY detected (BNO: On table)") # Reduce log spam
             self.last_accel_magnitude = accel_magnitude
-            # Do NOT reset timer here, stay in STATIONARY until accel leaves band
             return SimplifiedState.STATIONARY
 
-        # Check if HELD_STILL duration is met
-        if self.in_held_still_band_start_time > 0.0 and \
-           (timestamp - self.in_held_still_band_start_time >= self.held_still_duration):
-            # self.logger.debug(f"HELD_STILL confirmed.") # Reduce log spam
+        if stability == "Stable":
+            # self.logger.debug("HELD_STILL detected (BNO: Stable)") # Reduce log spam
             self.last_accel_magnitude = accel_magnitude
-            # Do NOT reset timer here, stay in HELD_STILL until accel leaves band
             return SimplifiedState.HELD_STILL
 
-        # 5. MOVING: If none of the specific states are met
-        # This means accel is above free_fall threshold, not shake, not impact,
-        # and not within the stationary/held_still bands (or duration not met yet).
-        # self.logger.debug(f"MOVING state: Accel={accel_magnitude:.2f}")
+        # 4. FREE_FALL: Check *after* confirming not stationary/held still.
+        # This means accel is low, and BNO stability is not On table/Stable.
+        if accel_magnitude < self.free_fall_threshold:
+            # Only log if state changes or periodically to reduce spam
+            if self.current_state != SimplifiedState.FREE_FALL:
+                 self.logger.debug(f"FREE_FALL detected (or transient low accel): Accel={accel_magnitude:.2f}")
+            self.last_accel_magnitude = accel_magnitude
+            return SimplifiedState.FREE_FALL
+
+        # 5. MOVING: If none of the specific states are met (includes BNO "In motion" or "Unknown" stability)
+        # Only log if state changes
+        if self.current_state != SimplifiedState.MOVING:
+            self.logger.debug(f"MOVING state: Accel={accel_magnitude:.2f}, Stability={stability}")
         self.last_accel_magnitude = accel_magnitude
         return SimplifiedState.MOVING
-
-    def _update_duration_timers(self, accel_magnitude: float, timestamp: float):
-        """Updates the start times for STATIONARY and HELD_STILL bands."""
-        # Check STATIONARY band
-        is_in_stationary_band = accel_magnitude < self.stationary_max_accel
-        if is_in_stationary_band:
-            if self.in_stationary_band_start_time == 0.0:
-                # self.logger.debug(f"Entered STATIONARY band: Accel={accel_magnitude:.2f}")
-                self.in_stationary_band_start_time = timestamp
-            self.in_held_still_band_start_time = 0.0 # Mutually exclusive
-        else:
-            if self.in_stationary_band_start_time != 0.0:
-                # self.logger.debug(f"Exited STATIONARY band: Accel={accel_magnitude:.2f}")
-                self.in_stationary_band_start_time = 0.0
-
-            # Check HELD_STILL band only if not in STATIONARY band
-            is_in_held_still_band = (self.held_still_min_accel <= accel_magnitude < self.held_still_max_accel)
-            if is_in_held_still_band:
-                if self.in_held_still_band_start_time == 0.0:
-                    # self.logger.debug(f"Entered HELD_STILL band: Accel={accel_magnitude:.2f}")
-                    self.in_held_still_band_start_time = timestamp
-                # self.in_stationary_band_start_time should already be 0 here
-            else:
-                if self.in_held_still_band_start_time != 0.0:
-                    # self.logger.debug(f"Exited HELD_STILL band: Accel={accel_magnitude:.2f}")
-                    self.in_held_still_band_start_time = 0.0
-
-    def _reset_duration_timers(self):
-        """Resets timers used for HELD_STILL and STATIONARY detection."""
-        # Log only if a timer was actually active
-        if self.in_stationary_band_start_time != 0.0:
-             # self.logger.debug("Resetting active stationary timer.")
-             self.in_stationary_band_start_time = 0.0
-        if self.in_held_still_band_start_time != 0.0:
-             # self.logger.debug("Resetting active held_still timer.")
-             self.in_held_still_band_start_time = 0.0
 
     def _check_shake(self) -> bool:
         """
