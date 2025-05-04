@@ -37,6 +37,7 @@ class MemoryManager:
     
     Include only factual information, preferences, events, activities, stories, conversational topics, personal details etc. that came up in the conversation.
     Do NOT include pleasantries, greetings, or meta-conversation details.
+    Relevant memories are those about the user, or about interactions between the user and the AI. Memories that are only about the AI are not relevant.
     
     IMPORTANT: Do NOT create duplicate memories that convey the same information as existing memories.
     Review the list of existing memories below and only add new information or significantly different details.
