@@ -4,9 +4,7 @@ For our first implementation, we will use the accelerometer to detect movement e
 We also detect state changes, like entering FREE_FALL, to trigger specific sounds.
 """
 
-import asyncio
-import math
-from typing import Dict, Any, Tuple
+from typing import Dict, Any
 from services.service import BaseService
 from config import MoveActivityConfig, SoundEffect
 from managers.accelerometer_manager import SimplifiedState
