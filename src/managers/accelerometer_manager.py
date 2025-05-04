@@ -106,8 +106,9 @@ class AccelerometerManager:
         # Removed self.held_still_duration
 
         # Free Fall / Impact
-        # Lowered threshold based on throw/catch analysis (was 3.0)
-        self.free_fall_threshold = 0.4          # m/s^2 - Max accel magnitude for FREE_FALL
+        # Using RAW acceleration magnitude now, per standard free fall detection methods.
+        # Threshold set slightly below 1.0 m/s^2 to account for noise.
+        self.free_fall_threshold = 0.8          # m/s^2 - Max RAW accel magnitude for FREE_FALL
         self.impact_threshold = 15.0            # m/s^2 - Min accel spike for IMPACT
 
         # Shake
@@ -206,42 +207,66 @@ class AccelerometerManager:
             # No timers to reset now
             return SimplifiedState.UNKNOWN
 
+        # Use RAW acceleration for free fall detection
+        accel_raw = current_data.get("acceleration", None)
+        # Still need linear accel for other checks like shake, keep it
         linear_accel = current_data.get("linear_acceleration", None)
         timestamp = current_data.get('timestamp', time.time()) # Use provided or current time
         stability = current_data.get("stability", "Unknown") # Get stability from BNO
 
-        if not (isinstance(linear_accel, tuple) and len(linear_accel) == 3 and
-                all(isinstance(x, (int, float)) for x in linear_accel)):
-            self.logger.warning(f"Invalid/missing linear acceleration for state detection: {linear_accel}")
-            # Reset previous magnitude if core data is invalid
-            self.last_accel_magnitude = 0.0
+        # Validate RAW acceleration for free fall check
+        if not (isinstance(accel_raw, tuple) and len(accel_raw) == 3 and
+                all(isinstance(x, (int, float)) for x in accel_raw)):
+            self.logger.warning(f"Invalid/missing RAW acceleration for free fall detection: {accel_raw}")
+            # If raw is bad, can we still determine state? Maybe fallback needed?
+            # For now, treat as UNKNOWN if raw is missing, might prevent free fall detection.
+            self.last_accel_magnitude = 0.0 # Reset based on linear or raw? Let's use linear for consistency with IMPACT.
             return SimplifiedState.UNKNOWN
 
-        accel_magnitude = sqrt(sum(x*x for x in linear_accel))
+        # Calculate RAW acceleration magnitude for free fall check
+        accel_magnitude_raw = sqrt(sum(x*x for x in accel_raw))
+
+        # Calculate Linear acceleration magnitude for IMPACT/other checks (if needed)
+        # Need to handle potential missing linear_accel for subsequent checks (e.g. IMPACT)
+        accel_magnitude_linear = 0.0
+        if isinstance(linear_accel, tuple) and len(linear_accel) == 3:
+            try:
+                accel_magnitude_linear = sqrt(sum(x*x for x in linear_accel))
+            except TypeError:
+                 self.logger.warning(f"Invalid linear acceleration data: {linear_accel}, falling back to magnitude 0")
+                 accel_magnitude_linear = 0.0 # Fallback
+        else:
+            # If linear accel is missing/invalid, impact/shake detection might fail later.
+            # Log this potential issue.
+            self.logger.warning(f"Missing or invalid linear acceleration: {linear_accel}. Impact/Shake detection may be affected.")
+            # Keep accel_magnitude_linear as 0.0
 
         # --- State Checks (Prioritized) ---
         # Order: Impact > Shake > BNO Stability (Stationary/Held) > Free Fall > Moving
 
-        # 1. IMPACT: Check for a sudden spike above threshold
-        is_impact = (accel_magnitude >= self.impact_threshold and
+        # 1. IMPACT: Check for a sudden spike above threshold (using LINEAR magnitude)
+        # We should arguably use RAW magnitude for impact too for consistency, but
+        # linear might be better if impact involves less rotation than freefall?
+        # Sticking to linear for now as it was used before.
+        is_impact = (accel_magnitude_linear >= self.impact_threshold and
                      self.last_accel_magnitude < self.impact_threshold)
         if is_impact:
-            self.logger.debug(f"IMPACT detected: Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude:.2f}")
-            # No timers to reset
-            self.last_accel_magnitude = accel_magnitude # Update last mag *after* check
+            self.logger.debug(f"IMPACT detected: Linear Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
+            # Update last magnitude based on what impact check used (linear)
+            self.last_accel_magnitude = accel_magnitude_linear
             return SimplifiedState.IMPACT
 
-        # 2. SHAKE: Check for high magnitude and rapid changes/reversals
+        # 2. SHAKE: Check for high magnitude and rapid changes/reversals (uses linear internally)
+        # _check_shake inherently uses linear_acceleration from history
         if self._check_shake():
              self.logger.debug("SHAKE detected.")
-             # No timers to reset
-             self.last_accel_magnitude = accel_magnitude
+             self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
              return SimplifiedState.SHAKE
 
         # 3. STATIONARY / HELD_STILL based on BNO Stability Report
         if stability == "On table":
             # self.logger.debug("STATIONARY detected (BNO: On table)") # Reduce log spam
-            self.last_accel_magnitude = accel_magnitude
+            self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
             return SimplifiedState.STATIONARY
 
         if stability == "Stable":
@@ -249,23 +274,23 @@ class AccelerometerManager:
             # briefly even during high-G post-catch stabilization. May need refinement
             # by adding checks for accel magnitude (~1g) and low gyro if issues arise.
             # self.logger.debug("HELD_STILL detected (BNO: Stable)") # Reduce log spam
-            self.last_accel_magnitude = accel_magnitude
+            self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
             return SimplifiedState.HELD_STILL
 
         # 4. FREE_FALL: Check *after* confirming not stationary/held still.
-        # This means accel is low, and BNO stability is not On table/Stable.
-        if accel_magnitude < self.free_fall_threshold:
+        # Uses RAW acceleration magnitude now.
+        if accel_magnitude_raw < self.free_fall_threshold:
             # Only log if state changes or periodically to reduce spam
             if self.current_state != SimplifiedState.FREE_FALL:
-                 self.logger.debug(f"FREE_FALL detected (or transient low accel): Accel={accel_magnitude:.2f}")
-            self.last_accel_magnitude = accel_magnitude
+                 self.logger.debug(f"FREE_FALL detected: RAW Accel={accel_magnitude_raw:.2f}")
+            self.last_accel_magnitude = accel_magnitude_linear # Still update last_accel based on linear for IMPACT continuity
             return SimplifiedState.FREE_FALL
 
         # 5. MOVING: If none of the specific states are met (includes BNO "In motion" or "Unknown" stability)
         # Only log if state changes
         if self.current_state != SimplifiedState.MOVING:
-            self.logger.debug(f"MOVING state: Accel={accel_magnitude:.2f}, Stability={stability}")
-        self.last_accel_magnitude = accel_magnitude
+            self.logger.debug(f"MOVING state: Linear Accel={accel_magnitude_linear:.2f}, Stability={stability}")
+        self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
         return SimplifiedState.MOVING
 
     def _check_shake(self) -> bool:
