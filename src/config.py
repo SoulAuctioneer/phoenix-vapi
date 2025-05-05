@@ -325,7 +325,7 @@ class BatteryConfig:
     CHARGING_STOP_HYSTERESIS = 0.05   # Voltage decrease to detect end of charging (V)
     
     # Low battery sound alert interval (in seconds)
-    LOW_BATTERY_SOUND_INTERVAL = 120.0 # 2 minutes
+    LOW_BATTERY_SOUND_INTERVAL = 180.0 # 3 minutes
 
     # Power saving configuration
     ACTIVITY_THRESHOLD = 0.15  # Voltage change threshold to exit hibernation (V)
