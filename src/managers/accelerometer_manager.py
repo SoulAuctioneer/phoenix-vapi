@@ -243,7 +243,8 @@ class AccelerometerManager:
             # Keep accel_magnitude_linear as 0.0
 
         # --- State Checks (Prioritized) ---
-        # Order: Impact > Shake > BNO Stability (Stationary/Held) > Free Fall > Moving
+        # Order: Impact > BNO Stability (Stationary/Held) > Free Fall > Shake > Moving
+        # Moved Free Fall check earlier to prevent false SHAKE trigger during free fall.
 
         # 1. IMPACT: Check for a sudden spike AND if the previous state was FREE_FALL
         previous_state = self.current_state # Store state from *before* this determination
@@ -259,14 +260,7 @@ class AccelerometerManager:
         elif is_potential_impact:
              self.logger.debug(f"Potential impact ignored (not from FREE_FALL): Prev State={previous_state.name}, Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
 
-        # 2. SHAKE: Check for high magnitude and rapid changes/reversals (uses linear internally)
-        # _check_shake inherently uses linear_acceleration from history
-        if self._check_shake():
-             self.logger.debug("SHAKE detected.")
-             self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
-             return SimplifiedState.SHAKE
-
-        # 3. STATIONARY / HELD_STILL based on BNO Stability Report
+        # 2. STATIONARY / HELD_STILL based on BNO Stability Report (Check before Free Fall/Shake)
         if stability == "On table":
             # self.logger.debug("STATIONARY detected (BNO: On table)") # Reduce log spam
             self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
@@ -280,16 +274,24 @@ class AccelerometerManager:
             self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
             return SimplifiedState.HELD_STILL
 
-        # 4. FREE_FALL: Check *after* confirming not stationary/held still.
-        # Uses RAW acceleration magnitude now.
+        # 3. FREE_FALL: Check *after* confirming not impact/stationary/held still.
+        # Uses RAW acceleration magnitude. If this triggers, we skip the SHAKE check.
         if accel_magnitude_raw < self.free_fall_threshold:
             # Only log if state changes or periodically to reduce spam
             if self.current_state != SimplifiedState.FREE_FALL:
                  self.logger.debug(f"FREE_FALL detected: RAW Accel={accel_magnitude_raw:.2f}")
-            self.last_accel_magnitude = accel_magnitude_linear # Still update last_accel based on linear for IMPACT continuity
+            self.last_accel_magnitude = accel_magnitude_linear # Still update last_accel based on linear for IMPACT continuity? Or raw? Let's stick to linear.
             return SimplifiedState.FREE_FALL
 
-        # 5. MOVING: If none of the specific states are met (includes BNO "In motion" or "Unknown" stability)
+        # 4. SHAKE: Check only if not in Free Fall, Stationary, or Held Still.
+        # Uses linear acceleration internally.
+        if self._check_shake():
+             self.logger.debug("SHAKE detected.")
+             self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
+             return SimplifiedState.SHAKE
+
+        # 5. MOVING: If none of the specific states above are met
+        # (includes BNO "In motion" or "Unknown" stability if not caught by other states)
         # Only log if state changes
         if self.current_state != SimplifiedState.MOVING:
             self.logger.debug(f"MOVING state: Linear Accel={accel_magnitude_linear:.2f}, Stability={stability}")
