@@ -166,10 +166,12 @@ class BatteryService(BaseService):
                 )
                 self._is_charging = True
                 # Play CHIME_HIGH sound effect
-                await self.publish({
-                    "type": "play_sound",
-                    "effect_name": "CHIME_HIGH"
-                })
+                # TODO: Disabled for now as it's not accounting for the change in voltage when LEDs get dimmer
+                # await self.publish({
+                #     "type": "play_sound",
+                #     "effect_name": "CHIME_HIGH",
+                #     "volume": 0.3
+                # })
         elif voltage < self._last_charging_check_voltage - BatteryConfig.CHARGING_STOP_HYSTERESIS:
             if self._is_charging:
                 self.logger.info(
@@ -178,10 +180,12 @@ class BatteryService(BaseService):
                 )
                 self._is_charging = False
                 # Play CHIME_LOW sound effect
-                await self.publish({
-                    "type": "play_sound",
-                    "effect_name": "CHIME_LOW"
-                })
+                # TODO: Disabled for now as it's not accounting for the change in voltage when LEDs get dimmer
+                # await self.publish({
+                #     "type": "play_sound",
+                #     "effect_name": "CHIME_LOW",
+                #     "volume": 0.3
+                # })
                 
         # Always update last voltage to track small changes
         self._last_charging_check_voltage = voltage
@@ -357,7 +361,8 @@ class BatteryService(BaseService):
                         # Assume 'LOW_BATTERY' is defined in SoundEffect enum/class in config
                         await self.publish({
                             "type": "play_sound",
-                            "effect_name": "LOW_BATTERY" 
+                            "effect_name": "LOW_BATTERY",
+                            "volume": 0.3
                         })
                         self._last_low_battery_sound_time = current_time
                         self.logger.info(f"Played LOW_BATTERY sound effect (charge: {charge_percent:.1f}%)")

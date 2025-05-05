@@ -63,7 +63,7 @@ import logging
 from typing import Dict, Any, Tuple, List, Optional, Literal
 import statistics
 # NOTE: Do NOT change the line below. It is correct.
-from hardware.acc_bno085 import BNO085Interface
+from hardware.acc_bno85 import BNO085Interface
 from math import atan2, sqrt, pi, acos
 from config import MoveActivityConfig
 from collections import deque
@@ -112,9 +112,10 @@ class AccelerometerManager:
         self.impact_threshold = 15.0            # m/s^2 - Min accel spike for IMPACT
 
         # Shake
-        self.shake_history_size = 10            # Samples (~0.1s at 100Hz)
-        self.min_magnitude_for_shake = 4.0      # m/s^2 - Min average accel magnitude for SHAKE
-        self.min_accel_reversals_for_shake = 3  # Min number of direction changes for SHAKE in history window
+        # Increased thresholds/duration for less sensitivity
+        self.shake_history_size = 20            # Samples (~0.2s at 100Hz, was 10)
+        self.min_magnitude_for_shake = 8.0      # m/s^2 - Min average accel magnitude (was 4.0)
+        self.min_accel_reversals_for_shake = 5  # Min number of direction changes (was 3)
 
         # --- State Tracking ---
         # Removed self.in_stationary_band_start_time
@@ -244,17 +245,19 @@ class AccelerometerManager:
         # --- State Checks (Prioritized) ---
         # Order: Impact > Shake > BNO Stability (Stationary/Held) > Free Fall > Moving
 
-        # 1. IMPACT: Check for a sudden spike above threshold (using LINEAR magnitude)
-        # We should arguably use RAW magnitude for impact too for consistency, but
-        # linear might be better if impact involves less rotation than freefall?
-        # Sticking to linear for now as it was used before.
-        is_impact = (accel_magnitude_linear >= self.impact_threshold and
-                     self.last_accel_magnitude < self.impact_threshold)
-        if is_impact:
-            self.logger.debug(f"IMPACT detected: Linear Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
+        # 1. IMPACT: Check for a sudden spike AND if the previous state was FREE_FALL
+        previous_state = self.current_state # Store state from *before* this determination
+        is_potential_impact = (accel_magnitude_linear >= self.impact_threshold and
+                               self.last_accel_magnitude < self.impact_threshold)
+
+        if is_potential_impact and previous_state == SimplifiedState.FREE_FALL:
+            self.logger.debug(f"IMPACT detected (from FREE_FALL): Linear Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
             # Update last magnitude based on what impact check used (linear)
             self.last_accel_magnitude = accel_magnitude_linear
             return SimplifiedState.IMPACT
+        # Optional: Log if potential impact occurs but not from FREE_FALL?
+        elif is_potential_impact:
+             self.logger.debug(f"Potential impact ignored (not from FREE_FALL): Prev State={previous_state.name}, Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
 
         # 2. SHAKE: Check for high magnitude and rapid changes/reversals (uses linear internally)
         # _check_shake inherently uses linear_acceleration from history
