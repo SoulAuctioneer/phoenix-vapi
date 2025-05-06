@@ -193,8 +193,7 @@ class ElevenLabsConfig:
     """Configuration for ElevenLabs Text-to-Speech"""
     API_KEY = ELEVENLABS_API_KEY
     # Find voice IDs using: https://api.elevenlabs.io/v1/voices
-    DEFAULT_VOICE_ID = "chcMmmtY1cmQh2ye1oXi" # Timmy / Mister Wibble
-    # DEFAULT_VOICE_ID = "dPKFsZN0BnPRUfVI2DUW"  # Ana-Rita3 / Fifi
+    DEFAULT_VOICE_ID = "chcMmmtY1cmQh2ye1oXi" if TTS_VOICE == "timmy" else "dPKFsZN0BnPRUfVI2DUW" # Timmy / Mister Wibble or Ana-Rita3 / Fifi
     DEFAULT_MODEL_ID = "eleven_turbo_v2_5" # Or "eleven_turbo_v2_5" for lower latency
     OUTPUT_FORMAT = "pcm_16000" # Use PCM format matching our AudioManager sample rate
     # Example: OUTPUT_FORMAT = "mp3_44100_128" # If using different settings
@@ -387,9 +386,9 @@ class MoveActivityConfig:
 
 
 # AI Assistant Configuration
-
 # ASSISTANT_ID = "22526ed1-6961-4760-8d93-c3759d64557c" # Fifi the Phoenix
 ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # Mister Wibble
+
 
 BASE_ASSISTANT_CONTEXT = dedent("""
     YOUR BACKGROUND:
@@ -458,7 +457,27 @@ ASSISTANT_CONFIG = {
         + BASE_ASSISTANT_CONTEXT 
         + dedent("""
         IMPORTANT: If you want to suggest some activities, call the list_activities function to receive a list of activities to choose from. Do not forget to call this list_activities function!
-        """)
+        """),
+    "name": "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi",
+    "voice": {
+        "model":"eleven_turbo_v2_5",
+        "voiceId": ElevenLabsConfig.DEFAULT_VOICE_ID,
+        "provider":"11labs",
+        "stability":0.5,
+        "similarityBoost":0.75,
+        "fillerInjectionEnabled":False,
+        "inputPunctuationBoundaries":[
+            "。",
+            "，",
+            ".",
+            "!",
+            "?",
+            ";"
+        ]
+    },
+    "firstMessage": "Ooh that was a lovely nap! What's up?",
+    "endCallMessage": "Okay, I'm gonna have a little nap",
+    
 }
 
 ASSISTANT_CONFIG_HIDE_SEEK_WON = {
