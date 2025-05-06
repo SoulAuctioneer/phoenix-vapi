@@ -52,13 +52,6 @@ class CallActivity(BaseService):
             if not self._polling_task.done():
                 self.logger.info("Cancelling call status polling task.")
                 self._polling_task.cancel()
-                try:
-                    await self._polling_task
-                except asyncio.CancelledError:
-                    self.logger.info("Polling task cancelled successfully.")
-                except Exception as e:
-                    # Log errors during cancellation but continue cleanup
-                    self.logger.error(f"Error awaiting cancelled polling task: {e}", exc_info=True)
             else:
                 self.logger.info("Polling task already done, no need to cancel.")
             self._polling_task = None
@@ -128,8 +121,11 @@ class CallActivity(BaseService):
 
         try:
             self.logger.info(f"Initiating call from {TWILIO_FROM_NUMBER} to {HARDCODED_TO_NUMBER}")
-            # Simple TwiML to connect the call
-            twiml = f'<Response><Say>Connecting your call.</Say><Dial callerId="{TWILIO_FROM_NUMBER}">{HARDCODED_TO_NUMBER}</Dial></Response>'
+            # Simple TwiML to just dial the number, keeping the call active until hangup.
+            # Using url attribute pointing to empty TwiML might be more robust for keeping the call alive after dial connects.
+            # Alternatively, just Dial might suffice.
+            # Let's try just Dial first.
+            twiml = f'<Response><Dial callerId="{TWILIO_FROM_NUMBER}">{HARDCODED_TO_NUMBER}</Dial></Response>'
             
             call = self.twilio_client.calls.create(
                 twiml=twiml,
