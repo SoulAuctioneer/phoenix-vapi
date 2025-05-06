@@ -283,8 +283,9 @@ class CallActivity(BaseService):
             self.logger.info(f"Starting WebSocket server on port {WEBSOCKET_PORT}")
             
             async def handle_websocket(websocket, path):
+                self.logger.info(f"WebSocket connection attempt from {websocket.remote_address} to path '{path}'")
                 try:
-                    self.logger.info(f"New WebSocket connection from {websocket.remote_address}")
+                    self.logger.info(f"New WebSocket connection accepted from {websocket.remote_address}")
                     self.active_websockets.add(websocket)
                     
                     # Process incoming messages (audio from Twilio)
