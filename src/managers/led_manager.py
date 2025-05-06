@@ -270,6 +270,8 @@ class LEDManager:
             self._current_effect = None
             self._current_speed = None
             self.clear()
+        else:
+            logging.info(f"Skipping stop of {effect_name} as it is not currently running. Currently running {self._current_effect}")
 
     def _apply_brightness(self):
         """Calculate and apply the effective brightness (base * relative) to the pixels."""
