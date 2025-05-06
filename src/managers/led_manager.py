@@ -835,15 +835,17 @@ class LEDManagerRings(LEDManager):
 
         # Track the state of each pixel for the outer ring
         pixel_states_ring1 = [{'active': False, 'brightness': 0.0, 'hue': random.random(), 'direction': 1} for _ in range(num_leds_ring1)]
-        # Inner ring pulse state
-        pulse_phase = 0.0
-        pulse_speed = 0.5 # Controls the speed of the inner ring pulse (adjust as needed)
+        # Track the state of each pixel for the inner ring
+        pixel_states_ring2 = [{'active': False, 'brightness': 0.0, 'hue': random.random(), 'direction': 1} for _ in range(num_leds_ring2)]
+        # Parameters for inner ring twinkling
+        inner_ring_activation_chance = 0.02 # Double the chance of the outer ring (0.01)
+        inner_ring_base_step = 0.04 # Double the base speed of the outer ring (0.02)
 
         while not self._stop_event.is_set():
             # Update Ring 1 (Outer Ring) - Twinkling
             for i, pixel in enumerate(pixel_states_ring1):
                 # Chance to activate
-                if not pixel['active'] and random.random() < 0.01:
+                if not pixel['active'] and random.random() < 0.01: # Outer ring activation chance
                     pixel['active'] = True
                     pixel['brightness'] = 0.0
                     pixel['hue'] = random.random()
@@ -852,7 +854,7 @@ class LEDManagerRings(LEDManager):
                 # Update active pixel
                 if pixel['active']:
                     speed_factor = 1.0 - (pixel['brightness'] ** 2)
-                    base_step = 0.02
+                    base_step = 0.02 # Outer ring base step
                     step = base_step + (base_step * 2 * speed_factor)
                     pixel['brightness'] += step * pixel['direction']
 
@@ -862,6 +864,7 @@ class LEDManagerRings(LEDManager):
                         pixel['direction'] = -1
                     elif pixel['brightness'] <= 0.0:
                         if pixel['direction'] == -1:
+                             # Only deactivate when fading out
                             pixel['active'] = False
                         pixel['brightness'] = 0.0
 
@@ -870,20 +873,46 @@ class LEDManagerRings(LEDManager):
                         r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(pixel['hue'], 1.0, pixel['brightness'])]
                         self.pixels[i] = (r, g, b)
                     else:
+                         # Ensure pixel is off when deactivated after fading
                         self.pixels[i] = (0, 0, 0)
                 elif not pixel['active']: # Ensure inactive pixels are off
                     self.pixels[i] = (0, 0, 0)
 
-            # Update Ring 2 (Inner Ring) - Slow White Pulse
-            pulse_phase += pulse_speed * wait # Increment phase based on time elapsed
-            # Use sine wave for smooth pulsing (range 0.1 to 0.8 brightness)
-            pulse_brightness = 0.1 + (math.sin(pulse_phase) + 1) / 2 * 0.7
-            pulse_color_val = int(255 * pulse_brightness)
-            inner_ring_color = (pulse_color_val, pulse_color_val, pulse_color_val)
-
-            for i in range(num_leds_ring2):
+            # Update Ring 2 (Inner Ring) - Faster Colorful Twinkling
+            for i, pixel in enumerate(pixel_states_ring2):
                 pixel_index_in_strip = num_leds_ring1 + i
-                self.pixels[pixel_index_in_strip] = inner_ring_color
+                # Chance to activate
+                if not pixel['active'] and random.random() < inner_ring_activation_chance:
+                    pixel['active'] = True
+                    pixel['brightness'] = 0.0
+                    pixel['hue'] = random.random()
+                    pixel['direction'] = 1
+
+                # Update active pixel
+                if pixel['active']:
+                    speed_factor = 1.0 - (pixel['brightness'] ** 2)
+                    step = inner_ring_base_step + (inner_ring_base_step * 2 * speed_factor)
+                    pixel['brightness'] += step * pixel['direction']
+
+                    # Check bounds
+                    if pixel['brightness'] >= 1.0:
+                        pixel['brightness'] = 1.0
+                        pixel['direction'] = -1
+                    elif pixel['brightness'] <= 0.0:
+                        if pixel['direction'] == -1:
+                             # Only deactivate when fading out
+                            pixel['active'] = False
+                        pixel['brightness'] = 0.0
+
+                    # Set pixel color
+                    if pixel['active']:
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(pixel['hue'], 1.0, pixel['brightness'])]
+                        self.pixels[pixel_index_in_strip] = (r, g, b)
+                    else:
+                         # Ensure pixel is off when deactivated after fading
+                        self.pixels[pixel_index_in_strip] = (0, 0, 0)
+                elif not pixel['active']: # Ensure inactive pixels are off
+                    self.pixels[pixel_index_in_strip] = (0, 0, 0)
 
             self.pixels.show()
             time.sleep(wait)
