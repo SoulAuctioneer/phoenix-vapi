@@ -259,22 +259,30 @@ class CallActivity(BaseService):
         """Handle incoming TwiML request from Twilio."""
         try:
             self.logger.info("Received TwiML request from Twilio")
-            
-            # Create TwiML response with <Connect><Stream>
             response = VoiceResponse()
-            
-            # Use <Connect><Stream> for bidirectional streaming
-            with response.connect() as connect:
-                connect.stream(url=self.ws_url)
-                
+
+            # --- TEST: Use simpler unidirectional <Start><Stream> ---
+            # This tells Twilio to start streaming *to* your WebSocket
+            # It doesn't expect audio *from* your WebSocket initially
+            start = Start()
+            start.stream(url=self.ws_url)
+            response.append(start)
+            response.say("Attempting unidirectional stream connection.")
+            response.pause(length=60) # Keep call alive for testing
+            # --- END TEST ---
+
+            # Original <Connect><Stream> (commented out for test)
+            # with response.connect() as connect:
+            #     connect.stream(url=self.ws_url)
+
             self.logger.debug(f"Returning TwiML: {response}")
             return Response(str(response), mimetype="text/xml")
-            
+
         except Exception as e:
             self.logger.error(f"Error handling TwiML request: {e}", exc_info=True)
             # Return a simple TwiML in case of error
             response = VoiceResponse()
-            response.say("An error occurred setting up the call")
+            response.say("An error occurred setting up the call TwiML")
             return Response(str(response), mimetype="text/xml")
 
     async def _run_websocket_server(self):
@@ -532,14 +540,17 @@ class CallActivity(BaseService):
             return
 
         try:
+            # --- REVERTED: Use original code ---
+            # Ensure self.twiml_url (Flask ngrok URL) is correctly set in _setup_ngrok
             self.logger.info(f"Initiating call from {TWILIO_FROM_NUMBER} to {HARDCODED_TO_NUMBER} using TwiML URL: {self.twiml_url}")
             
-            # Create a call using the TwiML URL (Flask server)
             call = self.twilio_client.calls.create(
                 to=HARDCODED_TO_NUMBER,
                 from_=TWILIO_FROM_NUMBER,
-                url=self.twiml_url
+                url=self.twiml_url # Use the app's Flask ngrok HTTP URL
             )
+            # --- END REVERTED ---
+            
             self.call_sid = call.sid
             self.logger.info(f"Call initiated successfully. SID: {self.call_sid}")
             await self.publish({"type": "pstn_call_initiated", "sid": self.call_sid})
