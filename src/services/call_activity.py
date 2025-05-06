@@ -18,6 +18,7 @@ from pyngrok import ngrok, conf
 import websockets
 import asyncio
 import logging
+import audioop
 # Import configuration from config module
 from config import (
     TWILIO_ACCOUNT_SID,
@@ -457,7 +458,10 @@ class CallActivity(BaseService):
         # µ-law conversion formula (simplified)
         ulaw = np.zeros_like(pcm_abs, dtype=np.uint8)
         mask = pcm_abs > 0
-        ulaw[mask] = 127 - np.clip(np.log(1 + 255 * pcm_abs[mask] / 32767) / np.log(256) * 127, 0, 127).astype(np.uint8)
+        # Add a small epsilon to prevent log(0) or log(negative)
+        epsilon = 1e-9 
+        log_argument = 1 + 255 * pcm_abs[mask] / 32767
+        ulaw[mask] = 127 - np.clip(np.log(log_argument + epsilon) / np.log(256) * 127, 0, 127).astype(np.uint8)
         
         # Apply sign bit
         ulaw = (sign * 128 + ulaw).astype(np.uint8)
@@ -466,34 +470,36 @@ class CallActivity(BaseService):
         return ulaw.tobytes()
 
     def _ulaw_to_pcm(self, ulaw_data: bytes) -> np.ndarray:
-        """Convert µ-law audio from Twilio to PCM.
+        """Convert µ-law audio from Twilio to PCM using audioop for accuracy.
         
-        Note: This is a simplified version - in production, you'd want to 
-        use a proper audio library with resampling capabilities.
+        Note: Twilio might send inverted µ-law. This implementation assumes
+        the standard µ-law byte format after any necessary pre-processing
+        (like inversion if Twilio does that).
+        The current code already handles a potential inversion:
+        `# ulaw_array = 255 - ulaw_array`
+        This means the `ulaw_data` received here should be ready for standard conversion.
+        If Twilio does not send inverted mu-law, the inversion step should be removed
+        or this function should handle the raw Twilio payload.
+        For now, assuming `ulaw_data` (after potential earlier inversion) is standard µ-law.
         """
-        # Convert bytes to numpy array
-        ulaw_array = np.frombuffer(ulaw_data, dtype=np.uint8)
+        # The original code had an inversion step: `ulaw_array = 255 - ulaw_array`
+        # If Twilio sends inverted µ-law, that inversion should happen *before* this function,
+        # or this function needs to be aware of it. Assuming ulaw_data here is "standard" µ-law.
+        # However, to match the previous behavior if Twilio *does* invert:
         
-        # Invert (Twilio sends inverted µ-law)
-        ulaw_array = 255 - ulaw_array
+        # To be safe and replicate the previous code's intent if Twilio inverts:
+        # Convert to numpy array to perform the inversion, then back to bytes for audioop
+        temp_ulaw_array = np.frombuffer(ulaw_data, dtype=np.uint8)
+        inverted_ulaw_bytes = (255 - temp_ulaw_array).astype(np.uint8).tobytes()
+
+        # Convert µ-law bytes to linear PCM bytes (16-bit, mono)
+        # The '2' indicates 2-byte (16-bit) samples for the output.
+        pcm_bytes = audioop.ulaw2lin(inverted_ulaw_bytes, 2)
         
-        # Extract sign bit and magnitude
-        sign = (ulaw_array & 0x80) >> 7
-        magnitude = ulaw_array & 0x7F
+        # Convert PCM bytes to numpy array of int16
+        pcm_audio = np.frombuffer(pcm_bytes, dtype=np.int16)
         
-        # µ-law to linear conversion (simplified)
-        pcm = np.zeros_like(magnitude, dtype=np.float32)
-        mask = magnitude > 0
-        pcm[mask] = np.power(256, magnitude[mask] / 127) - 1
-        pcm = pcm * 32767 / 255
-        
-        # Apply sign
-        pcm = pcm * (1 - 2 * sign)
-        
-        # Convert to int16
-        pcm = pcm.astype(np.int16)
-        
-        return pcm
+        return pcm_audio
 
     async def _poll_call_status(self):
         """Periodically polls the Twilio API for the call status."""
