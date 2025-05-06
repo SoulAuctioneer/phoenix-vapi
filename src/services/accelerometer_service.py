@@ -130,7 +130,8 @@ class AccelerometerService(BaseService):
                 await self.publish({
                     "type": "sensor_data",
                     "sensor": "accelerometer",
-                    "data": data
+                    "data": data,
+                    "silent": True
                 })
                 
                 # Wait for the update interval

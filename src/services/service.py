@@ -202,7 +202,8 @@ class ServiceManager:
             self.logger.warning("Received event without type")
             return
             
-        self.logger.debug(f"Publishing event: {event}")
+        if not event.get("silent", False):
+            self.logger.debug(f"Publishing event: {event}")
         
         async with self._lock:
             # Get both specific handlers and wildcard handlers
