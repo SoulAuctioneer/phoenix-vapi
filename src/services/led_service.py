@@ -56,28 +56,53 @@ class LEDService(BaseService):
         #     duration = event.get('timeout', 7)
         #     self.led_controller.start_effect("ROTATING_PINK_BLUE", speed=0.03)
 
-        if event_type == "stop_led_effect":
+        if event_type == "start_led_effect":
+            # Handle manual LED commands
+            # TODO: Change to uppercase everywhere
+            effect_name = event.get('data', {}).get('effectName').upper()
+            speed = event.get('data', {}).get('speed', 0.02)
+            brightness = event.get('data', {}).get('brightness', 1.0)
+            # --- Extract color specifically for rotating_color ---
+            # TODO: Hacky, need to refactor to handle effect-specific parameters generically, e.g. via kwargs
+            color = None
+            if effect_name == "rotating_color":
+                color = event.get('data', {}).get('color')
+                if not color:
+                    logging.warning("'rotating_color' effect requested but no color specified in event data. Effect may fail or use default.")
+            # --- End color extraction ---
+            
+            if effect_name == "stop":
+                self.led_controller.stop_effect()
+                logging.info("Stopped LED effect")
+            elif effect_name == "clear":
+                self.led_controller.clear()
+                logging.info("Cleared all LEDs")
+            # Check if the effect_name is a known key in the manager's map
+            elif effect_name in self.led_controller._EFFECT_MAP: 
+                # Pass the string name directly
+                self.led_controller.start_effect(effect_name, speed=speed, brightness=brightness, color=color)
+                logging.info(f"Started {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
+            else:
+                logging.warning(f"Received unknown effect name: '{effect_name}'")
+
+        elif event_type == "stop_led_effect":
             effect_name = event.get('data', {}).get('effectName', None)
+            # TODO: Change to uppercase everywhere
+            effect_name = effect_name.upper() if effect_name else None
             self.led_controller.stop_effect(effect_name)
             logging.info("Stopped LED effect")
 
-        elif event_type == "conversation_started":
-            # Now handled by activity service
-            # logging.info("Conversation started - switched to random twinkling effect")
-            # self.led_controller.start_effect("RANDOM_TWINKLING", speed=0.1)
-            pass
 
-        elif event_type == "conversation_ended":
-            # Now handled by switching to sleep activity
-            # logging.info("Conversation ended - switched to rotating pink blue effect")
-            # self.led_controller.start_effect("ROTATING_PINK_BLUE")
-            pass
-
-        elif event_type == "application_startup_completed":
-            # Now handled by switching to sleep activity
-            # logging.info("Application startup completed - switched to rotating pink blue effect")
-            # self.led_controller.start_effect("ROTATING_PINK_BLUE")
-            pass
+        elif event_type == "battery_alert":
+            alerts = event.get('alerts', [])
+            if "voltage_low" in alerts:
+                current_base_brightness = self.led_controller.get_base_brightness()
+                new_base_brightness = max(0.0, current_base_brightness - 0.05) # Decrease by 0.05, ensuring it doesn't go below 0
+                if new_base_brightness < current_base_brightness: # Only update if there's a change
+                    self.led_controller.set_base_brightness(new_base_brightness)
+                    logging.warning(f"Low voltage detected! Reducing base LED brightness from {current_base_brightness:.2f} to {new_base_brightness:.2f}")
+                else:
+                    logging.info(f"Low voltage detected, but base brightness already at minimum (0.0)") 
 
         elif event_type == "touch_stroke_intensity":
             # Only trigger purring effect if we're not in a conversation
@@ -111,41 +136,3 @@ class LEDService(BaseService):
                     # When intensity drops to 0, return to default effect
                     logging.info("Touch intensity ended, returning to default effect")
                     self.led_controller.start_effect("ROTATING_PINK_BLUE")
-
-        elif event_type == "start_led_effect":
-            # Handle manual LED commands
-            effect_name = event.get('data', {}).get('effectName')
-            speed = event.get('data', {}).get('speed', 0.02)
-            brightness = event.get('data', {}).get('brightness', 1.0)
-            # --- Extract color specifically for rotating_color ---
-            color = None
-            if effect_name == "rotating_color":
-                color = event.get('data', {}).get('color')
-                if not color:
-                    logging.warning("'rotating_color' effect requested but no color specified in event data. Effect may fail or use default.")
-            # --- End color extraction ---
-            
-            if effect_name == "stop":
-                self.led_controller.stop_effect()
-                logging.info("Stopped LED effect")
-            elif effect_name == "clear":
-                self.led_controller.clear()
-                logging.info("Cleared all LEDs")
-            # Check if the effect_name is a known key in the manager's map
-            elif effect_name in self.led_controller._EFFECT_MAP: 
-                # Pass the string name directly
-                self.led_controller.start_effect(effect_name, speed=speed, brightness=brightness, color=color)
-                logging.info(f"Started {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
-            else:
-                logging.warning(f"Received unknown effect name: '{effect_name}'")
-
-        elif event_type == "battery_alert":
-            alerts = event.get('alerts', [])
-            if "voltage_low" in alerts:
-                current_base_brightness = self.led_controller.get_base_brightness()
-                new_base_brightness = max(0.0, current_base_brightness - 0.05) # Decrease by 0.05, ensuring it doesn't go below 0
-                if new_base_brightness < current_base_brightness: # Only update if there's a change
-                    self.led_controller.set_base_brightness(new_base_brightness)
-                    logging.warning(f"Low voltage detected! Reducing base LED brightness from {current_base_brightness:.2f} to {new_base_brightness:.2f}")
-                else:
-                    logging.info(f"Low voltage detected, but base brightness already at minimum (0.0)") 
