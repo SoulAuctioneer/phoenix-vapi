@@ -14,7 +14,7 @@ from managers.accelerometer_manager import SimplifiedState
 # Store giggle sounds for easy cycling
 _giggle_sounds = (SoundEffect.GIGGLE1, SoundEffect.GIGGLE2, SoundEffect.GIGGLE3)
 
-# Cooldown period for giggle sounds (in seconds)
+# Cooldown period before a giggle sound can play after ANY sound effect (in seconds)
 GIGGLE_COOLDOWN_SECONDS = 2.0
 
 class MoveActivity(BaseService):
@@ -51,7 +51,7 @@ class MoveActivity(BaseService):
         self.twinkling_brightness: float = 0.05 # Dim initial brightness
         # --- Shake Handling ---
         self._giggle_index = 0 # Index for cycling through giggle sounds
-        self._last_giggle_time: float = 0.0 # Timestamp of the last giggle sound
+        self._last_sound_play_time: float = 0.0 # Timestamp of the last sound played by this service
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
@@ -107,15 +107,15 @@ class MoveActivity(BaseService):
             # Entering SHAKE
             if state_changed and current_state_enum == SimplifiedState.SHAKE:
                 self.logger.info("Detected SHAKE entry. Playing giggle sound.")
-                # Check cooldown
+                # Check cooldown against the last time *any* sound was played
                 current_time = time.monotonic()
-                if current_time - self._last_giggle_time >= GIGGLE_COOLDOWN_SECONDS:
+                if current_time - self._last_sound_play_time >= GIGGLE_COOLDOWN_SECONDS:
                     # Choose sound effect based on current index
                     effect_to_play = _giggle_sounds[self._giggle_index]
                     # Play sound at half volume
                     await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.5})
-                    # Update last giggle time
-                    self._last_giggle_time = current_time
+                    # Update last sound play time
+                    self._last_sound_play_time = current_time
                     # Increment index for next time, cycling through 0, 1, 2
                     self._giggle_index = (self._giggle_index + 1) % len(_giggle_sounds)
                 else:
@@ -124,15 +124,21 @@ class MoveActivity(BaseService):
             # Entering IMPACT
             elif state_changed and current_state_enum == SimplifiedState.IMPACT:
                 self.logger.info("Detected IMPACT entry. Playing OOF sound.")
+                current_time = time.monotonic()
                 # Play sound (using default volume)
                 await self.publish({"type": "play_sound", "effect_name": SoundEffect.OOF})
+                # Update last sound play time
+                self._last_sound_play_time = current_time
 
             # Entering FREE_FALL
             elif state_changed and current_state_enum == SimplifiedState.FREE_FALL:
-                 self.logger.info(f"Detected FREE_FALL entry from {self.previous_state.name}.")
-                 # Play sound
-                 await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE})
-                 # LED change handled below based on current state
+                self.logger.info(f"Detected FREE_FALL entry from {self.previous_state.name}.")
+                current_time = time.monotonic()
+                # Play sound
+                await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE})
+                # Update last sound play time
+                self._last_sound_play_time = current_time
+                # LED change handled below based on current state
 
             # Update internal state flags based on current state
             self.in_free_fall = (current_state_enum == SimplifiedState.FREE_FALL)
