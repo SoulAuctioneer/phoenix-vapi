@@ -134,6 +134,7 @@ class SoundEffect(str, Enum):
     GIGGLE1 = "giggle1.wav"
     GIGGLE2 = "giggle2.wav"
     GIGGLE3 = "giggle3.wav"
+    OOF = "oof.wav"
     SQUEAK = "squeak.wav"
     CHIRP1 = "chirp1.wav"
     CHIRP2 = "chirp2.wav"

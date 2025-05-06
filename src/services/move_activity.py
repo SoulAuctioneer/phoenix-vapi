@@ -103,6 +103,16 @@ class MoveActivity(BaseService):
                 # Increment index for next time, cycling through 0, 1, 2
                 self._giggle_index = (self._giggle_index + 1) % len(_giggle_sounds)
 
+            # --- Impact State Transition Logic ---
+            is_currently_impact = (current_state_enum == SimplifiedState.IMPACT)
+            was_previously_impact = (self.previous_state == SimplifiedState.IMPACT)
+
+            if is_currently_impact and not was_previously_impact:
+                # Entering IMPACT state
+                self.logger.info("Detected IMPACT. Playing OOF sound.")
+                # Play sound (using default volume)
+                await self.publish({"type": "play_sound", "effect_name": SoundEffect.OOF})
+
             # --- Free Fall State Transition Logic ---
             was_in_free_fall = self.in_free_fall
             is_currently_free_fall = (current_state_enum == SimplifiedState.FREE_FALL)
@@ -141,7 +151,7 @@ class MoveActivity(BaseService):
                 })
 
             # --- LED Update Logic based on Energy (Only when NOT in Free Fall or Shaking) ---
-            if not self.in_free_fall and not is_currently_shaking:
+            if not self.in_free_fall and not is_currently_shaking and not is_currently_impact:
                 # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)
                 min_speed = 0.01 # Fastest
                 max_speed = 0.1  # Slowest
