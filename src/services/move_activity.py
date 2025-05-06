@@ -21,7 +21,7 @@ class MoveActivity(BaseService):
     1. Calculate a movement energy level (0-1) based on acceleration and rotation
     2. Detect state transitions (e.g., entering/exiting FREE_FALL)
     3. Publish events when significant changes occur (like playing sounds or changing LEDs)
-    4. Control LED effect (RANDOM_TWINKLING normally, RAINBOW during free fall) based on movement energy and state.
+    4. Control LED effect (RANDOM_TWINKLING normally, ROTATING_RAINBOW during free fall) based on movement energy and state.
     """
     
     def __init__(self, service_manager):
@@ -67,7 +67,7 @@ class MoveActivity(BaseService):
     async def handle_event(self, event: Dict[str, Any]):
         """
         Handle events from other services, particularly accelerometer sensor data.
-        Detects FREE_FALL transitions to trigger sound and switch LED effects (RAINBOW).
+        Detects FREE_FALL transitions to trigger sound and switch LED effects (ROTATING_RAINBOW).
         Updates the default LED effect (RANDOM_TWINKLING) based on movement energy when not in FREE_FALL.
         
         Args:
@@ -121,7 +121,7 @@ class MoveActivity(BaseService):
             if is_currently_free_fall and not was_in_free_fall:
                 # Only trigger if previous state was not something stationary/unknown
                 if self.previous_state not in [SimplifiedState.UNKNOWN, SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
-                    self.logger.info(f"Entering FREE_FALL from {self.previous_state.name}. Switching to RAINBOW effect.")
+                    self.logger.info(f"Entering FREE_FALL from {self.previous_state.name}. Switching to ROTATING_RAINBOW effect.")
                     self.in_free_fall = True
                     
                     # Play sound
@@ -130,7 +130,7 @@ class MoveActivity(BaseService):
                     # Start RAINBOW effect 
                     await self.publish({
                         "type": "start_led_effect",
-                        "data": { "effectName": "RAINBOW", "speed": 0.05, "brightness": 0.8 } # Example values
+                        "data": { "effectName": "ROTATING_RAINBOW", "speed": 0.05, "brightness": 0.8 } # Example values
                     })
                 else:
                     self.logger.debug(f"Detected FREE_FALL but previous state ({self.previous_state.name}) prevents triggering effects.")
