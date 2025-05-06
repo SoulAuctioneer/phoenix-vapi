@@ -206,17 +206,19 @@ class CallStateManager:
             await asyncio.sleep(0.05) # Small delay to allow stop command to process
 
             # Determine the next effect to start
-            effect_to_start = None
             if is_speaking:
-                effect_to_start = "ROTATING_GREEN_YELLOW" # Assistant speaking effect
-            else:
-                effect_to_start = "RANDOM_TWINKLING"    # Assistant stopped speaking effect (idle)
-            
-            if effect_to_start:
                 asyncio.create_task(self._conversation_manager.publish_event_callback({
                     "type": "start_led_effect",
                     "data": {
-                        "effectName": effect_to_start
+                        "effectName": "ROTATING_GREEN_YELLOW"
+                    }
+                }))
+            else:
+                asyncio.create_task(self._conversation_manager.publish_event_callback({
+                    "type": "start_led_effect",
+                    "data": {
+                        "effectName": "RANDOM_TWINKLING",    # Assistant stopped speaking effect (idle)
+                        "speed": 0.1
                     }
                 }))
         
