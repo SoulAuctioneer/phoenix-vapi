@@ -45,7 +45,7 @@ class MoveActivity(BaseService):
         # --- LED Effect Tracking ---
         self.current_led_effect: Dict[str, Any] = {"name": None, "params": {}} # Track current effect sent
         # Store the default effect name used by this activity
-        self.default_effect_name = "RANDOM_TWINKLING"
+        self.default_effect_name = "BLUE_BREATHING"
         # Store the current parameters for the default effect (updated dynamically)
         self.twinkling_speed: float = 0.3 # Slower sparkle/update rate initially
         self.twinkling_brightness: float = 0.05 # Dim initial brightness
