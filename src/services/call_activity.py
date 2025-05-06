@@ -214,8 +214,16 @@ class CallActivity(BaseService):
             self.logger.info(f"ngrok Flask tunnel established: {self.twiml_url}")
             
             self.ngrok_ws_tunnel = ngrok.connect(WEBSOCKET_PORT, "http")
-            # Convert http:// to wss:// for WebSocket
-            ws_url = self.ngrok_ws_tunnel.public_url.replace("http://", "wss://")
+            # Convert http:// or https:// to wss:// for WebSocket
+            public_url = self.ngrok_ws_tunnel.public_url
+            if public_url.startswith("https://"):
+                ws_url = public_url.replace("https://", "wss://", 1)
+            elif public_url.startswith("http://"):
+                ws_url = public_url.replace("http://", "wss://", 1)
+            else:
+                self.logger.error(f"Unexpected ngrok public URL scheme: {public_url}. Using as is.")
+                ws_url = public_url # Fallback, though this might still cause issues
+            
             # self.ws_url = f"{ws_url}/media" # REMOVE /media path for testing
             self.ws_url = ws_url # Use root path
             self.logger.info(f"ngrok WebSocket tunnel established: {self.ws_url}")

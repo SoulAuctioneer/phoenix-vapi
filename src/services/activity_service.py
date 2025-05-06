@@ -188,7 +188,8 @@ class ActivityService(BaseService):
             self.logger.info(f"Activity {activity.name} starting, playing start sound: {start_sound}")
             await self.publish({
                 "type": "play_sound",
-                "effect_name": start_sound
+                "effect_name": start_sound,
+                "volume": 0.2 # TODO: Change back when not in public!
             })
             
         # Speak start text if defined
