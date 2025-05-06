@@ -33,8 +33,12 @@ class SleepActivity(BaseService):
         #     "volume": self._breathing_volume  # Very quiet for sleep mode
         # })
         
-        # # Set LED effect to rotating pink/blue
-        # NOTE: Disabled as it's too power hungry and would be cooler if nothing's shown until "woken up" 
+        # Stop any LED effect
+        await self.publish({
+            "type": "stop_led_effect"
+        })
+        
+        # # Start the LED effect
         # await self.publish({
         #     "type": "start_led_effect",
         #     "data": {

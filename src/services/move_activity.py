@@ -99,7 +99,8 @@ class MoveActivity(BaseService):
             # Apply a curve (e.g., power of 2) to make speed increase faster at higher energies
             energy_curve_factor_speed = 2.0 
             curved_energy_speed = pow(energy, energy_curve_factor_speed)
-            speed = max_speed - (curved_energy_speed * speed_range)
+            # Rename 'speed' to 'interval' as the value represents the update delay
+            interval = max_speed - (curved_energy_speed * speed_range)
             
             # Brightness: Higher energy -> brighter LEDs
             min_brightness = 0.1 # Minimum brightness at min energy
@@ -112,7 +113,8 @@ class MoveActivity(BaseService):
             brightness = min_brightness + (curved_energy_brightness * brightness_range)
 
             # Ensure brightness and speed are within valid ranges
-            speed = max(min_speed, min(max_speed, speed))
+            # Ensure brightness and interval are within valid ranges
+            interval = max(min_speed, min(max_speed, interval))
             brightness = max(min_brightness, min(max_brightness, brightness))
 
             # --- Publish LED update only if energy changed significantly ---
@@ -123,7 +125,7 @@ class MoveActivity(BaseService):
                     "type": "start_led_effect", # Use start_led_effect to update parameters
                     "data": {
                         "effectName": "rotating_rainbow",
-                        "speed": speed,
+                        "speed": interval, # Pass the calculated interval as the 'speed' parameter value
                         "brightness": brightness
                     }
                 })

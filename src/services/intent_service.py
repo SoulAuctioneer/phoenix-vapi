@@ -106,7 +106,7 @@ class IntentService(BaseService):
                     "type": "intent_detection_timeout"
                 })
 
-                # TODO: Stop LED effect
+                # Stop LED effect
                 await self.publish({
                     "type": "stop_led_effect",
                     "data": {
@@ -154,6 +154,15 @@ class IntentService(BaseService):
     async def _handle_intent_detected(self, intent_data: Dict[str, Any]):
         """Callback handler for when an intent is detected by the manager"""
         logging.info("Intent detected, stopping detection")
+
+        # Stop LED effect
+        await self.publish({
+            "type": "stop_led_effect",
+            "data": {
+                "effectName": "rotating_pink_blue"
+            }
+        })
+
         
         # Re-map old intent names to new ones
         intent = intent_data["intent"]
