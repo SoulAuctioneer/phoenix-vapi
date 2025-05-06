@@ -216,7 +216,8 @@ class CallActivity(BaseService):
             self.ngrok_ws_tunnel = ngrok.connect(WEBSOCKET_PORT, "http")
             # Convert http:// to wss:// for WebSocket
             ws_url = self.ngrok_ws_tunnel.public_url.replace("http://", "wss://")
-            self.ws_url = f"{ws_url}/media"
+            # self.ws_url = f"{ws_url}/media" # REMOVE /media path for testing
+            self.ws_url = ws_url # Use root path
             self.logger.info(f"ngrok WebSocket tunnel established: {self.ws_url}")
             
             return True
