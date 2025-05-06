@@ -125,7 +125,7 @@ class MoveActivity(BaseService):
                 min_speed = 0.01 # Fastest
                 max_speed = 0.1  # Slowest
                 speed_range = max_speed - min_speed
-                energy_curve_factor_speed = 2.0 
+                energy_curve_factor_speed = 0.5
                 curved_energy_speed = pow(energy, energy_curve_factor_speed)
                 interval = max_speed - (curved_energy_speed * speed_range)
                 
