@@ -299,24 +299,23 @@ class CallActivity(BaseService):
         try:
             self.logger.info(f"Starting WebSocket server on port {WEBSOCKET_PORT}")
             
-            async def handle_websocket(websocket_conn):
-                path = websocket_conn.path
-                self.logger.info(f"WebSocket connection attempt from {websocket_conn.remote_address} to path '{path}'")
+            async def handle_websocket(websocket, path):
+                self.logger.info(f"WebSocket connection attempt from {websocket.remote_address} to path '{path}'")
                 try:
-                    self.logger.info(f"New WebSocket connection accepted from {websocket_conn.remote_address}")
-                    self.active_websockets.add(websocket_conn)
+                    self.logger.info(f"New WebSocket connection accepted from {websocket.remote_address}")
+                    self.active_websockets.add(websocket)
                     
                     # Process incoming messages (audio from Twilio)
-                    async for message in websocket_conn:
-                        await self._handle_websocket_message(websocket_conn, message)
+                    async for message in websocket: 
+                        await self._handle_websocket_message(websocket, message)
                         
                 except websockets.exceptions.ConnectionClosed:
-                    self.logger.info(f"WebSocket connection closed by client {websocket_conn.remote_address}")
+                    self.logger.info(f"WebSocket connection closed by client {websocket.remote_address}")
                 except Exception as e:
                     self.logger.error(f"Error in WebSocket handler: {e}", exc_info=True)
                 finally:
-                    if websocket_conn in self.active_websockets:
-                        self.active_websockets.remove(websocket_conn)
+                    if websocket in self.active_websockets:
+                        self.active_websockets.remove(websocket)
             
             # Start the WebSocket server
             self.websocket_server = await websockets.serve(handle_websocket, "0.0.0.0", WEBSOCKET_PORT)
