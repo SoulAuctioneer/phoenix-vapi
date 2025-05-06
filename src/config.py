@@ -453,7 +453,7 @@ ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
 
 ASSISTANT_CONFIG = {
     "firstMessage": "Oooh that was such a lovely nap! ... Shall we have some fun?",
-    "context": f"It is currently {time.strftime('%I:%M %p')}, on {time.strftime('%A')}, {time.strftime('%B %d, %Y')}." 
+    "context": f"It is currently {time.strftime('%I:%M %p')}, on {time.strftime('%A')}, {time.strftime('%B %d, %Y')}.\n" 
         + BASE_ASSISTANT_CONTEXT 
         + dedent("""
         IMPORTANT: If you want to suggest some activities, call the list_activities function to receive a list of activities to choose from. Do not forget to call this list_activities function!
@@ -482,7 +482,7 @@ ASSISTANT_CONFIG = {
 
 ASSISTANT_CONFIG_HIDE_SEEK_WON = {
     "firstMessage": "Hahaaaa yaaay! You found me!",
-    "context": f"It is currently {time.strftime('%I:%M %p')}, on {time.strftime('%A')}, {time.strftime('%B %d, %Y')}." 
+    "context": f"It is currently {time.strftime('%I:%M %p')}, on {time.strftime('%A')}, {time.strftime('%B %d, %Y')}.\n" 
         + BASE_ASSISTANT_CONTEXT 
         + dedent("""
         You've just met your companion, Arianne. You have spent a little time getting to know each other. 
