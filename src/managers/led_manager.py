@@ -32,7 +32,7 @@ COLORS = {
     "white": (255, 255, 255),
     # Custom colors for Magic Garden Pea effect
     "magic_green": (0, 255, 0),
-    "magic_gold": (0, 0, 255),
+    "magic_blue": (0, 0, 255),
 }
 
 class LEDManager:
@@ -344,9 +344,8 @@ class LEDManager:
         hsv2 = colorsys.rgb_to_hsv(rgb2[0] / 255.0, rgb2[1] / 255.0, rgb2[2] / 255.0)
         hue1 = hsv1[0]
         hue2 = hsv2[0]
-        # Keep saturation and value fixed like in the original pink/blue effect
-        saturation = 0.8
-        value = 0.7
+        saturation = 1.0 # Use full saturation
+        value = 1.0        # Use full value/brightness
 
         while not self._stop_event.is_set():
             for j in range(100):  # Slower cycle with 100 steps
@@ -625,9 +624,9 @@ class LEDManager:
             time.sleep(wait)
 
     def _rotating_green_yellow_effect(self, wait):
-        """Generate a slow rotating gradient between magic green and magic gold colors"""
+        """Generate a slow rotating gradient between magic green and magic blue colors"""
         # Call the generalized method with custom colors
-        self._two_color_rotation_effect("magic_green", "magic_gold", wait)
+        self._two_color_rotation_effect("magic_green", "magic_blue", wait)
 
 class LEDManagerRings(LEDManager):
     """
@@ -749,8 +748,8 @@ class LEDManagerRings(LEDManager):
         hsv2 = colorsys.rgb_to_hsv(rgb2[0] / 255.0, rgb2[1] / 255.0, rgb2[2] / 255.0)
         hue1 = hsv1[0]
         hue2 = hsv2[0]
-        saturation = 0.8 # Keep fixed S, V
-        value = 0.7
+        saturation = 1.0 # Use full saturation
+        value = 1.0        # Use full value/brightness
 
         num_leds_ring1 = LEDConfig.LED_COUNT_RING1
         num_leds_ring2 = LEDConfig.LED_COUNT_RING2
@@ -1213,6 +1212,6 @@ class LEDManagerRings(LEDManager):
 
     # Correctly placed override for green/yellow rotation
     def _rotating_green_yellow_effect(self, wait):
-        """Override: Generate rotating magic green/gold gradients, counter-rotating on the inner ring."""
+        """Override: Generate rotating magic green/blue gradients, counter-rotating on the inner ring."""
         # Call the generalized method for rings with custom colors
-        self._two_color_rotation_effect("magic_green", "magic_gold", wait)
+        self._two_color_rotation_effect("magic_green", "magic_blue", wait)
