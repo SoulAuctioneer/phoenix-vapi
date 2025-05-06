@@ -44,14 +44,21 @@ class ConversationService(BaseService):
         self.is_active = True
 
         try:
-            # Fetch memories and add to assistant context
-            self.logger.info("Initializing call connection")
+            # Start LED effect
+            await self._publish_event_callback({
+                "type": "start_led_effect",
+                "data": {
+                    "effectName": "green_breathing"
+                }
+            })
+            # Start conversation
+            self.logger.info("Initializing conversation call connection")
             await self.publish({"type": "conversation_starting"})
             await self.conversation_manager.start_call(assistant_id=ASSISTANT_ID, assistant_config=assistant_config)
             self.logger.info("Conversation started successfully")
             
         except Exception as e:
-            self.logger.error("Failed to start call: %s", str(e), exc_info=True)
+            self.logger.error("Failed to start conversation call: %s", str(e), exc_info=True)
             self.is_active = False  # Reset active state on failure
             await self.stop_conversation()
             # Notify other services about the failure
