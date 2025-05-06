@@ -89,7 +89,7 @@ class AccelerometerService(BaseService):
         await super().start()
         
         # Initialize the sensor via the manager
-        if self.manager.initialize():
+        if await self.manager.initialize():
             # Start continuous reading
             self.read_task = asyncio.create_task(self._read_loop())
             self.logger.info("Accelerometer service started")
@@ -120,7 +120,7 @@ class AccelerometerService(BaseService):
         try:
             while True:
                 # Read data from accelerometer via manager
-                data = self.manager.read_sensor_data()
+                data = await self.manager.read_sensor_data()
                 
                 # Print data to console for debugging
                 if AccelerometerConfig.PRINT_DEBUG_DATA:

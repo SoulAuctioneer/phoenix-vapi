@@ -123,14 +123,14 @@ class AccelerometerManager:
         self.last_accel_magnitude = 0.0          # Store previous accel magnitude for impact detection edge
         self.current_state = SimplifiedState.UNKNOWN # Store the determined state
 
-    def initialize(self) -> bool:
+    async def initialize(self) -> bool:
         """
         Initialize the accelerometer hardware.
 
         Returns:
             bool: True if initialization was successful, False otherwise
         """
-        return self.interface.initialize()
+        return await self.interface.initialize()
 
     def deinitialize(self):
         """
@@ -138,14 +138,14 @@ class AccelerometerManager:
         """
         self.interface.deinitialize()
 
-    def read_sensor_data(self) -> Dict[str, Any]:
+    async def read_sensor_data(self) -> Dict[str, Any]:
         """
         Read raw sensor data and determine the simplified motion state.
 
         Returns:
             Dict[str, Any]: Dictionary containing sensor readings and the detected state name.
         """
-        data = self.interface.read_sensor_data()
+        data = await self.interface.read_sensor_data()
         current_time = time.time()
         data['timestamp'] = current_time # Add timestamp immediately
 
