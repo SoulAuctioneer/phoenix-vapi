@@ -5,6 +5,7 @@ We also detect state changes, like entering FREE_FALL, to trigger specific sound
 """
 
 import logging
+import time # Import time module
 from typing import Dict, Any
 from services.service import BaseService
 from config import MoveActivityConfig, SoundEffect
@@ -12,6 +13,9 @@ from managers.accelerometer_manager import SimplifiedState
 
 # Store giggle sounds for easy cycling
 _giggle_sounds = (SoundEffect.GIGGLE1, SoundEffect.GIGGLE2, SoundEffect.GIGGLE3)
+
+# Cooldown period for giggle sounds (in seconds)
+GIGGLE_COOLDOWN_SECONDS = 2.0
 
 class MoveActivity(BaseService):
     """
@@ -41,6 +45,7 @@ class MoveActivity(BaseService):
         self.twinkling_brightness: float = 0.05 # Dim initial brightness
         # --- Shake Handling ---
         self._giggle_index = 0 # Index for cycling through giggle sounds
+        self._last_giggle_time: float = 0.0 # Timestamp of the last giggle sound
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
@@ -94,14 +99,22 @@ class MoveActivity(BaseService):
                 # Entering SHAKE state
                 self.logger.info("Detected SHAKE. Playing giggle sound.")
                 
-                # Choose sound effect based on current index
-                effect_to_play = _giggle_sounds[self._giggle_index]
-                
-                # Play sound at half volume
-                await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.5})
-                
-                # Increment index for next time, cycling through 0, 1, 2
-                self._giggle_index = (self._giggle_index + 1) % len(_giggle_sounds)
+                # Check cooldown
+                current_time = time.monotonic()
+                if current_time - self._last_giggle_time >= GIGGLE_COOLDOWN_SECONDS:
+                    # Choose sound effect based on current index
+                    effect_to_play = _giggle_sounds[self._giggle_index]
+                    
+                    # Play sound at half volume
+                    await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.5})
+                    
+                    # Update last giggle time
+                    self._last_giggle_time = current_time
+                    
+                    # Increment index for next time, cycling through 0, 1, 2
+                    self._giggle_index = (self._giggle_index + 1) % len(_giggle_sounds)
+                else:
+                    self.logger.debug("Giggle cooldown active, skipping sound.")
 
             # --- Impact State Transition Logic ---
             is_currently_impact = (current_state_enum == SimplifiedState.IMPACT)
