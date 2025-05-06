@@ -24,7 +24,8 @@ from config import (
     TWILIO_AUTH_TOKEN,
     TWILIO_FROM_NUMBER,
     HARDCODED_TO_NUMBER,
-    TWILIO_POLL_INTERVAL
+    TWILIO_POLL_INTERVAL,
+    NGROK_AUTH_TOKEN
 )
 
 # Additional configuration for the Flask/WebSocket servers

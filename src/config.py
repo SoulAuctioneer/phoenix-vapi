@@ -38,6 +38,7 @@ VAPI_CLIENT_KEY = clean_env_value(os.getenv('VAPI_CLIENT_KEY'))
 PICOVOICE_ACCESS_KEY = clean_env_value(os.getenv('PICOVOICE_ACCESS_KEY'))
 OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API key
 ELEVENLABS_API_KEY = clean_env_value(os.getenv('ELEVENLABS_API_KEY')) # ElevenLabs API Key
+NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 
 # Twilio Configuration (for PSTN calls)
 TWILIO_ACCOUNT_SID = clean_env_value(os.getenv('TWILIO_ACCOUNT_SID'))
