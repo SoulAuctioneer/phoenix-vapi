@@ -113,7 +113,7 @@ class MoveActivity(BaseService):
                     # Choose sound effect based on current index
                     effect_to_play = _giggle_sounds[self._giggle_index]
                     # Play sound at half volume
-                    await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.5})
+                    await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.4})
                     # Update last sound play time
                     self._last_sound_play_time = current_time
                     # Increment index for next time, cycling through 0, 1, 2
@@ -135,7 +135,7 @@ class MoveActivity(BaseService):
                 self.logger.info(f"Detected FREE_FALL entry from {self.previous_state.name}.")
                 current_time = time.monotonic()
                 # Play sound
-                await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE})
+                await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE, "volume": 0.4})
                 # Update last sound play time
                 self._last_sound_play_time = current_time
                 # LED change handled below based on current state
