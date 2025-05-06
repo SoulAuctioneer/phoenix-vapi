@@ -123,8 +123,10 @@ class MoveActivity(BaseService):
 
             # Entering IMPACT
             elif state_changed and current_state_enum == SimplifiedState.IMPACT:
-                self.logger.info("Detected IMPACT entry. Playing OOF sound.")
+                self.logger.info("Detected IMPACT entry. Stopping WEE and playing OOF sound.")
                 current_time = time.monotonic()
+                # Stop WEE
+                await self.publish({"type": "stop_sound", "effect_name": SoundEffect.WEE})
                 # Play sound (using default volume)
                 await self.publish({"type": "play_sound", "effect_name": SoundEffect.OOF})
                 # Update last sound play time
