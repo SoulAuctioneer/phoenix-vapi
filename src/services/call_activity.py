@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 from services.service import BaseService
@@ -8,14 +8,15 @@ from config import (
     TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN,
     TWILIO_FROM_NUMBER,
-    HARDCODED_TO_NUMBER
+    HARDCODED_TO_NUMBER,
+    TWILIO_POLL_INTERVAL
 )
 import asyncio
 
 class CallActivity(BaseService):
     """
     Activity responsible for handling outgoing PSTN calls via Twilio.
-    (Simplified implementation - bypasses local AudioManager)
+    (Simplified implementation - bypasses local AudioManager, uses polling for status)
     """
     def __init__(self, service_manager):
         super().__init__(service_manager)
@@ -31,17 +32,35 @@ class CallActivity(BaseService):
                 self.logger.error(f"Failed to initialize Twilio client: {e}", exc_info=True)
                 self.twilio_client = None
         self.call_sid = None
+        self._polling_task: Optional[asyncio.Task] = None
 
     async def start(self):
-        """Start the call activity by initiating the call."""
+        """Start the call activity by initiating the call and status polling."""
         await super().start()
         self.logger.info("Call Activity started")
         await self._initiate_call()
-        # No event subscriptions needed here as ActivityService handles the 'end_call' intent
+        # Start polling only if call initiation seemed successful (got a SID)
+        if self.call_sid and not self._polling_task:
+            self.logger.info(f"Starting call status polling for SID: {self.call_sid} every {TWILIO_POLL_INTERVAL}s")
+            self._polling_task = asyncio.create_task(self._poll_call_status())
 
     async def stop(self):
-        """Stop the call activity by ending the call."""
+        """Stop the call activity by ending the call and stopping polling."""
         self.logger.info("Call Activity stopping")
+        # Cancel polling task first
+        if self._polling_task:
+            self.logger.info("Cancelling call status polling task.")
+            self._polling_task.cancel()
+            try:
+                await self._polling_task
+            except asyncio.CancelledError:
+                self.logger.info("Polling task cancelled successfully.")
+            except Exception as e:
+                # Log errors during cancellation but continue cleanup
+                self.logger.error(f"Error awaiting cancelled polling task: {e}", exc_info=True)
+            self._polling_task = None
+        
+        # Then end the call via API (if SID still exists)
         await self._end_call()
         await super().stop()
 
@@ -50,6 +69,47 @@ class CallActivity(BaseService):
         event_type = event.get("type")
         self.logger.debug(f"Call Activity received event: {event_type} - No action taken.")
         # ActivityService handles the 'end_call' intent directly
+
+    async def _poll_call_status(self):
+        """Periodically polls the Twilio API for the call status."""
+        self.logger.debug(f"Polling task started for SID: {self.call_sid}")
+        terminal_statuses = ['completed', 'canceled', 'failed', 'no-answer']
+        while True:
+            await asyncio.sleep(TWILIO_POLL_INTERVAL)
+            if not self.call_sid or not self.twilio_client:
+                self.logger.info("Polling task stopping: No active call SID or Twilio client.")
+                break # Exit loop if call ended or client invalid
+
+            try:
+                self.logger.debug(f"Polling status for call SID: {self.call_sid}")
+                call = self.twilio_client.calls(self.call_sid).fetch()
+                self.logger.debug(f"Call SID {self.call_sid} status: {call.status}")
+
+                if call.status in terminal_statuses:
+                    self.logger.info(f"Call SID {self.call_sid} reached terminal state '{call.status}' via polling. Requesting activity stop.")
+                    # Publish an event for ActivityService to handle the stop
+                    await self.publish({
+                        "type": "pstn_call_completed_remotely",
+                        "sid": self.call_sid,
+                        "status": call.status
+                    })
+                    self.call_sid = None # Clear SID to stop polling
+                    break # Exit polling loop
+
+            except TwilioRestException as e:
+                if e.status == 404:
+                    self.logger.warning(f"Polling: Call SID {self.call_sid} not found. Assuming ended.")
+                    await self.publish({"type": "pstn_call_completed_remotely", "sid": self.call_sid, "status": "not-found"})
+                    self.call_sid = None
+                    break
+                else:
+                    self.logger.error(f"Polling: Twilio API error fetching status for SID {self.call_sid}: {e}")
+                    # Decide if we should stop polling on other errors? Maybe retry a few times?
+                    # For now, continue polling after logging error.
+            except Exception as e:
+                self.logger.error(f"Polling: Unexpected error fetching status for SID {self.call_sid}: {e}", exc_info=True)
+                # Continue polling after logging error.
+        self.logger.debug(f"Polling task finished for original SID: {self.call_sid or 'None'}")
 
     async def _initiate_call(self):
         """Initiate the outbound call using Twilio REST API."""

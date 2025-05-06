@@ -322,5 +322,29 @@ class ActivityService(BaseService):
             await self._ensure_services(['location'])
 
         elif event_type == "stop_sensing_phoenix_distance":
-            # Stop the location service to sense the distance to the Phoenix
-            await self._cleanup_services(['location'])
+            # Stop the location service only if it's not required by the current activity
+            # This check prevents stopping location if HIDE_SEEK is active.
+            current_reqs = ACTIVITY_REQUIREMENTS.get(self.current_activity, ([], None, None, None))
+            if 'location' not in current_reqs[0]:
+                await self._cleanup_services(['location'])
+            else:
+                self.logger.debug("Location service required by current activity, not stopping.")
+
+        # Handle PSTN call events published by CallActivity
+        elif event_type in ["pstn_call_initiated", "pstn_call_ended", "pstn_call_error", "pstn_call_already_ended", "pstn_call_not_found"]:
+            self.logger.info(f"PSTN Call Event: {event_type} - SID: {event.get('sid')}, Details: {event.get('reason') or event.get('status')}")
+            # Optionally add specific logic here based on call events
+            if event_type == "pstn_call_error":
+                # If a call fails immediately, maybe transition back to sleep?
+                if self.current_activity == ActivityType.CALL:
+                    self.logger.error("PSTN call error detected, stopping CALL activity.")
+                    await self._stop_activity(ActivityType.CALL)
+        
+        elif event_type == "pstn_call_completed_remotely":
+            self.logger.info(f"PSTN call completed remotely (SID: {event.get('sid')}, Status: {event.get('status')}). Stopping CALL activity.")
+            if self.current_activity == ActivityType.CALL:
+                # The polling task in CallActivity already cleared its SID
+                # We just need to stop the activity here, which will trigger transition to SLEEP
+                await self._stop_activity(ActivityType.CALL)
+            else:
+                self.logger.warning(f"Received pstn_call_completed_remotely but current activity is {self.current_activity}. Ignoring.")
