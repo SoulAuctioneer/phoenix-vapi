@@ -37,9 +37,9 @@ OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API 
 # Twilio Configuration (for PSTN calls)
 TWILIO_ACCOUNT_SID = clean_env_value(os.getenv('TWILIO_ACCOUNT_SID'))
 TWILIO_AUTH_TOKEN = clean_env_value(os.getenv('TWILIO_AUTH_TOKEN'))
-TWILIO_FROM_NUMBER = clean_env_value(os.getenv('TWILIO_FROM_NUMBER')) # Must be a Twilio number in E.164 format
-HARDCODED_TO_NUMBER = clean_env_value(os.getenv('HARDCODED_TO_NUMBER')) # Number to call in E.164 format
-TWILIO_POLL_INTERVAL = float(clean_env_value(os.getenv('TWILIO_POLL_INTERVAL', '10'))) # Interval in seconds to poll call status
+TWILIO_FROM_NUMBER = "+14153068641" # Must be a Twilio number in E.164 format
+HARDCODED_TO_NUMBER = "+14153078066" # Number to call in E.164 format
+TWILIO_POLL_INTERVAL = 1 # Interval in seconds to poll call status
 
 # Intent Detection Configuration
 class IntentConfig:
