@@ -162,31 +162,32 @@ class SoundEffect(str, Enum):
     CHIRP8 = "chirp8.wav"
     
     @classmethod
-    def get_filename(cls, effect_name: Union[str, 'SoundEffect']) -> Union[str, None]:
+    def get_file_path(cls, effect_name: Union[str, 'SoundEffect']) -> Union[str, None]:
         """Get the filename for a sound effect by its name or enum value (case-insensitive)
         Args:
             effect_name: Name of the sound effect or SoundEffect enum value
         Returns:
             str: The filename for the sound effect, or None if not found
         """
-        # If passed an enum value directly, return its value
+        # Get the filename for the sound effect
+        file_name = None
         if isinstance(effect_name, cls):
-            return effect_name.value
-            
-        # Convert string input to string
-        effect_name_str = str(effect_name)
-        
-        try:
-            # Try to match the name directly to an enum member
-            return cls[effect_name_str.upper()].value
-        except KeyError:
-            # If not found, try to match against the values without .wav extension
-            effect_name_lower = effect_name_str.lower()
-            for effect in cls:
-                if effect.value.lower().removesuffix('.wav') == effect_name_lower:
-                    return effect.value
-            return None
+            file_name = effect_name.value
+        else:
+            # Convert string input to string
+            effect_name_str = str(effect_name)
+            try:
+                # Try to match the name directly to an enum member
+                file_name = cls[effect_name_str.upper()].value
+            except KeyError:
+                return None
 
+        # Get the path to the sound effect
+        try:
+            path = os.path.join("assets/sounds", file_name)
+            return path
+        except Exception as e:
+            return None
 
 # ElevenLabs Configuration
 class ElevenLabsConfig:

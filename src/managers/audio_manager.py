@@ -507,12 +507,11 @@ class AudioManager:
         Returns:
             bool: True if the sound effect was found and playback started, False otherwise
         """
-        filename = SoundEffect.get_filename(effect_name)
-        if not filename:
+        wav_path = SoundEffect.get_file_path(effect_name)
+        if not wav_path:
             logging.error(f"Unknown sound effect: {effect_name}")
             return False
             
-        wav_path = os.path.join("assets", filename)
         if not os.path.exists(wav_path):
             logging.error(f"Sound effect file not found: {wav_path}")
             return False
