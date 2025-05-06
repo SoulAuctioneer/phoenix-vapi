@@ -48,7 +48,7 @@ class ConversationService(BaseService):
             await self.publish({
                 "type": "start_led_effect",
                 "data": {
-                    "effectName": "green_breathing"
+                    "effectName": "ROTATING_GREEN_YELLOW"
                 }
             })
             # Start conversation
