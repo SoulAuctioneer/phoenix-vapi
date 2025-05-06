@@ -45,7 +45,7 @@ class ConversationService(BaseService):
 
         try:
             # Start LED effect
-            await self._publish_event_callback({
+            await self.publish({
                 "type": "start_led_effect",
                 "data": {
                     "effectName": "green_breathing"
