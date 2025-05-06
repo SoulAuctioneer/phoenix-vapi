@@ -20,8 +20,8 @@ class SpecialEffect(str, Enum):
     BLUE_BREATHING = "blue_breathing"
     GREEN_BREATHING = "green_breathing"
     ROTATING_RAINBOW = "rotating_rainbow"
-    rotating_pink_blue = "rotating_pink_blue"
-    rotating_green_yellow = "rotating_green_yellow"
+    ROTATING_PINK_BLUE = "rotating_pink_blue"
+    ROTATING_GREEN_YELLOW = "rotating_green_yellow"
     RANDOM_TWINKLE = "random_twinkle"
     
     @classmethod
@@ -51,8 +51,8 @@ class SpecialEffect(str, Enum):
             cls.BLUE_BREATHING: "blue_breathing",
             cls.GREEN_BREATHING: "green_breathing",
             cls.ROTATING_RAINBOW: "rotating_rainbow",
-            cls.rotating_pink_blue: "rotating_pink_blue",
-            cls.rotating_green_yellow: "rotating_green_yellow",
+            cls.ROTATING_PINK_BLUE: "rotating_pink_blue",
+            cls.ROTATING_GREEN_YELLOW: "rotating_green_yellow",
             cls.RANDOM_TWINKLE: "random_twinkle",
         }
         return led_effect_map.get(cls(effect))

@@ -33,15 +33,16 @@ class SleepActivity(BaseService):
         #     "volume": self._breathing_volume  # Very quiet for sleep mode
         # })
         
-        # Set LED effect to rotating pink/blue
-        await self.publish({
-            "type": "start_led_effect",
-            "data": {
-                "effectName": "rotating_green_yellow",
-                "speed": 0.05,  # Slow, gentle rotation
-                "brightness": self._LED_BRIGHTNESS  # Dimmer for sleep mode
-            }
-        })
+        # # Set LED effect to rotating pink/blue
+        # NOTE: Disabled as it's too power hungry and would be cooler if nothing's shown until "woken up" 
+        # await self.publish({
+        #     "type": "start_led_effect",
+        #     "data": {
+        #         "effectName": "rotating_green_yellow",
+        #         "speed": 0.03,  # Slow, gentle rotation
+        #         "brightness": self._LED_BRIGHTNESS  # Dimmer for sleep mode
+        #     }
+        # })
         
         self.logger.info("Sleep activity started")
         
@@ -58,9 +59,10 @@ class SleepActivity(BaseService):
             # })
             
             # Stop the LED effect
-            await self.publish({
-                "type": "stop_led_effect"
-            })
+            # NOTE: Disabled so we don't have a pause in effects while other activities start
+            # await self.publish({
+            #     "type": "stop_led_effect"
+            # })
             
         await super().stop()
         self.logger.info("Sleep activity stopped")
@@ -94,7 +96,7 @@ class SleepActivity(BaseService):
                     "type": "start_led_effect",
                     "data": {
                         "effectName": "rotating_pink_blue",
-                        "speed": 0.05,  # Slow, gentle rotation
+                        "speed": 0.1,  # Slow, gentle rotation
                         "brightness": self._LED_BRIGHTNESS
                     }
                 })
