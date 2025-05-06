@@ -201,5 +201,9 @@ class MoveActivity(BaseService):
                 # else: 
                     # self.logger.debug(f"Energy change below threshold. Skipping {self.default_effect_name} LED update.")
 
+            # Log state change if it occurred
+            if current_state_enum != self.previous_state:
+                self.logger.info(f"State changed from {self.previous_state.name} to {current_state_enum.name}")
+
             # Update the previous state for the next cycle's comparison
             self.previous_state = current_state_enum
