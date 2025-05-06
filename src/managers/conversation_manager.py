@@ -981,6 +981,14 @@ class ConversationManager:
         """Start a new call with specified assistant or squad"""
         logging.info("Starting call...")
 
+        # Start LED effect
+        await self.publish({
+            "type": "start_led_effect",
+            "data": {
+                "effectName": "green_breathing"
+            }
+        })
+
         # Fetch memories and add to assistant context
         memories = self.memory_manager.get_memories_formatted()
         assistant_config_with_memories = assistant_config.copy()
