@@ -20,15 +20,15 @@ class ActivityType(Enum):
     SLEEP = "sleep"
     MOVE = "move"
     CALL = "call"
-# Map activities to their required supporting services, activity-specific service, and optional start/stop sounds
-# Format: (list of supporting services, activity service name if any, start_sound, stop_sound)
-ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str]]] = {
-    ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None),  # Start/Stop sounds moved here
-    ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None),
-    ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None),
-    ActivityType.MOVE: (['accelerometer'], 'move', None, None),
-    ActivityType.SLEEP: ([], 'sleep', "YAWN", None),
-    ActivityType.CALL: ([], 'call', None, None)
+# Map activities to their required supporting services, activity-specific service, and optional start/stop sounds/TTS
+# Format: (list of supporting services, activity service name if any, start_sound, stop_sound, start_tts_text, stop_tts_text)
+ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]] = {
+    ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None, "Okay, one sec", None),
+    ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
+    ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
+    ActivityType.MOVE: (['accelerometer'], 'move', None, None, "Yay! Let's play!", None),
+    ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
+    ActivityType.CALL: ([], 'call', None, None, "Bring bring!", None)
 }
 
 class ActivityService(BaseService):
@@ -180,7 +180,8 @@ class ActivityService(BaseService):
             return
             
         # Get required supporting services and activity service
-        supporting_services, activity_service_name, start_sound, stop_sound = ACTIVITY_REQUIREMENTS[activity]
+        requirements = ACTIVITY_REQUIREMENTS[activity]
+        supporting_services, activity_service_name, start_sound, _, start_tts, _ = requirements
         
         # If we have a current activity, stop it first
         if self.current_activity:
@@ -214,6 +215,14 @@ class ActivityService(BaseService):
                 "effect_name": start_sound
             })
             
+        # Speak start text if defined
+        if start_tts:
+            self.logger.info(f"Activity {activity.name} starting, speaking: {start_tts}")
+            await self.publish({
+                "type": "speak_audio",
+                "text": start_tts
+            })
+            
         # Publish activity started event
         await self.publish({
             "type": "activity_started",
@@ -232,7 +241,9 @@ class ActivityService(BaseService):
         self.logger.info(f"Stopping activity: {activity.name}")
         
         # Play stop sound if defined (before stopping services)
-        _, _, _, stop_sound = ACTIVITY_REQUIREMENTS[activity]
+        requirements = ACTIVITY_REQUIREMENTS[activity]
+        supporting_services, activity_service_name, _, stop_sound, _, stop_tts = requirements
+        
         if stop_sound:
             self.logger.info(f"Activity {activity.name} stopping, playing stop sound: {stop_sound}")
             await self.publish({
@@ -240,14 +251,21 @@ class ActivityService(BaseService):
                 "effect_name": stop_sound
             })
             
+        # Speak stop text if defined
+        if stop_tts:
+            self.logger.info(f"Activity {activity.name} stopping, speaking: {stop_tts}")
+            await self.publish({
+                "type": "speak_audio",
+                "text": stop_tts
+            })
+            
         # Get current activity's services
-        supporting_services, activity_service_name, _, _ = ACTIVITY_REQUIREMENTS[activity] # Read requirements again for services
-        services_to_stop = supporting_services.copy()  # Make a copy to avoid modifying the original
+        services_to_stop_list = supporting_services.copy()  # Make a copy to avoid modifying the original
         if activity_service_name:
-            services_to_stop.append(activity_service_name)
+            services_to_stop_list.append(activity_service_name)
             
         # Stop all services for this activity
-        await self._cleanup_services(services_to_stop)
+        await self._cleanup_services(services_to_stop_list)
             
         # Clear current activity before publishing event
         self.current_activity = None
@@ -324,7 +342,7 @@ class ActivityService(BaseService):
         elif event_type == "stop_sensing_phoenix_distance":
             # Stop the location service only if it's not required by the current activity
             # This check prevents stopping location if HIDE_SEEK is active.
-            current_reqs = ACTIVITY_REQUIREMENTS.get(self.current_activity, ([], None, None, None))
+            current_reqs = ACTIVITY_REQUIREMENTS.get(self.current_activity, ([], None, None, None, None, None))
             if 'location' not in current_reqs[0]:
                 await self._cleanup_services(['location'])
             else:
