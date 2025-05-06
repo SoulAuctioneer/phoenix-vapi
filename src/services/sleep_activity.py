@@ -83,7 +83,7 @@ class SleepActivity(BaseService):
                 
             elif event_type == "intent_detection_timeout":
                 # Resume breathing sound after intent detection timeout
-                # Commented out until I can figure out the volume issue
+                # NOTE: Commented out until I can figure out the volume issue
                 # await self.publish({
                 #     "type": "play_sound",
                 #     "effect_name": SoundEffect.BREATHING,
@@ -92,13 +92,15 @@ class SleepActivity(BaseService):
                 # })
                 
                 # Restart the LED effect
-                await self.publish({
-                    "type": "start_led_effect",
-                    "data": {
-                        "effectName": "rotating_pink_blue",
-                        "speed": 0.1,  # Slow, gentle rotation
-                        "brightness": self._LED_BRIGHTNESS
-                    }
-                })
+                # NOTE: Don't do this anymore as we want the effect off
+                # await self.publish({
+                #     "type": "start_led_effect",
+                #     "data": {
+                #         "effectName": "rotating_pink_blue",
+                #         "speed": 0.1,  # Slow, gentle rotation
+                #         "brightness": self._LED_BRIGHTNESS
+                #     }
+                # })
+                pass
                 
-                self.logger.info("Resumed breathing sound and LED effect after intent detection timeout") 
+                # self.logger.info("Resumed breathing sound and LED effect after intent detection timeout") 
