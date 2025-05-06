@@ -36,7 +36,7 @@ class VoiceService(BaseService):
             self._tts_producer = self.audio_manager.add_producer(
                 name=self.TTS_PRODUCER_NAME,
                 chunk_size=AudioBaseConfig.CHUNK_SIZE,
-                buffer_size=AudioBaseConfig.BUFFER_SIZE * 2 # Slightly larger buffer for TTS
+                buffer_size=AudioBaseConfig.BUFFER_SIZE * 10 # Increased buffer size from 2x to 10x
             )
             self.audio_manager.set_producer_volume(self.TTS_PRODUCER_NAME, AudioBaseConfig.DEFAULT_VOLUME)
 
@@ -84,7 +84,7 @@ class VoiceService(BaseService):
                     self._tts_producer = self.audio_manager.add_producer(
                         name=self.TTS_PRODUCER_NAME,
                         chunk_size=AudioBaseConfig.CHUNK_SIZE,
-                        buffer_size=AudioBaseConfig.BUFFER_SIZE * 2
+                        buffer_size=AudioBaseConfig.BUFFER_SIZE * 10 # Increased buffer size here too
                     )
                     self.audio_manager.set_producer_volume(self.TTS_PRODUCER_NAME, AudioBaseConfig.DEFAULT_VOLUME)
                 except Exception as e:
