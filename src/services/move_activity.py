@@ -120,22 +120,19 @@ class MoveActivity(BaseService):
 
             # --- LED Update Logic based on Energy (Only when NOT in Free Fall) ---
             if not self.in_free_fall:
-                # Map energy (0-1) to speed (0.1 -> 0.01) and brightness (0.1 -> 1.0)
                 # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)
                 min_speed = 0.01 # Fastest
                 max_speed = 0.1  # Slowest
                 speed_range = max_speed - min_speed
-                energy_curve_factor_speed = 0.5
-                curved_energy_speed = pow(energy, energy_curve_factor_speed)
-                interval = max_speed - (curved_energy_speed * speed_range)
+                # Use linear mapping for interval
+                interval = max_speed - (energy * speed_range)
                 
                 # Brightness: Higher energy -> brighter
                 min_brightness = 0.1 # Min brightness
                 max_brightness = 1.0 # Max brightness
                 brightness_range = max_brightness - min_brightness
-                energy_curve_factor_brightness = 0.5
-                curved_energy_brightness = pow(energy, energy_curve_factor_brightness)
-                brightness = min_brightness + (curved_energy_brightness * brightness_range)
+                # Use linear mapping for brightness
+                brightness = min_brightness + (energy * brightness_range)
 
                 # Ensure brightness and interval are within valid ranges
                 interval = max(min_speed, min(max_speed, interval))
