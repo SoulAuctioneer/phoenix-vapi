@@ -178,6 +178,22 @@ class ActivityService(BaseService):
         if activity == self.current_activity:
             self.logger.debug(f"Activity {activity.name} already active")
             return
+
+        # Play start sound if defined
+        if start_sound:
+            self.logger.info(f"Activity {activity.name} starting, playing start sound: {start_sound}")
+            await self.publish({
+                "type": "play_sound",
+                "effect_name": start_sound
+            })
+            
+        # Speak start text if defined
+        if start_tts:
+            self.logger.info(f"Activity {activity.name} starting, speaking: {start_tts}")
+            await self.publish({
+                "type": "speak_audio",
+                "text": start_tts
+            })
             
         # Get required supporting services and activity service
         requirements = ACTIVITY_REQUIREMENTS[activity]
@@ -207,22 +223,6 @@ class ActivityService(BaseService):
                 
         self.current_activity = activity
         
-        # Play start sound if defined
-        if start_sound:
-            self.logger.info(f"Activity {activity.name} starting, playing start sound: {start_sound}")
-            await self.publish({
-                "type": "play_sound",
-                "effect_name": start_sound
-            })
-            
-        # Speak start text if defined
-        if start_tts:
-            self.logger.info(f"Activity {activity.name} starting, speaking: {start_tts}")
-            await self.publish({
-                "type": "speak_audio",
-                "text": start_tts
-            })
-            
         # Publish activity started event
         await self.publish({
             "type": "activity_started",

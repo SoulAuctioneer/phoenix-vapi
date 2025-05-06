@@ -11,6 +11,8 @@ pvrhino # speech-to-intent detection (Linux only)
 openai # OpenAI API for Whisper and GPT
 soundfile # Audio file handling for Whisper
 twilio # PSTN calling
+flask # web server for CallActivity
+pyngrok # ngrok for local development server
 elevenlabs # ElevenLabs Text-to-Speech API
 
 # Platform-specific packages
