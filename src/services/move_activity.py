@@ -25,7 +25,10 @@ class MoveActivity(BaseService):
     1. Calculate a movement energy level (0-1) based on acceleration and rotation
     2. Detect state transitions (e.g., entering/exiting FREE_FALL)
     3. Publish events when significant changes occur (like playing sounds or changing LEDs)
-    4. Control LED effect (RANDOM_TWINKLING normally, ROTATING_RAINBOW during free fall) based on movement energy and state.
+    4. Control LED effect based on state:
+        - FREE_FALL: ROTATING_RAINBOW
+        - HELD_STILL: BLUE_BREATHING
+        - Otherwise: RANDOM_TWINKLING (speed/brightness based on movement energy)
     """
     
     def __init__(self, service_manager):
@@ -34,13 +37,16 @@ class MoveActivity(BaseService):
         self.previous_state = SimplifiedState.UNKNOWN
         # Use logger from BaseService
         self.logger = logging.getLogger(self.__class__.__name__)
-        # Track the energy level for the last sent LED update
+        # Track the energy level for the last sent LED update for the default effect
         self.last_sent_energy = -1.0 # Initialize to ensure first update
-        # --- Free Fall LED Handling ---
+        # --- State Flags ---
         self.in_free_fall = False
+        self.is_held_still = False # Added for HELD_STILL state
+        # --- LED Effect Tracking ---
+        self.current_led_effect: Dict[str, Any] = {"name": None, "params": {}} # Track current effect sent
         # Store the default effect name used by this activity
-        self.default_effect_name = "RANDOM_TWINKLING" 
-        # Store the current parameters for the default effect
+        self.default_effect_name = "RANDOM_TWINKLING"
+        # Store the current parameters for the default effect (updated dynamically)
         self.twinkling_speed: float = 0.3 # Slower sparkle/update rate initially
         self.twinkling_brightness: float = 0.05 # Dim initial brightness
         # --- Shake Handling ---
@@ -51,15 +57,17 @@ class MoveActivity(BaseService):
         """Start the move activity service and set initial LED effect."""
         await super().start()
         # Set initial LED effect to twinkling, using initial parameter values
-        self.logger.info(f"Setting initial LED effect: {self.default_effect_name}, speed={self.twinkling_speed}, brightness={self.twinkling_brightness}")
+        initial_params = {
+            "speed": self.twinkling_speed,
+            "brightness": self.twinkling_brightness
+        }
+        self.logger.info(f"Setting initial LED effect: {self.default_effect_name}, params={initial_params}")
         await self.publish({
             "type": "start_led_effect",
-            "data": {
-                "effectName": self.default_effect_name,
-                "speed": self.twinkling_speed,
-                "brightness": self.twinkling_brightness
-            }
+            "data": { "effectName": self.default_effect_name, **initial_params }
         })
+        # Track the initial effect
+        self.current_led_effect = {"name": self.default_effect_name, "params": initial_params}
         self.logger.info("Move activity service started")
         
     async def stop(self):
@@ -72,8 +80,10 @@ class MoveActivity(BaseService):
     async def handle_event(self, event: Dict[str, Any]):
         """
         Handle events from other services, particularly accelerometer sensor data.
-        Detects FREE_FALL transitions to trigger sound and switch LED effects (ROTATING_RAINBOW).
-        Updates the default LED effect (RANDOM_TWINKLING) based on movement energy when not in FREE_FALL.
+        Detects state transitions to trigger sounds (SHAKE, IMPACT, FREE_FALL).
+        Determines the appropriate LED effect based on the current state (FREE_FALL, HELD_STILL, or default).
+        Updates the default LED effect (RANDOM_TWINKLING) parameters based on movement energy.
+        Publishes LED changes when the target effect or its parameters change significantly.
         
         Args:
             event: The event to handle
@@ -91,118 +101,116 @@ class MoveActivity(BaseService):
                 self.logger.warning(f"Received unknown state name: {current_state_name}")
                 current_state_enum = SimplifiedState.UNKNOWN
 
-            # --- Shake State Transition Logic ---
-            is_currently_shaking = (current_state_enum == SimplifiedState.SHAKE)
-            was_previously_shaking = (self.previous_state == SimplifiedState.SHAKE)
+            # --- State Transition Logic (Primarily for Sounds) ---
+            state_changed = (current_state_enum != self.previous_state)
 
-            if is_currently_shaking and not was_previously_shaking:
-                # Entering SHAKE state
-                self.logger.info("Detected SHAKE. Playing giggle sound.")
-                
+            # Entering SHAKE
+            if state_changed and current_state_enum == SimplifiedState.SHAKE:
+                self.logger.info("Detected SHAKE entry. Playing giggle sound.")
                 # Check cooldown
                 current_time = time.monotonic()
                 if current_time - self._last_giggle_time >= GIGGLE_COOLDOWN_SECONDS:
                     # Choose sound effect based on current index
                     effect_to_play = _giggle_sounds[self._giggle_index]
-                    
                     # Play sound at half volume
                     await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.5})
-                    
                     # Update last giggle time
                     self._last_giggle_time = current_time
-                    
                     # Increment index for next time, cycling through 0, 1, 2
                     self._giggle_index = (self._giggle_index + 1) % len(_giggle_sounds)
                 else:
                     self.logger.debug("Giggle cooldown active, skipping sound.")
 
-            # --- Impact State Transition Logic ---
-            is_currently_impact = (current_state_enum == SimplifiedState.IMPACT)
-            was_previously_impact = (self.previous_state == SimplifiedState.IMPACT)
-
-            if is_currently_impact and not was_previously_impact:
-                # Entering IMPACT state
-                self.logger.info("Detected IMPACT. Playing OOF sound.")
+            # Entering IMPACT
+            elif state_changed and current_state_enum == SimplifiedState.IMPACT:
+                self.logger.info("Detected IMPACT entry. Playing OOF sound.")
                 # Play sound (using default volume)
                 await self.publish({"type": "play_sound", "effect_name": SoundEffect.OOF})
 
-            # --- Free Fall State Transition Logic ---
-            was_in_free_fall = self.in_free_fall
-            is_currently_free_fall = (current_state_enum == SimplifiedState.FREE_FALL)
+            # Entering FREE_FALL
+            elif state_changed and current_state_enum == SimplifiedState.FREE_FALL:
+                 self.logger.info(f"Detected FREE_FALL entry from {self.previous_state.name}.")
+                 # Play sound
+                 await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE})
+                 # LED change handled below based on current state
 
-            # Entering Free Fall
-            if is_currently_free_fall and not was_in_free_fall:
-                # Only trigger if previous state was not something stationary/unknown
-                # if self.previous_state not in [SimplifiedState.UNKNOWN, SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
-                    self.logger.info(f"Entering FREE_FALL from {self.previous_state.name}. Switching to ROTATING_RAINBOW effect.")
-                    self.in_free_fall = True
-                    
-                    # Play sound
-                    await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE})
-                    
-                    # Start RAINBOW effect 
-                    await self.publish({
-                        "type": "start_led_effect",
-                        "data": { "effectName": "ROTATING_RAINBOW", "speed": 0.05, "brightness": 0.8 } # Example values
-                    })
-                # else:
-                #     self.logger.debug(f"Detected FREE_FALL but previous state ({self.previous_state.name}) prevents triggering effects.")
+            # Update internal state flags based on current state
+            self.in_free_fall = (current_state_enum == SimplifiedState.FREE_FALL)
+            self.is_held_still = (current_state_enum == SimplifiedState.HELD_STILL)
 
 
-            # Exiting Free Fall
-            elif not is_currently_free_fall and was_in_free_fall:
-                self.logger.info(f"Exiting FREE_FALL. Reverting to {self.default_effect_name} effect.")
-                self.in_free_fall = False
-                # Revert to twinkling using the last known parameters
-                await self.publish({
-                    "type": "start_led_effect",
-                    "data": { 
-                        "effectName": self.default_effect_name, 
-                        "speed": self.twinkling_speed, 
-                        "brightness": self.twinkling_brightness 
-                    }
-                })
+            # --- Determine Target LED Effect based on Current State ---
+            target_effect_name: str | None = None
+            target_params: Dict[str, Any] = {}
 
-            # --- LED Update Logic based on Energy (Only when NOT in Free Fall or Shaking) ---
-            if not self.in_free_fall and not is_currently_shaking and not is_currently_impact:
+            if self.in_free_fall:
+                target_effect_name = "ROTATING_RAINBOW"
+                # Define consistent parameters for this effect
+                target_params = {"speed": 0.05, "brightness": 0.8}
+            elif self.is_held_still:
+                target_effect_name = "BLUE_BREATHING"
+                # Define consistent parameters for this effect
+                target_params = {"speed": 0.1, "brightness": 0.5}
+            else: # Default state: RANDOM_TWINKLING based on energy
+                target_effect_name = self.default_effect_name
+                # Calculate desired parameters based on energy
                 # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)
                 min_speed = 0.01 # Fastest
                 max_speed = 0.3  # Slowest
                 speed_range = max_speed - min_speed
                 # Use linear mapping for interval
-                interval = max_speed - (energy * speed_range)
-                
+                interval = max(min_speed, min(max_speed, max_speed - (energy * speed_range)))
+
                 # Brightness: Higher energy -> brighter
                 min_brightness = 0.05 # Min brightness
                 max_brightness = 1.0 # Max brightness
                 brightness_range = max_brightness - min_brightness
                 # Use linear mapping for brightness
-                brightness = min_brightness + (energy * brightness_range)
+                brightness = max(min_brightness, min(max_brightness, min_brightness + (energy * brightness_range)))
 
-                # Ensure brightness and interval are within valid ranges
-                interval = max(min_speed, min(max_speed, interval))
-                brightness = max(min_brightness, min(max_brightness, brightness))
+                target_params = {"speed": interval, "brightness": brightness}
 
-                # --- Publish LED update only if energy changed significantly ---
-                if abs(energy - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
-                    # self.logger.debug(f"Energy changed ({self.last_sent_energy:.2f} -> {energy:.2f}). Updating {self.default_effect_name} LEDs.")
-                    await self.publish({
-                        "type": "start_led_effect", 
-                        "data": {
-                            "effectName": self.default_effect_name,
-                            "speed": interval, 
-                            "brightness": brightness
-                        }
-                    })
-                    # Update the stored parameters for the default effect
-                    self.twinkling_speed = interval
-                    self.twinkling_brightness = brightness
-                    self.last_sent_energy = energy
-                # else: 
-                    # self.logger.debug(f"Energy change below threshold. Skipping {self.default_effect_name} LED update.")
+                # Update stored parameters for the default effect (for potential future reverts)
+                self.twinkling_speed = interval
+                self.twinkling_brightness = brightness
+
+
+            # --- Publish LED Update if Needed ---
+            needs_update = False
+            current_effect_name = self.current_led_effect.get("name")
+            current_params = self.current_led_effect.get("params", {})
+
+            if target_effect_name != current_effect_name:
+                # Effect name changed, definitely update
+                needs_update = True
+                self.logger.info(f"Target LED Effect changed from {current_effect_name} to {target_effect_name} due to state {current_state_enum.name}")
+            elif target_effect_name == self.default_effect_name:
+                # Effect is default, check if parameters changed significantly compared to *last sent* parameters for this effect
+                # Using energy threshold is a proxy for parameter change significance
+                 if abs(energy - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
+                    needs_update = True
+                    # self.logger.debug(f"Target {self.default_effect_name} params changed significantly: {target_params}")
+
+
+            if needs_update and target_effect_name is not None:
+                self.logger.debug(f"Publishing LED update: {target_effect_name}, {target_params}")
+                await self.publish({
+                    "type": "start_led_effect",
+                    "data": { "effectName": target_effect_name, **target_params }
+                })
+                # Update tracked state
+                self.current_led_effect = {"name": target_effect_name, "params": target_params}
+                # Update last sent energy only if the effect *is* the default one
+                if target_effect_name == self.default_effect_name:
+                     self.last_sent_energy = energy
+                else:
+                    # Reset last_sent_energy when switching *away* from default,
+                    # so the next time we switch *back* to default, it updates immediately
+                    # based on the current energy level.
+                    self.last_sent_energy = -1.0
 
             # Log state change if it occurred
-            if current_state_enum != self.previous_state:
+            if state_changed:
                 self.logger.info(f"State changed from {self.previous_state.name} to {current_state_enum.name}")
 
             # Update the previous state for the next cycle's comparison
