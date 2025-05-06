@@ -34,6 +34,12 @@ VAPI_CLIENT_KEY = clean_env_value(os.getenv('VAPI_CLIENT_KEY'))
 PICOVOICE_ACCESS_KEY = clean_env_value(os.getenv('PICOVOICE_ACCESS_KEY'))
 OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API key
 
+# Twilio Configuration (for PSTN calls)
+TWILIO_ACCOUNT_SID = clean_env_value(os.getenv('TWILIO_ACCOUNT_SID'))
+TWILIO_AUTH_TOKEN = clean_env_value(os.getenv('TWILIO_AUTH_TOKEN'))
+TWILIO_FROM_NUMBER = "+14153068641" # Must be a Twilio number in E.164 format
+HARDCODED_TO_NUMBER = "+14153078066" # Number to call in E.164 format
+
 # Intent Detection Configuration
 class IntentConfig:
     """Configuration for intent detection"""
@@ -77,7 +83,7 @@ class AudioBaseConfig:
 
 # Audio Configuration for Calls
 class CallConfig:
-    """Unified configuration for call-related settings"""
+    """Unified configuration for conversation-related settings"""
 
     MUTE_WHEN_ASSISTANT_SPEAKING = True
     

@@ -10,6 +10,7 @@ pvporcupine # wakeword detection
 pvrhino # speech-to-intent detection (Linux only)
 openai # OpenAI API for Whisper and GPT
 soundfile # Audio file handling for Whisper
+twilio # PSTN calling
 
 # Platform-specific packages
 rpi_ws281x; sys_platform == 'linux'  # Only install on Linux
