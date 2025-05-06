@@ -80,7 +80,8 @@ class CallActivity(BaseService):
         self.ngrok_ws_tunnel = None
         self.twiml_url = None
         self.ws_url = None
-        self.websocket_loop = None # Added for thread-safe task scheduling
+        self.websocket_loop = None
+        self.twilio_pcm_buffer = np.array([], dtype=np.int16) # Buffer for incoming Twilio PCM audio
 
     async def start(self):
         """Start the call activity by setting up servers and tunnels, then initiating the call."""
@@ -372,10 +373,16 @@ class CallActivity(BaseService):
                     # Twilio sends 8kHz µ-law audio
                     pcm_audio = self._ulaw_to_pcm(audio_bytes)
                     
-                    # Pass to AudioManager to play through speakers
-                    if self.call_producer and self.call_producer.active:
-                        # Play the audio
-                        self.audio_manager.play_audio(pcm_audio, producer_name="twilio_call")
+                    # Buffer and play full chunks
+                    if self.audio_manager and self.call_producer and self.call_producer.active:
+                        self.twilio_pcm_buffer = np.concatenate((self.twilio_pcm_buffer, pcm_audio))
+                        chunk_size = self.audio_manager.config.chunk # Get chunk size from AudioManager
+                        
+                        while len(self.twilio_pcm_buffer) >= chunk_size:
+                            chunk_to_play = self.twilio_pcm_buffer[:chunk_size]
+                            self.twilio_pcm_buffer = self.twilio_pcm_buffer[chunk_size:]
+                            self.audio_manager.play_audio(chunk_to_play, producer_name="twilio_call")
+                            self.logger.debug(f"Played a chunk of {len(chunk_to_play)} samples from Twilio buffer.")
                 
             elif event == "stop":
                 self.logger.info("WebSocket stream stopped by Twilio")

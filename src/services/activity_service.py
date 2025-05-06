@@ -189,7 +189,7 @@ class ActivityService(BaseService):
             await self.publish({
                 "type": "play_sound",
                 "effect_name": start_sound,
-                "volume": 0.05 # TODO: Change back when not in public!
+                "volume": 0.4 # TODO: Change back when not in public!
             })
             
         # Speak start text if defined

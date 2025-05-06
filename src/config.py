@@ -38,7 +38,7 @@ VAPI_CLIENT_KEY = clean_env_value(os.getenv('VAPI_CLIENT_KEY'))
 PICOVOICE_ACCESS_KEY = clean_env_value(os.getenv('PICOVOICE_ACCESS_KEY'))
 OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API key
 ELEVENLABS_API_KEY = clean_env_value(os.getenv('ELEVENLABS_API_KEY')) # ElevenLabs API Key
-NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
+NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTHTOKEN'))
 
 # Twilio Configuration (for PSTN calls)
 TWILIO_ACCOUNT_SID = clean_env_value(os.getenv('TWILIO_ACCOUNT_SID'))
@@ -81,7 +81,7 @@ class AudioBaseConfig:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
     BUFFER_SIZE = 5   # Minimal buffering to reduce latency
-    DEFAULT_VOLUME = 0.1
+    DEFAULT_VOLUME = 1.0
     CONVERSATION_SFX_VOLUME = 0.5 # Volume for sound effects when a conversation is active
     # Calculate time-based values
     CHUNK_DURATION_MS = (CHUNK_SIZE / SAMPLE_RATE) * 1000  # Duration of each chunk in milliseconds
