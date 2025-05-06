@@ -1,5 +1,5 @@
 from services.service import BaseService
-from managers.led_manager import LEDManager, LEDEffect, LEDManagerRings
+from managers.led_manager import LEDManager, LEDManagerRings
 from config import PLATFORM, LEDConfig
 import logging
 
@@ -54,7 +54,7 @@ class LEDService(BaseService):
         #     logging.info("Intent detection started - switched to random twinkling effect")
         #     # TODO: This needs to be smarter in respect to what effect we revert to after finishing, need more state orchestration
         #     duration = event.get('timeout', 7)
-        #     self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE, speed=0.03)
+        #     self.led_controller.start_effect("ROTATING_PINK_BLUE", speed=0.03)
 
         if event_type == "stop_led_effect":
             effect_name = event.get('data', {}).get('effectName', None)
@@ -64,19 +64,19 @@ class LEDService(BaseService):
         elif event_type == "conversation_started":
             # Now handled by activity service
             # logging.info("Conversation started - switched to random twinkling effect")
-            # self.led_controller.start_effect(LEDEffect.RANDOM_TWINKLING, speed=0.1)
+            # self.led_controller.start_effect("RANDOM_TWINKLING", speed=0.1)
             pass
 
         elif event_type == "conversation_ended":
             # Now handled by switching to sleep activity
             # logging.info("Conversation ended - switched to rotating pink blue effect")
-            # self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
+            # self.led_controller.start_effect("ROTATING_PINK_BLUE")
             pass
 
         elif event_type == "application_startup_completed":
             # Now handled by switching to sleep activity
             # logging.info("Application startup completed - switched to rotating pink blue effect")
-            # self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
+            # self.led_controller.start_effect("ROTATING_PINK_BLUE")
             pass
 
         elif event_type == "touch_stroke_intensity":
@@ -106,11 +106,11 @@ class LEDService(BaseService):
                     # Higher frequency = faster purring
                     frequency = 1.0 / speed if speed > 0 else 0
                     logging.info(f"Starting or updating purring effect with frequency {frequency:.2f}Hz (speed={speed:.4f}) and brightness {brightness:.2f} based on intensity {intensity:.2f}")
-                    self.led_controller.start_or_update_effect(LEDEffect.PURRING, speed=speed, brightness=brightness)
+                    self.led_controller.start_or_update_effect("PURRING", speed=speed, brightness=brightness)
                 else:
                     # When intensity drops to 0, return to default effect
                     logging.info("Touch intensity ended, returning to default effect")
-                    self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE)
+                    self.led_controller.start_effect("ROTATING_PINK_BLUE")
 
         elif event_type == "start_led_effect":
             # Handle manual LED commands
@@ -125,30 +125,19 @@ class LEDService(BaseService):
                     logging.warning("'rotating_color' effect requested but no color specified in event data. Effect may fail or use default.")
             # --- End color extraction ---
             
-            # Map string effect names to enum values
-            effect_map = {
-                "blue_breathing": LEDEffect.BLUE_BREATHING,
-                "green_breathing": LEDEffect.GREEN_BREATHING,
-                "rainbow": LEDEffect.ROTATING_RAINBOW,
-                "rotating_pink_blue": LEDEffect.ROTATING_PINK_BLUE,
-                "rotating_green_yellow": LEDEffect.ROTATING_GREEN_YELLOW,
-                "magical_spell": LEDEffect.RANDOM_TWINKLING,
-                "rain": LEDEffect.RAIN,
-                "lightning": LEDEffect.LIGHTNING,
-                "purring": LEDEffect.PURRING,
-                "rotating_color": LEDEffect.ROTATING_COLOR
-            }
-            
-            if effect_name in effect_map:
-                effect = effect_map[effect_name]
-                self.led_controller.start_effect(effect, speed=speed, brightness=brightness, color=color)
-                logging.info(f"Started {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
-            elif effect_name == "stop":
+            if effect_name == "stop":
                 self.led_controller.stop_effect()
                 logging.info("Stopped LED effect")
             elif effect_name == "clear":
                 self.led_controller.clear()
                 logging.info("Cleared all LEDs")
+            # Check if the effect_name is a known key in the manager's map
+            elif effect_name in self.led_controller._EFFECT_MAP: 
+                # Pass the string name directly
+                self.led_controller.start_effect(effect_name, speed=speed, brightness=brightness, color=color)
+                logging.info(f"Started {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
+            else:
+                logging.warning(f"Received unknown effect name: '{effect_name}'")
 
         elif event_type == "battery_alert":
             alerts = event.get('alerts', [])

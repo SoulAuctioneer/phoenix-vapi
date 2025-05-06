@@ -17,19 +17,6 @@ except (ImportError, NotImplementedError):
     LEDS_AVAILABLE = False
     logging.info("LED libraries not available. Won't use LEDs")
 
-class LEDEffect(Enum):
-    """Enumeration of available LED effects"""
-    BLUE_BREATHING = auto()
-    GREEN_BREATHING = auto()
-    ROTATING_PINK_BLUE = auto()
-    ROTATING_GREEN_YELLOW = auto()
-    ROTATING_RAINBOW = auto()
-    RANDOM_TWINKLING = auto()
-    RAIN = auto()
-    LIGHTNING = auto()
-    PURRING = auto()
-    ROTATING_COLOR = auto()
-
 COLORS = {
     "red": (255, 0, 0),
     "green": (0, 255, 0),
@@ -51,24 +38,24 @@ COLORS = {
 class LEDManager:
     # Map of effects to their corresponding private methods and default speeds
     _EFFECT_MAP = {
-        LEDEffect.BLUE_BREATHING: {'method': '_blue_breathing_effect', 'default_speed': 0.05},
-        LEDEffect.GREEN_BREATHING: {'method': '_green_breathing_effect', 'default_speed': 0.05},
-        LEDEffect.ROTATING_PINK_BLUE: {'method': '_pink_blue_rotation_effect', 'default_speed': 0.05},
-        LEDEffect.ROTATING_GREEN_YELLOW: {'method': '_rotating_green_yellow_effect', 'default_speed': 0.05},
-        LEDEffect.ROTATING_RAINBOW: {'method': '_rotating_rainbow_effect', 'default_speed': 0.02},
-        LEDEffect.RANDOM_TWINKLING: {'method': '_random_twinkling_effect', 'default_speed': 0.03},
-        LEDEffect.RAIN: {'method': '_rain_effect', 'default_speed': 0.05},
-        LEDEffect.LIGHTNING: {'method': '_lightning_effect', 'default_speed': 0.05},
-        LEDEffect.PURRING: {'method': '_purring_effect', 'default_speed': 0.01},
-        LEDEffect.ROTATING_COLOR: {'method': '_rotating_color_effect', 'default_speed': 0.05},
+        "BLUE_BREATHING": {'method': '_blue_breathing_effect', 'default_speed': 0.05},
+        "GREEN_BREATHING": {'method': '_green_breathing_effect', 'default_speed': 0.05},
+        "ROTATING_PINK_BLUE": {'method': '_pink_blue_rotation_effect', 'default_speed': 0.05},
+        "ROTATING_GREEN_YELLOW": {'method': '_rotating_green_yellow_effect', 'default_speed': 0.05},
+        "ROTATING_RAINBOW": {'method': '_rotating_rainbow_effect', 'default_speed': 0.02},
+        "RANDOM_TWINKLING": {'method': '_random_twinkling_effect', 'default_speed': 0.03},
+        "RAIN": {'method': '_rain_effect', 'default_speed': 0.05},
+        "LIGHTNING": {'method': '_lightning_effect', 'default_speed': 0.05},
+        "PURRING": {'method': '_purring_effect', 'default_speed': 0.01},
+        "ROTATING_COLOR": {'method': '_rotating_color_effect', 'default_speed': 0.05},
     }
 
     def __init__(self, initial_brightness=LEDConfig.LED_BRIGHTNESS):
         self._effect_thread = None
         self._stop_event = Event()
         self._current_speed = None
-        # Track current effect state
-        self._current_effect = None
+        # Track current effect state (now a string)
+        self._current_effect: str | None = None
         self._base_brightness = max(0.0, min(1.0, initial_brightness)) # Store and clamp base brightness
         self._current_relative_brightness = 1.0 # Track the relative brightness set by effects (defaults to 1.0)
         
@@ -150,7 +137,7 @@ class LEDManager:
         revert_thread.daemon = True
         revert_thread.start()
 
-    def start_or_update_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None, color: str | None = None):
+    def start_or_update_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: str | None = None):
         """Start an LED effect if it's not already running, or update its parameters if it is.
         
         This function allows for smooth transitions in effect parameters without restarting the effect
@@ -158,7 +145,7 @@ class LEDManager:
         the speed and brightness. If it's a different effect, it will start the new effect.
         
         Args:
-            effect: The LEDEffect to start or update
+            effect: The name (string) of the LEDEffect to start or update
             speed: Speed of the effect (if None, uses effect's default speed)
             brightness: Brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
             duration: Optional duration in milliseconds before reverting to previous effect
@@ -184,7 +171,7 @@ class LEDManager:
             self._current_speed = effect_speed
             self._current_relative_brightness = brightness # Store new relative brightness
             self._apply_brightness() # Apply combined brightness
-            logging.info(f"Updated {effect.name} parameters: speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
+            logging.info(f"Updated {effect} parameters: speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
             
             # Handle duration-based revert for parameter updates
             if duration is not None:
@@ -193,11 +180,11 @@ class LEDManager:
             # Different effect or no effect running, start new effect
             self.start_effect(effect, speed, brightness, duration, color)
 
-    def start_effect(self, effect: LEDEffect, speed=None, brightness=1.0, duration=None, color: str | None = None):
+    def start_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: str | None = None):
         """Start an LED effect
         
         Args:
-            effect: The LEDEffect to start
+            effect: The name (string) of the LEDEffect to start
             speed: Speed of the effect (if None, uses effect's default speed)
             brightness: Relative brightness level from 0.0 to 1.0. Multiplied by the LED_BRIGHTNESS from config, and defaults to 1.0
             duration: Optional duration in milliseconds before reverting to previous effect
@@ -228,27 +215,29 @@ class LEDManager:
 
         # --- Conditionally build thread arguments ---
         thread_args = ()
-        if effect == LEDEffect.ROTATING_COLOR:
+        if effect == "ROTATING_COLOR": # Use string comparison
             if color is None:
-                 logging.error(f"Color parameter is required for {effect.name} but was not provided. Stopping.")
+                 logging.error(f"Color parameter is required for {effect} but was not provided. Stopping.")
                  self.clear() # Or maybe fallback to a default? Stopping seems safer.
                  return # Don't start the thread
             thread_args = (color, effect_speed)
-            logging.info(f"Starting {effect.name} with color '{color}' and speed {effect_speed}")
+            logging.info(f"Starting {effect} with color '{color}' and speed {effect_speed}")
         else:
             # Default case for effects only needing speed
             thread_args = (effect_speed,)
-            logging.info(f"Starting {effect.name} with speed {effect_speed}")
+            logging.info(f"Starting {effect} with speed {effect_speed}")
         # --- End conditional arguments ---
 
         self._effect_thread = Thread(target=effect_method, args=thread_args) # Use dynamic args
         self._effect_thread.daemon = True
         self._effect_thread.start()
         # Logging moved up slightly to be more accurate about what *parameters* were used to start
-        # logging.info(f"Started {effect.name} effect with speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
+        # logging.info(f"Started {effect} effect with speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
         
         if duration is not None:
             self._setup_revert_thread(previous_effect, duration)
+
+        self.pixels.show()
 
     def show_color(self, color):
         """Show a specific color on the LEDs"""
@@ -271,7 +260,7 @@ class LEDManager:
             self._current_speed = None
             self.clear()
         else:
-            logging.info(f"Skipping stop of {effect_name} as it is not currently running. Currently running {self._current_effect}")
+            logging.info(f"Skipping stop of '{effect_name}' as it is not currently running. Currently running '{self._current_effect}'")
 
     def _apply_brightness(self):
         """Calculate and apply the effective brightness (base * relative) to the pixels."""
