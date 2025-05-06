@@ -120,7 +120,7 @@ class MoveActivity(BaseService):
             # Entering Free Fall
             if is_currently_free_fall and not was_in_free_fall:
                 # Only trigger if previous state was not something stationary/unknown
-                if self.previous_state not in [SimplifiedState.UNKNOWN, SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
+                # if self.previous_state not in [SimplifiedState.UNKNOWN, SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
                     self.logger.info(f"Entering FREE_FALL from {self.previous_state.name}. Switching to ROTATING_RAINBOW effect.")
                     self.in_free_fall = True
                     
@@ -132,8 +132,8 @@ class MoveActivity(BaseService):
                         "type": "start_led_effect",
                         "data": { "effectName": "ROTATING_RAINBOW", "speed": 0.05, "brightness": 0.8 } # Example values
                     })
-                else:
-                    self.logger.debug(f"Detected FREE_FALL but previous state ({self.previous_state.name}) prevents triggering effects.")
+                # else:
+                #     self.logger.debug(f"Detected FREE_FALL but previous state ({self.previous_state.name}) prevents triggering effects.")
 
 
             # Exiting Free Fall
