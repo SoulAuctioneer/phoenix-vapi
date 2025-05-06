@@ -187,18 +187,45 @@ class CallStateManager:
         """Set the mute state"""
         self._is_muted = muted
 
-    def set_speaking_state(self, role: str, is_speaking: bool):
-        """Update the speaking state for a given role"""
-        if role.lower() == "user":
+    async def set_speaking_state(self, role: str, is_speaking: bool):
+        """Update the speaking state for a given role and trigger LED effects"""
+        role = role.lower()
+        effect_name = None
+        action_type = None # 'start' or 'stop'
+
+        if role == "user":
             self._user_speaking = is_speaking
-        elif role.lower() == "assistant":
+            effect_name = "ROTATING_PINK_BLUE"
+            action_type = "start_led_effect" if is_speaking else "stop_led_effect"
+        elif role == "assistant":
             self._assistant_speaking = is_speaking
-        # Toggle the mute state if the assistant is speaking
-        if CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
-            if self._assistant_speaking:
-                self._is_muted = True
-            else:
-                self._is_muted = False
+            effect_name = "ROTATING_GREEN_YELLOW"
+            action_type = "start_led_effect" if is_speaking else "stop_led_effect"
+                
+            # Toggle the mute state if the assistant is speaking (existing logic)
+            if CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
+                self._is_muted = self._assistant_speaking
+
+        # Publish LED effect events asynchronously if an action is determined
+        if action_type and effect_name:
+            event_payload = {
+                "type": action_type,
+                "data": {
+                    "effectName": effect_name
+                }
+            }
+            
+            # If starting, ensure any previous effect is stopped first
+            if action_type == "start_led_effect":
+                # Stop all effects first
+                asyncio.create_task(self._conversation_manager.publish_event_callback({
+                    "type": "stop_led_effect"
+                    # Optionally, stop specific effect: "data": {"effectName": ... } 
+                }))
+                await asyncio.sleep(0.05) # Small delay to allow stop command to process
+
+            # Execute the start or stop action
+            asyncio.create_task(self._conversation_manager.publish_event_callback(event_payload))
 
 
 def thread_safe_event(func):

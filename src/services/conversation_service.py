@@ -44,14 +44,6 @@ class ConversationService(BaseService):
         self.is_active = True
 
         try:
-            # Start LED effect
-            await self.publish({
-                "type": "start_led_effect",
-                "data": {
-                    "effectName": "ROTATING_GREEN_YELLOW",
-                    "speed": 0.1
-                }
-            })
             # Start conversation
             self.logger.info("Initializing conversation call connection")
             await self.publish({"type": "conversation_starting"})
