@@ -48,7 +48,8 @@ class ConversationService(BaseService):
             await self.publish({
                 "type": "start_led_effect",
                 "data": {
-                    "effectName": "ROTATING_GREEN_YELLOW"
+                    "effectName": "ROTATING_GREEN_YELLOW",
+                    "speed": 0.1
                 }
             })
             # Start conversation

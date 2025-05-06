@@ -344,8 +344,9 @@ class LEDManager:
         hsv2 = colorsys.rgb_to_hsv(rgb2[0] / 255.0, rgb2[1] / 255.0, rgb2[2] / 255.0)
         hue1 = hsv1[0]
         hue2 = hsv2[0]
-        saturation = 1.0 # Use full saturation
-        value = 1.0        # Use full value/brightness
+        # Use the average saturation and value of the input colors
+        saturation = (hsv1[1] + hsv2[1]) / 2.0
+        value = (hsv1[2] + hsv2[2]) / 2.0
 
         while not self._stop_event.is_set():
             for j in range(100):  # Slower cycle with 100 steps
@@ -748,8 +749,9 @@ class LEDManagerRings(LEDManager):
         hsv2 = colorsys.rgb_to_hsv(rgb2[0] / 255.0, rgb2[1] / 255.0, rgb2[2] / 255.0)
         hue1 = hsv1[0]
         hue2 = hsv2[0]
-        saturation = 1.0 # Use full saturation
-        value = 1.0        # Use full value/brightness
+        # Use the average saturation and value of the input colors
+        saturation = (hsv1[1] + hsv2[1]) / 2.0
+        value = (hsv1[2] + hsv2[2]) / 2.0
 
         num_leds_ring1 = LEDConfig.LED_COUNT_RING1
         num_leds_ring2 = LEDConfig.LED_COUNT_RING2
