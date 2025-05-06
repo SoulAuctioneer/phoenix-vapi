@@ -1,6 +1,6 @@
 from typing import Dict, Any
 from .service import BaseService
-from managers.call_manager import CallManager
+from managers.conversation_manager import ConversationManager
 from managers.memory_manager import MemoryManager
 from config import ASSISTANT_ID, ASSISTANT_CONFIG
 
@@ -8,7 +8,7 @@ class ConversationService(BaseService):
     """Handles conversations with the AI assistant"""
     def __init__(self, service_manager):
         super().__init__(service_manager)
-        self.call_manager = None  # Will be initialized in start()
+        self.conversation_manager = None  # Will be initialized in start()
         self.is_active = False
         self._is_stopping = False  # Add state tracking for stop operation
         
@@ -17,14 +17,14 @@ class ConversationService(BaseService):
         await super().start()
         self.memory_manager = MemoryManager()
         # TODO: Don't pass service manager here, pass a callback for event publishing instead
-        self.call_manager = await CallManager.create(publish_event_callback=self.publish, memory_manager=self.memory_manager)
+        self.conversation_manager = await ConversationManager.create(publish_event_callback=self.publish, memory_manager=self.memory_manager)
 
     async def stop(self):
         """Stop the service and any active conversation"""
         if self.is_active:
             await self.stop_conversation()
-        if self.call_manager:
-            await self.call_manager.cleanup()
+        if self.conversation_manager:
+            await self.conversation_manager.cleanup()
         await super().stop()
         
     async def start_conversation(self, assistant_config: Dict[str, Any] = ASSISTANT_CONFIG):
@@ -47,7 +47,7 @@ class ConversationService(BaseService):
             # Fetch memories and add to assistant context
             self.logger.info("Initializing call connection")
             await self.publish({"type": "conversation_starting"})
-            await self.call_manager.start_call(assistant_id=ASSISTANT_ID, assistant_config=assistant_config)
+            await self.conversation_manager.start_call(assistant_id=ASSISTANT_ID, assistant_config=assistant_config)
             self.logger.info("Conversation started successfully")
             
         except Exception as e:
@@ -70,7 +70,7 @@ class ConversationService(BaseService):
             
         self._is_stopping = True
         try:
-            await self.call_manager.leave()
+            await self.conversation_manager.leave()
         except Exception as e:
             self.logger.error("Error stopping conversation: %s", str(e))
         finally:
@@ -86,21 +86,21 @@ class ConversationService(BaseService):
             # Mute local mic while intent detection is happening
             if self.is_active:
                 self.logger.info("Conversation active, sending interrupt message and muting until intent detection completes")
-                self.call_manager.interrupt_assistant()
-                # await self.call_manager.mute()
+                self.conversation_manager.interrupt_assistant()
+                # await self.conversation_manager.mute()
 
         elif event_type == "intent_detection_timeout":
             # Unmute local mic when intent detection completes
             if self.is_active:
                 self.logger.info("Intent detection completed, unmuting local mic")
-                # await self.call_manager.unmute()
+                # await self.conversation_manager.unmute()
 
         elif event_type == "intent_detected":
             # Only handle conversation intent if we're already active
             intent = event.get("intent")
             if intent == "conversation" and self.is_active:
                 self.logger.info("Conversation already active, passing along the `wake up` message")
-                self.call_manager.add_message("user", "Wake up!")
+                self.conversation_manager.add_message("user", "Wake up!")
                                     
         elif event_type == "call_state":
             if event.get("state") == "ended" and self.is_active:
@@ -110,7 +110,7 @@ class ConversationService(BaseService):
         elif event_type == "location_changed":
             # Disabled for now as we don't want this for the first meeting with Arianne
             pass
-            # if self.is_active and self.call_manager:
+            # if self.is_active and self.conversation_manager:
             #     location = event["data"]["location"]
             #     previous_location = event["data"]["previous_location"]
                 
@@ -121,7 +121,7 @@ class ConversationService(BaseService):
                     
             #     self.logger.debug(f"Sending location change to assistant: {previous_location} -> {location}")
             #     try:
-            #         self.call_manager.add_message(
+            #         self.conversation_manager.add_message(
             #             "system",
             #             f"""You and your companion have moved from {previous_location} to {location}. 
             #             If appropriate, you may wish to comment on their new location or incorporate it into your current activity.
@@ -133,13 +133,13 @@ class ConversationService(BaseService):
         # Proximity changes are for scavenger hunts and hunts for other Phoenixes
         elif event_type == "proximity_changed":
             # We only care about proximity changes to other Phoenixes
-            if self.is_active and self.call_manager:
+            if self.is_active and self.conversation_manager:
                 location = event["data"]["location"]
                 if location == "blue_phoenix":
                     distance = event["data"]["distance"]
                     previous_distance = event["data"]["previous_distance"]
                     self.logger.debug(f"Sending proximity change to assistant: {location} {previous_distance} -> {distance}")
-                    self.call_manager.add_message(
+                    self.conversation_manager.add_message(
                         "system",
                         f"You are now {distance} distance away from your little sister."
                     )

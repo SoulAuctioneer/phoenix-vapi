@@ -46,12 +46,12 @@ Below is a comprehensive list of events used throughout the system:
 | `intent_detected` | Indicates that a user intent was detected | IntentService | ActivityService | `intent`: string, `slots`: dict |
 | `application_startup_completed` | Indicates app has finished initializing | Main | ActivityService | - |
 | `conversation_starting` | Indicates a conversation is about to begin | ConversationService | ServiceManager | - |
-| `conversation_started` | Indicates a conversation has started | CallManager | ConversationService | - |
+| `conversation_started` | Indicates a conversation has started | ConversationManager | ConversationService | - |
 | `conversation_ended` | Indicates a conversation has ended | ConversationService | ActivityService | - |
 | `conversation_error` | Indicates an error in conversation | ConversationService | ServiceManager | `error`: string |
-| `conversation_joining` | Indicates the system is joining a call | CallManager | - | - |
-| `speech-update` | Updates on speaking status | CallManager | ServiceManager | `role`: string, `status`: string |
-| `call_state` | Reports call state changes | CallManager | ConversationService | `state`: string |
+| `conversation_joining` | Indicates the system is joining a call | ConversationManager | - | - |
+| `speech-update` | Updates on speaking status | ConversationManager | ServiceManager | `role`: string, `status`: string |
+| `call_state` | Reports call state changes | ConversationManager | ConversationService | `state`: string |
 | `activity_started` | Indicates an activity has started | ActivityService | - | `activity`: string |
 | `activity_stopped` | Indicates an activity has ended | ActivityService | - | `activity`: string |
 | `location_changed` | Reports a change in location | LocationService | ConversationService | `data`: {`location`: string, `previous_location`: string} |

@@ -12,7 +12,7 @@ from managers.audio_manager import AudioManager
 from config import CallConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT
 import queue
 
-logger = logging.getLogger('call_manager')
+logger = logging.getLogger('conversation_manager')
 logger.setLevel(logging.DEBUG)
 
 class CallState(Enum):
@@ -51,10 +51,10 @@ class CallState(Enum):
 
 class CallStateManager:
     """Manages call state transitions and notifications"""
-    def __init__(self, call_manager):
+    def __init__(self, conversation_manager):
         self._state = CallState.INITIALIZED
         self._state_lock = asyncio.Lock()
-        self._call_manager = call_manager
+        self._conversation_manager = conversation_manager
         self._state_handlers = {}
         self._participants = {}
         self._volume = CallConfig.Audio.DEFAULT_VOLUME
@@ -106,7 +106,7 @@ class CallStateManager:
             logging.info(f"Call state transition: {old_state.value} -> {new_state.value}")
             
             # Publish event
-            await self._call_manager.publish_event_callback({
+            await self._conversation_manager.publish_event_callback({
                 "type": "call_state",
                 "old_state": old_state.value,
                 "new_state": new_state.value,
@@ -244,7 +244,7 @@ class CallEventHandler(daily.EventHandler):
         await self.call.handle_app_message(message, sender)
 
 
-class CallManager:
+class ConversationManager:
     """Handles Daily call functionality and Vapi API integration"""
     
     def __init__(self, *, publish_event_callback=None, memory_manager=None):
@@ -275,13 +275,13 @@ class CallManager:
 
     @classmethod
     async def create(cls, *, publish_event_callback, memory_manager=None):
-        """Factory method to create and initialize a CallManager instance"""
+        """Factory method to create and initialize a ConversationManager instance"""
         instance = cls(publish_event_callback=publish_event_callback, memory_manager=memory_manager)
         await instance.initialize()
         return instance
 
     async def initialize(self):
-        """Initialize the CallManager asynchronously"""
+        """Initialize the ConversationManager asynchronously"""
         if self._initialized:
             return
             
@@ -301,7 +301,7 @@ class CallManager:
             
             self._initialized = True
         except Exception as e:
-            logging.error(f"Failed to initialize CallManager: {e}")
+            logging.error(f"Failed to initialize ConversationManager: {e}")
             await self.cleanup()
             raise
 
@@ -884,7 +884,7 @@ class CallManager:
             self._event_handler = None
             
         except Exception as e:
-            logging.error(f"Error during CallManager cleanup: {e}")
+            logging.error(f"Error during ConversationManager cleanup: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
             
         # Final delay to ensure all resources are cleaned up

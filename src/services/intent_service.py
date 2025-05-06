@@ -172,7 +172,8 @@ class IntentService(BaseService):
         await self.publish({
             "type": "intent_detected",
             "intent": intent,
-            "slots": intent_data["slots"]
+            # Unpack any other data from intent_data except "intent"
+            **{k: v for k, v in intent_data.items() if k != "intent"}
         })
         
         # Then cancel the detection task if it exists
