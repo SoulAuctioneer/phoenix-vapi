@@ -33,6 +33,7 @@ VAPI_API_KEY = clean_env_value(os.getenv('VAPI_API_KEY'))
 VAPI_CLIENT_KEY = clean_env_value(os.getenv('VAPI_CLIENT_KEY'))
 PICOVOICE_ACCESS_KEY = clean_env_value(os.getenv('PICOVOICE_ACCESS_KEY'))
 OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API key
+ELEVENLABS_API_KEY = clean_env_value(os.getenv('ELEVENLABS_API_KEY')) # ElevenLabs API Key
 
 # Twilio Configuration (for PSTN calls)
 TWILIO_ACCOUNT_SID = clean_env_value(os.getenv('TWILIO_ACCOUNT_SID'))
@@ -716,3 +717,13 @@ ACTIVITIES_PROMPT = dedent("""
     #     "actually"
     #     ]
     # }
+
+# ElevenLabs Configuration
+class ElevenLabsConfig:
+    """Configuration for ElevenLabs Text-to-Speech"""
+    API_KEY = ELEVENLABS_API_KEY
+    # Find voice IDs using: https://api.elevenlabs.io/v1/voices
+    DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb" # Example: A specific voice ID
+    DEFAULT_MODEL_ID = "eleven_multilingual_v2" # Or "eleven_turbo_v2_5" for lower latency
+    OUTPUT_FORMAT = "pcm_16000" # Use PCM format matching our AudioManager sample rate
+    # Example: OUTPUT_FORMAT = "mp3_44100_128" # If using different settings
