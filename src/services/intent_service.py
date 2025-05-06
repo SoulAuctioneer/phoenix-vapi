@@ -93,7 +93,7 @@ class IntentService(BaseService):
                 "type": "start_led_effect",
                 "data": {
                     "effectName": "rotating_pink_blue",
-                    "speed": 0.02,
+                    "speed": 0.01,
                 }
             })
             
