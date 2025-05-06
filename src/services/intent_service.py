@@ -163,7 +163,6 @@ class IntentService(BaseService):
             }
         })
 
-        
         # Re-map old intent names to new ones
         intent = intent_data["intent"]
         if intent == "wake_up":

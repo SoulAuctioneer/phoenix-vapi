@@ -1,7 +1,7 @@
 """
 This activity service is for movement-based play, such as dancing, running, throwing the ball, composing music, martial arts, yoga etc.
 For our first implementation, we will use the accelerometer to detect movement energy and trigger sounds and lights matching the energy level.
-We also detect state changes, like entering FREE_FALL, to trigger specific sounds.
+We also detect state changes, like entering FREE_FALL, to trigger specific sounds and LED effects.
 """
 
 import logging
@@ -16,9 +16,9 @@ class MoveActivity(BaseService):
     
     This service processes accelerometer data to:
     1. Calculate a movement energy level (0-1) based on acceleration and rotation
-    2. Detect state transitions (e.g., entering FREE_FALL)
-    3. Publish events when significant changes occur (like playing a sound on free fall start)
-    4. Control LED brightness and speed based on movement energy.
+    2. Detect state transitions (e.g., entering/exiting FREE_FALL)
+    3. Publish events when significant changes occur (like playing sounds or changing LEDs)
+    4. Control LED effect (SPARKLES normally, RAINBOW during free fall) based on movement energy and state.
     """
     
     def __init__(self, service_manager):
@@ -29,20 +29,25 @@ class MoveActivity(BaseService):
         self.logger = logging.getLogger(self.__class__.__name__)
         # Track the energy level for the last sent LED update
         self.last_sent_energy = -1.0 # Initialize to ensure first update
+        # --- Free Fall LED Handling ---
+        self.in_free_fall = False
+        # Store the default effect name used by this activity
+        self.default_effect_name = "SPARKLES" 
+        # Store the current parameters for the default effect
+        self.sparkles_speed: float = 0.1 # Slower sparkle/update rate initially
+        self.sparkles_brightness: float = 0.1 # Dim initial brightness
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
         await super().start()
-        # Set initial LED effect to rotating rainbow, dim and slow
-        initial_speed = 0.1
-        initial_brightness = 0.1
-        self.logger.info(f"Setting initial LED effect: rotating_rainbow, speed={initial_speed}, brightness={initial_brightness}")
+        # Set initial LED effect to sparkles, using initial parameter values
+        self.logger.info(f"Setting initial LED effect: {self.default_effect_name}, speed={self.sparkles_speed}, brightness={self.sparkles_brightness}")
         await self.publish({
             "type": "start_led_effect",
             "data": {
-                "effectName": "rotating_rainbow",
-                "speed": initial_speed,
-                "brightness": initial_brightness
+                "effectName": self.default_effect_name,
+                "speed": self.sparkles_speed,
+                "brightness": self.sparkles_brightness
             }
         })
         self.logger.info("Move activity service started")
@@ -57,8 +62,8 @@ class MoveActivity(BaseService):
     async def handle_event(self, event: Dict[str, Any]):
         """
         Handle events from other services, particularly accelerometer sensor data.
-        Detects state transition into FREE_FALL to trigger sound.
-        Updates LED effect based on movement energy.
+        Detects FREE_FALL transitions to trigger sound and switch LED effects (RAINBOW).
+        Updates the default LED effect (SPARKLES) based on movement energy when not in FREE_FALL.
         
         Args:
             event: The event to handle
@@ -69,72 +74,90 @@ class MoveActivity(BaseService):
             current_state_name = data.get("current_state", SimplifiedState.UNKNOWN.name)
             energy = data.get("energy", 0.0) # Get energy level (0-1)
 
-            # Convert state name back to enum member if needed for comparison/storage
+            # Convert state name back to enum member
             try:
                 current_state_enum = SimplifiedState[current_state_name]
             except KeyError:
+                self.logger.warning(f"Received unknown state name: {current_state_name}")
                 current_state_enum = SimplifiedState.UNKNOWN
 
-            # --- State Transition Logic (e.g., Free Fall Sound) ---
-            is_entering_free_fall = (
-                current_state_enum == SimplifiedState.FREE_FALL and
-                self.previous_state != SimplifiedState.FREE_FALL and
-                self.previous_state not in [SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL, SimplifiedState.UNKNOWN]
-            )
+            # --- Free Fall State Transition Logic ---
+            was_in_free_fall = self.in_free_fall
+            is_currently_free_fall = (current_state_enum == SimplifiedState.FREE_FALL)
 
-            if is_entering_free_fall:
-                self.logger.info(f"Entering FREE_FALL from {self.previous_state.name}, playing WEE sound")
+            # Entering Free Fall
+            if is_currently_free_fall and not was_in_free_fall:
+                # Only trigger if previous state was not something stationary/unknown
+                if self.previous_state not in [SimplifiedState.UNKNOWN, SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
+                    self.logger.info(f"Entering FREE_FALL from {self.previous_state.name}. Switching to RAINBOW effect.")
+                    self.in_free_fall = True
+                    
+                    # Play sound
+                    await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE})
+                    
+                    # Start RAINBOW effect 
+                    await self.publish({
+                        "type": "start_led_effect",
+                        "data": { "effectName": "RAINBOW", "speed": 0.05, "brightness": 0.8 } # Example values
+                    })
+                else:
+                    self.logger.debug(f"Detected FREE_FALL but previous state ({self.previous_state.name}) prevents triggering effects.")
+
+
+            # Exiting Free Fall
+            elif not is_currently_free_fall and was_in_free_fall:
+                self.logger.info(f"Exiting FREE_FALL. Reverting to {self.default_effect_name} effect.")
+                self.in_free_fall = False
+                # Revert to SPARKLES using the last known parameters
                 await self.publish({
-                    "type": "play_sound",
-                    "effect_name": SoundEffect.WEE
-                })
-
-            # --- LED Update Logic based on Energy ---
-            # Map energy (0-1) to speed (0.1 -> 0.01) and brightness (0.1 -> 1.0)
-            # Speed: Higher energy -> faster rotation (lower delay)
-            min_speed = 0.01 # Fastest speed at max energy
-            max_speed = 0.1  # Slowest speed at min energy
-            speed_range = max_speed - min_speed
-            # Linear mapping: speed = max_speed - (energy * speed_range)
-            # Apply a curve (e.g., power of 2) to make speed increase faster at higher energies
-            energy_curve_factor_speed = 2.0 
-            curved_energy_speed = pow(energy, energy_curve_factor_speed)
-            # Rename 'speed' to 'interval' as the value represents the update delay
-            interval = max_speed - (curved_energy_speed * speed_range)
-            
-            # Brightness: Higher energy -> brighter LEDs
-            min_brightness = 0.1 # Minimum brightness at min energy
-            max_brightness = 1.0 # Maximum brightness at max energy
-            brightness_range = max_brightness - min_brightness
-            # Linear mapping: brightness = min_brightness + (energy * brightness_range)
-            # Apply a curve (e.g., power of 0.5) for faster initial brightness increase
-            energy_curve_factor_brightness = 0.5
-            curved_energy_brightness = pow(energy, energy_curve_factor_brightness)
-            brightness = min_brightness + (curved_energy_brightness * brightness_range)
-
-            # Ensure brightness and speed are within valid ranges
-            # Ensure brightness and interval are within valid ranges
-            interval = max(min_speed, min(max_speed, interval))
-            brightness = max(min_brightness, min(max_brightness, brightness))
-
-            # --- Publish LED update only if energy changed significantly ---
-            if abs(energy - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
-                # self.logger.debug(f"Energy changed significantly ({self.last_sent_energy:.2f} -> {energy:.2f}). Updating LEDs.") # Debug log
-                # Publish LED update event
-                await self.publish({
-                    "type": "start_led_effect", # Use start_led_effect to update parameters
-                    "data": {
-                        "effectName": "rotating_rainbow",
-                        "speed": interval, # Pass the calculated interval as the 'speed' parameter value
-                        "brightness": brightness
+                    "type": "start_led_effect",
+                    "data": { 
+                        "effectName": self.default_effect_name, 
+                        "speed": self.sparkles_speed, 
+                        "brightness": self.sparkles_brightness 
                     }
                 })
-                # Update the energy level that triggered the last update
-                self.last_sent_energy = energy
-            # else: # Optional: Log skipped updates
-                # self.logger.debug(f"Energy change ({self.last_sent_energy:.2f} -> {energy:.2f}) below threshold ({self.energy_update_threshold}). Skipping LED update.")
 
-            # Update the previous state for the next cycle
+            # --- LED Update Logic based on Energy (Only when NOT in Free Fall) ---
+            if not self.in_free_fall:
+                # Map energy (0-1) to speed (0.1 -> 0.01) and brightness (0.1 -> 1.0)
+                # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)
+                min_speed = 0.01 # Fastest
+                max_speed = 0.1  # Slowest
+                speed_range = max_speed - min_speed
+                energy_curve_factor_speed = 2.0 
+                curved_energy_speed = pow(energy, energy_curve_factor_speed)
+                interval = max_speed - (curved_energy_speed * speed_range)
+                
+                # Brightness: Higher energy -> brighter
+                min_brightness = 0.1 # Min brightness
+                max_brightness = 1.0 # Max brightness
+                brightness_range = max_brightness - min_brightness
+                energy_curve_factor_brightness = 0.5
+                curved_energy_brightness = pow(energy, energy_curve_factor_brightness)
+                brightness = min_brightness + (curved_energy_brightness * brightness_range)
+
+                # Ensure brightness and interval are within valid ranges
+                interval = max(min_speed, min(max_speed, interval))
+                brightness = max(min_brightness, min(max_brightness, brightness))
+
+                # --- Publish LED update only if energy changed significantly ---
+                if abs(energy - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
+                    # self.logger.debug(f"Energy changed ({self.last_sent_energy:.2f} -> {energy:.2f}). Updating {self.default_effect_name} LEDs.")
+                    await self.publish({
+                        "type": "start_led_effect", 
+                        "data": {
+                            "effectName": self.default_effect_name,
+                            "speed": interval, 
+                            "brightness": brightness
+                        }
+                    })
+                    # Update the stored parameters for the default effect
+                    self.sparkles_speed = interval
+                    self.sparkles_brightness = brightness
+                    self.last_sent_energy = energy
+                # else: 
+                    # self.logger.debug(f"Energy change below threshold. Skipping {self.default_effect_name} LED update.")
+
+            # Update the previous state for the next cycle's comparison
             self.previous_state = current_state_enum
-
-    
