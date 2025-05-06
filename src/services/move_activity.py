@@ -36,6 +36,8 @@ class MoveActivity(BaseService):
         # Store the current parameters for the default effect
         self.twinkling_speed: float = 0.1 # Slower sparkle/update rate initially
         self.twinkling_brightness: float = 0.1 # Dim initial brightness
+        # --- Shake Handling ---
+        self._play_giggle_1 = True # Track which giggle sound to play next
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
@@ -81,6 +83,23 @@ class MoveActivity(BaseService):
                 self.logger.warning(f"Received unknown state name: {current_state_name}")
                 current_state_enum = SimplifiedState.UNKNOWN
 
+            # --- Shake State Transition Logic ---
+            is_currently_shaking = (current_state_enum == SimplifiedState.SHAKE)
+            was_previously_shaking = (self.previous_state == SimplifiedState.SHAKE)
+
+            if is_currently_shaking and not was_previously_shaking:
+                # Entering SHAKE state
+                self.logger.info("Detected SHAKE. Playing giggle sound.")
+                
+                # Choose sound effect
+                effect_to_play = SoundEffect.GIGGLE1 if self._play_giggle_1 else SoundEffect.GIGGLE2
+                
+                # Play sound
+                await self.publish({"type": "play_sound", "effect_name": effect_to_play})
+                
+                # Toggle for next time
+                self._play_giggle_1 = not self._play_giggle_1
+
             # --- Free Fall State Transition Logic ---
             was_in_free_fall = self.in_free_fall
             is_currently_free_fall = (current_state_enum == SimplifiedState.FREE_FALL)
@@ -118,8 +137,8 @@ class MoveActivity(BaseService):
                     }
                 })
 
-            # --- LED Update Logic based on Energy (Only when NOT in Free Fall) ---
-            if not self.in_free_fall:
+            # --- LED Update Logic based on Energy (Only when NOT in Free Fall or Shaking) ---
+            if not self.in_free_fall and not is_currently_shaking:
                 # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)
                 min_speed = 0.01 # Fastest
                 max_speed = 0.1  # Slowest
