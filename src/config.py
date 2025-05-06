@@ -347,10 +347,7 @@ class AccelerometerConfig:
 # Movement Activity Configuration
 class MoveActivityConfig:
     """Configuration for move activity service"""
-    # NOTE: Not currently using any of this
-    ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation
-    ACCEL_WEIGHT = 0.7 # Weight for acceleration in energy calculation
-    GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
+    ENERGY_UPDATE_THRESHOLD = 0.05 # Only update LEDs if energy has changed by this much
 
 
 # AI Assistant Configuration

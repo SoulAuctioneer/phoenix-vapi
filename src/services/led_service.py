@@ -80,8 +80,10 @@ class LEDService(BaseService):
             # Check if the effect_name is a known key in the manager's map
             elif effect_name in self.led_controller._EFFECT_MAP: 
                 # Pass the string name directly
-                self.led_controller.start_effect(effect_name, speed=speed, brightness=brightness, color=color)
-                logging.info(f"Started {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
+                # Call start_or_update_effect, which handles both starting and updating
+                self.led_controller.start_or_update_effect(effect_name, speed=speed, brightness=brightness, color=color)
+                # Logging for start/update is handled within the manager now
+                # logging.info(f"Started/Updated {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
             else:
                 logging.warning(f"Received unknown effect name: '{effect_name}'")
 

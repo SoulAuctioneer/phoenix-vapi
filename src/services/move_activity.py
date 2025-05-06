@@ -27,6 +27,8 @@ class MoveActivity(BaseService):
         self.previous_state = SimplifiedState.UNKNOWN
         # Use logger from BaseService
         self.logger = logging.getLogger(self.__class__.__name__)
+        # Track the energy level for the last sent LED update
+        self.last_sent_energy = -1.0 # Initialize to ensure first update
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
@@ -113,17 +115,22 @@ class MoveActivity(BaseService):
             speed = max(min_speed, min(max_speed, speed))
             brightness = max(min_brightness, min(max_brightness, brightness))
 
-            # self.logger.debug(f"Energy: {energy:.2f} -> Speed: {speed:.4f}, Brightness: {brightness:.2f}") # Debug log
-            
-            # Publish LED update event
-            await self.publish({
-                "type": "start_led_effect", # Use start_led_effect to update parameters
-                "data": {
-                    "effectName": "rotating_rainbow",
-                    "speed": speed,
-                    "brightness": brightness
-                }
-            })
+            # --- Publish LED update only if energy changed significantly ---
+            if abs(energy - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
+                # self.logger.debug(f"Energy changed significantly ({self.last_sent_energy:.2f} -> {energy:.2f}). Updating LEDs.") # Debug log
+                # Publish LED update event
+                await self.publish({
+                    "type": "start_led_effect", # Use start_led_effect to update parameters
+                    "data": {
+                        "effectName": "rotating_rainbow",
+                        "speed": speed,
+                        "brightness": brightness
+                    }
+                })
+                # Update the energy level that triggered the last update
+                self.last_sent_energy = energy
+            # else: # Optional: Log skipped updates
+                # self.logger.debug(f"Energy change ({self.last_sent_energy:.2f} -> {energy:.2f}) below threshold ({self.energy_update_threshold}). Skipping LED update.")
 
             # Update the previous state for the next cycle
             self.previous_state = current_state_enum
