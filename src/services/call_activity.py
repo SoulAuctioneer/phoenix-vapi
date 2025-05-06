@@ -299,23 +299,42 @@ class CallActivity(BaseService):
         try:
             self.logger.info(f"Starting WebSocket server on port {WEBSOCKET_PORT}")
             
-            async def handle_websocket(websocket, path):
-                self.logger.info(f"WebSocket connection attempt from {websocket.remote_address} to path '{path}'")
+            async def handle_websocket(websocket_conn): # Expecting one argument
+                self.logger.info(f"Inspecting websocket_conn object: {dir(websocket_conn)}")
+                
+                # Try to get path from common attributes, log if found or not
+                path_to_use = "<unknown_path>"
+                if hasattr(websocket_conn, 'path'):
+                    path_to_use = websocket_conn.path
+                    self.logger.info(f"Found path via websocket_conn.path: {path_to_use}")
+                elif hasattr(websocket_conn, 'request_uri'):
+                    path_to_use = websocket_conn.request_uri
+                    self.logger.info(f"Found path via websocket_conn.request_uri: {path_to_use}")
+                elif hasattr(websocket_conn, 'resource_name'):
+                    path_to_use = websocket_conn.resource_name
+                    self.logger.info(f"Found path via websocket_conn.resource_name: {path_to_use}")
+                elif hasattr(websocket_conn, 'url'):
+                    path_to_use = websocket_conn.url.path # if it's a URL object
+                    self.logger.info(f"Found path via websocket_conn.url.path: {path_to_use}")
+                else:
+                    self.logger.warning("Could not find path attribute directly on websocket_conn. Check dir() output.")
+
+                self.logger.info(f"WebSocket connection attempt from {websocket_conn.remote_address} to path '{path_to_use}'")
                 try:
-                    self.logger.info(f"New WebSocket connection accepted from {websocket.remote_address}")
-                    self.active_websockets.add(websocket)
+                    self.logger.info(f"New WebSocket connection accepted from {websocket_conn.remote_address}")
+                    self.active_websockets.add(websocket_conn)
                     
                     # Process incoming messages (audio from Twilio)
-                    async for message in websocket: 
-                        await self._handle_websocket_message(websocket, message)
+                    async for message in websocket_conn: 
+                        await self._handle_websocket_message(websocket_conn, message)
                         
                 except websockets.exceptions.ConnectionClosed:
-                    self.logger.info(f"WebSocket connection closed by client {websocket.remote_address}")
+                    self.logger.info(f"WebSocket connection closed by client {websocket_conn.remote_address}")
                 except Exception as e:
                     self.logger.error(f"Error in WebSocket handler: {e}", exc_info=True)
                 finally:
-                    if websocket in self.active_websockets:
-                        self.active_websockets.remove(websocket)
+                    if websocket_conn in self.active_websockets:
+                        self.active_websockets.remove(websocket_conn)
             
             # Start the WebSocket server
             self.websocket_server = await websockets.serve(handle_websocket, "0.0.0.0", WEBSOCKET_PORT)
