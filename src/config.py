@@ -28,6 +28,10 @@ def clean_env_value(value: str) -> str:
     value = value.split('#')[0]
     return value.strip()
 
+# Which voice to use for TTS
+TTS_VOICE = "timmy" # Or "ana"
+
+
 # API keys
 VAPI_API_KEY = clean_env_value(os.getenv('VAPI_API_KEY'))
 VAPI_CLIENT_KEY = clean_env_value(os.getenv('VAPI_CLIENT_KEY'))
@@ -135,6 +139,9 @@ class SoundEffect(str, Enum):
     BREATHING = "breathing.wav"
     PURRING = "purring.wav"
     WEE = "wee.wav"
+    BRING_BRING = f"bring_bring_{TTS_VOICE}.wav"
+    HMM = f"hmm_{TTS_VOICE}.wav"
+    YAY_PLAY = f"yay_play_{TTS_VOICE}.wav"
     LOW_BATTERY = "low_battery.wav"
     CHIME_LOW = "chime_low.wav"
     CHIME_MID = "chime_mid.wav"

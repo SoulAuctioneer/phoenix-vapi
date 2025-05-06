@@ -53,16 +53,20 @@ class AudioService(BaseService):
             effect_name = event.get("effect_name")  # For logging purposes
             self.audio_manager.stop_sound(effect_name)
             self.logger.info(f"Stopped sound effect: {effect_name}")
-        
-        # Play a random chirp sound when wakeword is detected
-        elif event_type == "intent_detection_started":
-            await self._play_random_chirp()
 
-        elif event_type == "intent_detected":
-            intent = event.get("intent")
-            # TODO: Have a different chirp for each intent
-            if intent != "conversation":
-                await self._play_random_chirp()
+        # Play "HMM" sound when wakeword is detected
+        elif event_type == "intent_detection_started":
+            await self._play_sound(SoundEffect.HMM)
+
+        # # Play a random chirp sound when wakeword is detected
+        # elif event_type == "intent_detection_started":
+        #     await self._play_random_chirp()
+
+        # elif event_type == "intent_detected":
+        #     intent = event.get("intent")
+        #     # TODO: Have a different chirp for each intent
+        #     if intent != "conversation":
+        #         await self._play_random_chirp()
 
         # Handle touch stroke intensity for purring sound
         elif event_type == "touch_stroke_intensity":
