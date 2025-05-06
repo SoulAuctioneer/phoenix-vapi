@@ -79,6 +79,7 @@ class CallActivity(BaseService):
         self.ngrok_ws_tunnel = None
         self.twiml_url = None
         self.ws_url = None
+        self.websocket_loop = None # Added for thread-safe task scheduling
 
     async def start(self):
         """Start the call activity by setting up servers and tunnels, then initiating the call."""
@@ -298,26 +299,20 @@ class CallActivity(BaseService):
         """Run WebSocket server to handle media streaming."""
         try:
             self.logger.info(f"Starting WebSocket server on port {WEBSOCKET_PORT}")
-            
+            self.websocket_loop = asyncio.get_event_loop() # Capture the loop
+
             async def handle_websocket(websocket_conn): # Expecting one argument
-                self.logger.info(f"Inspecting websocket_conn object: {dir(websocket_conn)}")
+                self.logger.debug(f"Inspecting websocket_conn object attributes: {dir(websocket_conn)}")
                 
-                # Try to get path from common attributes, log if found or not
                 path_to_use = "<unknown_path>"
-                if hasattr(websocket_conn, 'path'):
+                if hasattr(websocket_conn, 'request') and websocket_conn.request and hasattr(websocket_conn.request, 'path'):
+                    path_to_use = websocket_conn.request.path
+                    self.logger.info(f"Found path via websocket_conn.request.path: {path_to_use}")
+                elif hasattr(websocket_conn, 'path'): # Fallback if request.path isn't there
                     path_to_use = websocket_conn.path
                     self.logger.info(f"Found path via websocket_conn.path: {path_to_use}")
-                elif hasattr(websocket_conn, 'request_uri'):
-                    path_to_use = websocket_conn.request_uri
-                    self.logger.info(f"Found path via websocket_conn.request_uri: {path_to_use}")
-                elif hasattr(websocket_conn, 'resource_name'):
-                    path_to_use = websocket_conn.resource_name
-                    self.logger.info(f"Found path via websocket_conn.resource_name: {path_to_use}")
-                elif hasattr(websocket_conn, 'url'):
-                    path_to_use = websocket_conn.url.path # if it's a URL object
-                    self.logger.info(f"Found path via websocket_conn.url.path: {path_to_use}")
                 else:
-                    self.logger.warning("Could not find path attribute directly on websocket_conn. Check dir() output.")
+                    self.logger.warning("Could not find path attribute directly on websocket_conn or via websocket_conn.request.path. Check dir() output.")
 
                 self.logger.info(f"WebSocket connection attempt from {websocket_conn.remote_address} to path '{path_to_use}'")
                 try:
@@ -417,8 +412,12 @@ class CallActivity(BaseService):
             })
             
             # Send to all active WebSockets (usually just one)
-            for ws in list(self.active_websockets):
-                asyncio.create_task(self._send_to_websocket(ws, message))
+            # Use run_coroutine_threadsafe as _handle_mic_audio is called from a different thread
+            if self.websocket_loop and self.websocket_loop.is_running():
+                for ws in list(self.active_websockets):
+                    asyncio.run_coroutine_threadsafe(self._send_to_websocket(ws, message), self.websocket_loop)
+            else:
+                self.logger.warning("WebSocket event loop not available/running; cannot send mic audio.")
                 
         except Exception as e:
             self.logger.error(f"Error processing microphone audio: {e}", exc_info=True)
