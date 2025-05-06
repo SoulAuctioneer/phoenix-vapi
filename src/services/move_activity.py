@@ -10,6 +10,9 @@ from services.service import BaseService
 from config import MoveActivityConfig, SoundEffect
 from managers.accelerometer_manager import SimplifiedState
 
+# Store giggle sounds for easy cycling
+_giggle_sounds = (SoundEffect.GIGGLE1, SoundEffect.GIGGLE2, SoundEffect.GIGGLE3)
+
 class MoveActivity(BaseService):
     """
     A service that maintains activity state and movement energy level.
@@ -37,7 +40,7 @@ class MoveActivity(BaseService):
         self.twinkling_speed: float = 0.1 # Slower sparkle/update rate initially
         self.twinkling_brightness: float = 0.1 # Dim initial brightness
         # --- Shake Handling ---
-        self._play_giggle_1 = True # Track which giggle sound to play next
+        self._giggle_index = 0 # Index for cycling through giggle sounds
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
@@ -91,14 +94,14 @@ class MoveActivity(BaseService):
                 # Entering SHAKE state
                 self.logger.info("Detected SHAKE. Playing giggle sound.")
                 
-                # Choose sound effect
-                effect_to_play = SoundEffect.GIGGLE1 if self._play_giggle_1 else SoundEffect.GIGGLE2
+                # Choose sound effect based on current index
+                effect_to_play = _giggle_sounds[self._giggle_index]
                 
-                # Play sound
+                # Play sound at half volume
                 await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.5})
                 
-                # Toggle for next time
-                self._play_giggle_1 = not self._play_giggle_1
+                # Increment index for next time, cycling through 0, 1, 2
+                self._giggle_index = (self._giggle_index + 1) % len(_giggle_sounds)
 
             # --- Free Fall State Transition Logic ---
             was_in_free_fall = self.in_free_fall

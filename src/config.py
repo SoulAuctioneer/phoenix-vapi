@@ -133,6 +133,7 @@ class SoundEffect(str, Enum):
     CHIME_HIGH = "chime_high.wav"
     GIGGLE1 = "giggle1.wav"
     GIGGLE2 = "giggle2.wav"
+    GIGGLE3 = "giggle3.wav"
     SQUEAK = "squeak.wav"
     CHIRP1 = "chirp1.wav"
     CHIRP2 = "chirp2.wav"
