@@ -87,6 +87,15 @@ class IntentService(BaseService):
                 "type": "intent_detection_started",
                 "timeout": IntentConfig.DETECTION_TIMEOUT
             })
+
+            # Start the LED effect
+            await self.publish({
+                "type": "start_led_effect",
+                "data": {
+                    "effectName": "rotating_pink_blue",
+                    "speed": 0.03,
+                }
+            })
             
             # Wait for timeout
             try:
@@ -95,6 +104,14 @@ class IntentService(BaseService):
                 logging.info("Intent detection timed out")
                 await self.publish({
                     "type": "intent_detection_timeout"
+                })
+
+                # TODO: Stop LED effect
+                await self.publish({
+                    "type": "stop_led_effect",
+                    "data": {
+                        "effectName": "rotating_pink_blue"
+                    }
                 })
             except asyncio.CancelledError:
                 # Task was cancelled (either by timeout or intent detection)

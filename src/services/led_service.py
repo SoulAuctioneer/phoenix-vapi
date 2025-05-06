@@ -50,14 +50,15 @@ class LEDService(BaseService):
 
         event_type = event.get('type')
 
-        if event_type == "intent_detection_started":
-            logging.info("Intent detection started - switched to random twinkling effect")
-            # TODO: This needs to be smarter in respect to what effect we revert to after finishing, need more state orchestration
-            duration = event.get('timeout', 7)
-            self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE, speed=0.03)
+        # if event_type == "intent_detection_started":
+        #     logging.info("Intent detection started - switched to random twinkling effect")
+        #     # TODO: This needs to be smarter in respect to what effect we revert to after finishing, need more state orchestration
+        #     duration = event.get('timeout', 7)
+        #     self.led_controller.start_effect(LEDEffect.ROTATING_PINK_BLUE, speed=0.03)
 
-        elif event_type == "stop_led_effect":
-            self.led_controller.stop_effect()
+        if event_type == "stop_led_effect":
+            effect_name = event.get('data', {}).get('effectName', None)
+            self.led_controller.stop_effect(effect_name)
             logging.info("Stopped LED effect")
 
         elif event_type == "conversation_started":

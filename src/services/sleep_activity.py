@@ -92,7 +92,7 @@ class SleepActivity(BaseService):
                 # })
                 
                 # Restart the LED effect
-                # NOTE: Don't do this anymore as we want the effect off
+                # NOTE: Don't do this anymore as we want the effect to be global, so handled by intent_service or led_service
                 # await self.publish({
                 #     "type": "start_led_effect",
                 #     "data": {

@@ -260,15 +260,16 @@ class LEDManager:
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
 
-    def stop_effect(self):
-        """Stop any running effect"""
-        self._stop_event.set()
-        if self._effect_thread:
-            self._effect_thread.join()
-            self._effect_thread = None
-        self._current_effect = None
-        self._current_speed = None
-        self.clear()
+    def stop_effect(self, effect_name: str | None = None):
+        """Stop any running effect, or specific effect if provided and currently running"""
+        if effect_name is None or effect_name == self._current_effect:
+            self._stop_event.set()
+            if self._effect_thread:
+                self._effect_thread.join()
+                self._effect_thread = None
+            self._current_effect = None
+            self._current_speed = None
+            self.clear()
 
     def _apply_brightness(self):
         """Calculate and apply the effective brightness (base * relative) to the pixels."""
