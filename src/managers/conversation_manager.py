@@ -738,7 +738,7 @@ class ConversationManager:
             role = message.get("role", "")
             # Update speaking state based on status
             is_speaking = status == "started"
-            self.state_manager.set_speaking_state(role, is_speaking)
+            await self.state_manager.set_speaking_state(role, is_speaking)
             logging.info(f"Speech update - Status: {status}, Role: {role}")
         elif msg_type == "transcript":
             pass
