@@ -40,7 +40,7 @@ class LEDManager:
     _EFFECT_MAP = {
         "BLUE_BREATHING": {'method': '_blue_breathing_effect', 'default_speed': 0.05},
         "GREEN_BREATHING": {'method': '_green_breathing_effect', 'default_speed': 0.05},
-        "ROTATING_PINK_BLUE": {'method': '_pink_blue_rotation_effect', 'default_speed': 0.05},
+        "ROTATING_PINK_BLUE": {'method': '_rotating_pink_blue_effect', 'default_speed': 0.05},
         "ROTATING_GREEN_YELLOW": {'method': '_rotating_green_yellow_effect', 'default_speed': 0.05},
         "ROTATING_RAINBOW": {'method': '_rotating_rainbow_effect', 'default_speed': 0.02},
         "RANDOM_TWINKLING": {'method': '_random_twinkling_effect', 'default_speed': 0.03},
@@ -324,7 +324,7 @@ class LEDManager:
                 self.pixels.show()
                 time.sleep(wait)
 
-    def _pink_blue_rotation_effect(self, wait):
+    def _rotating_pink_blue_effect(self, wait):
         """Generate a slow rotating gradient between pink and blue colors"""
         # Call the generalized method
         self._two_color_rotation_effect("pink", "blue", wait)
@@ -729,7 +729,7 @@ class LEDManagerRings(LEDManager):
                 self.pixels.show()
                 time.sleep(wait)
 
-    def _pink_blue_rotation_effect(self, wait):
+    def _rotating_pink_blue_effect(self, wait):
         """Override: Generate rotating gradients between pink and blue, counter-rotating on the inner ring."""
         # Call the generalized method for rings
         self._two_color_rotation_effect("pink", "blue", wait)
