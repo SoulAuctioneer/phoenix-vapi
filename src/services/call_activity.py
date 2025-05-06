@@ -1,3 +1,7 @@
+"""
+CallActivity is a service that handles outgoing PSTN calls via Twilio.
+It is used for making voice calls to regular phone numbers.
+"""
 import os
 from typing import Dict, Any, Optional
 from twilio.rest import Client
