@@ -18,7 +18,7 @@ class MoveActivity(BaseService):
     1. Calculate a movement energy level (0-1) based on acceleration and rotation
     2. Detect state transitions (e.g., entering/exiting FREE_FALL)
     3. Publish events when significant changes occur (like playing sounds or changing LEDs)
-    4. Control LED effect (SPARKLES normally, RAINBOW during free fall) based on movement energy and state.
+    4. Control LED effect (RANDOM_TWINKLING normally, RAINBOW during free fall) based on movement energy and state.
     """
     
     def __init__(self, service_manager):
@@ -32,22 +32,22 @@ class MoveActivity(BaseService):
         # --- Free Fall LED Handling ---
         self.in_free_fall = False
         # Store the default effect name used by this activity
-        self.default_effect_name = "SPARKLES" 
+        self.default_effect_name = "RANDOM_TWINKLING" 
         # Store the current parameters for the default effect
-        self.sparkles_speed: float = 0.1 # Slower sparkle/update rate initially
-        self.sparkles_brightness: float = 0.1 # Dim initial brightness
+        self.twinkling_speed: float = 0.1 # Slower sparkle/update rate initially
+        self.twinkling_brightness: float = 0.1 # Dim initial brightness
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
         await super().start()
-        # Set initial LED effect to sparkles, using initial parameter values
-        self.logger.info(f"Setting initial LED effect: {self.default_effect_name}, speed={self.sparkles_speed}, brightness={self.sparkles_brightness}")
+        # Set initial LED effect to twinkling, using initial parameter values
+        self.logger.info(f"Setting initial LED effect: {self.default_effect_name}, speed={self.twinkling_speed}, brightness={self.twinkling_brightness}")
         await self.publish({
             "type": "start_led_effect",
             "data": {
                 "effectName": self.default_effect_name,
-                "speed": self.sparkles_speed,
-                "brightness": self.sparkles_brightness
+                "speed": self.twinkling_speed,
+                "brightness": self.twinkling_brightness
             }
         })
         self.logger.info("Move activity service started")
@@ -63,7 +63,7 @@ class MoveActivity(BaseService):
         """
         Handle events from other services, particularly accelerometer sensor data.
         Detects FREE_FALL transitions to trigger sound and switch LED effects (RAINBOW).
-        Updates the default LED effect (SPARKLES) based on movement energy when not in FREE_FALL.
+        Updates the default LED effect (RANDOM_TWINKLING) based on movement energy when not in FREE_FALL.
         
         Args:
             event: The event to handle
@@ -108,13 +108,13 @@ class MoveActivity(BaseService):
             elif not is_currently_free_fall and was_in_free_fall:
                 self.logger.info(f"Exiting FREE_FALL. Reverting to {self.default_effect_name} effect.")
                 self.in_free_fall = False
-                # Revert to SPARKLES using the last known parameters
+                # Revert to twinkling using the last known parameters
                 await self.publish({
                     "type": "start_led_effect",
                     "data": { 
                         "effectName": self.default_effect_name, 
-                        "speed": self.sparkles_speed, 
-                        "brightness": self.sparkles_brightness 
+                        "speed": self.twinkling_speed, 
+                        "brightness": self.twinkling_brightness 
                     }
                 })
 
@@ -153,8 +153,8 @@ class MoveActivity(BaseService):
                         }
                     })
                     # Update the stored parameters for the default effect
-                    self.sparkles_speed = interval
-                    self.sparkles_brightness = brightness
+                    self.twinkling_speed = interval
+                    self.twinkling_brightness = brightness
                     self.last_sent_energy = energy
                 # else: 
                     # self.logger.debug(f"Energy change below threshold. Skipping {self.default_effect_name} LED update.")
