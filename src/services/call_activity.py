@@ -121,11 +121,9 @@ class CallActivity(BaseService):
 
         try:
             self.logger.info(f"Initiating call from {TWILIO_FROM_NUMBER} to {HARDCODED_TO_NUMBER}")
-            # Simple TwiML to just dial the number, keeping the call active until hangup.
-            # Using url attribute pointing to empty TwiML might be more robust for keeping the call alive after dial connects.
-            # Alternatively, just Dial might suffice.
+            # Simple TwiML to dial the number and then pause indefinitely to keep the call leg alive.
             # Let's try just Dial first.
-            twiml = f'<Response><Dial callerId="{TWILIO_FROM_NUMBER}">{HARDCODED_TO_NUMBER}</Dial></Response>'
+            twiml = f'<Response><Dial callerId="{TWILIO_FROM_NUMBER}">{HARDCODED_TO_NUMBER}</Dial><Pause length="3600"/></Response>' # Pause for 1 hour
             
             call = self.twilio_client.calls.create(
                 twiml=twiml,
