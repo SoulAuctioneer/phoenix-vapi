@@ -44,14 +44,14 @@ class VoiceManager:
 
         try:
             logger.info(f"Generating audio stream for text: '{text[:30]}...' using voice {voice_id}")
-            audio_stream = await self._async_client.text_to_speech.convert_as_stream(
+            audio_stream_generator = self._async_client.text_to_speech.convert_as_stream(
                 text=text,
                 voice_id=voice_id,
                 model_id=model_id,
                 output_format=ElevenLabsConfig.OUTPUT_FORMAT
             )
             logger.info("Audio stream generation started.")
-            return audio_stream
+            return audio_stream_generator
         except Exception as e:
             logger.error(f"Error generating audio stream from ElevenLabs: {e}")
             return None

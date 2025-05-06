@@ -179,6 +179,19 @@ class SoundEffect(str, Enum):
                     return effect.value
             return None
 
+
+# ElevenLabs Configuration
+class ElevenLabsConfig:
+    """Configuration for ElevenLabs Text-to-Speech"""
+    API_KEY = ELEVENLABS_API_KEY
+    # Find voice IDs using: https://api.elevenlabs.io/v1/voices
+    DEFAULT_VOICE_ID = "chcMmmtY1cmQh2ye1oXi" # Timmy / Mister Wibble
+    # DEFAULT_VOICE_ID = "dPKFsZN0BnPRUfVI2DUW"  # Ana-Rita3 / Fifi
+    DEFAULT_MODEL_ID = "eleven_turbo_v2_5" # Or "eleven_turbo_v2_5" for lower latency
+    OUTPUT_FORMAT = "pcm_16000" # Use PCM format matching our AudioManager sample rate
+    # Example: OUTPUT_FORMAT = "mp3_44100_128" # If using different settings
+
+
 # BLE and Location Configuration
 class Distance(Enum):
     """Enum for distance categories"""
@@ -717,13 +730,3 @@ ACTIVITIES_PROMPT = dedent("""
     #     "actually"
     #     ]
     # }
-
-# ElevenLabs Configuration
-class ElevenLabsConfig:
-    """Configuration for ElevenLabs Text-to-Speech"""
-    API_KEY = ELEVENLABS_API_KEY
-    # Find voice IDs using: https://api.elevenlabs.io/v1/voices
-    DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb" # Example: A specific voice ID
-    DEFAULT_MODEL_ID = "eleven_multilingual_v2" # Or "eleven_turbo_v2_5" for lower latency
-    OUTPUT_FORMAT = "pcm_16000" # Use PCM format matching our AudioManager sample rate
-    # Example: OUTPUT_FORMAT = "mp3_44100_128" # If using different settings
