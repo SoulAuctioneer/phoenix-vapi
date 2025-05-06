@@ -39,7 +39,7 @@ TWILIO_ACCOUNT_SID = clean_env_value(os.getenv('TWILIO_ACCOUNT_SID'))
 TWILIO_AUTH_TOKEN = clean_env_value(os.getenv('TWILIO_AUTH_TOKEN'))
 TWILIO_FROM_NUMBER = "+14153068641" # Must be a Twilio number in E.164 format
 HARDCODED_TO_NUMBER = "+14153078066" # Number to call in E.164 format
-TWILIO_POLL_INTERVAL = 1 # Interval in seconds to poll call status
+TWILIO_POLL_INTERVAL = 11 # Interval in seconds to poll call status
 
 # Intent Detection Configuration
 class IntentConfig:
