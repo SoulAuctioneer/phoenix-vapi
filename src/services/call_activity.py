@@ -47,17 +47,20 @@ class CallActivity(BaseService):
     async def stop(self):
         """Stop the call activity by ending the call and stopping polling."""
         self.logger.info("Call Activity stopping")
-        # Cancel polling task first
+        # Cancel polling task first, ensuring it's not already done
         if self._polling_task:
-            self.logger.info("Cancelling call status polling task.")
-            self._polling_task.cancel()
-            try:
-                await self._polling_task
-            except asyncio.CancelledError:
-                self.logger.info("Polling task cancelled successfully.")
-            except Exception as e:
-                # Log errors during cancellation but continue cleanup
-                self.logger.error(f"Error awaiting cancelled polling task: {e}", exc_info=True)
+            if not self._polling_task.done():
+                self.logger.info("Cancelling call status polling task.")
+                self._polling_task.cancel()
+                try:
+                    await self._polling_task
+                except asyncio.CancelledError:
+                    self.logger.info("Polling task cancelled successfully.")
+                except Exception as e:
+                    # Log errors during cancellation but continue cleanup
+                    self.logger.error(f"Error awaiting cancelled polling task: {e}", exc_info=True)
+            else:
+                self.logger.info("Polling task already done, no need to cancel.")
             self._polling_task = None
         
         # Then end the call via API (if SID still exists)
