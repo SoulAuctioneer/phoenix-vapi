@@ -95,7 +95,7 @@ class MoveActivity(BaseService):
                 effect_to_play = SoundEffect.GIGGLE1 if self._play_giggle_1 else SoundEffect.GIGGLE2
                 
                 # Play sound
-                await self.publish({"type": "play_sound", "effect_name": effect_to_play})
+                await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.5})
                 
                 # Toggle for next time
                 self._play_giggle_1 = not self._play_giggle_1
