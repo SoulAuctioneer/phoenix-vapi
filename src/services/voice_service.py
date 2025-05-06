@@ -115,11 +115,14 @@ class VoiceService(BaseService):
                     audio_np_array = self.voice_manager.pcm_bytes_to_numpy(audio_chunk_bytes)
                     
                     if audio_np_array.size > 0:
-                        # Put into the TTS producer's buffer
-                        # This is a thread-safe operation as AudioBuffer uses queue.Queue
-                        success = self._tts_producer.buffer.put(audio_np_array)
-                        if not success:
-                            logger.warning(f"TTS audio producer buffer full for '{self.TTS_PRODUCER_NAME}'. Audio chunk dropped.")
+                        # Resize the chunk using the producer's own resizer method
+                        # This will handle remainders and ensure chunks are of the correct size
+                        # for the AudioManager's output loop.
+                        resized_chunks = self._tts_producer.resize_chunk(audio_np_array)
+                        for chunk_to_put in resized_chunks:
+                            success = self._tts_producer.buffer.put(chunk_to_put)
+                            if not success:
+                                logger.warning(f"TTS audio producer buffer full for '{self.TTS_PRODUCER_NAME}'. Audio chunk dropped.")
                     else:
                         logger.warning("Received empty audio array after conversion.")
             logger.info("Finished playing TTS audio stream.")
