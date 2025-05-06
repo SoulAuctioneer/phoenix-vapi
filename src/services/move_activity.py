@@ -38,7 +38,7 @@ class MoveActivity(BaseService):
         self.default_effect_name = "RANDOM_TWINKLING" 
         # Store the current parameters for the default effect
         self.twinkling_speed: float = 0.3 # Slower sparkle/update rate initially
-        self.twinkling_brightness: float = 0.1 # Dim initial brightness
+        self.twinkling_brightness: float = 0.05 # Dim initial brightness
         # --- Shake Handling ---
         self._giggle_index = 0 # Index for cycling through giggle sounds
         
@@ -160,7 +160,7 @@ class MoveActivity(BaseService):
                 interval = max_speed - (energy * speed_range)
                 
                 # Brightness: Higher energy -> brighter
-                min_brightness = 0.1 # Min brightness
+                min_brightness = 0.05 # Min brightness
                 max_brightness = 1.0 # Max brightness
                 brightness_range = max_brightness - min_brightness
                 # Use linear mapping for brightness
