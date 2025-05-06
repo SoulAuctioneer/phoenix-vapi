@@ -26,7 +26,7 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None, "Okay, one sec", None),
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
-    ActivityType.MOVE: (['accelerometer'], 'move', None, None, "Yay! Let's play!", None),
+    ActivityType.MOVE: (['accelerometer'], 'move', None, None, "Yaaay! Let's play!", None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
     ActivityType.CALL: ([], 'call', None, None, "Bring bring!", None)
 }

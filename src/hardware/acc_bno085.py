@@ -53,7 +53,7 @@ from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple, Optional
 import asyncio
 from struct import pack_into # Re-add pack_into
-import time # Import time for timeout
+# import time # No longer directly used for sleep
 
 # Define a timeout for feature enabling (in seconds)
 _FEATURE_ENABLE_TIMEOUT = 3.0 # Restore timeout
@@ -75,7 +75,7 @@ class BNO085Interface:
         self._calibration_good = False
         self.logger = logging.getLogger(__name__)
         
-    def initialize(self) -> bool:
+    async def initialize(self) -> bool:
         """
         Initialize the BNO085 sensor connection.
         
@@ -83,17 +83,26 @@ class BNO085Interface:
             bool: True if initialization was successful, False otherwise
         """
         try:
+            self.logger.info("Initializing BNO085 sensor...")
             # Initialize I2C and BNO085 - Explicitly set frequency to 400kHz
-            self.i2c = busio.I2C(board.SCL, board.SDA)
-            self.imu = BNO08X_I2C(self.i2c)
-            time.sleep(0.1) # Small delay after sensor object creation
+            # These are blocking calls, run them in a separate thread
+            def _init_i2c_and_imu():
+                i2c = busio.I2C(board.SCL, board.SDA)
+                imu = BNO08X_I2C(i2c)
+                return i2c, imu
             
-            # Enable features
-            self._enable_sensor_reports()
+            self.i2c, self.imu = await asyncio.to_thread(_init_i2c_and_imu)
+            self.logger.info("I2C and IMU object created.")
+            
+            await asyncio.sleep(0.1) # Small delay after sensor object creation
+            
+            self.logger.info("Enabling sensor reports...")
+            await self._enable_sensor_reports()
+            self.logger.info("Sensor reports enabled.")
             
             return True
         except Exception as e:
-            self.logger.error(f"Failed to initialize BNO085 sensor: {e}")
+            self.logger.error(f"Failed to initialize BNO085 sensor: {e}", exc_info=True)
             return False
             
     def deinitialize(self):
@@ -102,11 +111,13 @@ class BNO085Interface:
         """
         if self.i2c:
             try:
+                # This is a blocking call, but typically fast.
+                # If it causes issues, it could also be wrapped in to_thread.
                 self.i2c.deinit()
             except Exception as e:
                 self.logger.error(f"Error deinitializing I2C: {e}")
     
-    def _enable_sensor_reports(self):
+    async def _enable_sensor_reports(self):
         """
         Enable all required sensor reports from the BNO085 sensor
         with a custom report interval.
@@ -114,31 +125,33 @@ class BNO085Interface:
         if not self.imu:
             return
 
-        # === Use custom intervals (values in microseconds) ===
         self.logger.info("Using custom interval enabling...")
 
+        async def _enable_feature_wrapper(feature_id, interval_us):
+            await self._enable_feature_with_interval(feature_id, interval_us)
+
         # Motion Vectors 
-        self._enable_feature_with_interval(BNO_REPORT_ACCELEROMETER, 5000)        # 5ms (200Hz)
-        self._enable_feature_with_interval(BNO_REPORT_GYROSCOPE, 5000)           # 5ms (200Hz)
-        self._enable_feature_with_interval(BNO_REPORT_LINEAR_ACCELERATION, 5000) # 5ms (200Hz)
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 5000)        # 5ms (200Hz)
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 5000)           # 5ms (200Hz)
+        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 5000) # 5ms (200Hz)
         
         # Less critical for high frequency
-        self._enable_feature_with_interval(BNO_REPORT_MAGNETOMETER, 20000)       # 20ms (50Hz)
+        await _enable_feature_wrapper(BNO_REPORT_MAGNETOMETER, 20000)       # 20ms (50Hz)
         
         # Rotation Vectors
-        self._enable_feature_with_interval(BNO_REPORT_ROTATION_VECTOR, 10000)     # 10ms (100Hz)
-        self._enable_feature_with_interval(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, 20000) # 20ms (50Hz)
-        self._enable_feature_with_interval(BNO_REPORT_GAME_ROTATION_VECTOR, 10000)  # 10ms (100Hz)
+        await _enable_feature_wrapper(BNO_REPORT_ROTATION_VECTOR, 10000)     # 10ms (100Hz)
+        await _enable_feature_wrapper(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, 20000) # 20ms (50Hz)
+        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 10000)  # 10ms (100Hz)
             
         # Classification Reports
-        self._enable_feature_with_interval(BNO_REPORT_STEP_COUNTER, 100000)       # 100ms (10Hz) - Slower is fine
-        self._enable_feature_with_interval(BNO_REPORT_STABILITY_CLASSIFIER, 50000) # 50ms (20Hz)
-        self._enable_feature_with_interval(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # 50ms (20Hz) - Library default
+        await _enable_feature_wrapper(BNO_REPORT_STEP_COUNTER, 100000)       # 100ms (10Hz) - Slower is fine
+        await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 50000) # 50ms (20Hz)
+        await _enable_feature_wrapper(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # 50ms (20Hz) - Library default
 
         self.logger.info("Finished enabling features using custom intervals.")
 
     # Re-add the custom enabling function with corrections
-    def _enable_feature_with_interval(self, feature_id: int, interval_us: int):
+    async def _enable_feature_with_interval(self, feature_id: int, interval_us: int):
         """
         Enables a specific feature with a custom report interval by sending the raw command.
         Uses correct interval units (microseconds) and packing format.
@@ -166,17 +179,17 @@ class BNO085Interface:
         
         # Send the packet
         try:
-            self.imu._send_packet(_BNO_CHANNEL_CONTROL, set_feature_report)
+            await asyncio.to_thread(self.imu._send_packet, _BNO_CHANNEL_CONTROL, set_feature_report)
         except Exception as e:
-            self.logger.error(f"Failed to send feature command for {feature_id}: {e}")
+            self.logger.error(f"Failed to send feature command for {feature_id}: {e}", exc_info=True)
             raise RuntimeError(f"Failed sending command for {feature_id}") from e # Re-raise
 
         # Wait for confirmation that the feature is enabled
-        start_time = time.monotonic()
-        while time.monotonic() - start_time < _FEATURE_ENABLE_TIMEOUT:
+        start_time = asyncio.get_event_loop().time()
+        while (asyncio.get_event_loop().time() - start_time) < _FEATURE_ENABLE_TIMEOUT:
             try:
                 # Process any available packets from the sensor
-                self.imu._process_available_packets(max_packets=10)
+                await asyncio.to_thread(self.imu._process_available_packets, max_packets=10)
             except Exception as e:
                 # Log errors during packet processing but continue trying
                 self.logger.warning(f"Error processing packets while enabling {feature_id}: {e}")
@@ -187,13 +200,13 @@ class BNO085Interface:
                 return # Feature is enabled
 
             # Log keys and sleep on every loop iteration
-            time.sleep(0.01) # Small delay before checking again
+            await asyncio.sleep(0.01) # Small delay before checking again
 
         # If the loop finishes without confirmation, raise an error
-        self.logger.error(f"Timeout: Failed to enable feature {feature_id} within {_FEATURE_ENABLE_TIMEOUT}s")
+        self.logger.error(f"Timeout: Failed to enable feature {feature_id} within {_FEATURE_ENABLE_TIMEOUT}s. Readings: {self.imu._readings.keys()}")
         raise RuntimeError(f"Was not able to enable feature {feature_id}")
 
-    def read_sensor_data(self) -> Dict[str, Any]:
+    async def read_sensor_data(self) -> Dict[str, Any]:
         """
         Read data from the BNO085 sensor.
         
@@ -227,24 +240,24 @@ class BNO085Interface:
             if not self.imu:
                 return {}
                 
-            # Motion Vectors
-            accel_x, accel_y, accel_z = self.imu.acceleration  # m/s^2
-            gyro_x, gyro_y, gyro_z = self.imu.gyro  # rad/s
-            mag_x, mag_y, mag_z = self.imu.magnetic  # uT
-            lin_accel_x, lin_accel_y, lin_accel_z = self.imu.linear_acceleration  # m/s^2
+            # Helper to run blocking property access in a thread
+            async def _get_sensor_value(prop_name):
+                return await asyncio.to_thread(getattr, self.imu, prop_name)
+
+            accel_x, accel_y, accel_z = await _get_sensor_value("acceleration")
+            gyro_x, gyro_y, gyro_z = await _get_sensor_value("gyro")
+            mag_x, mag_y, mag_z = await _get_sensor_value("magnetic")
+            lin_accel_x, lin_accel_y, lin_accel_z = await _get_sensor_value("linear_acceleration")
             
-            # Rotation Vectors - Access quaternion data directly
-            quat_i, quat_j, quat_k, quat_real = self.imu.quaternion  # rotation vector
-            geomag_quat_i, geomag_quat_j, geomag_quat_k, geomag_quat_real = self.imu.geomagnetic_quaternion  # geomagnetic rotation
-            game_quat_i, game_quat_j, game_quat_k, game_quat_real = self.imu.game_quaternion  # game rotation
+            quat_i, quat_j, quat_k, quat_real = await _get_sensor_value("quaternion")
+            geomag_quat_i, geomag_quat_j, geomag_quat_k, geomag_quat_real = await _get_sensor_value("geomagnetic_quaternion")
+            game_quat_i, game_quat_j, game_quat_k, game_quat_real = await _get_sensor_value("game_quaternion")
             
-            # Classification Reports
-            stability = self.imu.stability_classification
-            activity = self.imu.activity_classification
-            step_count = self.imu.steps
+            stability = await _get_sensor_value("stability_classification")
+            activity = await _get_sensor_value("activity_classification")
+            step_count = await _get_sensor_value("steps")
             
-            # System Information
-            calibration_status = self.imu.calibration_status
+            calibration_status = await _get_sensor_value("calibration_status")
             calibration_status_text = f"{REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})"
             
             return {
@@ -269,10 +282,10 @@ class BNO085Interface:
                 "calibration_status_text": calibration_status_text
             }
         except Exception as e:
-            self.logger.error(f"Error reading sensor data: {e}")
+            self.logger.error(f"Error reading sensor data: {e}", exc_info=True)
             return {}
         
-    def get_calibration_status(self) -> int:
+    async def get_calibration_status(self) -> int:
         """
         Get the current calibration status of the sensor.
         
@@ -280,10 +293,10 @@ class BNO085Interface:
             int: Calibration status value (0-3, where 3 is best)
         """
         if self.imu:
-            return self.imu.calibration_status
+            return await asyncio.to_thread(lambda: self.imu.calibration_status)
         return 0
         
-    def get_calibration_status_text(self) -> str:
+    async def get_calibration_status_text(self) -> str:
         """
         Get the current calibration status as text.
         
@@ -292,7 +305,7 @@ class BNO085Interface:
         """
         if not self.imu:
             return "Unknown"
-        status = self.imu.calibration_status
+        status = await asyncio.to_thread(lambda: self.imu.calibration_status)
         return f"{REPORT_ACCURACY_STATUS[status]} ({status})"
     
     async def check_and_calibrate(self) -> bool:
@@ -307,7 +320,7 @@ class BNO085Interface:
                 return False
                 
             # Get current calibration status
-            calibration_status = self.imu.calibration_status
+            calibration_status = await asyncio.to_thread(lambda: self.imu.calibration_status)
             self.logger.info(f"Initial calibration status: {REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})")
             
             # If calibration is not good (status < 2), perform calibration
@@ -321,7 +334,7 @@ class BNO085Interface:
             return self._calibration_good
                 
         except Exception as e:
-            self.logger.error(f"Error during calibration check: {e}")
+            self.logger.error(f"Error during calibration check: {e}", exc_info=True)
             return False
             
     async def _perform_calibration(self):
@@ -335,22 +348,25 @@ class BNO085Interface:
                 return
                 
             # Start calibration
-            self.imu.begin_calibration()
+            await asyncio.to_thread(self.imu.begin_calibration)
             self.logger.info("Calibration started. Please move the device in a figure-8 pattern...")
             
             # Monitor calibration status
             calibration_good_at = None
+            loop = asyncio.get_event_loop()
+            
             while not self._calibration_good:
-                calibration_status = self.imu.calibration_status
+                current_time = loop.time()
+                calibration_status = await asyncio.to_thread(lambda: self.imu.calibration_status)
                 self.logger.info(f"Calibration status: {REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})")
                 
                 if calibration_status >= 2 and not calibration_good_at:
-                    calibration_good_at = asyncio.get_event_loop().time()
+                    calibration_good_at = current_time
                     self.logger.info("Calibration quality reached good level!")
                     
-                if calibration_good_at and (asyncio.get_event_loop().time() - calibration_good_at > 5.0):
+                if calibration_good_at and (current_time - calibration_good_at > 5.0):
                     # Save calibration data
-                    self.imu.save_calibration_data()
+                    await asyncio.to_thread(self.imu.save_calibration_data)
                     self._calibration_good = True
                     self.logger.info("Calibration completed and saved!")
                     break
@@ -358,4 +374,4 @@ class BNO085Interface:
                 await asyncio.sleep(0.1)  # Check every 100ms
                 
         except Exception as e:
-            self.logger.error(f"Error during calibration: {e}") 
+            self.logger.error(f"Error during calibration: {e}", exc_info=True) 
