@@ -9,6 +9,7 @@ from services.sleep_activity import SleepActivity
 from services.hide_seek_service import HideSeekService
 from services.accelerometer_service import AccelerometerService
 from services.move_activity import MoveActivity
+from services.call_activity import CallActivity
 import asyncio
 
 class ActivityType(Enum):
@@ -18,6 +19,7 @@ class ActivityType(Enum):
     CUDDLE = "cuddle"
     SLEEP = "sleep"
     MOVE = "move"
+    CALL = "call"
 # Map activities to their required supporting services, activity-specific service, and optional start/stop sounds
 # Format: (list of supporting services, activity service name if any, start_sound, stop_sound)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str]]] = {
@@ -25,7 +27,8 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None),
     ActivityType.MOVE: (['accelerometer'], 'move', None, None),
-    ActivityType.SLEEP: ([], 'sleep', "YAWN", None)
+    ActivityType.SLEEP: ([], 'sleep', "YAWN", None),
+    ActivityType.CALL: ([], 'call', None, None)
 }
 
 class ActivityService(BaseService):
@@ -47,6 +50,7 @@ class ActivityService(BaseService):
             'move': MoveActivity,
             'sleep': SleepActivity,
             'hide_seek': HideSeekService,
+            'call': CallActivity,
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
@@ -287,6 +291,10 @@ class ActivityService(BaseService):
                 # Return to sleep activity
                 await self._queue_transition(ActivityType.SLEEP)
                 
+            elif intent == "call":
+                # Start call activity
+                await self._queue_transition(ActivityType.CALL)
+
         elif event_type == "conversation_ended":
             # A conversation has finished. The default transition to SLEEP is handled by _stop_activity if needed.
             pass 
