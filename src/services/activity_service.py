@@ -179,6 +179,10 @@ class ActivityService(BaseService):
             self.logger.debug(f"Activity {activity.name} already active")
             return
 
+        # Get required supporting services and activity service
+        requirements = ACTIVITY_REQUIREMENTS[activity]
+        supporting_services, activity_service_name, start_sound, _, start_tts, _ = requirements
+        
         # Play start sound if defined
         if start_sound:
             self.logger.info(f"Activity {activity.name} starting, playing start sound: {start_sound}")
@@ -195,10 +199,6 @@ class ActivityService(BaseService):
                 "text": start_tts
             })
             
-        # Get required supporting services and activity service
-        requirements = ACTIVITY_REQUIREMENTS[activity]
-        supporting_services, activity_service_name, start_sound, _, start_tts, _ = requirements
-        
         # If we have a current activity, stop it first
         if self.current_activity:
             await self._stop_activity(self.current_activity)
