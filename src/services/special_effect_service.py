@@ -19,10 +19,9 @@ class SpecialEffect(str, Enum):
     # LED-only effects
     BLUE_BREATHING = "BLUE_BREATHING"
     GREEN_BREATHING = "GREEN_BREATHING"
-    RAINBOW = "RAINBOW"
     ROTATING_PINK_BLUE = "ROTATING_PINK_BLUE"
     ROTATING_GREEN_YELLOW = "ROTATING_GREEN_YELLOW"
-    RANDOM_TWINKLE = "RANDOM_TWINKLE"
+    TWINKLING = "TWINKLING"
     
     @classmethod
     def get_sound_effect(cls, effect: str) -> Union[str, None]:
@@ -50,10 +49,9 @@ class SpecialEffect(str, Enum):
             # Below effects don't have corresponding sound effects
             cls.BLUE_BREATHING: "BLUE_BREATHING",
             cls.GREEN_BREATHING: "GREEN_BREATHING",
-            cls.RAINBOW: "RAINBOW",
             cls.ROTATING_PINK_BLUE: "ROTATING_PINK_BLUE",
             cls.ROTATING_GREEN_YELLOW: "ROTATING_GREEN_YELLOW",
-            cls.RANDOM_TWINKLE: "RANDOM_TWINKLE",
+            cls.TWINKLING: "TWINKLING",
         }
         return led_effect_map.get(cls(effect))
 
