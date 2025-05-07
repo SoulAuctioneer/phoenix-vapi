@@ -73,6 +73,9 @@ class SpecialEffectService(BaseService):
     async def play_effect(self, effect_name: str):
         """Play a special effect by name"""
         try:
+            # Force uppercase for effect name
+            effect_name = effect_name.upper()
+
             # Validate the effect name
             effect = SpecialEffect(effect_name)
             
