@@ -46,14 +46,14 @@ class SpecialEffect(str, Enum):
             cls.MAGICAL_SPELL: "magical_spell",
             cls.LIGHTNING: "lightning",
             cls.RAIN: "rain",
-            cls.RAINBOW: "rainbow",
+            cls.ROTATING_RAINBOW: "rainbow",
             # Below effects don't have corresponding sound effects
             cls.BLUE_BREATHING: "blue_breathing",
             cls.GREEN_BREATHING: "green_breathing",
             cls.ROTATING_RAINBOW: "rotating_rainbow",
             cls.ROTATING_PINK_BLUE: "rotating_pink_blue",
             cls.ROTATING_GREEN_YELLOW: "rotating_green_yellow",
-            cls.RANDOM_TWINKLE: "random_twinkle",
+            cls.RANDOM_TWINKLING: "random_twinkle",
         }
         return led_effect_map.get(cls(effect))
 
