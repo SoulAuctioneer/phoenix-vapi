@@ -62,6 +62,7 @@ class CallStateManager:
         self._is_muted = False  # Track microphone mute state
         self._user_speaking = False  # Track if user is currently speaking
         self._assistant_speaking = False  # Track if assistant is currently speaking
+        self._is_tool_led_effect_active = False # Flag for tool-initiated persistent LED effects
         
     @property
     def state(self) -> CallState:
@@ -198,29 +199,36 @@ class CallStateManager:
             if CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
                 self._is_muted = self._assistant_speaking
 
-            # Always stop existing effects first
-            asyncio.create_task(self._conversation_manager.publish_event_callback({
-                "type": "stop_led_effect"
-                # Consider stopping a specific effect if needed: "data": {"effectName": ...}
-            }))
-            await asyncio.sleep(0.05) # Small delay to allow stop command to process
-
-            # Determine the next effect to start
-            if is_speaking:
-                asyncio.create_task(self._conversation_manager.publish_event_callback({
-                    "type": "start_led_effect",
-                    "data": {
-                        "effectName": "ROTATING_GREEN_YELLOW"
-                    }
-                }))
-            else:
-                asyncio.create_task(self._conversation_manager.publish_event_callback({
-                    "type": "start_led_effect",
-                    "data": {
-                        "effectName": "RANDOM_TWINKLING",    # Assistant stopped speaking effect (idle)
-                        "speed": 0.1
-                    }
-                }))
+            if is_speaking: # Assistant starts speaking
+                if not self._is_tool_led_effect_active:
+                    # No tool-initiated LED effect was active, or it has finished its display period.
+                    # Proceed with normal speaking LED.
+                    asyncio.create_task(self._conversation_manager.publish_event_callback({
+                        "type": "stop_led_effect"
+                    }))
+                    await asyncio.sleep(0.05) # Ensure stop command is processed
+                    asyncio.create_task(self._conversation_manager.publish_event_callback({
+                        "type": "start_led_effect",
+                        "data": {"effectName": "ROTATING_GREEN_YELLOW"}
+                    }))
+            else: # Assistant stops speaking
+                if self._is_tool_led_effect_active:
+                    # A tool-initiated LED effect was active. Let it play for this duration of speech.
+                    # Set the flag to False so that next time the assistant stops/starts speaking,
+                    # the normal speaking/idle LED logic resumes.
+                    self._is_tool_led_effect_active = False
+                    # DO NOT change the LED effect, let the tool's effect continue.
+                else:
+                    # If _is_tool_led_effect_active is False (meaning a tool effect just played during speech, 
+                    # or no tool effect was active), show the idle effect.
+                    asyncio.create_task(self._conversation_manager.publish_event_callback({
+                        "type": "stop_led_effect"
+                    }))
+                    await asyncio.sleep(0.05) # Ensure stop command is processed
+                    asyncio.create_task(self._conversation_manager.publish_event_callback({
+                        "type": "start_led_effect",
+                        "data": {"effectName": "RANDOM_TWINKLING", "speed": 0.1}
+                    }))
         
         # Note: User speaking state is still tracked (`self._user_speaking`)
         # but no longer triggers LED effects in this method.
@@ -619,6 +627,7 @@ class ConversationManager:
             if name == 'show_lighting_effect':
                 effect_name = arguments.get('effect_name')
                 if effect_name:
+                    self.state_manager._is_tool_led_effect_active = True
                     await self.publish_event_callback({
                         "type": "start_led_effect",
                         "data": {
@@ -635,6 +644,7 @@ class ConversationManager:
             elif name == 'play_special_effect':
                 effect_name = arguments.get('effect_name', None)
                 if effect_name:
+                    self.state_manager._is_tool_led_effect_active = True
                     await self.publish_event_callback({
                         "type": "play_special_effect",
                         "effect_name": effect_name
@@ -643,6 +653,7 @@ class ConversationManager:
             elif name == 'show_color':
                 color = arguments.get('color', None)
                 if color:
+                    self.state_manager._is_tool_led_effect_active = True
                     await self.publish_event_callback({
                         "type": "start_led_effect",
                         "data": {
