@@ -392,6 +392,21 @@ ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # Mister Wibble
 
 
 ACTIVITIES_CONFIG = {
+    "poem_with_effects": {
+        "metadata": {
+            "title": "Raindrops",
+            "author": "Ash Eldritch",
+        },
+        "instructions": """
+            With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function. the effectName to pass to the function is listed for each line in square brackets, e.g. [rain]. Invoke each effect before saying its corresponding line.
+        """,
+        "content": dedent("""
+            [RAIN] Raindrops dance upon the ground,
+            [LIGHTNING] Lightning flashes all around.
+            [MAGICAL_SPELL] A sparkling spell lights up the sky,
+            [RAINBOW] Then a rainbow waves goodbye!
+        """)
+    },
     "poem": {
         "metadata": {
             "title": "The Invisible Beast",
