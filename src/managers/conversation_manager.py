@@ -227,7 +227,7 @@ class CallStateManager:
                     await asyncio.sleep(0.05) # Ensure stop command is processed
                     asyncio.create_task(self._conversation_manager.publish_event_callback({
                         "type": "start_led_effect",
-                        "data": {"effectName": "RANDOM_TWINKLING", "speed": 0.1}
+                        "data": {"effectName": "TWINKLING", "speed": 0.1}
                     }))
         
         # Note: User speaking state is still tracked (`self._user_speaking`)

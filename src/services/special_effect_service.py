@@ -6,23 +6,23 @@ import logging
 class SpecialEffect(str, Enum):
     """Available special effects combining both sound and LED effects"""
     # Combined effects (effects that have both sound and light)
-    MAGICAL_SPELL = "magical_spell"
-    LIGHTNING = "lightning"
-    RAIN = "rain"
-    RAINBOW = "rainbow"
+    MAGICAL_SPELL = "MAGICAL_SPELL"
+    LIGHTNING = "LIGHTNING"
+    RAIN = "RAIN"
+    RAINBOW = "RAINBOW"
 
     # Sound-only effects
-    YAWN = "yawn"
-    WHOOSH = "whoosh"
-    MYSTERY = "mystery"
+    YAWN = "YAWN"
+    WHOOSH = "WHOOSH"
+    MYSTERY = "MYSTERY"
 
     # LED-only effects
-    BLUE_BREATHING = "blue_breathing"
-    GREEN_BREATHING = "green_breathing"
-    ROTATING_RAINBOW = "rotating_rainbow"
-    ROTATING_PINK_BLUE = "rotating_pink_blue"
-    ROTATING_GREEN_YELLOW = "rotating_green_yellow"
-    RANDOM_TWINKLE = "random_twinkle"
+    BLUE_BREATHING = "BLUE_BREATHING"
+    GREEN_BREATHING = "GREEN_BREATHING"
+    RAINBOW = "RAINBOW"
+    ROTATING_PINK_BLUE = "ROTATING_PINK_BLUE"
+    ROTATING_GREEN_YELLOW = "ROTATING_GREEN_YELLOW"
+    RANDOM_TWINKLE = "RANDOM_TWINKLE"
     
     @classmethod
     def get_sound_effect(cls, effect: str) -> Union[str, None]:
@@ -43,17 +43,17 @@ class SpecialEffect(str, Enum):
     def get_led_effect(cls, effect: str) -> Union[str, None]:
         """Get the corresponding LED effect name for a special effect"""
         led_effect_map = {
-            cls.MAGICAL_SPELL: "magical_spell",
-            cls.LIGHTNING: "lightning",
-            cls.RAIN: "rain",
-            cls.ROTATING_RAINBOW: "rainbow",
+            cls.MAGICAL_SPELL: "MAGICAL_SPELL",
+            cls.LIGHTNING: "LIGHTNING",
+            cls.RAIN: "RAIN",
+            cls.RAINBOW: "RAINBOW",
             # Below effects don't have corresponding sound effects
-            cls.BLUE_BREATHING: "blue_breathing",
-            cls.GREEN_BREATHING: "green_breathing",
-            cls.ROTATING_RAINBOW: "rotating_rainbow",
-            cls.ROTATING_PINK_BLUE: "rotating_pink_blue",
-            cls.ROTATING_GREEN_YELLOW: "rotating_green_yellow",
-            cls.RANDOM_TWINKLING: "random_twinkle",
+            cls.BLUE_BREATHING: "BLUE_BREATHING",
+            cls.GREEN_BREATHING: "GREEN_BREATHING",
+            cls.RAINBOW: "RAINBOW",
+            cls.ROTATING_PINK_BLUE: "ROTATING_PINK_BLUE",
+            cls.ROTATING_GREEN_YELLOW: "ROTATING_GREEN_YELLOW",
+            cls.RANDOM_TWINKLE: "RANDOM_TWINKLE",
         }
         return led_effect_map.get(cls(effect))
 

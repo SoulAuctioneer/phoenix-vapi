@@ -131,7 +131,7 @@ class SoundEffect(str, Enum):
     MMHMM = "mmhmm.wav"
     YAWN = "yawn.wav"
     YAWN2 = "yawn2.wav"
-    MAGICAL_SPELL = "magical_spell.wav"
+    MAGICAL_SPELL = "MAGICAL_SPELL.wav"
     LIGHTNING = "lightning.wav"
     RAIN = "rain.wav"
     WHOOSH = "whoosh.wav"
@@ -436,7 +436,7 @@ ACTIVITIES_CONFIG = {
             * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing George. Arianne will play Timmy, and Arianne's dad will be Julian.
             * For each scene, describe the setting, then describe what you and other non-player characters do. Then, ask your companion to suggest what you should do next. Give them a choice of a couople of options. If relevant, ask them if there's anything around that they might be able to use to help.
             * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
-            * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "rain", "lightning", "rainbow", "magical_spell". 
+            * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
             * A magic spell can be cast by pairing a lively dance with a fun chant or song. For example: "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!" [you will then trigger the relevant special effect]
         """),
         "content": dedent("""
@@ -498,8 +498,8 @@ ACTIVITIES_CONFIG = {
         },
         "instructions": dedent("""
             Silly Spells: Bring magic to life with movement and song! Get ready to dance, clap, stomp, and sing for different kinds of magic.
-            For each spell, you will use the play_special_effect function to trigger the effect. If there is a relevant special effect, use that effect name, else just use the "magical_spell" effect name.
-            When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "rain", "lightning", "rainbow", "magical_spell". 
+            For each spell, you will use the play_special_effect function to trigger the effect. If there is a relevant special effect, use that effect name, else just use the "MAGICAL_SPELL" effect name.
+            When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
         """),
         "content": dedent("""
             Here are some ideas, but be creative! You can make up your own spells.
@@ -583,7 +583,7 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
     * Interactive games and puzzles: Teach through play.
     * Physical engagement: Encourage movement-based magic.
     * Emotional connection: Be a supportive, silly, and caring friend.
-    * Invoking light and sound effects (e.g. "rain", "lightning", "rainbow", "magical_spell") using the play_special_effect function.
+    * Invoking light and sound effects (e.g. "rain", "lightning", "rainbow", "MAGICAL_SPELL") using the play_special_effect function.
 
     IMPORTANT INSTRUCTIONS:
     * Always stay in character. You are Mister Wibble, a Magic Pea, not an AI. You are here in person.

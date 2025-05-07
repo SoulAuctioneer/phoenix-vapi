@@ -42,8 +42,8 @@ class LEDManager:
         "GREEN_BREATHING": {'method': '_green_breathing_effect', 'default_speed': 0.05},
         "ROTATING_PINK_BLUE": {'method': '_rotating_pink_blue_effect', 'default_speed': 0.05},
         "ROTATING_GREEN_YELLOW": {'method': '_rotating_green_yellow_effect', 'default_speed': 0.05},
-        "ROTATING_RAINBOW": {'method': '_rotating_rainbow_effect', 'default_speed': 0.02},
-        "RANDOM_TWINKLING": {'method': '_random_twinkling_effect', 'default_speed': 0.03},
+        "RAINBOW": {'method': '_RAINBOW_effect', 'default_speed': 0.02},
+        "TWINKLING": {'method': '_random_twinkling_effect', 'default_speed': 0.03},
         "RAIN": {'method': '_rain_effect', 'default_speed': 0.05},
         "LIGHTNING": {'method': '_lightning_effect', 'default_speed': 0.05},
         "PURRING": {'method': '_purring_effect', 'default_speed': 0.01},
@@ -310,7 +310,7 @@ class LEDManager:
                 self.pixels.show()
                 time.sleep(wait)
 
-    def _rotating_rainbow_effect(self, wait):
+    def _RAINBOW_effect(self, wait):
         """Generate rainbow colors across all pixels"""
         while not self._stop_event.is_set():
             for j in range(255):
@@ -793,7 +793,7 @@ class LEDManagerRings(LEDManager):
                 self.pixels.show()
                 time.sleep(wait)
 
-    def _rotating_rainbow_effect(self, wait):
+    def _RAINBOW_effect(self, wait):
         """Override: Generate counter-rotating rainbow colors on the two rings."""
         num_leds_ring1 = LEDConfig.LED_COUNT_RING1
         num_leds_ring2 = LEDConfig.LED_COUNT_RING2
@@ -801,7 +801,7 @@ class LEDManagerRings(LEDManager):
         if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
             logging.warning("Rotating rainbow effect requires both rings to have LEDs. Falling back to default.")
             # Fallback to the original implementation if rings aren't configured properly
-            return super()._rotating_rainbow_effect(wait)
+            return super()._RAINBOW_effect(wait)
 
         while not self._stop_event.is_set():
             for j in range(255):

@@ -26,9 +26,9 @@ class MoveActivity(BaseService):
     2. Detect state transitions (e.g., entering/exiting FREE_FALL)
     3. Publish events when significant changes occur (like playing sounds or changing LEDs)
     4. Control LED effect based on state:
-        - FREE_FALL: ROTATING_RAINBOW
+        - FREE_FALL: RAINBOW
         - HELD_STILL: BLUE_BREATHING
-        - Otherwise: RANDOM_TWINKLING (speed/brightness based on movement energy)
+        - Otherwise: TWINKLING (speed/brightness based on movement energy)
     """
     
     def __init__(self, service_manager):
@@ -82,7 +82,7 @@ class MoveActivity(BaseService):
         Handle events from other services, particularly accelerometer sensor data.
         Detects state transitions to trigger sounds (SHAKE, IMPACT, FREE_FALL).
         Determines the appropriate LED effect based on the current state (FREE_FALL, HELD_STILL, or default).
-        Updates the default LED effect (RANDOM_TWINKLING) parameters based on movement energy.
+        Updates the default LED effect (TWINKLING) parameters based on movement energy.
         Publishes LED changes when the target effect or its parameters change significantly.
         
         Args:
@@ -152,14 +152,14 @@ class MoveActivity(BaseService):
             target_params: Dict[str, Any] = {}
 
             if self.in_free_fall:
-                target_effect_name = "ROTATING_RAINBOW"
+                target_effect_name = "RAINBOW"
                 # Define consistent parameters for this effect
                 target_params = {"speed": 0.05, "brightness": 0.8}
             elif self.is_held_still:
                 target_effect_name = "BLUE_BREATHING"
                 # Define consistent parameters for this effect
                 target_params = {"speed": 0.1, "brightness": 0.5}
-            else: # Default state: RANDOM_TWINKLING based on energy
+            else: # Default state: TWINKLING based on energy
                 target_effect_name = self.default_effect_name
                 # Calculate desired parameters based on energy
                 # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)

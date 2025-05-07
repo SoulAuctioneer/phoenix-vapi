@@ -34,7 +34,7 @@ TOOL_CONFIGS = {
               "properties": {
                   "effect_name": {
                       "type": "string", 
-                      "enum": ["magical_spell", "lightning", "rain", "rainbow"],
+                      "enum": ["MAGICAL_SPELL", "LIGHTNING", "RAIN", "RAINBOW"],
                       "description": dedent("""
                         The name of the special effect to play. 
                         """).strip()
