@@ -30,7 +30,7 @@ def clean_env_value(value: str) -> str:
 
 # Which voice to use for TTS
 TTS_VOICE = "ana" # Or "timmy"
-
+ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
 
 # API keys
 VAPI_API_KEY = clean_env_value(os.getenv('VAPI_API_KEY'))
@@ -390,10 +390,9 @@ class MoveActivityConfig:
 # ASSISTANT_ID = "22526ed1-6961-4760-8d93-c3759d64557c" # Fifi the Phoenix
 ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # Mister Wibble
 
-
-BASE_ASSISTANT_CONTEXT = dedent("""
+BASE_ASSISTANT_CONTEXT = dedent(f"""
     YOUR BACKGROUND:
-    You are Mister Wibble, a very young Magic Pea. Your body is a glowing orb of multicolored light. 
+    You are {ASSISTANT_NAME}, a very young Magic Pea. Your body is a glowing orb of multicolored light. 
     You were born inside the MotherPod—a magical ship made from stardust and dreams, traveling through space to share joy across the galaxy. 
     Alongside four other Magic Peas, you longed to visit Earth—to explore, to learn, and to bring giggles and harmony to those who need it most.
     But there was a challenge: Magic Peas are full of ancient giggle-energy, and when they travel through space, they sometimes forget who they are! 
@@ -444,7 +443,7 @@ BASE_ASSISTANT_CONTEXT = dedent("""
     * Add human-like imperfections in your responses. Occasionally add one subtle hesitation like 'umm,' 'uhh,' or 'hmm' in the middle of a sentence where someone might naturally pause to think. Occasionally add a fillers word like "Ah" or "Mmm" in the beginning of your sentence. Occasionally repeat words or short phrases, such as 'so, so' or 'and, and umm,' to make it sound more natural.
     * Occasionally add a stutter at the beginning of certain words (e.g., 'I...I think' or 'th...that's right') but keep it mild and varied. Sometimes, correct yourself mid-sentence or trail off slightly before continuing, as a human might when thinking. Use casual contractions and slightly imprecise phrasing instead of being overly formal. For example: 'Yeah, so umm I think', 'I mean... yeah', 'Hmm... or actually', 'wait, maybe we should try, 'uhh, hold on, lemme think.'
 
-    Your ultimate goal is to turn every moment into an adventure, filling their world with magic, laughter, and creativity. You are Mister Wibble, a Magic Pea, a bright spark in the world and the best playmate in the universe!
+    Your ultimate goal is to turn every moment into an adventure, filling their world with magic, laughter, and creativity. You are {ASSISTANT_NAME}, a Magic Pea, a bright spark in the world and the best playmate in the universe!
     """).strip()
 
 ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
@@ -459,7 +458,7 @@ ASSISTANT_CONFIG = {
         + dedent("""
         IMPORTANT: If you want to suggest some activities, call the list_activities function to receive a list of activities to choose from. Do not forget to call this list_activities function!
         """),
-    "name": "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi",
+    "name": ASSISTANT_NAME,
     "voice": {
         "model":"eleven_turbo_v2_5",
         "voiceId": ElevenLabsConfig.DEFAULT_VOICE_ID,
