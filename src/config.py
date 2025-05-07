@@ -459,25 +459,25 @@ ASSISTANT_CONFIG = {
         + dedent("""
         IMPORTANT: If you want to suggest some activities, call the list_activities function to receive a list of activities to choose from. Do not forget to call this list_activities function!
         """),
-    # "name": "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi",
-    # "voice": {
-    #     "model":"eleven_turbo_v2_5",
-    #     "voiceId": ElevenLabsConfig.DEFAULT_VOICE_ID,
-    #     "provider":"11labs",
-    #     "stability":0.5,
-    #     "similarityBoost":0.75,
-    #     "fillerInjectionEnabled":False,
-    #     "inputPunctuationBoundaries":[
-    #         "。",
-    #         "，",
-    #         ".",
-    #         "!",
-    #         "?",
-    #         ";"
-    #     ]
-    # },
-    # "firstMessage": "Ooh that was a lovely nap! What's up?",
-    # "endCallMessage": "Okay, I'm gonna have a little nap",
+    "name": "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi",
+    "voice": {
+        "model":"eleven_turbo_v2_5",
+        "voiceId": ElevenLabsConfig.DEFAULT_VOICE_ID,
+        "provider":"11labs",
+        "stability":0.5,
+        "similarityBoost":0.75,
+        "fillerInjectionEnabled":False,
+        "inputPunctuationBoundaries":[
+            "。",
+            "，",
+            ".",
+            "!",
+            "?",
+            ";"
+        ]
+    },
+    "firstMessage": "Ooh that was a lovely nap! What's up?",
+    "endCallMessage": "Okay, I'm gonna have a little nap",
 
 }
 
