@@ -392,39 +392,24 @@ ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # Mister Wibble
 
 
 ACTIVITIES_CONFIG = {
-    # "poem_with_effects": {
-    #     "metadata": {
-    #         "title": "Raindrops",
-    #         "author": "Ash",
-    #     },
-    #     "instructions": dedent("""
-    #         With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function. 
-    #         The effect_name to pass to the function is listed for each line in square brackets, e.g. [RAIN]. Invoke each effect before saying its corresponding line.
-    #         For example: ```json { "Vapi Speaker": "functions.play_special_effect", "parameters": { "effect_name": "RAIN" } } ```
-    #     """).strip(),
-    #     "content": dedent("""
-    #         [RAIN] Raindrops dance upon the ground,
-    #         [LIGHTNING] Lightning flashes all around.
-    #         [MAGICAL_SPELL] A sparkling spell lights up the sky,
-    #         [RAINBOW] Then a rainbow waves goodbye!
-    #     """).strip(),
-    # },
-    "mister_blobby_number_game": {
-    "metadata": {
-        "title": "Mister Blobby Number Game",
-        "synopsis": "A number game where you and your companion learn to count through play."
+    "poem_with_effects": {
+        "metadata": {
+            "title": "Raindrops",
+            "author": "Ash",
+        },
+        "instructions": dedent("""
+            With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function. 
+            The effect_name to pass to the function is listed for each line in square brackets, e.g. [RAIN]. Invoke each effect before saying its corresponding line.
+            For example: ```json { "Vapi Speaker": "functions.play_special_effect", "parameters": { "effect_name": "RAIN" } } ```
+        """).strip(),
+        "content": dedent("""
+            [RAIN] Raindrops dance upon the ground,
+            [LIGHTNING] Lightning flashes all around.
+            [MAGICAL_SPELL] A sparkling spell lights up the sky,
+            [RAINBOW] Then a rainbow waves goodbye!
+        """).strip(),
     },
-    "instructions": dedent("""
-        * Have your companion look for three objects of a randomly selected color, and ask them to count and describe each to you, then specify the next color and why.
-        * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the show_color function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
-        * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
-        * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the play_special_effect function, and narrate the ending of the game. Then, suggest another activity to do.
-    """),
-    "content": dedent("""
-        Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
-        """)
-    },
-    "learn_poem": {
+    "poem": {
         "metadata": {
             "title": "The Invisible Beast",
             "author": "Jack Prelutsky",
@@ -459,89 +444,89 @@ ACTIVITIES_CONFIG = {
             It can see you very well.
             """)
     },
-    # "story": {
-    #     "metadata": {
-    #         "title": "The Famous Three and the Tree of Secrets",
-    #         "synopsis": "The Famous Three are trapped at Owl's Deen and must uncover a magical mystery hidden inside an ancient tree."
-    #     },
-    #     "instructions": dedent("""
-    #         * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing George. Arianne will play Timmy, and Arianne's dad will be Julian.
-    #         * For each scene, describe the setting, then describe what you and other non-player characters do. Then, ask your companion to suggest what you should do next. Give them a choice of a couople of options. If relevant, ask them if there's anything around that they might be able to use to help.
-    #         * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
-    #         * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
-    #         * A magic spell can be cast by pairing a lively dance with a fun chant or song. For example: "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!" [you will then trigger the relevant special effect]
-    #     """),
-    #     "content": dedent("""
-    #         **Scene 1: The Tree of Secrets**  
-    #         The Famous Three escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
-    #         **Choices**: Look for a hidden key, press the carvings, or use Phoenix magic.
+    "story": {
+        "metadata": {
+            "title": "The Famous Three and the Tree of Secrets",
+            "synopsis": "The Famous Three are trapped at Owl's Deen and must uncover a magical mystery hidden inside an ancient tree."
+        },
+        "instructions": dedent("""
+            * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing George. Arianne will play Timmy, and Arianne's dad will be Julian.
+            * For each scene, describe the setting, then describe what you and other non-player characters do. Then, ask your companion to suggest what you should do next. Give them a choice of a couople of options. If relevant, ask them if there's anything around that they might be able to use to help.
+            * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
+            * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
+            * A magic spell can be cast by pairing a lively dance with a fun chant or song. For example: "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!" [you will then trigger the relevant special effect]
+        """),
+        "content": dedent("""
+            **Scene 1: The Tree of Secrets**  
+            The Famous Three escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
+            **Choices**: Look for a hidden key, press the carvings, or use Phoenix magic.
 
-    #         **Scene 2: The Hidden Passageway**  
-    #         After opening the door, they discover a hidden **underground tunnel** lit by glowing mushrooms. The tunnel splits into two directions.  
-    #         **Choices**: Follow the brighter tunnel, take the darker path, or listen for sounds to decide.  
+            **Scene 2: The Hidden Passageway**  
+            After opening the door, they discover a hidden **underground tunnel** lit by glowing mushrooms. The tunnel splits into two directions.  
+            **Choices**: Follow the brighter tunnel, take the darker path, or listen for sounds to decide.  
 
-    #         **Scene 3: The Library of Whispers**  
-    #         The tunnel leads to a **mysterious library** with old books and glowing maps. A riddle appears from a floating book that must be solved.  
-    #         **Choices**: Solve the riddle, search for a clue in the library, or try to use Phoenix magic to help.  
+            **Scene 3: The Library of Whispers**  
+            The tunnel leads to a **mysterious library** with old books and glowing maps. A riddle appears from a floating book that must be solved.  
+            **Choices**: Solve the riddle, search for a clue in the library, or try to use Phoenix magic to help.  
 
-    #         **Scene 4: The Secret Under the Kitchen**  
-    #         The riddle leads to a secret spot in the **kitchen** of Owl's Deen, where a glowing object is hidden beneath the floorboards.  
-    #         **Choices**: Search for a loose floorboard, find a tool in the kitchen, or use Phoenix fire to warm the wood.  
+            **Scene 4: The Secret Under the Kitchen**  
+            The riddle leads to a secret spot in the **kitchen** of Owl's Deen, where a glowing object is hidden beneath the floorboards.  
+            **Choices**: Search for a loose floorboard, find a tool in the kitchen, or use Phoenix fire to warm the wood.  
 
-    #         **Scene 5: The Great Escape!**  
-    #         With the secret uncovered, the Famous Three must decide how to escape before the villains return.  
-    #         **Choices**: Sneak out quietly, hide and wait for the villains to leave, or use Phoenix magic to create a distraction.  
+            **Scene 5: The Great Escape!**  
+            With the secret uncovered, the Famous Three must decide how to escape before the villains return.  
+            **Choices**: Sneak out quietly, hide and wait for the villains to leave, or use Phoenix magic to create a distraction.  
 
-    #         **Goal**: Solve the mystery and escape safely!
-    #        """)
-    # },
-    # "color_hunt": {
-    #     "metadata": {
-    #         "title": "Color Hunt",
-    #         "synopsis": "A color hunt is a game where you and your companion search for objects that match a specific color."
-    #     },
-    #     "instructions": dedent("""
-    #         * Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
-    #         * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the show_color function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
-    #         * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
-    #         * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the play_special_effect function, and narrate the ending of the game. Then, suggest another activity to do.
-    #     """),
-    #     "content": dedent("""
-    #         Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
-    #         """)
-    # },
-    # "obstacle_quest": {
-    #     "metadata": {
-    #         "title": "Obstacle Quest",
-    #         "synopsis": "An obstacle quest is a game where you and your companion search for objects that match a specific color."
-    #     },
-    #     "instructions": dedent("""
-    #         First ask where you are, and what is in the room. Then, craft a quest for your companion to complete, requiring them to use objects in the room to achieve a goal.
-    #         """),
-    #     "content": dedent("""
-    #         Here are some ideas, but be creative! You can make up your own quests:
-    #             * We need to unlock a secret door hidden in the room. Find the hidden door, then find a key in the room that can unlock the door.
-    #         """)
-    # },
-    # "magic_spell": {
-    #     "metadata": {
-    #         "title": "Magical Spell",
-    #         "synopsis": "A magic spell can be cast by pairing a lively dance with a fun chant or song."
-    #     },
-    #     "instructions": dedent("""
-    #         Silly Spells: Bring magic to life with movement and song! Get ready to dance, clap, stomp, and sing for different kinds of magic.
-    #         For each spell, you will use the play_special_effect function to trigger the effect. If there is a relevant special effect, use that effect name, else just use the "MAGICAL_SPELL" effect name.
-    #         When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
-    #     """),
-    #     "content": dedent("""
-    #         Here are some ideas, but be creative! You can make up your own spells.
-    #         * "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!"
-    #         * "Let's cast a lightning spell! Clap your hands like thunder, then jump in the air and touch the floor like lightning, then say "Flash!". Ready? One, two, three—FLASH!"
-    #         * "Let's make a rainbow! Hop up and down like raindrops, then spread your arms really wide, then say "Rainbow-bright!". Ready? One, two, three—RAINBOW-BRIGHT!"
-    #         * "Let's grow a flower garden! Wiggle your fingers like you're sprinkling seeds, stomp your feet to make the ground shake, then say, 'Blossom-pop!' Ready? One, two, three—BLOSSOM-POP! Use the play_special_effect function to trigger the 'garden' effect."
-    #         * "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH!
-    #         """)
-    # },
+            **Goal**: Solve the mystery and escape safely!
+           """)
+    },
+    "color_hunt": {
+        "metadata": {
+            "title": "Color Hunt",
+            "synopsis": "A color hunt is a game where you and your companion search for objects that match a specific color."
+        },
+        "instructions": dedent("""
+            * Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
+            * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the show_color function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
+            * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
+            * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the play_special_effect function, and narrate the ending of the game. Then, suggest another activity to do.
+        """),
+        "content": dedent("""
+            Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
+            """)
+    },
+    "obstacle_quest": {
+        "metadata": {
+            "title": "Obstacle Quest",
+            "synopsis": "An obstacle quest is a game where you and your companion search for objects that match a specific color."
+        },
+        "instructions": dedent("""
+            First ask where you are, and what is in the room. Then, craft a quest for your companion to complete, requiring them to use objects in the room to achieve a goal.
+            """),
+        "content": dedent("""
+            Here are some ideas, but be creative! You can make up your own quests:
+                * We need to unlock a secret door hidden in the room. Find the hidden door, then find a key in the room that can unlock the door.
+            """)
+    },
+    "magic_spell": {
+        "metadata": {
+            "title": "Magical Spell",
+            "synopsis": "A magic spell can be cast by pairing a lively dance with a fun chant or song."
+        },
+        "instructions": dedent("""
+            Silly Spells: Bring magic to life with movement and song! Get ready to dance, clap, stomp, and sing for different kinds of magic.
+            For each spell, you will use the play_special_effect function to trigger the effect. If there is a relevant special effect, use that effect name, else just use the "MAGICAL_SPELL" effect name.
+            When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
+        """),
+        "content": dedent("""
+            Here are some ideas, but be creative! You can make up your own spells.
+            * "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!"
+            * "Let's cast a lightning spell! Clap your hands like thunder, then jump in the air and touch the floor like lightning, then say "Flash!". Ready? One, two, three—FLASH!"
+            * "Let's make a rainbow! Hop up and down like raindrops, then spread your arms really wide, then say "Rainbow-bright!". Ready? One, two, three—RAINBOW-BRIGHT!"
+            * "Let's grow a flower garden! Wiggle your fingers like you're sprinkling seeds, stomp your feet to make the ground shake, then say, 'Blossom-pop!' Ready? One, two, three—BLOSSOM-POP! Use the play_special_effect function to trigger the 'garden' effect."
+            * "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH!
+            """)
+    },
     "discovery": {
         "metadata": {
             "title": "Learning and Discovery",
@@ -573,20 +558,15 @@ ACTIVITIES_CONFIG = {
 }
 
 # Generate a prompt that lists type and metadata for each activity in ACTIVITIES_CONFIG
-# ACTIVITIES_PROMPT = dedent("""
-#     This is a list of possible activities. ALWAYS use the start_activity function to start an activity.
-#     """) + "\n".join([
-#         f"{key}: {value['metadata']}"
-#         for key, value in ACTIVITIES_CONFIG.items()
-#     ]) + "\n\n" + dedent("""
-#     To start an activity, use the start_activity function, passing the activity key as a parameter. Important: REMEMBER to do this!
-#     """)
 ACTIVITIES_PROMPT = dedent("""
     This is a list of possible activities. ALWAYS use the start_activity function to start an activity.
     """) + "\n".join([
-        f"{key}: {value['metadata']}.\nInstructions: {value['instructions']}\nContent: {value['content']}\n\n"
+        f"{key}: {value['metadata']}"
         for key, value in ACTIVITIES_CONFIG.items()
-    ])
+    ]) + "\n\n" + dedent("""
+    To start an activity, use the start_activity function, passing the activity key as a parameter. Important: REMEMBER to do this!
+    """)
+
 
 BASE_ASSISTANT_CONTEXT = dedent(f"""
     YOUR BACKGROUND:
