@@ -395,17 +395,19 @@ ACTIVITIES_CONFIG = {
     "poem_with_effects": {
         "metadata": {
             "title": "Raindrops",
-            "author": "Ash Eldritch",
+            "author": "Ash",
         },
-        "instructions": """
-            With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function. the effectName to pass to the function is listed for each line in square brackets, e.g. [rain]. Invoke each effect before saying its corresponding line.
-        """,
+        "instructions": dedent("""
+            With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function. 
+            The effect_name to pass to the function is listed for each line in square brackets, e.g. [RAIN]. Invoke each effect before saying its corresponding line.
+            For example: ```json { "Vapi Speaker": "functions.play_special_effect", "parameters": { "effect_name": "RAIN" } } ```
+        """).strip(),
         "content": dedent("""
             [RAIN] Raindrops dance upon the ground,
             [LIGHTNING] Lightning flashes all around.
             [MAGICAL_SPELL] A sparkling spell lights up the sky,
             [RAINBOW] Then a rainbow waves goodbye!
-        """)
+        """).strip(),
     },
     "poem": {
         "metadata": {

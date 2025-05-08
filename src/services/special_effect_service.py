@@ -96,7 +96,7 @@ class SpecialEffectService(BaseService):
                 await self.publish({
                     "type": "start_led_effect",
                     "data": {
-                        "effectName": led_effect
+                        "effect_name": led_effect
                     }
                 })
                 logging.info(f"Published LED effect: {led_effect}")

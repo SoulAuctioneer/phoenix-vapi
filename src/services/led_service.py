@@ -59,7 +59,7 @@ class LEDService(BaseService):
         if event_type == "start_led_effect":
             # Handle manual LED commands
             # TODO: Change to uppercase everywhere
-            effect_name = event.get('data', {}).get('effectName').upper()
+            effect_name = event.get('data', {}).get('effect_name').upper()
             speed = event.get('data', {}).get('speed', 0.02)
             brightness = event.get('data', {}).get('brightness', 1.0)
             # --- Extract color specifically for rotating_color ---
@@ -88,7 +88,7 @@ class LEDService(BaseService):
                 logging.warning(f"Received unknown effect name: '{effect_name}'")
 
         elif event_type == "stop_led_effect":
-            effect_name = event.get('data', {}).get('effectName', None)
+            effect_name = event.get('data', {}).get('effect_name', None)
             # TODO: Change to uppercase everywhere
             effect_name = effect_name.upper() if effect_name else None
             self.led_controller.stop_effect(effect_name)

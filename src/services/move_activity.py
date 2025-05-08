@@ -64,7 +64,7 @@ class MoveActivity(BaseService):
         self.logger.info(f"Setting initial LED effect: {self.default_effect_name}, params={initial_params}")
         await self.publish({
             "type": "start_led_effect",
-            "data": { "effectName": self.default_effect_name, **initial_params }
+            "data": { "effect_name": self.default_effect_name, **initial_params }
         })
         # Track the initial effect
         self.current_led_effect = {"name": self.default_effect_name, "params": initial_params}
@@ -204,7 +204,7 @@ class MoveActivity(BaseService):
                 self.logger.debug(f"Publishing LED update: {target_effect_name}, {target_params}")
                 await self.publish({
                     "type": "start_led_effect",
-                    "data": { "effectName": target_effect_name, **target_params }
+                    "data": { "effect_name": target_effect_name, **target_params }
                 })
                 # Update tracked state
                 self.current_led_effect = {"name": target_effect_name, "params": target_params}

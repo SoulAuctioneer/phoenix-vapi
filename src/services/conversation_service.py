@@ -48,7 +48,7 @@ class ConversationService(BaseService):
             await self.publish({
                 "type": "start_led_effect",
                 "data": {
-                    "effectName": "TWINKLING",
+                    "effect_name": "TWINKLING",
                     "speed": 0.1
                 }
             })

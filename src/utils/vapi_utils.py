@@ -61,7 +61,7 @@ TOOL_CONFIGS = {
       "function": {
           "name": "show_color",
           "description": dedent("""
-              Use to make your tummy lights glow a specific color.
+              Use to make your body's lights glow a specific color.
             """),
           "strict": False,
           "parameters": {

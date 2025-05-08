@@ -209,7 +209,7 @@ class CallStateManager:
                     await asyncio.sleep(0.05) # Ensure stop command is processed
                     asyncio.create_task(self._conversation_manager.publish_event_callback({
                         "type": "start_led_effect",
-                        "data": {"effectName": "ROTATING_GREEN_YELLOW"}
+                        "data": {"effect_name": "ROTATING_GREEN_YELLOW"}
                     }))
             else: # Assistant stops speaking
                 if self._is_tool_led_effect_active:
@@ -227,7 +227,7 @@ class CallStateManager:
                     await asyncio.sleep(0.05) # Ensure stop command is processed
                     asyncio.create_task(self._conversation_manager.publish_event_callback({
                         "type": "start_led_effect",
-                        "data": {"effectName": "TWINKLING", "speed": 0.1}
+                        "data": {"effect_name": "TWINKLING", "speed": 0.1}
                     }))
         
         # Note: User speaking state is still tracked (`self._user_speaking`)
@@ -624,24 +624,7 @@ class ConversationManager:
             
             logging.info(f"Handling tool call: {name} with arguments {arguments}")
             
-            if name == 'show_lighting_effect':
-                effect_name = arguments.get('effect_name')
-                if effect_name:
-                    self.state_manager._is_tool_led_effect_active = True
-                    await self.publish_event_callback({
-                        "type": "start_led_effect",
-                        "data": {
-                            "effectName": effect_name
-                        }
-                    })
-            elif name == 'play_sound_effect':
-                effect_name = arguments.get('effect_name', None)
-                if effect_name:
-                    await self.publish_event_callback({
-                        "type": "play_sound",
-                        "effect_name": effect_name
-                    })
-            elif name == 'play_special_effect':
+            if name == 'play_special_effect':
                 effect_name = arguments.get('effect_name', None)
                 if effect_name:
                     self.state_manager._is_tool_led_effect_active = True
@@ -657,7 +640,7 @@ class ConversationManager:
                     await self.publish_event_callback({
                         "type": "start_led_effect",
                         "data": {
-                            "effectName": "rotating_color",
+                            "effect_name": "rotating_color",
                             "color": color
                         }
                     })

@@ -92,7 +92,7 @@ class IntentService(BaseService):
             await self.publish({
                 "type": "start_led_effect",
                 "data": {
-                    "effectName": "rotating_pink_blue",
+                    "effect_name": "rotating_pink_blue",
                     "speed": 0.02,
                 }
             })
@@ -110,7 +110,7 @@ class IntentService(BaseService):
                 await self.publish({
                     "type": "stop_led_effect",
                     "data": {
-                        "effectName": "rotating_pink_blue"
+                        "effect_name": "rotating_pink_blue"
                     }
                 })
             except asyncio.CancelledError:
@@ -159,7 +159,7 @@ class IntentService(BaseService):
         await self.publish({
             "type": "stop_led_effect",
             "data": {
-                "effectName": "rotating_pink_blue"
+                "effect_name": "rotating_pink_blue"
             }
         })
 
