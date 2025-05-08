@@ -23,6 +23,9 @@ class AudioService(BaseService):
             self.audio_manager = AudioManager.get_instance(config)
             self.audio_manager.start()
             self.logger.info("Audio service started successfully")
+            # Initialize AudioManager's master volume based on GlobalState
+            if self.audio_manager and self.global_state:
+                self.audio_manager.set_master_volume(self.global_state.volume)
             
         except Exception as e:
             self.logger.error(f"Failed to start audio service: {e}")
@@ -62,12 +65,6 @@ class AudioService(BaseService):
         # elif event_type == "intent_detection_started":
         #     await self._play_random_chirp()
 
-        # elif event_type == "intent_detected":
-        #     intent = event.get("intent")
-        #     # TODO: Have a different chirp for each intent
-        #     if intent != "conversation":
-        #         await self._play_random_chirp()
-
         # Handle touch stroke intensity for purring sound
         elif event_type == "touch_stroke_intensity":
             # Only trigger purring if we're not in a conversation
@@ -88,12 +85,61 @@ class AudioService(BaseService):
                         self._purring_active = True
                         await self._play_sound("PURRING", loop=True, volume=volume)
                     else:
-                        self.audio_manager.set_producer_volume("sound_effect", volume)
+                        # Purring is already active, just update its relative volume
+                        if self.audio_manager:
+                            self.audio_manager.set_producer_volume("sound_effect", volume)
                 else:
                     # When intensity drops to 0, stop the purring sound
-                    self._purring_active = False
-                    self.logger.info("Touch intensity ended, stopping purring sound")
-                    self.audio_manager.stop_sound("PURRING")
+                    if self._purring_active: # Check if it was active before stopping
+                        self._purring_active = False
+                        self.logger.info("Touch intensity ended, stopping purring sound")
+                        if self.audio_manager:
+                            self.audio_manager.stop_sound("PURRING")
+
+        # Handle custom command for volume adjustment
+        elif event_type == "intent_detected":
+            intent_name = event.get("intent")
+            if intent_name == "custom_command":
+                slots = event.get("slots")
+                if slots and "index" in slots:
+                    try:
+                        index_val = int(slots["index"])
+                        current_volume = self.global_state.volume
+                        adjustment_step = 0.1
+
+                        if index_val == 1: # Turn volume down
+                            new_volume = current_volume - adjustment_step
+                            self.logger.info(f"'custom_command' intent (index 1) received. Attempting to decrease volume from {current_volume:.2f} to {new_volume:.2f}.")
+                            await self.set_global_volume(new_volume)
+                        elif index_val == 2: # Turn volume up
+                            new_volume = current_volume + adjustment_step
+                            self.logger.info(f"'custom_command' intent (index 2) received. Attempting to increase volume from {current_volume:.2f} to {new_volume:.2f}.")
+                            await self.set_global_volume(new_volume)
+                        else:
+                            self.logger.warning(f"'custom_command' intent received with unhandled index: {index_val}")
+                    except ValueError:
+                        self.logger.error(f"'custom_command' intent received with non-integer index: {slots['index']}")
+                    except Exception as e:
+                        self.logger.error(f"Error processing 'custom_command' for volume: {e}", exc_info=True)
+
+    async def set_global_volume(self, new_volume: float):
+        clamped_volume = max(0.0, min(1.0, new_volume))
+        # Access global_state via self.global_state, ensuring ServiceManager's lock handles safety
+        # No need for explicit lock here as ServiceManager handles state updates sequentially for now.
+        # If concurrent modification of global_state.volume becomes an issue, locking might be needed.
+        if self.global_state.volume != clamped_volume:
+            current_global_volume = self.global_state.volume # For logging
+            self.global_state.volume = clamped_volume # Update source of truth
+            if self.audio_manager:
+                self.audio_manager.set_master_volume(clamped_volume) # Propagate to AudioManager
+            
+            await self.publish({
+                "type": "volume_changed",
+                "volume": clamped_volume,
+                "producer_name": self.__class__.__name__ 
+            })
+            self.logger.info(f"Global volume changed from {current_global_volume:.2f} to {clamped_volume:.2f}")
+        return clamped_volume # Return the applied volume
 
     async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
         """Helper method to play a sound effect with error handling
@@ -127,13 +173,16 @@ class AudioService(BaseService):
                 has_active_call = "daily_call" in self.audio_manager._producers and self.audio_manager._producers["daily_call"].active
             
             # Use provided volume if specified, otherwise use default logic
+            # The 'volume' parameter now refers to the PRODUCER'S RELATIVE volume.
+            # The global master volume is applied separately in AudioManager.
             if volume is not None:
                 self.audio_manager.set_producer_volume("sound_effect", volume)
             elif has_active_call:
-                self.logger.info(f"Active call detected, setting sound effect volume to {AudioBaseConfig.CONVERSATION_SFX_VOLUME}")
+                self.logger.info(f"Active call detected, setting sound effect relative volume to {AudioBaseConfig.CONVERSATION_SFX_VOLUME}")
                 self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.CONVERSATION_SFX_VOLUME)
             else:
-                self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME)
+                # Default relative volume for sound_effect producer if no other is specified
+                self.audio_manager.set_producer_volume("sound_effect", AudioBaseConfig.DEFAULT_VOLUME) # This is 1.0 by default
 
             return True
             

@@ -4,7 +4,7 @@ from typing import Dict, Any, Set, Callable, Awaitable, Optional
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from config import Distance
+from config import Distance, AudioBaseConfig
 
 
 EventHandler = Callable[[Dict[str, Any]], Awaitable[None]]
@@ -24,7 +24,7 @@ class GlobalState:
         self.is_muted: bool = False
         
         # Audio state
-        self.volume: float = 1.0
+        self.volume: float = AudioBaseConfig.DEFAULT_VOLUME
         
         # Sensor states
         self.acceleration: Optional[tuple] = None

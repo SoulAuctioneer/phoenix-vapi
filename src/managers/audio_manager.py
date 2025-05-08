@@ -22,6 +22,19 @@ class AudioConfig:
     output_device_index: Optional[int] = None
     default_volume: float = AudioBaseConfig.DEFAULT_VOLUME
 
+class AudioBaseConfig:
+    """Base audio configuration that all audio components should use"""
+    FORMAT = 'int16'  # numpy/pyaudio compatible format
+    NUM_CHANNELS = 1
+    SAMPLE_RATE = 16000
+    CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
+    BUFFER_SIZE = 5   # Minimal buffering to reduce latency
+    DEFAULT_VOLUME = 1.0
+    CONVERSATION_SFX_VOLUME = 0.5 # Volume for sound effects when a conversation is active
+    # Calculate time-based values
+    CHUNK_DURATION_MS = (CHUNK_SIZE / SAMPLE_RATE) * 1000  # Duration of each chunk in milliseconds
+    LIKELY_LATENCY_MS = CHUNK_DURATION_MS * BUFFER_SIZE  # Calculate probable latency in milliseconds
+
 
 class AudioBuffer:
     """Minimal thread-safe audio buffer with volume control"""
@@ -163,6 +176,7 @@ class AudioManager:
         self._requeue_queue = queue.Queue()
         self._requeue_thread = None
         self._requeue_stop = threading.Event()
+        self.master_volume: float = self.config.default_volume # Initialize from AudioConfig
         
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
@@ -178,10 +192,10 @@ class AudioManager:
                 consumer.active = False
                 self._consumers.remove(consumer)
                 
-    def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = None) -> AudioProducer:
+    def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = 1.0) -> AudioProducer:
         """Create a new producer instance without adding it to the producers dictionary"""
-        print(f"DEBUG: Creating producer '{name}' with chunk_size={chunk_size}, buffer_size={buffer_size}", flush=True)
-        logging.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}")
+        print(f"DEBUG: Creating producer '{name}' with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}", flush=True)
+        logging.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}")
         
         producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size)
         producer.active = True
@@ -203,8 +217,12 @@ class AudioManager:
         """Remove an audio producer"""
         with self._producers_lock:
             if name in self._producers:
-                self._producers[name].active = False
+                producer = self._producers[name]
+                producer.stop() # Call stop() for full cleanup
                 del self._producers[name]
+                logging.info(f"Producer '{name}' fully stopped and removed") # Updated log message
+            else:
+                logging.warning(f"Attempted to remove non-existent producer: {name}")
                 
     def set_producer_volume(self, name: str, volume: float):
         """Set volume for a specific producer"""
@@ -418,12 +436,15 @@ class AudioManager:
                                         if no_data_count % 100 == 0:  # Log every 100th no-data iteration
                                             logging.debug(f"No data available from producer '{name}' for {no_data_count} iterations")
                     
+                    # Apply master volume before final clipping and conversion
+                    mixed_audio *= self.master_volume
+
                     # Convert back to int16 and clip to prevent overflow
                     mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
                         
                 # Write to output stream
-                if active_producers > 0:
-                    logging.debug(f"Writing {len(mixed_audio)} samples to output stream")
+                if active_producers > 0 or np.any(mixed_audio):
+                    logging.debug(f"Writing {len(mixed_audio)} samples to output stream with master_volume {self.master_volume:.2f}")
                     self._output_stream.write(mixed_audio.tobytes())
                 else:
                     # Small sleep to prevent spinning too fast when no data
@@ -645,3 +666,8 @@ class AudioManager:
             except Exception as e:
                 logging.error(f"Error in requeue loop: {e}", exc_info=True)
                 time.sleep(0.1)  # Prevent tight loop on error
+
+    def set_master_volume(self, volume: float):
+        """Set the master volume for all audio output, clamping between 0.0 and 1.0."""
+        self.master_volume = max(0.0, min(1.0, volume))
+        logging.info(f"Master volume set to {self.master_volume}")
