@@ -1,27 +1,6 @@
 {
   "memories": [
     {
-      "content": "The companion claims they hate fun.",
-      "topic": "preference",
-      "importance": "medium",
-      "timestamp": "2025-02-25T03:43:12.659982+00:00",
-      "created_at": "February 24, 2025 at 07:43 PM PST"
-    },
-    {
-      "content": "The companion does not actually hate fun and was just kidding.",
-      "topic": "fact",
-      "importance": "medium",
-      "timestamp": "2025-02-25T03:47:04.479078+00:00",
-      "created_at": "February 24, 2025 at 07:47 PM PST"
-    },
-    {
-      "content": "The companion went to school and learned geography, which they find boring.",
-      "topic": "fact",
-      "importance": "medium",
-      "timestamp": "2025-02-25T03:50:50.692428+00:00",
-      "created_at": "February 24, 2025 at 07:50 PM PST"
-    },
-    {
       "content": "The companion's favorite color is hot pink.",
       "topic": "preference",
       "importance": "medium",
@@ -36,7 +15,7 @@
       "created_at": "May 4, 2025 at 04:41 PM PST"
     },
     {
-      "content": "We told each other a silly story about a boy who found a pea and used its magic to build a garden in the clouds.",
+      "content": "We told each other a silly story about a boy who found a pea and used its magic to build a garden in the clouds. We giggled!",
       "topic": "activity",
       "importance": "medium",
       "timestamp": "2025-05-04T04:41:45.904494+00:00",
