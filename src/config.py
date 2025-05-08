@@ -415,7 +415,7 @@ ACTIVITIES_CONFIG = {
         "synopsis": "A number game where you and your companion learn to count through play."
     },
     "instructions": dedent("""
-        * Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
+        * Have your companion look for three objects of a randomly selected color, and ask them to count and describe each to you, then specify the next color and why.
         * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the show_color function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
         * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
         * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the play_special_effect function, and narrate the ending of the game. Then, suggest another activity to do.
