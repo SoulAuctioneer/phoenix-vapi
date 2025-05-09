@@ -29,7 +29,9 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
-    ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
+    # TODO: Re-enable sleep start sound when not in public!
+    # ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
+    ActivityType.SLEEP: ([], 'sleep', None, None, None, None),
     ActivityType.CALL: ([], 'call', "BRING_BRING", None, None, None)
 }
 
