@@ -110,11 +110,15 @@ class AudioService(BaseService):
                         if index_val == 1: # Turn volume down
                             new_volume = current_volume - adjustment_step
                             self.logger.info(f"'custom_command' intent (index 1) received. Attempting to decrease volume from {current_volume:.2f} to {new_volume:.2f}.")
-                            await self.set_global_volume(new_volume)
+                            volume_changed = await self.set_global_volume(new_volume)
+                            if volume_changed:
+                                await self._play_sound(SoundEffect.SQUEAK)
                         elif index_val == 2: # Turn volume up
                             new_volume = current_volume + adjustment_step
                             self.logger.info(f"'custom_command' intent (index 2) received. Attempting to increase volume from {current_volume:.2f} to {new_volume:.2f}.")
-                            await self.set_global_volume(new_volume)
+                            volume_changed = await self.set_global_volume(new_volume)
+                            if volume_changed:
+                                await self._play_sound(SoundEffect.SQUEAK)
                         else:
                             self.logger.warning(f"'custom_command' intent received with unhandled index: {index_val}")
                     except ValueError:
@@ -122,11 +126,9 @@ class AudioService(BaseService):
                     except Exception as e:
                         self.logger.error(f"Error processing 'custom_command' for volume: {e}", exc_info=True)
 
-    async def set_global_volume(self, new_volume: float):
+    async def set_global_volume(self, new_volume: float) -> bool: # Returns True if volume changed
         clamped_volume = max(0.0, min(1.0, new_volume))
-        # Access global_state via self.global_state, ensuring ServiceManager's lock handles safety
-        # No need for explicit lock here as ServiceManager handles state updates sequentially for now.
-        # If concurrent modification of global_state.volume becomes an issue, locking might be needed.
+        volume_actually_changed = False
         if self.global_state.volume != clamped_volume:
             current_global_volume = self.global_state.volume # For logging
             self.global_state.volume = clamped_volume # Update source of truth
@@ -139,7 +141,14 @@ class AudioService(BaseService):
                 "producer_name": self.__class__.__name__ 
             })
             self.logger.info(f"Global volume changed from {current_global_volume:.2f} to {clamped_volume:.2f}")
-        return clamped_volume # Return the applied volume
+            volume_actually_changed = True
+        # Optional: log if volume was not changed due to clamping or already at target
+        # else:
+            # if self.global_state.volume == clamped_volume: # Already at the target (e.g. trying to set to 0.5 when it's 0.5)
+                # self.logger.info(f"Global volume already at {clamped_volume:.2f}. No change needed for request {new_volume:.2f}.")
+            # else: # Clamped, but was already at the clamped value (e.g. trying to set to 1.1 when it's 1.0)
+                # self.logger.info(f"Global volume remains at {self.global_state.volume:.2f}. Requested {new_volume:.2f} resulted in no change due to limits.")
+        return volume_actually_changed
 
     async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
         """Helper method to play a sound effect with error handling
