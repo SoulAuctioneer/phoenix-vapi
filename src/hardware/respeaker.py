@@ -57,7 +57,8 @@ class PixelRing:
     def set_vad_led(self, state):
         self.write(0x22, [state])
 
-    def set_volume(self, volume):
+    def set_volume_leds(self, volume):
+        # NOTE This is just the LED effect for showing volume, not the actual volume of the speaker
         self.write(0x23, [volume])
 
     def change_pattern(self, pattern=None):
@@ -110,7 +111,7 @@ if __name__ == '__main__':
             time.sleep(3)
             pixel_ring.think()
             time.sleep(3)
-            pixel_ring.set_volume(8)
+            pixel_ring.set_volume_leds(8)
             time.sleep(3)
             pixel_ring.off()
             time.sleep(3)

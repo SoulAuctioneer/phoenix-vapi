@@ -104,27 +104,31 @@ class AudioService(BaseService):
                 if slots and "index" in slots:
                     try:
                         index_val = int(slots["index"])
-                        current_volume = self.global_state.volume
-                        adjustment_step = 0.1
-
+                        
                         if index_val == 1: # Turn volume down
-                            new_volume = current_volume - adjustment_step
-                            self.logger.info(f"'custom_command' intent (index 1) received. Attempting to decrease volume from {current_volume:.2f} to {new_volume:.2f}.")
-                            volume_changed = await self.set_global_volume(new_volume)
-                            if volume_changed:
-                                await self._play_sound(SoundEffect.SQUEAK)
+                            await self.set_volume_down()
                         elif index_val == 2: # Turn volume up
-                            new_volume = current_volume + adjustment_step
-                            self.logger.info(f"'custom_command' intent (index 2) received. Attempting to increase volume from {current_volume:.2f} to {new_volume:.2f}.")
-                            volume_changed = await self.set_global_volume(new_volume)
-                            if volume_changed:
-                                await self._play_sound(SoundEffect.SQUEAK)
+                            await self.set_volume_up()
                         else:
                             self.logger.warning(f"'custom_command' intent received with unhandled index: {index_val}")
                     except ValueError:
                         self.logger.error(f"'custom_command' intent received with non-integer index: {slots['index']}")
                     except Exception as e:
                         self.logger.error(f"Error processing 'custom_command' for volume: {e}", exc_info=True)
+
+    async def set_volume_down(self):
+        current_volume = self.global_state.volume
+        new_volume = current_volume - AudioBaseConfig.VOLUME_STEP
+        volume_changed = await self.set_global_volume(new_volume)
+        if volume_changed:
+            await self._play_sound(SoundEffect.SQUEAK)
+
+    async def set_volume_up(self):
+        current_volume = self.global_state.volume
+        new_volume = current_volume + AudioBaseConfig.VOLUME_STEP
+        volume_changed = await self.set_global_volume(new_volume)
+        if volume_changed:
+            await self._play_sound(SoundEffect.SQUEAK)
 
     async def set_global_volume(self, new_volume: float) -> bool: # Returns True if volume changed
         clamped_volume = max(0.0, min(1.0, new_volume))

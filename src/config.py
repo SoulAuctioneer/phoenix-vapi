@@ -81,8 +81,9 @@ class AudioBaseConfig:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
     BUFFER_SIZE = 5   # Minimal buffering to reduce latency
-    DEFAULT_VOLUME = 0.01
+    DEFAULT_VOLUME = 1.0
     CONVERSATION_SFX_VOLUME = 0.5 # Volume for sound effects when a conversation is active
+    VOLUME_STEP = 0.2 # Volume step for volume control
     # Calculate time-based values
     CHUNK_DURATION_MS = (CHUNK_SIZE / SAMPLE_RATE) * 1000  # Duration of each chunk in milliseconds
     LIKELY_LATENCY_MS = CHUNK_DURATION_MS * BUFFER_SIZE  # Calculate probable latency in milliseconds

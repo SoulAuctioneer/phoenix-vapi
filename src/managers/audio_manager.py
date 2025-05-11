@@ -20,7 +20,6 @@ class AudioConfig:
     chunk: int = AudioBaseConfig.CHUNK_SIZE
     input_device_index: Optional[int] = None
     output_device_index: Optional[int] = None
-    default_volume: float = AudioBaseConfig.DEFAULT_VOLUME
 
 class AudioBaseConfig:
     """Base audio configuration that all audio components should use"""
@@ -176,7 +175,7 @@ class AudioManager:
         self._requeue_queue = queue.Queue()
         self._requeue_thread = None
         self._requeue_stop = threading.Event()
-        self.master_volume: float = self.config.default_volume # Initialize from AudioConfig
+        self.master_volume: float = AudioBaseConfig.DEFAULT_VOLUME # Initialize directly from AudioBaseConfig
         
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
