@@ -981,7 +981,7 @@ class ConversationManager:
             'Authorization': 'Bearer ' + self.api_key,
             'Content-Type': 'application/json'
         }
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
         data = response.json()
         if response.status_code == 201:
             call_id = data.get('id')
