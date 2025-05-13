@@ -14,9 +14,6 @@ from managers.accelerometer_manager import SimplifiedState
 # Store giggle sounds for easy cycling
 _giggle_sounds = (SoundEffect.GIGGLE1, SoundEffect.GIGGLE2, SoundEffect.GIGGLE3)
 
-# Cooldown period before a giggle sound can play after ANY sound effect (in seconds)
-GIGGLE_COOLDOWN_SECONDS = 2.0
-
 class MoveActivity(BaseService):
     """
     A service that maintains activity state and movement energy level.
@@ -52,6 +49,9 @@ class MoveActivity(BaseService):
         # --- Shake Handling ---
         self._giggle_index = 0 # Index for cycling through giggle sounds
         self._last_sound_play_time: float = 0.0 # Timestamp of the last sound played by this service
+        # --- Energy Store (Battery) ---
+        self.energy_store = 0.0  # Accumulated energy (0-1)
+        self._last_energy_update_time = time.monotonic()  # For decay timing
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
@@ -94,6 +94,27 @@ class MoveActivity(BaseService):
             current_state_name = data.get("current_state", SimplifiedState.UNKNOWN.name)
             energy = data.get("energy", 0.0) # Get energy level (0-1)
 
+            # --- Energy Store Update ---
+            now = time.monotonic()
+            elapsed = now - getattr(self, '_last_energy_update_time', now)
+            self._last_energy_update_time = now
+
+            # Calculate gain from incoming energy (scaled, clamped)
+            gain = energy * MoveActivityConfig.ENERGY_STORE_GAIN_MULTIPLIER * elapsed
+            gain = max(MoveActivityConfig.ENERGY_STORE_MIN_GAIN, min(MoveActivityConfig.ENERGY_STORE_MAX_GAIN, gain))
+
+            # Calculate decay (baseline + per-second)
+            decay = (MoveActivityConfig.ENERGY_STORE_DECAY_PER_SEC * elapsed) + (MoveActivityConfig.ENERGY_STORE_BASELINE_DECAY * elapsed)
+
+            # Update the store
+            self.energy_store += gain
+            self.energy_store -= decay
+            # Clamp between min and max
+            self.energy_store = max(MoveActivityConfig.ENERGY_STORE_MIN, min(MoveActivityConfig.ENERGY_STORE_MAX, self.energy_store))
+
+            # Use the energy store for LED logic
+            store_value = self.energy_store
+
             # Convert state name back to enum member
             try:
                 current_state_enum = SimplifiedState[current_state_name]
@@ -109,11 +130,11 @@ class MoveActivity(BaseService):
                 self.logger.info("Detected SHAKE entry. Playing giggle sound.")
                 # Check cooldown against the last time *any* sound was played
                 current_time = time.monotonic()
-                if current_time - self._last_sound_play_time >= GIGGLE_COOLDOWN_SECONDS:
+                if current_time - self._last_sound_play_time >= MoveActivityConfig.GIGGLE_COOLDOWN_SECONDS:
                     # Choose sound effect based on current index
                     effect_to_play = _giggle_sounds[self._giggle_index]
                     # Play sound at half volume
-                    await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.4})
+                    await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": MoveActivityConfig.GIGGLE_SOUND_VOLUME})
                     # Update last sound play time
                     self._last_sound_play_time = current_time
                     # Increment index for next time, cycling through 0, 1, 2
@@ -137,7 +158,7 @@ class MoveActivity(BaseService):
                 self.logger.info(f"Detected FREE_FALL entry from {self.previous_state.name}.")
                 current_time = time.monotonic()
                 # Play sound
-                await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE, "volume": 0.4})
+                await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE, "volume": MoveActivityConfig.WEE_SOUND_VOLUME})
                 # Update last sound play time
                 self._last_sound_play_time = current_time
                 # LED change handled below based on current state
@@ -154,27 +175,26 @@ class MoveActivity(BaseService):
             if self.in_free_fall:
                 target_effect_name = "RAINBOW"
                 # Define consistent parameters for this effect
-                target_params = {"speed": 0.05, "brightness": 0.8}
+                target_params = {"speed": MoveActivityConfig.RAINBOW_EFFECT_SPEED, "brightness": MoveActivityConfig.RAINBOW_EFFECT_BRIGHTNESS}
             elif self.is_held_still:
                 target_effect_name = "BLUE_BREATHING"
                 # Define consistent parameters for this effect
-                target_params = {"speed": 0.1, "brightness": 0.5}
+                target_params = {"speed": MoveActivityConfig.BLUE_BREATHING_EFFECT_SPEED, "brightness": MoveActivityConfig.BLUE_BREATHING_EFFECT_BRIGHTNESS}
             else: # Default state: TWINKLING based on energy
                 target_effect_name = self.default_effect_name
-                # Calculate desired parameters based on energy
-                # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)
-                min_speed = 0.01 # Fastest
-                max_speed = 0.3  # Slowest
+                # Calculate desired parameters based on energy store (not raw energy)
+                min_speed = MoveActivityConfig.TWINKLING_MIN_SPEED
+                max_speed = MoveActivityConfig.TWINKLING_MAX_SPEED
                 speed_range = max_speed - min_speed
                 # Use linear mapping for interval
-                interval = max(min_speed, min(max_speed, max_speed - (energy * speed_range)))
+                interval = max(min_speed, min(max_speed, max_speed - (store_value * speed_range)))
 
                 # Brightness: Higher energy -> brighter
-                min_brightness = 0.05 # Min brightness
-                max_brightness = 1.0 # Max brightness
+                min_brightness = MoveActivityConfig.TWINKLING_MIN_BRIGHTNESS
+                max_brightness = MoveActivityConfig.TWINKLING_MAX_BRIGHTNESS
                 brightness_range = max_brightness - min_brightness
                 # Use linear mapping for brightness
-                brightness = max(min_brightness, min(max_brightness, min_brightness + (energy * brightness_range)))
+                brightness = max(min_brightness, min(max_brightness, min_brightness + (store_value * brightness_range)))
 
                 target_params = {"speed": interval, "brightness": brightness}
 
@@ -195,7 +215,7 @@ class MoveActivity(BaseService):
             elif target_effect_name == self.default_effect_name:
                 # Effect is default, check if parameters changed significantly compared to *last sent* parameters for this effect
                 # Using energy threshold is a proxy for parameter change significance
-                 if abs(energy - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
+                if abs(store_value - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
                     needs_update = True
                     # self.logger.debug(f"Target {self.default_effect_name} params changed significantly: {target_params}")
 
@@ -210,7 +230,7 @@ class MoveActivity(BaseService):
                 self.current_led_effect = {"name": target_effect_name, "params": target_params}
                 # Update last sent energy only if the effect *is* the default one
                 if target_effect_name == self.default_effect_name:
-                     self.last_sent_energy = energy
+                     self.last_sent_energy = store_value
                 else:
                     # Reset last_sent_energy when switching *away* from default,
                     # so the next time we switch *back* to default, it updates immediately

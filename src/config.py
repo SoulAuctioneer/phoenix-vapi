@@ -81,7 +81,7 @@ class AudioBaseConfig:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
     BUFFER_SIZE = 5   # Minimal buffering to reduce latency
-    DEFAULT_VOLUME = 1.0
+    DEFAULT_VOLUME = 0.85
     CONVERSATION_SFX_VOLUME = 0.5 # Volume for sound effects when a conversation is active
     VOLUME_STEP = 0.2 # Volume step for volume control
     # Calculate time-based values
@@ -385,6 +385,34 @@ class MoveActivityConfig:
     ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation
     ACCEL_WEIGHT = 0.7 # Weight for acceleration in energy calculation
     GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
+    # --- Energy Store/Battery Parameters ---
+    ENERGY_STORE_MAX = 1.0  # Maximum stored energy (battery full)
+    ENERGY_STORE_MIN = 0.0  # Minimum stored energy (battery empty)
+    ENERGY_STORE_DECAY_PER_SEC = 0.15  # How much energy drains per second (baseline)
+    ENERGY_STORE_GAIN_MULTIPLIER = 0.7  # How much incoming energy is added to the store (scaling factor)
+    ENERGY_STORE_BASELINE_DECAY = 0.01  # Minimum decay per second, even if not moving
+    ENERGY_STORE_MIN_GAIN = 0.0  # Minimum gain per update
+    ENERGY_STORE_MAX_GAIN = 0.2  # Maximum gain per update (prevents huge spikes)
+    # --- Sound Parameters ---
+    GIGGLE_COOLDOWN_SECONDS = 1.2 # Cooldown for giggle sound after any sound
+    GIGGLE_SOUND_VOLUME = 0.4     # Volume for giggle sounds
+    WEE_SOUND_VOLUME = 0.4        # Volume for the 'wee' sound during free fall
+    # --- Fixed Effect Parameters ---
+    RAINBOW_EFFECT_SPEED = 0.05
+    RAINBOW_EFFECT_BRIGHTNESS = 0.8
+    BLUE_BREATHING_EFFECT_SPEED = 0.1
+    BLUE_BREATHING_EFFECT_BRIGHTNESS = 0.5
+    # --- Twinkling Effect Dynamic Range ---
+    TWINKLING_MIN_SPEED = 0.01      # Fastest speed (maps to max energy)
+    TWINKLING_MAX_SPEED = 0.3       # Slowest speed (maps to min energy)
+    TWINKLING_MIN_BRIGHTNESS = 0.05 # Dimmest brightness (maps to min energy)
+    TWINKLING_MAX_BRIGHTNESS = 1.0  # Brightest brightness (maps to max energy)
+    # --- Shake Detection Parameters ---
+    SHAKE_HISTORY_SIZE = 40         # Number of samples to analyze (0.4s at 100Hz)
+    SHAKE_MIN_MAGNITUDE = 6.0       # Minimum average acceleration magnitude (m/s²)
+    SHAKE_MIN_REVERSALS = 5         # Minimum number of direction changes required
+    SHAKE_DEADZONE = 0.1            # Minimum acceleration to consider a direction change (m/s²)
+    SHAKE_MIN_VALID_SAMPLES = 10    # Minimum valid samples needed for detection (25% of window)
 
 
 # AI Assistant Configuration

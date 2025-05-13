@@ -306,7 +306,7 @@ class AccelerometerManager:
         Returns:
             bool: True if shake state detected
         """
-        history_size = self.shake_history_size
+        history_size = MoveActivityConfig.SHAKE_HISTORY_SIZE
         if len(self.motion_history) < history_size:
             return False
 
@@ -320,7 +320,7 @@ class AccelerometerManager:
         valid_accelerations = [accel for accel in accelerations
                               if isinstance(accel, tuple) and len(accel) == 3]
 
-        if len(valid_accelerations) < 5: # Need a reasonable number of points
+        if len(valid_accelerations) < MoveActivityConfig.SHAKE_MIN_VALID_SAMPLES:
             return False
 
         # === Magnitude Check ===
@@ -335,12 +335,12 @@ class AccelerometerManager:
             except (TypeError, IndexError):
                 continue # Skip malformed accel tuples
 
-        if len(accel_magnitudes) < 5:
+        if len(accel_magnitudes) < MoveActivityConfig.SHAKE_MIN_VALID_SAMPLES:
              return False
 
         avg_accel_magnitude = statistics.mean(accel_magnitudes)
 
-        if avg_accel_magnitude < self.min_magnitude_for_shake:
+        if avg_accel_magnitude < MoveActivityConfig.SHAKE_MIN_MAGNITUDE:
             return False
 
         # === Acceleration Reversal Check ===
@@ -352,11 +352,10 @@ class AccelerometerManager:
             for i in range(3):
                 # Check sign with a small deadzone around zero to avoid noise triggers
                 current_sign = 0
-                deadzone = 0.1 # m/s^2
                 try:
-                    if accel[i] > deadzone:
+                    if accel[i] > MoveActivityConfig.SHAKE_DEADZONE:
                         current_sign = 1
-                    elif accel[i] < -deadzone:
+                    elif accel[i] < -MoveActivityConfig.SHAKE_DEADZONE:
                         current_sign = -1
                 except IndexError:
                      continue # Skip if accel tuple is somehow wrong length
@@ -368,7 +367,7 @@ class AccelerometerManager:
 
         total_reversals = sum(reversals)
 
-        if total_reversals < self.min_accel_reversals_for_shake:
+        if total_reversals < MoveActivityConfig.SHAKE_MIN_REVERSALS:
             return False
 
         # --- Passed Checks ---
