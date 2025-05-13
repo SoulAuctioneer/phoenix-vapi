@@ -388,9 +388,9 @@ class MoveActivityConfig:
     # --- Energy Store/Battery Parameters ---
     ENERGY_STORE_MAX = 1.0  # Maximum stored energy (battery full)
     ENERGY_STORE_MIN = 0.0  # Minimum stored energy (battery empty)
-    ENERGY_STORE_DECAY_PER_SEC = 0.15  # How much energy drains per second (baseline)
+    ENERGY_STORE_DECAY_PER_SEC = 0.25  # How much energy drains per second (baseline)
     ENERGY_STORE_GAIN_MULTIPLIER = 0.7  # How much incoming energy is added to the store (scaling factor)
-    ENERGY_STORE_BASELINE_DECAY = 0.01  # Minimum decay per second, even if not moving
+    ENERGY_STORE_BASELINE_DECAY = 0.03  # Minimum decay per second, even if not moving
     ENERGY_STORE_MIN_GAIN = 0.0  # Minimum gain per update
     ENERGY_STORE_MAX_GAIN = 0.2  # Maximum gain per update (prevents huge spikes)
     # --- Sound Parameters ---

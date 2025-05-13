@@ -52,6 +52,9 @@ class MoveActivity(BaseService):
         # --- Energy Store (Battery) ---
         self.energy_store = 0.0  # Accumulated energy (0-1)
         self._last_energy_update_time = time.monotonic()  # For decay timing
+        # --- Rainbow Effect Timer ---
+        self._rainbow_effect_end_time: float = 0.0  # When to revert from rainbow effect
+        self._previous_effect: Dict[str, Any] = {"name": None, "params": {}}  # Store previous effect to revert to
         
     async def start(self):
         """Start the move activity service and set initial LED effect."""
@@ -131,6 +134,23 @@ class MoveActivity(BaseService):
                 # Check cooldown against the last time *any* sound was played
                 current_time = time.monotonic()
                 if current_time - self._last_sound_play_time >= MoveActivityConfig.GIGGLE_COOLDOWN_SECONDS:
+                    # Store current effect before changing to rainbow
+                    self._previous_effect = self.current_led_effect.copy()
+                    
+                    # Set rainbow effect for a few seconds
+                    rainbow_params = {
+                        "speed": MoveActivityConfig.RAINBOW_EFFECT_SPEED,
+                        "brightness": MoveActivityConfig.RAINBOW_EFFECT_BRIGHTNESS
+                    }
+                    await self.publish({
+                        "type": "start_led_effect",
+                        "data": {"effect_name": "RAINBOW", **rainbow_params}
+                    })
+                    self.current_led_effect = {"name": "RAINBOW", "params": rainbow_params}
+                    
+                    # Set timer to revert back
+                    self._rainbow_effect_end_time = current_time + 2.0  # 2 seconds of rainbow
+                    
                     # Choose sound effect based on current index
                     effect_to_play = _giggle_sounds[self._giggle_index]
                     # Play sound at half volume
@@ -141,6 +161,18 @@ class MoveActivity(BaseService):
                     self._giggle_index = (self._giggle_index + 1) % len(_giggle_sounds)
                 else:
                     self.logger.debug("Giggle cooldown active, skipping sound.")
+
+            # Check if we need to revert from rainbow effect
+            current_time = time.monotonic()
+            if self.current_led_effect.get("name") == "RAINBOW" and current_time >= self._rainbow_effect_end_time:
+                if self._previous_effect["name"] is not None:
+                    self.logger.info("Reverting from rainbow effect back to previous effect")
+                    await self.publish({
+                        "type": "start_led_effect",
+                        "data": self._previous_effect
+                    })
+                    self.current_led_effect = self._previous_effect.copy()
+                    self._previous_effect = {"name": None, "params": {}}
 
             # Entering IMPACT
             elif state_changed and current_state_enum == SimplifiedState.IMPACT:
