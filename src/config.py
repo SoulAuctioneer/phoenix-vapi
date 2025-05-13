@@ -408,11 +408,11 @@ class MoveActivityConfig:
     TWINKLING_MIN_BRIGHTNESS = 0.05 # Dimmest brightness (maps to min energy)
     TWINKLING_MAX_BRIGHTNESS = 1.0  # Brightest brightness (maps to max energy)
     # --- Shake Detection Parameters ---
-    SHAKE_HISTORY_SIZE = 40         # Number of samples to analyze (0.4s at 100Hz)
+    SHAKE_HISTORY_SIZE = 15         # Number of samples to analyze (0.4s at 100Hz)
     SHAKE_MIN_MAGNITUDE = 6.0       # Minimum average acceleration magnitude (m/s²)
     SHAKE_MIN_REVERSALS = 5         # Minimum number of direction changes required
     SHAKE_DEADZONE = 0.1            # Minimum acceleration to consider a direction change (m/s²)
-    SHAKE_MIN_VALID_SAMPLES = 10    # Minimum valid samples needed for detection (25% of window)
+    SHAKE_MIN_VALID_SAMPLES = 5    # Minimum valid samples needed for detection 
 
 
 # AI Assistant Configuration
