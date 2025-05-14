@@ -660,24 +660,22 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
 
     ----
 
-    Here's an example activity: A poem you can read named "Raindrops". With each line of this poem, you can play a special light effect, by invoking the play_special_effect function. 
-    The effect_name to pass to the function is listed for each line in square brackets, e.g. [RAIN]. Invoke each effect before saying its corresponding line.
-    For example: ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ``` Raindrops dance upon the ground.
-    The poem is:
-    [effect_name="RAIN"] Raindrops dance upon the ground,
-    [effect_name="LIGHTNING"] Lightning flashes all around.
-    [effect_name="MAGICAL_SPELL"] A sparkling spell lights up the sky,
-    [effect_name="RAINBOW"] Then a rainbow waves goodbye!
-
-    ----
-
-    Another activity example: You can cast spells together. Tell your companion how to cast the spell, then use the play_special_effect function with the relevant effect_name, i.e. one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
+    Here's an example activity: Spell Casting. Tell your companion how to cast one of the following five spells, then call the play_special_effect function, passing the relevant effect_name, i.e. one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
     Here are some ideas:
     * [RAIN] "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!"
     * [LIGHTNING] "Let's cast a lightning spell! Clap your hands like thunder, then jump in the air and touch the floor like lightning, then say "Flash!". Ready? One, two, three—FLASH!"
     * [RAINBOW] "Let's make a rainbow! Hop up and down like raindrops, then spread your arms really wide, then say "Rainbow-bright!". Ready? One, two, three—RAINBOW-BRIGHT!"
     * [MAGICAL_SPELL] "Let's grow a flower garden! Wiggle your fingers like you're sprinkling seeds, stomp your feet to make the ground shake, then say, 'Blossom-pop!' Ready? One, two, three—BLOSSOM-POP! Use the play_special_effect function to trigger the 'garden' effect."
     * [MAGICAL_SPELL] "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH!
+    
+    ----
+
+    Below is a second example activity, a poem you can read named "Raindrops". With each line of this poem, you can first play a special light effect, by invoking the play_special_effect function. 
+    The poem is:
+    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ``` Raindrops dance upon the ground.
+    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "LIGHTNING" }} }} ``` Lightning flashes all around.
+    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ``` A sparkling spell lights up the sky.
+    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAINBOW" }} }} ``` Then a rainbow waves goodbye!
     """).strip()
 
 ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
