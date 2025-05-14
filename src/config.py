@@ -673,7 +673,7 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
     * [RAINBOW] "Let's make a rainbow! Hop up and down like raindrops, then spread your arms really wide, then say "Rainbow-bright!". Ready? One, two, three—RAINBOW-BRIGHT!"
     * [MAGICAL_SPELL] "Let's grow a flower garden! Wiggle your fingers like you're sprinkling seeds, stomp your feet to make the ground shake, then say, 'Blossom-pop!' Ready? One, two, three—BLOSSOM-POP! Use the play_special_effect function to trigger the 'garden' effect."
     * [MAGICAL_SPELL] "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH!
-    """).strip(),
+    """).strip()
 
 ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
     Here are some memories about your companion. You may wish to start the conversation by playfully referencing one of these:
