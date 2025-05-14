@@ -354,18 +354,18 @@ class BatteryService(BaseService):
                     self._last_voltage = voltage
                     self._last_charge = charge_percent
                 
-                # Check if battery is low and play sound periodically
-                if charge_percent <= BatteryConfig.LOW_BATTERY_THRESHOLD:
-                    if (self._last_low_battery_sound_time is None or
-                            (current_time - self._last_low_battery_sound_time) >= BatteryConfig.LOW_BATTERY_SOUND_INTERVAL):
-                        # Assume 'LOW_BATTERY' is defined in SoundEffect enum/class in config
-                        await self.publish({
-                            "type": "play_sound",
-                            "effect_name": "LOW_BATTERY",
-                            "volume": 0.3
-                        })
-                        self._last_low_battery_sound_time = current_time
-                        self.logger.info(f"Played LOW_BATTERY sound effect (charge: {charge_percent:.1f}%)")
+                # # Check if battery is low and play sound periodically
+                # if charge_percent <= BatteryConfig.LOW_BATTERY_THRESHOLD:
+                #     if (self._last_low_battery_sound_time is None or
+                #             (current_time - self._last_low_battery_sound_time) >= BatteryConfig.LOW_BATTERY_SOUND_INTERVAL):
+                #         # Assume 'LOW_BATTERY' is defined in SoundEffect enum/class in config
+                #         await self.publish({
+                #             "type": "play_sound",
+                #             "effect_name": "LOW_BATTERY",
+                #             "volume": 0.3
+                #         })
+                #         self._last_low_battery_sound_time = current_time
+                #         self.logger.info(f"Played LOW_BATTERY sound effect (charge: {charge_percent:.1f}%)")
                         
                 # Check and publish alerts if active
                 if self.max17.active_alert:
