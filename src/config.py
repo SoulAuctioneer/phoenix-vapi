@@ -660,7 +660,7 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
 
     Here's an example activity: A poem you can read, and with each line of this poem, you can play a special light effect, by invoking the play_special_effect function. 
     The effect_name to pass to the function is listed for each line in square brackets, e.g. [RAIN]. Invoke each effect before saying its corresponding line.
-    For example: ```json { "Vapi Speaker": "functions.play_special_effect", "parameters": { "effect_name": "RAIN" } } ```
+    For example: ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ```
     [RAIN] Raindrops dance upon the ground,
     [LIGHTNING] Lightning flashes all around.
     [MAGICAL_SPELL] A sparkling spell lights up the sky,
