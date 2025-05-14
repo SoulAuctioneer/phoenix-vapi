@@ -101,7 +101,7 @@ class CallConfig:
         SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         BUFFER_SIZE = 5
-        DEFAULT_VOLUME = 1.0
+        DEFAULT_VOLUME = 0.4
     
     class Vapi:
         """Vapi API configuration"""
@@ -395,8 +395,8 @@ class MoveActivityConfig:
     ENERGY_STORE_MAX_GAIN = 0.2  # Maximum gain per update (prevents huge spikes)
     # --- Sound Parameters ---
     GIGGLE_COOLDOWN_SECONDS = 1.2 # Cooldown for giggle sound after any sound
-    GIGGLE_SOUND_VOLUME = 0.4     # Volume for giggle sounds
-    WEE_SOUND_VOLUME = 0.4        # Volume for the 'wee' sound during free fall
+    GIGGLE_SOUND_VOLUME = 0.5     # Volume for giggle sounds
+    WEE_SOUND_VOLUME = 0.5        # Volume for the 'wee' sound during free fall
     # --- Fixed Effect Parameters ---
     RAINBOW_EFFECT_SPEED = 0.05
     RAINBOW_EFFECT_BRIGHTNESS = 0.8
