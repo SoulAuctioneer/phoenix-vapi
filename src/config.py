@@ -66,7 +66,7 @@ class WakeWordConfig:
 # LED Configuration
 class LEDConfig:
     LED_PIN = 21  # GPIO10 for NeoPixel data - Using this to keep audio enabled on GPIO18
-    LED_BRIGHTNESS = 0.7  # LED brightness (0.0 to 1.0)
+    LED_BRIGHTNESS = 0.6  # LED brightness (0.0 to 1.0)
     LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
     LED_COUNT = 32  # Number of NeoPixels in the ring / strip - 24 for ring, 160 for COB strip, 24+8 for large+small ring
     IS_DUAL_RINGS = True # Whether the LED strip is composed of two rings
@@ -81,7 +81,7 @@ class AudioBaseConfig:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 640  # Optimized for WebRTC echo cancellation without stuttering
     BUFFER_SIZE = 5   # Minimal buffering to reduce latency
-    DEFAULT_VOLUME = 0.85
+    DEFAULT_VOLUME = 0.3
     CONVERSATION_SFX_VOLUME = 0.5 # Volume for sound effects when a conversation is active
     VOLUME_STEP = 0.2 # Volume step for volume control
     # Calculate time-based values
@@ -101,7 +101,7 @@ class CallConfig:
         SAMPLE_RATE = AudioBaseConfig.SAMPLE_RATE
         CHUNK_SIZE = AudioBaseConfig.CHUNK_SIZE
         BUFFER_SIZE = 5
-        DEFAULT_VOLUME = 0.4
+        DEFAULT_VOLUME = 1.0
     
     class Vapi:
         """Vapi API configuration"""
@@ -359,7 +359,7 @@ class BatteryConfig:
     CHARGING_STOP_HYSTERESIS = 0.05   # Voltage decrease to detect end of charging (V)
     
     # Low battery sound alert interval (in seconds)
-    LOW_BATTERY_SOUND_INTERVAL = 180.0 # 3 minutes
+    LOW_BATTERY_SOUND_INTERVAL = 240.0 # 3 minutes
 
     # Power saving configuration
     ACTIVITY_THRESHOLD = 0.15  # Voltage change threshold to exit hibernation (V)
