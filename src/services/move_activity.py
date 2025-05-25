@@ -6,7 +6,7 @@ We also detect state changes, like entering FREE_FALL, to trigger specific sound
 
 import logging
 import time # Import time module
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from services.service import BaseService
 from config import MoveActivityConfig, SoundEffect
 from managers.accelerometer_manager import SimplifiedState
@@ -148,7 +148,7 @@ class MoveActivity(BaseService):
 
 
             # --- Determine Target LED Effect based on Current State ---
-            target_effect_name: str | None = None
+            target_effect_name: Optional[str] = None
             target_params: Dict[str, Any] = {}
 
             if self.in_free_fall:

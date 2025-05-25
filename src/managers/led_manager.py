@@ -6,6 +6,7 @@ from config import LEDConfig
 import logging
 import random
 from enum import Enum, auto
+from typing import Union, Optional
 
 # Try to import board and neopixel, but don't fail if they're not available, e.g. not on Raspberry Pi
 try:
@@ -55,7 +56,7 @@ class LEDManager:
         self._stop_event = Event()
         self._current_speed = None
         # Track current effect state (now a string)
-        self._current_effect: str | None = None
+        self._current_effect: Optional[str] = None
         self._base_brightness = max(0.0, min(1.0, initial_brightness)) # Store and clamp base brightness
         self._current_relative_brightness = 1.0 # Track the relative brightness set by effects (defaults to 1.0)
         
@@ -137,7 +138,7 @@ class LEDManager:
         revert_thread.daemon = True
         revert_thread.start()
 
-    def start_or_update_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: str | None = None):
+    def start_or_update_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: Optional[str] = None):
         """Start an LED effect if it's not already running, or update its parameters if it is.
         
         This function allows for smooth transitions in effect parameters without restarting the effect
@@ -180,7 +181,7 @@ class LEDManager:
             # Different effect or no effect running, start new effect
             self.start_effect(effect, speed, brightness, duration, color)
 
-    def start_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: str | None = None):
+    def start_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: Optional[str] = None):
         """Start an LED effect
         
         Args:
@@ -249,7 +250,7 @@ class LEDManager:
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
 
-    def stop_effect(self, effect_name: str | None = None):
+    def stop_effect(self, effect_name: Optional[str] = None):
         """Stop any running effect, or specific effect if provided and currently running"""
         if effect_name is None or effect_name == self._current_effect:
             self._stop_event.set()
