@@ -136,6 +136,15 @@ class AccelerometerManager:
         self.last_accel_magnitude = 0.0          # Store previous accel magnitude for impact detection edge
         self.current_state = SimplifiedState.UNKNOWN # Store the determined state
 
+        # --- Quaternion / Rotation Tracking ---
+        # Cache the previous Game Rotation quaternion to compute rotational speed
+        self._prev_game_quat: Optional[Tuple[float, float, float, float]] = None
+        self._prev_quat_ts: float = 0.0
+
+        # Low-motion thresholds used to validate BNO stability reports
+        self.low_linear_accel_max = 1.0   # m/s^2 – ~0.1 g tolerance
+        self.low_rot_speed_max   = 0.5   # rad/s  – slow orientation drift
+
     async def initialize(self) -> bool:
         """
         Initialize the accelerometer hardware.
@@ -168,6 +177,21 @@ class AccelerometerManager:
             quat_i, quat_j, quat_k, quat_real = data["rotation_vector"]
             data["heading"] = self.find_heading(quat_real, quat_i, quat_j, quat_k)
 
+        # --- Rotation speed from Game Rotation quaternion ---
+        rot_speed = 0.0
+        if "game_rotation" in data and isinstance(data["game_rotation"], tuple) and len(data["game_rotation"]) == 4:
+            current_quat = data["game_rotation"]
+            now_ts = current_time
+            # Compute rotational speed if we have a previous quaternion
+            if self._prev_game_quat is not None and now_ts > self._prev_quat_ts:
+                dt = now_ts - self._prev_quat_ts
+                if dt > 0:
+                    rot_speed = self._rotation_speed_from_quats(self._prev_game_quat, current_quat, dt)
+            # Cache for next iteration regardless
+            self._prev_game_quat = current_quat
+            self._prev_quat_ts = now_ts
+        data["rot_speed"] = rot_speed
+
         # Calculate energy level if we have the required data
         if ("linear_acceleration" in data and isinstance(data["linear_acceleration"], tuple) and len(data["linear_acceleration"]) == 3 and
             "gyro" in data and isinstance(data["gyro"], tuple) and len(data["gyro"]) == 3):
@@ -175,7 +199,9 @@ class AccelerometerManager:
                 data["linear_acceleration"],
                 data["gyro"],
                 MoveActivityConfig.ACCEL_WEIGHT,
-                MoveActivityConfig.GYRO_WEIGHT
+                MoveActivityConfig.GYRO_WEIGHT,
+                rot_speed,
+                MoveActivityConfig.ROT_WEIGHT
             )
         else:
             # Ensure energy field exists even if calculation fails
@@ -273,18 +299,15 @@ class AccelerometerManager:
         elif is_potential_impact:
              self.logger.debug(f"Potential impact ignored (not from FREE_FALL): Prev State={previous_state.name}, Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
 
-        # 2. STATIONARY / HELD_STILL based on BNO Stability Report (Check before Free Fall/Shake)
-        if stability == "On table":
-            # self.logger.debug("STATIONARY detected (BNO: On table)") # Reduce log spam
-            self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
+        # 2. STATIONARY / HELD_STILL (require BOTH BNO stability flag AND locally observed low motion)
+        rot_speed_current = current_data.get("rot_speed", 0.0)
+
+        if stability == "On table" and accel_magnitude_linear < self.low_linear_accel_max and rot_speed_current < self.low_rot_speed_max:
+            self.last_accel_magnitude = accel_magnitude_linear
             return SimplifiedState.STATIONARY
 
-        if stability == "Stable":
-            # NOTE: Relying solely on BNO 'Stable' report. Logs showed this can trigger
-            # briefly even during high-G post-catch stabilization. May need refinement
-            # by adding checks for accel magnitude (~1g) and low gyro if issues arise.
-            # self.logger.debug("HELD_STILL detected (BNO: Stable)") # Reduce log spam
-            self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
+        if stability == "Stable" and accel_magnitude_linear < self.low_linear_accel_max and rot_speed_current < self.low_rot_speed_max:
+            self.last_accel_magnitude = accel_magnitude_linear
             return SimplifiedState.HELD_STILL
 
         # 3. FREE_FALL: Check *after* confirming not impact/stationary/held still.
@@ -406,7 +429,9 @@ class AccelerometerManager:
     def calculate_energy(self, linear_acceleration: Tuple[float, float, float],
                          gyro: Tuple[float, float, float],
                          accel_weight: float = MoveActivityConfig.ACCEL_WEIGHT,
-                         gyro_weight: float = MoveActivityConfig.GYRO_WEIGHT) -> float:
+                         gyro_weight: float = MoveActivityConfig.GYRO_WEIGHT,
+                         rot_speed: float = 0.0,
+                         rot_weight: float = MoveActivityConfig.ROT_WEIGHT) -> float:
         """
         Calculate a normalized movement energy level (0-1).
         Combines weighted linear acceleration and rotation magnitudes.
@@ -430,19 +455,38 @@ class AccelerometerManager:
         except (TypeError, IndexError):
              gyro_magnitude = 0.0
 
-        # Normalize rotation
+        # Normalize gyro rotation magnitude
         max_gyro = 10.0  # rad/s (Adjust if needed)
         gyro_energy = min(1.0, gyro_magnitude / max_gyro if max_gyro > 0 else 0.0)
 
+        # Normalize quaternion-derived rotation speed
+        max_rot = 10.0  # rad/s (tunable)
+        rot_energy = min(1.0, rot_speed / max_rot if max_rot > 0 else 0.0)
+
         # Combine energies with weights
-        total_weight = accel_weight + gyro_weight
+        total_weight = accel_weight + gyro_weight + rot_weight
         if total_weight <= 0: return 0.0 # Avoid division by zero if weights are invalid
         # Ensure weights are non-negative
         accel_w = max(0.0, accel_weight)
         gyro_w = max(0.0, gyro_weight)
+        rot_w = max(0.0, rot_weight)
 
         # Weighted average (normalized by sum of weights)
-        return (accel_energy * accel_w + gyro_energy * gyro_w) / (accel_w + gyro_w)
+        return (accel_energy * accel_w + gyro_energy * gyro_w + rot_energy * rot_w) / (accel_w + gyro_w + rot_w)
+
+    @staticmethod
+    def _rotation_speed_from_quats(q_prev: Tuple[float, float, float, float],
+                                   q_cur: Tuple[float, float, float, float],
+                                   dt: float) -> float:
+        """Compute absolute rotational speed (rad/s) between two orientation quaternions"""
+        if dt <= 0:
+            return 0.0
+        # Dot product gives cos(theta/2) where theta is angle between orientations
+        dot = abs(q_prev[0]*q_cur[0] + q_prev[1]*q_cur[1] + q_prev[2]*q_cur[2] + q_prev[3]*q_cur[3])
+        # Clamp to valid range for acos to avoid NaNs due to numerical error
+        dot = min(1.0, max(-1.0, dot))
+        theta = 2.0 * acos(dot)  # Angle in radians
+        return theta / dt
 
     def get_current_state(self) -> str:
         """

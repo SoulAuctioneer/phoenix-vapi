@@ -385,6 +385,8 @@ class MoveActivityConfig:
     ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation
     ACCEL_WEIGHT = 0.7 # Weight for acceleration in energy calculation
     GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
+    # Weight for rotation speed derived from the Game Rotation Vector quaternion
+    ROT_WEIGHT = 0.2 # Weight for quaternion-based rotation speed in energy calculation
 
 
 # AI Assistant Configuration
