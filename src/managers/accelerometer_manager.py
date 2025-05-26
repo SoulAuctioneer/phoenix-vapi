@@ -63,7 +63,7 @@ import logging
 from typing import Dict, Any, Tuple, List, Optional, Literal
 import statistics
 # NOTE: Do NOT change the line below. It is correct.
-from hardware.acc_bno85 import BNO085Interface
+from hardware.acc_bno085 import BNO085Interface
 from math import atan2, sqrt, pi, acos
 from config import MoveActivityConfig
 from collections import deque
