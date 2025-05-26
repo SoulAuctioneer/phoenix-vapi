@@ -63,7 +63,7 @@ import logging
 from typing import Dict, Any, Tuple, List, Optional, Literal
 import statistics
 # NOTE: Do NOT change the line below. It is correct.
-from hardware.acc_bno085 import BNO085Interface
+from hardware.acc_bno85 import BNO085Interface
 from math import atan2, sqrt, pi, acos
 from config import MoveActivityConfig
 from collections import deque
@@ -95,7 +95,8 @@ class AccelerometerManager:
         self.logger = logging.getLogger(__name__)
 
         # --- History ---
-        self.motion_history = deque(maxlen=20)  # Store recent full sensor data dictionaries
+        # Store recent motion samples.  Needs to be at least as long as `self.shake_history_size`.
+        self.motion_history = deque(maxlen=40)  # 40 samples ≈ 0.2 s at 200 Hz
 
         # --- Thresholds ---
         # Stationary / Held Still (Now determined by BNO085 stability report)
@@ -111,11 +112,23 @@ class AccelerometerManager:
         self.free_fall_threshold = 0.8          # m/s^2 - Max RAW accel magnitude for FREE_FALL
         self.impact_threshold = 15.0            # m/s^2 - Min accel spike for IMPACT
 
-        # Shake
-        # Increased thresholds/duration for less sensitivity
-        self.shake_history_size = 30            # Samples (~0.2s at 100Hz, was 10)
-        self.min_magnitude_for_shake = 5.0      # m/s^2 - Min average accel magnitude
-        self.min_accel_reversals_for_shake = 3  # Min number of direction changes
+        # Shake detection tuning (peak-magnitude approach)
+        self.shake_history_size = 30            # Samples (~0.15–0.2 s at 200 Hz)
+        self.peak_magnitude_for_shake = 8.0     # m/s^2 – require at least one spike ≥ 0.8 g
+        self.min_magnitude_for_shake = 2.0      # m/s^2 – discard almost-still windows
+        self.min_accel_reversals_for_shake = 3  # Require back-and-forth motion
+
+        # --- History ---
+        # Make sure the buffer can always accommodate at least `shake_history_size` samples.
+        # If the constant above is ever increased but `motion_history` was left smaller, resize it here.
+        if self.motion_history.maxlen < self.shake_history_size:
+            new_len = self.shake_history_size * 2  # keep extra headroom for other algorithms
+            self.logger.warning(
+                "motion_history.maxlen (%s) smaller than shake_history_size (%s); resizing to %s", 
+                self.motion_history.maxlen, self.shake_history_size, new_len
+            )
+            # Recreate deque preserving any samples already stored (should be empty at init time)
+            self.motion_history = deque(self.motion_history, maxlen=new_len)
 
         # --- State Tracking ---
         # Removed self.in_stationary_band_start_time
@@ -323,52 +336,29 @@ class AccelerometerManager:
         if len(valid_accelerations) < 5: # Need a reasonable number of points
             return False
 
-        # === Magnitude Check ===
+        # === Magnitude Check (peak-based) ===
         accel_magnitudes = []
         for accel in valid_accelerations:
             try:
-                # Avoid sqrt of zero or negative numbers if data is weird
-                magnitude_sq = accel[0]**2 + accel[1]**2 + accel[2]**2
-                if magnitude_sq >= 0:
-                     magnitude = sqrt(magnitude_sq)
-                     accel_magnitudes.append(magnitude)
+                # Compute magnitude squared and avoid sqrt of negatives
+                mag_sq = accel[0]**2 + accel[1]**2 + accel[2]**2
+                if mag_sq >= 0:
+                    accel_magnitudes.append(sqrt(mag_sq))
             except (TypeError, IndexError):
-                continue # Skip malformed accel tuples
+                continue  # skip malformed sample
 
         if len(accel_magnitudes) < 5:
-             return False
-
-        avg_accel_magnitude = statistics.mean(accel_magnitudes)
-
-        if avg_accel_magnitude < self.min_magnitude_for_shake:
             return False
 
-        # === Acceleration Reversal Check ===
-        # Count how many times the sign of acceleration changes for each axis
-        reversals = [0, 0, 0] # x, y, z
-        last_signs = [0, 0, 0]
+        peak_accel_magnitude = max(accel_magnitudes)
+        avg_accel_magnitude  = statistics.mean(accel_magnitudes)
 
-        for accel in valid_accelerations:
-            for i in range(3):
-                # Check sign with a small deadzone around zero to avoid noise triggers
-                current_sign = 0
-                deadzone = 0.1 # m/s^2
-                try:
-                    if accel[i] > deadzone:
-                        current_sign = 1
-                    elif accel[i] < -deadzone:
-                        current_sign = -1
-                except IndexError:
-                     continue # Skip if accel tuple is somehow wrong length
+        # Need at least one strong spike
+        if peak_accel_magnitude < self.peak_magnitude_for_shake:
+            return False
 
-                if current_sign != 0 and last_signs[i] != 0 and current_sign != last_signs[i]:
-                    reversals[i] += 1
-                if current_sign != 0:
-                    last_signs[i] = current_sign
-
-        total_reversals = sum(reversals)
-
-        if total_reversals < self.min_accel_reversals_for_shake:
+        # Also reject windows that are nearly still overall
+        if avg_accel_magnitude < self.min_magnitude_for_shake:
             return False
 
         # --- Passed Checks ---
