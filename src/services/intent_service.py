@@ -46,34 +46,55 @@ class IntentService(BaseService):
         
     async def setup_detector(self):
         """Initialize the speech intent detector"""
-        await self.cleanup_detector()  # Clean up any existing detector
+        # Only do full cleanup if we don't have a detector yet, otherwise preserve Rhino
+        if self.detector is None:
+            await self.cleanup_detector(full_cleanup=True)  # Clean up any existing detector
+        else:
+            await self.cleanup_detector(full_cleanup=False)  # Just stop, preserve Rhino
+            
         try:
-            # Add delay before initialization to allow audio device to fully release
-            await asyncio.sleep(1.5)
-            
-            # Create the detector but don't start it yet
-            self.detector = await SpeechIntentManager.create(
-                on_intent=self._handle_intent_detected
-            )
-            
-            logging.info("Speech intent detector initialized successfully")
+            # Only create new detector if we don't have one, otherwise reuse
+            if self.detector is None:
+                # Add delay before initialization to allow audio device to fully release
+                await asyncio.sleep(1.5)
+                
+                # Create the detector but don't start it yet
+                self.detector = await SpeechIntentManager.create(
+                    on_intent=self._handle_intent_detected
+                )
+                
+                logging.info("Speech intent detector initialized successfully")
+            else:
+                logging.info("Reusing existing speech intent detector")
             
         except Exception as e:
             logging.error("Failed to initialize speech intent detector: %s", str(e), exc_info=True)
             raise
             
-    async def cleanup_detector(self):
-        """Clean up the speech intent detector"""
+    async def cleanup_detector(self, full_cleanup=True):
+        """
+        Clean up the speech intent detector
+        
+        Args:
+            full_cleanup: If True, fully destroys the detector including Rhino instance.
+                         If False, just stops detection but preserves Rhino for reuse.
+        """
         if self.detector:
             try:
                 logging.info("Stopping speech intent detector...")
-                await self.detector.stop()
+                if full_cleanup:
+                    # Full cleanup - destroy the Rhino instance
+                    await self.detector.cleanup(full_cleanup=True)
+                else:
+                    # Just stop detection, keep Rhino alive
+                    await self.detector.stop()
                 await asyncio.sleep(0.5)  # Add small delay after stopping
                 
             except Exception as e:
                 logging.error(f"Error stopping detector: {e}")
             finally:
-                self.detector = None
+                if full_cleanup:
+                    self.detector = None
 
     async def start_detection_timeout(self):
         """Start intent detection with timeout"""

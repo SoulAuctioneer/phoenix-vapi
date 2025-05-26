@@ -54,7 +54,23 @@ class SpeechIntentManager:
         if audio_manager is None:
             audio_manager = AudioManager.get_instance()
         instance = cls(audio_manager, on_intent=on_intent)
+        # Validate that Rhino was initialized successfully
+        instance._validate_rhino()
         return instance
+        
+    def _validate_rhino(self):
+        """Validate that Rhino is properly initialized"""
+        if self.rhino is None:
+            raise RuntimeError("Rhino failed to initialize properly")
+        
+        # Test basic properties to ensure it's working
+        try:
+            _ = self.rhino.frame_length
+            _ = self.rhino.sample_rate
+            logging.info(f"Rhino validated: frame_length={self.rhino.frame_length}, sample_rate={self.rhino.sample_rate}")
+        except Exception as e:
+            logging.error(f"Rhino validation failed: {e}")
+            raise RuntimeError(f"Rhino is not functioning properly: {e}")
 
     async def start(self):
         """Start speech intent detection"""
@@ -62,8 +78,10 @@ class SpeechIntentManager:
             return
 
         try:
-            # Ensure we have a valid Rhino instance
+            # Rhino should already be initialized during __init__
+            # Only re-initialize if something went wrong
             if self.rhino is None:
+                logging.warning("Rhino instance was None, re-initializing...")
                 self._initialize_rhino()
                 
             self.running = True
@@ -75,7 +93,7 @@ class SpeechIntentManager:
 
         except Exception as e:
             logging.error(f"Error starting speech intent detection: {e}")
-            await self.cleanup()
+            await self.cleanup(full_cleanup=False)
             raise
 
     def _process_audio(self, audio_data: np.ndarray):
@@ -143,10 +161,17 @@ class SpeechIntentManager:
         logging.info("Stopping speech intent detection")
         self.running = False
         await asyncio.sleep(0.1)
-        await self.cleanup()
+        # Don't do full cleanup to preserve Rhino instance for reuse
+        await self.cleanup(full_cleanup=False)
 
-    async def cleanup(self):
-        """Clean up resources"""
+    async def cleanup(self, full_cleanup=False):
+        """
+        Clean up resources
+        
+        Args:
+            full_cleanup: If True, also destroys the Rhino instance. 
+                         If False (default), keeps Rhino alive for reuse.
+        """
         logging.info("Cleaning up speech intent detection resources")
         self.running = False
 
@@ -154,7 +179,9 @@ class SpeechIntentManager:
             self.audio_manager.remove_consumer(self._audio_consumer)
             self._audio_consumer = None
 
-        if self.rhino:
+        # Only destroy Rhino instance if full cleanup is requested
+        # This allows us to reuse the instance for better performance
+        if full_cleanup and self.rhino:
             try:
                 self.rhino.delete()
             except Exception as e:
@@ -170,4 +197,4 @@ class SpeechIntentManager:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
-        await self.cleanup()
+        await self.cleanup(full_cleanup=True)
