@@ -113,9 +113,9 @@ class AccelerometerManager:
 
         # Shake
         # Increased thresholds/duration for less sensitivity
-        self.shake_history_size = 20            # Samples (~0.2s at 100Hz, was 10)
-        self.min_magnitude_for_shake = 8.0      # m/s^2 - Min average accel magnitude (was 4.0)
-        self.min_accel_reversals_for_shake = 5  # Min number of direction changes (was 3)
+        self.shake_history_size = 30            # Samples (~0.2s at 100Hz, was 10)
+        self.min_magnitude_for_shake = 5.0      # m/s^2 - Min average accel magnitude
+        self.min_accel_reversals_for_shake = 3  # Min number of direction changes
 
         # --- State Tracking ---
         # Removed self.in_stationary_band_start_time
