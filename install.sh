@@ -89,10 +89,25 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         # Install I2C tools
         sudo apt-get install -y i2c-tools
         
-        # Enable I2C interface
-        if ! grep -q "^dtparam=i2c" "$CONFIG_PATH"; then
+        # Enable I2C interface with proper configuration for BNO085
+        if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_PATH"; then
             echo "Enabling I2C interface..."
-            sudo sh -c "echo 'dtparam=i2c=on' >> $CONFIG_PATH"
+            sudo sh -c "echo 'dtparam=i2c_arm=on' >> $CONFIG_PATH"
+            REBOOT_REQUIRED=1
+        fi
+        
+        # Set I2C clock speed to 400kHz (fast mode) to mitigate clock stretching issues on Raspberry Pi
+        # See: https://learn.adafruit.com/raspberry-pi-i2c-clock-stretching-fixes
+        if ! grep -q "^dtparam=i2c_arm_baudrate=" "$CONFIG_PATH"; then
+            echo "Setting I2C clock speed to 400kHz to mitigate clock stretching..."
+            sudo sh -c "echo 'dtparam=i2c_arm_baudrate=400000' >> $CONFIG_PATH"
+            REBOOT_REQUIRED=1
+        fi
+        
+        # Enable I2C1 interface as backup
+        if ! grep -q "^dtparam=i2c1=on" "$CONFIG_PATH"; then
+            echo "Enabling I2C1 interface..."
+            sudo sh -c "echo 'dtparam=i2c1=on' >> $CONFIG_PATH"
             REBOOT_REQUIRED=1
         fi
         
@@ -115,6 +130,13 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
             echo "Adding user to gpio group..."
             sudo usermod -a -G gpio $USER
             echo "Group permissions will take effect after logout/login"
+        fi
+        
+        # Add user to i2c group for BNO085 sensor access
+        if ! groups $USER | grep -q "i2c"; then
+            echo "Adding user to i2c group for sensor access..."
+            sudo usermod -a -G i2c $USER
+            echo "I2C group permissions will take effect after logout/login"
         fi
         
         # Create udev rule for NeoPixel access if it doesn't exist
@@ -145,9 +167,12 @@ echo "5. Run the app: ./run.sh"
 if is_raspberry_pi; then
     echo ""
     echo "Raspberry Pi specific notes:"
-    echo "- If this is your first install, please REBOOT to enable SPI and Bluetooth"
-    echo "- Log out and back in for GPIO and Bluetooth group changes to take effect"
+    echo "- If this is your first install, please REBOOT to enable I2C, SPI and Bluetooth"
+    echo "- Log out and back in for GPIO, I2C and Bluetooth group changes to take effect"
+    echo "- Connect BNO085 sensor to I2C pins: SDA (GPIO2/Pin3), SCL (GPIO3/Pin5), 3.3V, GND"
     echo "- Connect NeoPixel data line to GPIO21 (pin 40 on the board) - we use this pin instead of GPIO18 to avoid conflicts with audio"
+    echo "- To test I2C devices: sudo i2cdetect -y 1 (BNO085 should appear at address 0x4a or 0x4b)"
+    echo "- To diagnose BNO085 sensor: python3 src/diagnostics/i2c_test.py"
     echo "- To test LED ring: python src/led_control.py"
     echo "- To verify Bluetooth is working: sudo hciconfig"
 fi 
