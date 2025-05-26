@@ -12,6 +12,7 @@ class AudioService(BaseService):
         super().__init__(service_manager)
         self.audio_manager = None
         self._purring_active = False  # Track if purring sound is currently active
+        self.volume_before_mute = None  # Store volume level before muting
         
     async def start(self):
         """Start the audio service"""
@@ -96,25 +97,28 @@ class AudioService(BaseService):
                         if self.audio_manager:
                             self.audio_manager.stop_sound("PURRING")
 
-        # Handle custom command for volume adjustment
+        # Handle volume-related intents
         elif event_type == "intent_detected":
             intent_name = event.get("intent")
-            if intent_name == "custom_command":
+            
+            if intent_name == "volume_down":
+                await self.set_volume_down()
+            elif intent_name == "volume_up":
+                await self.set_volume_up()
+            elif intent_name == "volume_off":
+                await self.set_volume_mute()
+            elif intent_name == "volume_on":
+                await self.set_volume_unmute()
+            elif intent_name == "volume_level":
                 slots = event.get("slots")
-                if slots and "index" in slots:
+                if slots and "level" in slots:
                     try:
-                        index_val = int(slots["index"])
-                        
-                        if index_val == 1: # Turn volume down
-                            await self.set_volume_down()
-                        elif index_val == 2: # Turn volume up
-                            await self.set_volume_up()
-                        else:
-                            self.logger.warning(f"'custom_command' intent received with unhandled index: {index_val}")
+                        level = int(slots["level"])
+                        await self.set_volume_level(level)
                     except ValueError:
-                        self.logger.error(f"'custom_command' intent received with non-integer index: {slots['index']}")
+                        self.logger.error(f"'volume_level' intent received with non-integer level: {slots['level']}")
                     except Exception as e:
-                        self.logger.error(f"Error processing 'custom_command' for volume: {e}", exc_info=True)
+                        self.logger.error(f"Error processing 'volume_level' intent: {e}", exc_info=True)
 
     async def set_volume_down(self):
         current_volume = self.global_state.volume
@@ -153,6 +157,41 @@ class AudioService(BaseService):
             # else: # Clamped, but was already at the clamped value (e.g. trying to set to 1.1 when it's 1.0)
                 # self.logger.info(f"Global volume remains at {self.global_state.volume:.2f}. Requested {new_volume:.2f} resulted in no change due to limits.")
         return volume_actually_changed
+
+    async def set_volume_mute(self):
+        """Mute the audio by setting volume to 0"""
+        # Store current volume for potential unmute
+        if self.volume_before_mute is None:
+            self.volume_before_mute = self.global_state.volume
+        
+        volume_changed = await self.set_global_volume(0.0)
+        if volume_changed:
+            await self._play_sound(SoundEffect.SQUEAK)
+
+    async def set_volume_unmute(self):
+        """Unmute the audio by restoring previous volume"""
+        if self.volume_before_mute is not None:
+            previous_volume = self.volume_before_mute
+            self.volume_before_mute = None  # Clear the stored volume
+            volume_changed = await self.set_global_volume(previous_volume)
+        else:
+            # If no previous volume stored, set to a reasonable default
+            volume_changed = await self.set_global_volume(0.5)
+        
+        if volume_changed:
+            await self._play_sound(SoundEffect.SQUEAK)
+
+    async def set_volume_level(self, level: int):
+        """Set volume to a specific level (0-9, mapped to 0.0-1.0)"""
+        if level < 0 or level > 9:
+            self.logger.warning(f"Volume level {level} out of range (0-9), clamping")
+            level = max(0, min(9, level))
+        
+        # Map 0-9 to 0.0-1.0
+        new_volume = level / 9.0
+        volume_changed = await self.set_global_volume(new_volume)
+        if volume_changed:
+            await self._play_sound(SoundEffect.SQUEAK)
 
     async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
         """Helper method to play a sound effect with error handling

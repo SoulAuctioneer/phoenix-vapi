@@ -189,6 +189,32 @@ class IntentService(BaseService):
         if intent == "wake_up":
             intent = "conversation"
 
+        # Re-map volume intents
+        if intent == "custom_command":
+            slots = intent_data.get("slots", {})
+            if slots and "index" in slots:
+                index_val = int(slots["index"])
+                if index_val == 1:
+                    intent = "volume_down"
+                elif index_val == 2:
+                    intent = "volume_up"
+        elif intent == "volume":
+            slots = intent_data.get("slots", {})
+            if slots:
+                if "level" in slots:
+                    intent = "volume_level"
+                    # Keep the level slot value for volume_level intent
+                elif "command" in slots:
+                    command = slots["command"].lower()
+                    if command == "down":
+                        intent = "volume_down"
+                    elif command == "up":
+                        intent = "volume_up"
+                    elif command == "off":
+                        intent = "volume_off"
+                    elif command == "on":
+                        intent = "volume_on"
+
         # Publish the intent event first
         await self.publish({
             "type": "intent_detected",
