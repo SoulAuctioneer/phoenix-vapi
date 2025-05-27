@@ -142,22 +142,22 @@ class BNO085Interface:
         async def _enable_feature_wrapper(feature_id, interval_us):
             await self._enable_feature_with_interval(feature_id, interval_us)
 
-        # Motion Vectors - Reduced rates to improve timing reliability
-        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 10000)       # 10ms (100Hz)
-        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 10000)          # 10ms (100Hz)
-        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 10000) # 10ms (100Hz)
+        # Essential motion vectors for free fall detection - Higher frequency
+        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 10000) # 10ms (100Hz) - Primary for free fall
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 10000)       # 10ms (100Hz) - Backup/comparison
         
-        # Less critical for high frequency
-        await _enable_feature_wrapper(BNO_REPORT_MAGNETOMETER, 20000)       # 20ms (50Hz)
+        # Secondary motion data - Lower frequency to reduce I2C load
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 20000)          # 20ms (50Hz)
+        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 20000)  # 20ms (50Hz)
         
-        # Rotation Vectors
-        await _enable_feature_wrapper(BNO_REPORT_ROTATION_VECTOR, 10000)     # 10ms (100Hz)
-        await _enable_feature_wrapper(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, 20000) # 20ms (50Hz)
-        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 10000)  # 10ms (100Hz)
-            
-        # Classification Reports
+        # Classification Reports - Low frequency
         await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 50000) # 50ms (20Hz)
         await _enable_feature_wrapper(BNO_REPORT_SHAKE_DETECTOR, 50000)       # 50ms (20Hz)
+        
+        # Disabled to reduce I2C overhead - not essential for free fall detection
+        # await _enable_feature_wrapper(BNO_REPORT_MAGNETOMETER, 20000)       # 20ms (50Hz)
+        # await _enable_feature_wrapper(BNO_REPORT_ROTATION_VECTOR, 10000)     # 10ms (100Hz)
+        # await _enable_feature_wrapper(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, 20000) # 20ms (50Hz)
         # await _enable_feature_wrapper(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # 50ms (20Hz) - Library default
         # await _enable_feature_wrapper(BNO_REPORT_STEP_COUNTER, 100000)       # 100ms (10Hz) - Slower is fine
 
@@ -254,26 +254,40 @@ class BNO085Interface:
             if not self.imu:
                 return {}
                 
-            # Helper to run blocking property access in a thread
-            async def _get_sensor_value(prop_name):
-                return await asyncio.to_thread(getattr, self.imu, prop_name)
-
-            accel_x, accel_y, accel_z = await _get_sensor_value("acceleration")
-            gyro_x, gyro_y, gyro_z = await _get_sensor_value("gyro")
-            mag_x, mag_y, mag_z = await _get_sensor_value("magnetic")
-            lin_accel_x, lin_accel_y, lin_accel_z = await _get_sensor_value("linear_acceleration")
+            # Batch read all sensor values in a single thread operation to minimize I2C overhead
+            async def _batch_read_sensors():
+                # Read only enabled sensors in one thread operation to reduce context switching
+                return {
+                    'acceleration': self.imu.acceleration,
+                    'gyro': self.imu.gyro,
+                    'linear_acceleration': self.imu.linear_acceleration,
+                    'game_quaternion': self.imu.game_quaternion,
+                    'stability_classification': self.imu.stability_classification,
+                    'shake': self.imu.shake,
+                    'calibration_status': self.imu.calibration_status
+                }
             
-            quat_i, quat_j, quat_k, quat_real = await _get_sensor_value("quaternion")
-            geomag_quat_i, geomag_quat_j, geomag_quat_k, geomag_quat_real = await _get_sensor_value("geomagnetic_quaternion")
-            game_quat_i, game_quat_j, game_quat_k, game_quat_real = await _get_sensor_value("game_quaternion")
+            # Single batch read instead of multiple individual reads
+            sensor_data = await asyncio.to_thread(_batch_read_sensors)
             
-            stability = await _get_sensor_value("stability_classification")
-            shake_detected = await _get_sensor_value("shake")
-            # activity = await _get_sensor_value("activity_classification")
-            # step_count = await _get_sensor_value("steps")
-
+            # Extract values from batch read
+            accel_x, accel_y, accel_z = sensor_data['acceleration']
+            gyro_x, gyro_y, gyro_z = sensor_data['gyro']
+            lin_accel_x, lin_accel_y, lin_accel_z = sensor_data['linear_acceleration']
             
-            calibration_status = await _get_sensor_value("calibration_status")
+            # Use game quaternion for rotation data (others disabled)
+            game_quat_i, game_quat_j, game_quat_k, game_quat_real = sensor_data['game_quaternion']
+            
+            # Use game quaternion for all quaternion outputs (since others are disabled)
+            quat_i, quat_j, quat_k, quat_real = game_quat_i, game_quat_j, game_quat_k, game_quat_real
+            geomag_quat_i, geomag_quat_j, geomag_quat_k, geomag_quat_real = game_quat_i, game_quat_j, game_quat_k, game_quat_real
+            
+            # Set disabled sensors to default values
+            mag_x, mag_y, mag_z = 0.0, 0.0, 0.0  # Magnetometer disabled
+            
+            stability = sensor_data['stability_classification']
+            shake_detected = sensor_data['shake']
+            calibration_status = sensor_data['calibration_status']
             calibration_status_text = f"{REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})"
             
             return {
