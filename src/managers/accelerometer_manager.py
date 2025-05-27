@@ -592,7 +592,6 @@ class AccelerometerManager:
         """
         history_size = self.shake_history_size
         if len(self.motion_history) < history_size:
-            self.logger.debug(f"Shake check: insufficient history ({len(self.motion_history)} < {history_size})")
             return False
 
         # --- Get recent data ---
@@ -605,7 +604,6 @@ class AccelerometerManager:
                               if isinstance(accel, tuple) and len(accel) == 3]
 
         if len(valid_accelerations) < 8:  # Need more points for direction analysis
-            self.logger.debug(f"Shake check: insufficient valid accelerations ({len(valid_accelerations)} < 8)")
             return False
 
         # === Magnitude Check (peak-based) ===
@@ -619,32 +617,24 @@ class AccelerometerManager:
                 continue
 
         if len(accel_magnitudes) < 8:
-            self.logger.debug(f"Shake check: insufficient magnitude calculations ({len(accel_magnitudes)} < 8)")
             return False
 
         peak_accel_magnitude = max(accel_magnitudes)
         avg_accel_magnitude = statistics.mean(accel_magnitudes)
 
-        self.logger.debug(f"Shake magnitude check: peak={peak_accel_magnitude:.2f} (need >{self.peak_magnitude_for_shake}), avg={avg_accel_magnitude:.2f} (need >{self.min_magnitude_for_shake})")
-
         # Need at least one strong spike
         if peak_accel_magnitude < self.peak_magnitude_for_shake:
-            self.logger.debug(f"Shake rejected: peak magnitude {peak_accel_magnitude:.2f} < {self.peak_magnitude_for_shake}")
             return False
 
         # Also reject windows that are nearly still overall
         if avg_accel_magnitude < self.min_magnitude_for_shake:
-            self.logger.debug(f"Shake rejected: avg magnitude {avg_accel_magnitude:.2f} < {self.min_magnitude_for_shake}")
             return False
 
         # === Enhanced Direction Change Analysis ===
         direction_changes = self._count_direction_changes(valid_accelerations)
         
-        self.logger.debug(f"Shake direction changes: {direction_changes} (need >={self.min_accel_reversals_for_shake})")
-        
         # Require multiple direction changes for shake detection
         if direction_changes < self.min_accel_reversals_for_shake:
-            self.logger.debug(f"Shake rejected: direction changes {direction_changes} < {self.min_accel_reversals_for_shake}")
             return False
 
         # === Additional Oscillation Pattern Check ===
@@ -654,20 +644,14 @@ class AccelerometerManager:
         # Require both direction changes AND magnitude oscillations
         min_oscillations = max(2, self.min_accel_reversals_for_shake // 2)
         
-        self.logger.debug(f"Shake magnitude oscillations: {magnitude_oscillations} (need >={min_oscillations})")
-        
         if magnitude_oscillations < min_oscillations:
-            self.logger.debug(f"Shake rejected: magnitude oscillations {magnitude_oscillations} < {min_oscillations}")
             return False
 
         # === Frequency Analysis ===
         # Check that the oscillations are in a reasonable frequency range for human shaking
         frequency_valid = self._validate_shake_frequency(valid_accelerations)
         
-        self.logger.debug(f"Shake frequency validation: {frequency_valid}")
-        
         if not frequency_valid:
-            self.logger.debug("Shake rejected: frequency validation failed")
             return False
 
         self.logger.info(f"SHAKE DETECTED! peak={peak_accel_magnitude:.2f}, avg={avg_accel_magnitude:.2f}, dir_changes={direction_changes}, mag_osc={magnitude_oscillations}, freq_valid={frequency_valid}")
@@ -687,7 +671,6 @@ class AccelerometerManager:
             int: Number of significant direction changes detected
         """
         if len(accel_vectors) < 3:
-            self.logger.debug(f"Direction changes: insufficient vectors ({len(accel_vectors)} < 3)")
             return 0
         
         direction_changes = 0
@@ -721,18 +704,12 @@ class AccelerometerManager:
                 # Clamp dot product to valid range for numerical stability
                 dot_product = max(-1.0, min(1.0, dot_product))
                 
-                # Calculate actual angle for logging
-                angle_rad = math.acos(abs(dot_product))
-                angle_deg = math.degrees(angle_rad)
-                
                 # If dot product is less than threshold, we have a significant direction change
                 if dot_product < cos_threshold:
                     direction_changes += 1
-                    self.logger.debug(f"Direction change #{direction_changes}: angle={angle_deg:.1f}°, dot={dot_product:.3f}, mag={magnitude:.2f}")
             
             prev_vector = normalized
         
-        self.logger.debug(f"Direction analysis: {valid_vectors_count} valid vectors (mag >{min_magnitude_for_direction}), {direction_changes} direction changes (angle >{min_angle_change}°)")
         return direction_changes
 
     def _count_magnitude_oscillations(self, accel_magnitudes: List[float]) -> int:
@@ -749,7 +726,6 @@ class AccelerometerManager:
             int: Number of magnitude oscillations detected
         """
         if len(accel_magnitudes) < 5:
-            self.logger.debug(f"Magnitude oscillations: insufficient data ({len(accel_magnitudes)} < 5)")
             return 0
         
         # Minimum change required to count as a significant oscillation
@@ -760,8 +736,6 @@ class AccelerometerManager:
         last_extreme = accel_magnitudes[0]
         consecutive_same_trend = 0  # Track how long we've been in the same trend
         
-        self.logger.debug(f"Magnitude oscillation analysis: min_change={min_oscillation_magnitude}, data_range=[{min(accel_magnitudes):.2f}, {max(accel_magnitudes):.2f}]")
-        
         for i in range(1, len(accel_magnitudes)):
             current = accel_magnitudes[i]
             
@@ -770,7 +744,6 @@ class AccelerometerManager:
                 # Significant increase
                 if trend == 'down' and consecutive_same_trend >= 2:  # Require sustained trend
                     oscillations += 1
-                    self.logger.debug(f"Magnitude oscillation #{oscillations}: down→up at {current:.2f} (was {last_extreme:.2f}), trend_duration={consecutive_same_trend}")
                     consecutive_same_trend = 0
                 elif trend != 'up':
                     consecutive_same_trend = 0
@@ -783,7 +756,6 @@ class AccelerometerManager:
                 # Significant decrease
                 if trend == 'up' and consecutive_same_trend >= 2:  # Require sustained trend
                     oscillations += 1
-                    self.logger.debug(f"Magnitude oscillation #{oscillations}: up→down at {current:.2f} (was {last_extreme:.2f}), trend_duration={consecutive_same_trend}")
                     consecutive_same_trend = 0
                 elif trend != 'down':
                     consecutive_same_trend = 0
@@ -795,7 +767,6 @@ class AccelerometerManager:
                 # No significant change, continue current trend
                 consecutive_same_trend += 1
         
-        self.logger.debug(f"Magnitude oscillation result: {oscillations} oscillations detected")
         return oscillations
 
     def _validate_shake_frequency(self, accel_vectors: List[Tuple[float, float, float]]) -> bool:
@@ -812,14 +783,11 @@ class AccelerometerManager:
             bool: True if the frequency characteristics are consistent with shaking
         """
         if len(accel_vectors) < 10:
-            self.logger.debug(f"Frequency validation: insufficient data ({len(accel_vectors)} < 10)")
             return False
         
         # Calculate time span (corrected sampling rate: ~50Hz based on 20ms intervals)
         sampling_rate = 50.0  # Hz - actual sensor sampling rate (20ms intervals)
         time_span = len(accel_vectors) / sampling_rate  # seconds
-        
-        self.logger.debug(f"Frequency analysis: {len(accel_vectors)} samples over {time_span:.3f}s at {sampling_rate}Hz")
         
         # Count zero crossings in the dominant acceleration component
         # Find the component with the highest variance (most active during shaking)
@@ -832,10 +800,7 @@ class AccelerometerManager:
             y_var = statistics.variance(y_values) if len(y_values) > 1 else 0
             z_var = statistics.variance(z_values) if len(z_values) > 1 else 0
         except statistics.StatisticsError:
-            self.logger.debug("Frequency validation: failed to calculate variance")
             return False
-        
-        self.logger.debug(f"Component variances: X={x_var:.3f}, Y={y_var:.3f}, Z={z_var:.3f}")
         
         # Use the component with highest variance
         if x_var >= y_var and x_var >= z_var:
@@ -848,13 +813,9 @@ class AccelerometerManager:
             dominant_component = z_values
             dominant_axis = "Z"
         
-        self.logger.debug(f"Dominant axis: {dominant_axis} (variance={max(x_var, y_var, z_var):.3f})")
-        
         # Remove DC component (mean) to focus on oscillations
         mean_value = statistics.mean(dominant_component)
         centered_values = [v - mean_value for v in dominant_component]
-        
-        self.logger.debug(f"Centered values: mean={mean_value:.3f}, range=[{min(centered_values):.3f}, {max(centered_values):.3f}]")
         
         # Count zero crossings
         zero_crossings = 0
@@ -866,8 +827,6 @@ class AccelerometerManager:
         # Each complete cycle has 2 zero crossings
         estimated_frequency = (zero_crossings / 2.0) / time_span if time_span > 0 else 0
         
-        self.logger.debug(f"Zero crossings: {zero_crossings}, estimated frequency: {estimated_frequency:.2f} Hz")
-        
         # Human shaking is typically 2-10 Hz, but be more lenient for 50Hz sampling
         # At 50Hz with 30 samples (0.6s window), we expect 1.2-6 complete cycles for 2-10Hz shaking
         min_shake_freq = 1.5  # Hz - more lenient lower bound
@@ -875,22 +834,16 @@ class AccelerometerManager:
         
         is_valid_frequency = min_shake_freq <= estimated_frequency <= max_shake_freq
         
-        self.logger.debug(f"Frequency check: {estimated_frequency:.2f} Hz in range [{min_shake_freq}-{max_shake_freq}] = {is_valid_frequency}")
-        
         # Additional check: ensure there's sufficient variation in the dominant component
         # to distinguish from sensor noise
         try:
             std_dev = statistics.stdev(centered_values)
             min_variation = 1.0  # m/s² - minimum standard deviation for meaningful oscillation
             has_sufficient_variation = std_dev >= min_variation
-            
-            self.logger.debug(f"Variation check: std_dev={std_dev:.3f} >= {min_variation} = {has_sufficient_variation}")
         except statistics.StatisticsError:
-            self.logger.debug("Frequency validation: failed to calculate standard deviation")
             has_sufficient_variation = False
         
         result = is_valid_frequency and has_sufficient_variation
-        self.logger.debug(f"Frequency validation result: freq_valid={is_valid_frequency} AND variation_valid={has_sufficient_variation} = {result}")
         
         return result
 
