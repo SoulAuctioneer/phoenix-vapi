@@ -63,17 +63,24 @@ async def debug_freefall():
                 raw_accel_mag = sqrt(sum(x*x for x in raw_accel)) if isinstance(raw_accel, tuple) else 0.0
                 linear_accel_mag = sqrt(sum(x*x for x in linear_accel)) if isinstance(linear_accel, tuple) else 0.0
                 
-                # Check if we're in free fall according to our threshold
-                is_freefall_by_threshold = raw_accel_mag < accel_manager.free_fall_threshold
+                # Check if we're in free fall according to our threshold (now using linear acceleration)
+                is_freefall_by_threshold_raw = raw_accel_mag < accel_manager.free_fall_threshold
+                is_freefall_by_threshold_linear = linear_accel_mag < accel_manager.free_fall_threshold
                 
                 # Print status every sample
-                print(f"\nTime since last sample: {ms_since_last_sample:.2f}ms, Sample: {sample_count}, Raw Accel: ({raw_accel[0]:.3f}, {raw_accel[1]:.3f}, {raw_accel[2]:.3f}) m/s² | Raw Accel Magnitude: {raw_accel_mag:.3f} m/s² | Linear Accel Magnitude: {linear_accel_mag:.3f} m/s² | Free Fall Threshold: {accel_manager.free_fall_threshold:.3f} m/s² | Below Threshold: {is_freefall_by_threshold} | Detected State: {current_state} | Stability: {stability}")
+                print(f"\nTime since last sample: {ms_since_last_sample:.2f}ms, Sample: {sample_count}")
+                print(f"Raw Accel: ({raw_accel[0]:.3f}, {raw_accel[1]:.3f}, {raw_accel[2]:.3f}) m/s² | Mag: {raw_accel_mag:.3f}")
+                print(f"Linear Accel: ({linear_accel[0]:.3f}, {linear_accel[1]:.3f}, {linear_accel[2]:.3f}) m/s² | Mag: {linear_accel_mag:.3f}")
+                print(f"Threshold: {accel_manager.free_fall_threshold:.3f} | Raw<Thresh: {is_freefall_by_threshold_raw} | Linear<Thresh: {is_freefall_by_threshold_linear}")
+                print(f"State: {current_state} | Stability: {stability}")
                 
                 # Alert on state changes or free fall conditions
                 if current_state == "FREE_FALL":
-                    print(f"🚨 FREE FALL DETECTED! Raw accel mag: {raw_accel_mag:.3f} m/s²")
-                elif is_freefall_by_threshold and current_state != "FREE_FALL":
-                    print(f"⚠️  Raw accel below threshold ({raw_accel_mag:.3f} < {accel_manager.free_fall_threshold:.3f}) but state is {current_state}")
+                    print(f"🚨 FREE FALL DETECTED! Linear accel mag: {linear_accel_mag:.3f} m/s²")
+                elif is_freefall_by_threshold_linear and current_state != "FREE_FALL":
+                    print(f"⚠️  Linear accel below threshold ({linear_accel_mag:.3f} < {accel_manager.free_fall_threshold:.3f}) but state is {current_state}")
+                elif is_freefall_by_threshold_raw and current_state != "FREE_FALL":
+                    print(f"ℹ️  Raw accel below threshold ({raw_accel_mag:.3f} < {accel_manager.free_fall_threshold:.3f}) but state is {current_state}")
                 
                 # Small delay to avoid overwhelming output
                 await asyncio.sleep(0.01)  # 10ms delay

@@ -300,9 +300,10 @@ class AccelerometerManager:
              self.logger.debug(f"Potential impact ignored (not from FREE_FALL): Prev State={previous_state.name}, Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
 
         # 2. FREE_FALL: Check early to avoid mis-classifying SHAKE while airborne.
-        if accel_magnitude_raw < self.free_fall_threshold:
+        # Use linear acceleration for more reliable free fall detection (removes gravity component)
+        if accel_magnitude_linear < self.free_fall_threshold:
             if self.current_state != SimplifiedState.FREE_FALL:
-                self.logger.debug(f"FREE_FALL detected: RAW Accel={accel_magnitude_raw:.2f}")
+                self.logger.debug(f"FREE_FALL detected: Linear Accel={accel_magnitude_linear:.2f}")
             self.last_accel_magnitude = accel_magnitude_linear
             return SimplifiedState.FREE_FALL
 

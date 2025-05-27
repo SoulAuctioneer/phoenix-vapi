@@ -142,10 +142,10 @@ class BNO085Interface:
         async def _enable_feature_wrapper(feature_id, interval_us):
             await self._enable_feature_with_interval(feature_id, interval_us)
 
-        # Motion Vectors 
-        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 5000)        # 5ms (200Hz)
-        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 5000)           # 5ms (200Hz)
-        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 5000) # 5ms (200Hz)
+        # Motion Vectors - Reduced rates to improve timing reliability
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 10000)       # 10ms (100Hz)
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 10000)          # 10ms (100Hz)
+        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 10000) # 10ms (100Hz)
         
         # Less critical for high frequency
         await _enable_feature_wrapper(BNO_REPORT_MAGNETOMETER, 20000)       # 20ms (50Hz)
