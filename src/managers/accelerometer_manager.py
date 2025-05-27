@@ -224,8 +224,16 @@ class AccelerometerManager:
         #     self._prev_quat_ts = now_ts
         data["rot_speed"] = rot_speed
 
-        # Skip heading and energy calculations for performance
-        # These can be added back if needed for specific applications
+        # Calculate energy level for movement-based activities
+        linear_accel = data.get("linear_acceleration", (0, 0, 0))
+        gyro = data.get("gyro", (0, 0, 0))
+        if isinstance(linear_accel, tuple) and len(linear_accel) == 3 and isinstance(gyro, tuple) and len(gyro) == 3:
+            energy = self.calculate_energy(linear_accel, gyro, rot_speed=rot_speed)
+            data["energy"] = energy
+        else:
+            data["energy"] = 0.0
+
+        # Skip heading calculation for performance (can be added back if needed)
 
         # Update motion history regardless of calculation success
         self._update_motion_history(data)
@@ -649,13 +657,7 @@ class AccelerometerManager:
 
         # === Frequency Analysis ===
         # Check that the oscillations are in a reasonable frequency range for human shaking
-        frequency_valid = self._validate_shake_frequency(valid_accelerations)
-        
-        if not frequency_valid:
-            return False
-
-        self.logger.info(f"SHAKE DETECTED! peak={peak_accel_magnitude:.2f}, avg={avg_accel_magnitude:.2f}, dir_changes={direction_changes}, mag_osc={magnitude_oscillations}, freq_valid={frequency_valid}")
-        return True
+        return self._validate_shake_frequency(valid_accelerations)
 
     def _count_direction_changes(self, accel_vectors: List[Tuple[float, float, float]]) -> int:
         """
