@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 hardware_logger = logging.getLogger('hardware.acc_bno085')
 hardware_logger.setLevel(logging.WARNING)
 
+# Enable debug logging for the accelerometer manager to see state transitions
+accel_logger = logging.getLogger('managers.accelerometer_manager')
+accel_logger.setLevel(logging.DEBUG)
+
 async def debug_freefall_optimized():
     """Optimized debug function with minimal output and timing diagnostics."""
     
@@ -134,6 +138,14 @@ async def debug_freefall_optimized():
                         if individual:
                             sensor_times = ", ".join([f"{k.replace('_ms', '')}={v:.1f}" for k, v in individual.items()])
                             print(f"                      SENSOR TIMINGS: {sensor_times}")
+                    
+                    # Show state diagnostics for oscillating states (when device should be stationary)
+                    if current_state != last_state and linear_accel_mag < 0.1 and gyro_mag < 0.1:
+                        rot_speed = data.get("rot_speed", 0.0)
+                        print(f"                      STATE DEBUG: Linear={linear_accel_mag:.3f} (thresh: STAT={accel_manager.stationary_linear_accel_max:.2f}, HELD={accel_manager.held_still_linear_accel_max:.2f})")
+                        print(f"                                   Gyro={gyro_mag:.3f} (thresh: STAT={accel_manager.stationary_gyro_max:.2f}, HELD={accel_manager.held_still_gyro_max:.2f})")
+                        print(f"                                   RotSpeed={rot_speed:.3f} (thresh: STAT={accel_manager.stationary_rot_speed_max:.2f}, HELD={accel_manager.held_still_rot_speed_max:.2f})")
+                        print(f"                                   MinStateDuration={accel_manager.min_state_duration:.1f}s, Hysteresis={accel_manager.hysteresis_factor:.1f}x")
                 
                 last_state = current_state
                 
