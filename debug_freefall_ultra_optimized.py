@@ -51,10 +51,11 @@ async def debug_freefall_ultra_optimized():
         print()
         print(f"Free Fall Thresholds: Accel<{accel_manager.free_fall_accel_threshold:.1f} m/s², Gyro>{accel_manager.free_fall_min_rotation:.1f}-{accel_manager.free_fall_max_rotation:.1f} rad/s, Linear<{accel_manager.free_fall_linear_accel_max:.1f} m/s²")
         print(f"Free Fall Duration: Min={accel_manager.free_fall_min_duration*1000:.0f}ms, Consistency={accel_manager.free_fall_accel_consistency_samples} samples")
-        print(f"State Thresholds (ANTI-OSCILLATION):")
-        print(f"  STATIONARY: Linear<{accel_manager.stationary_linear_accel_max:.2f} m/s², Gyro<{accel_manager.stationary_gyro_max:.2f} rad/s")
+        print(f"State Thresholds (ANTI-OSCILLATION + STRICT STATIONARY):")
+        print(f"  STATIONARY: Linear<{accel_manager.stationary_linear_accel_max:.3f} m/s², Gyro<{accel_manager.stationary_gyro_max:.3f} rad/s (STRICT + consistency)")
         print(f"  HELD_STILL: Linear<{accel_manager.held_still_linear_accel_max:.2f} m/s², Gyro<{accel_manager.held_still_gyro_max:.2f} rad/s")
         print(f"  Hysteresis Factor: {accel_manager.hysteresis_factor:.1f}x (stronger separation)")
+        print(f"  STATIONARY Requirements: {accel_manager.stationary_consistency_required} samples, variance<{accel_manager.stationary_max_variance:.3f}, 2s duration")
         print(f"  Min State Duration: {accel_manager.min_state_duration:.1f}s (2x longer for STAT↔HELD transitions)")
         print("  Note: STATIONARY thresholds adjusted for observed sensor noise when completely still")
         print("Monitoring... (Press Ctrl+C to stop)")
@@ -178,10 +179,29 @@ async def debug_freefall_ultra_optimized():
                     # Show state diagnostics for oscillating states (when device should be stationary)
                     if current_state != last_state and linear_accel_mag < 0.1 and gyro_mag < 0.1:
                         rot_speed = data.get("rot_speed", 0.0)
-                        print(f"                      STATE DEBUG: Linear={linear_accel_mag:.3f} (thresh: STAT={accel_manager.stationary_linear_accel_max:.2f}, HELD={accel_manager.held_still_linear_accel_max:.2f})")
-                        print(f"                                   Gyro={gyro_mag:.3f} (thresh: STAT={accel_manager.stationary_gyro_max:.2f}, HELD={accel_manager.held_still_gyro_max:.2f})")
-                        print(f"                                   RotSpeed={rot_speed:.3f} (thresh: STAT={accel_manager.stationary_rot_speed_max:.2f}, HELD={accel_manager.held_still_rot_speed_max:.2f})")
+                        print(f"                      STATE DEBUG: Linear={linear_accel_mag:.3f} (thresh: STAT={accel_manager.stationary_linear_accel_max:.3f}, HELD={accel_manager.held_still_linear_accel_max:.2f})")
+                        print(f"                                   Gyro={gyro_mag:.3f} (thresh: STAT={accel_manager.stationary_gyro_max:.3f}, HELD={accel_manager.held_still_gyro_max:.2f})")
+                        print(f"                                   RotSpeed={rot_speed:.3f} (thresh: STAT={accel_manager.stationary_rot_speed_max:.3f}, HELD={accel_manager.held_still_rot_speed_max:.2f})")
                         print(f"                                   MinStateDuration={accel_manager.min_state_duration:.1f}s, Hysteresis={accel_manager.hysteresis_factor:.1f}x")
+                        
+                        # Show STATIONARY consistency info if available
+                        if hasattr(accel_manager, 'stationary_candidate_readings') and len(accel_manager.stationary_candidate_readings) > 0:
+                            readings_count = len(accel_manager.stationary_candidate_readings)
+                            if readings_count >= 3:
+                                try:
+                                    import statistics
+                                    recent_readings = list(accel_manager.stationary_candidate_readings)[-5:]  # Last 5 readings
+                                    variance = statistics.variance(recent_readings)
+                                    print(f"                                   STATIONARY: {readings_count} readings, variance={variance:.4f} (max={accel_manager.stationary_max_variance:.3f})")
+                                except:
+                                    print(f"                                   STATIONARY: {readings_count} readings (variance calc failed)")
+                            else:
+                                print(f"                                   STATIONARY: {readings_count} readings (need {accel_manager.stationary_consistency_required} for consistency)")
+                        
+                        # Show candidate start time if tracking
+                        if hasattr(accel_manager, 'stationary_candidate_start') and accel_manager.stationary_candidate_start is not None:
+                            duration = time.perf_counter() - accel_manager.stationary_candidate_start
+                            print(f"                                   STATIONARY candidate duration: {duration:.1f}s (need 2.0s)")
                 
                 last_state = current_state
                 

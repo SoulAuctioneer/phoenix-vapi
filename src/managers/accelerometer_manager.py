@@ -160,18 +160,25 @@ class AccelerometerManager:
         # AND observed "completely stationary" values up to 0.048 m/s² linear, 0.029 rad/s gyro
         # Need much larger separation between STATIONARY and HELD_STILL to prevent oscillation
         
-        # STATIONARY: Device completely still (on table, etc.) - Accommodate sensor noise
-        self.stationary_linear_accel_max = 0.08   # m/s² - Above observed max (0.048) with margin
-        self.stationary_gyro_max = 0.05           # rad/s - Above observed max (0.029) with margin
-        self.stationary_rot_speed_max = 0.05      # rad/s - Above observed max with margin
+        # STATIONARY: Device completely still (on table, etc.) - MUCH MORE RESTRICTIVE
+        # Real stationary devices should have extremely low and consistent readings
+        self.stationary_linear_accel_max = 0.03   # m/s² - Much more restrictive (was 0.08)
+        self.stationary_gyro_max = 0.02           # rad/s - Much more restrictive (was 0.05)
+        self.stationary_rot_speed_max = 0.02      # rad/s - Much more restrictive (was 0.05)
+        self.stationary_consistency_required = 5  # Require 5 consecutive consistent readings
+        self.stationary_max_variance = 0.01      # m/s² - Max variance in linear accel for true stationary
         
-        # HELD_STILL: Device held by hand - Much more permissive with large gap
-        self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above observed 0.47 max
+        # HELD_STILL: Device held by hand - More permissive with large gap
+        self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
         self.held_still_gyro_max = 0.50           # rad/s - More permissive for hand tremor
         self.held_still_rot_speed_max = 0.50      # rad/s - More permissive for hand tremor
         
         # Hysteresis: Strong hysteresis to create large separation zones
         self.hysteresis_factor = 4.0               # Increased for stronger separation
+        
+        # Stationary state tracking for consistency checking
+        self.stationary_candidate_start = None
+        self.stationary_candidate_readings = deque(maxlen=10)  # Store recent readings for variance check
 
     async def initialize(self) -> bool:
         """
@@ -328,14 +335,20 @@ class AccelerometerManager:
     def _determine_stable_state(self, linear_accel_mag: float, gyro_mag: float, 
                                rot_speed: float, current_state: SimplifiedState) -> SimplifiedState:
         """
-        Determine if device is in STATIONARY, HELD_STILL, or MOVING state with improved hysteresis.
+        Determine if device is in STATIONARY, HELD_STILL, or MOVING state with improved hysteresis
+        and strict STATIONARY detection with consistency checking.
         
-        The key insight is that hysteresis should work in both directions:
-        - When transitioning TO a stable state, use normal thresholds
-        - When transitioning FROM a stable state, use higher thresholds (harder to exit)
+        STATIONARY now requires:
+        1. Extremely low sensor readings (much stricter thresholds)
+        2. Consistent readings over multiple samples
+        3. Low variance in acceleration (true stillness)
+        4. Sustained duration
         
-        This prevents oscillation at threshold boundaries.
+        This prevents hand-held devices with low tremor from being classified as STATIONARY.
         """
+        
+        # Store current reading for variance analysis
+        self.stationary_candidate_readings.append(linear_accel_mag)
         
         # Define base thresholds
         stationary_linear_base = self.stationary_linear_accel_max
@@ -380,10 +393,20 @@ class AccelerometerManager:
             held_still_gyro_threshold = held_still_gyro_base
             held_still_rot_threshold = held_still_rot_base
         
-        # Check for STATIONARY (most restrictive)
-        is_stationary = (linear_accel_mag < stationary_linear_threshold and
-                        gyro_mag < stationary_gyro_threshold and
-                        rot_speed < stationary_rot_threshold)
+        # Check basic STATIONARY criteria (must pass these first)
+        meets_basic_stationary = (linear_accel_mag < stationary_linear_threshold and
+                                 gyro_mag < stationary_gyro_threshold and
+                                 rot_speed < stationary_rot_threshold)
+        
+        # Enhanced STATIONARY detection with consistency and variance checking
+        is_truly_stationary = False
+        if meets_basic_stationary:
+            is_truly_stationary = self._verify_stationary_consistency(
+                linear_accel_mag, gyro_mag, rot_speed, current_state
+            )
+        else:
+            # Reset stationary tracking if basic criteria not met
+            self.stationary_candidate_start = None
         
         # Check for HELD_STILL (less restrictive)
         is_held_still = (linear_accel_mag < held_still_linear_threshold and
@@ -392,14 +415,21 @@ class AccelerometerManager:
         
         # Debug logging for state transitions to understand threshold behavior
         if current_state in [SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
-            candidate_state = SimplifiedState.STATIONARY if is_stationary else (SimplifiedState.HELD_STILL if is_held_still else SimplifiedState.MOVING)
+            if is_truly_stationary:
+                candidate_state = SimplifiedState.STATIONARY
+            elif is_held_still:
+                candidate_state = SimplifiedState.HELD_STILL
+            else:
+                candidate_state = SimplifiedState.MOVING
+                
             if candidate_state != current_state:
                 self.logger.debug(f"State transition candidate: {current_state.name} → {candidate_state.name}")
                 self.logger.debug(f"  Linear: {linear_accel_mag:.3f} (STAT<{stationary_linear_threshold:.3f}, HELD<{held_still_linear_threshold:.3f})")
                 self.logger.debug(f"  Gyro: {gyro_mag:.3f} (STAT<{stationary_gyro_threshold:.3f}, HELD<{held_still_gyro_threshold:.3f})")
                 self.logger.debug(f"  RotSpeed: {rot_speed:.3f} (STAT<{stationary_rot_threshold:.3f}, HELD<{held_still_rot_threshold:.3f})")
+                self.logger.debug(f"  STATIONARY checks: basic={meets_basic_stationary}, truly={is_truly_stationary}")
         
-        if is_stationary:
+        if is_truly_stationary:
             return SimplifiedState.STATIONARY
 
         if is_held_still:
@@ -407,6 +437,65 @@ class AccelerometerManager:
 
         # Default to MOVING
         return SimplifiedState.MOVING
+    
+    def _verify_stationary_consistency(self, linear_accel_mag: float, gyro_mag: float, 
+                                     rot_speed: float, current_state: SimplifiedState) -> bool:
+        """
+        Verify that the device is truly stationary using consistency and variance checks.
+        
+        True stationary devices should have:
+        1. Consistent readings over time
+        2. Very low variance in acceleration
+        3. Sustained low readings
+        
+        Args:
+            linear_accel_mag: Current linear acceleration magnitude
+            gyro_mag: Current gyroscope magnitude  
+            rot_speed: Current rotation speed
+            current_state: Current state for tracking
+            
+        Returns:
+            bool: True if device is truly stationary
+        """
+        current_time = time.time()
+        
+        # Start tracking if this is the first qualifying sample
+        if self.stationary_candidate_start is None:
+            self.stationary_candidate_start = current_time
+            self.logger.debug(f"STATIONARY candidate started: linear={linear_accel_mag:.3f}, gyro={gyro_mag:.3f}")
+            return False  # Don't declare stationary immediately
+        
+        # Check if we have enough readings for variance analysis
+        if len(self.stationary_candidate_readings) < self.stationary_consistency_required:
+            return False
+        
+        # Calculate variance in recent linear acceleration readings
+        recent_readings = list(self.stationary_candidate_readings)[-self.stationary_consistency_required:]
+        if len(recent_readings) >= 3:  # Need at least 3 points for meaningful variance
+            try:
+                variance = statistics.variance(recent_readings)
+                if variance > self.stationary_max_variance:
+                    self.logger.debug(f"STATIONARY rejected: variance {variance:.4f} > {self.stationary_max_variance:.4f}")
+                    self.stationary_candidate_start = None
+                    return False
+            except statistics.StatisticsError:
+                return False
+        
+        # Check duration requirement
+        duration = current_time - self.stationary_candidate_start
+        min_duration = 2.0  # Require 2 seconds of consistent readings for STATIONARY
+        
+        if duration >= min_duration:
+            # Calculate final variance for logging
+            try:
+                final_variance = statistics.variance(recent_readings) if len(recent_readings) >= 3 else 0.0
+            except statistics.StatisticsError:
+                final_variance = 0.0
+            self.logger.debug(f"STATIONARY confirmed: duration={duration:.1f}s, variance={final_variance:.4f}")
+            return True
+        
+        # Still building up consistency
+        return False
 
     def _apply_state_stability(self, candidate_state: SimplifiedState, timestamp: float) -> SimplifiedState:
         """
