@@ -128,8 +128,8 @@ async def debug_freefall_optimized():
                     
                     print(f"               [{sample_count:4d}]    {ms_since_last:5.1f}ms | {current_state:10s} |     {raw_accel_mag:5.1f} |        {linear_accel_mag:5.2f} |       {gyro_mag:5.2f} |     {avg_read:4.1f} |     {avg_calc:4.1f} |      {avg_total:4.1f} | {alert}")
                     
-                    # Show detailed timing breakdown if read is very slow
-                    if avg_read > 100 and '_timing' in data:
+                    # Show detailed timing breakdown
+                    if '_timing' in data:
                         timing = data['_timing']
                         print(f"                      TIMING BREAKDOWN: Batch={timing.get('batch_read_ms', 0):.1f}ms, Thread={timing.get('thread_overhead_ms', 0):.1f}ms, Extract={timing.get('extract_ms', 0):.1f}ms")
                         
