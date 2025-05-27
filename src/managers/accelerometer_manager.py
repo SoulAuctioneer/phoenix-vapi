@@ -699,14 +699,12 @@ class AccelerometerManager:
         1. Very low total acceleration (< 6.0 m/s²) - true weightlessness
         2. Significant rotational motion (2.0-15 rad/s) - objects tumble during free fall
         3. Low linear acceleration (< 4.0 m/s²) - minimal forces other than gravity
-        4. Consistent readings over multiple samples - not just momentary dips
-        5. Sustained for minimum duration (50ms) - rules out brief sensor noise
+        4. Sustained for minimum duration (50ms) - rules out brief sensor noise
         
         This approach specifically excludes:
         - Gentle arc movements (moderate accel + low rotation)
         - Controlled movements (high linear acceleration)
-        - Sensor noise (inconsistent readings)
-        - Brief fluctuations (too short duration)
+        - Sensor noise (brief fluctuations ruled out by duration requirement)
         
         Args:
             total_accel_mag: Total acceleration magnitude (m/s²)
@@ -771,26 +769,19 @@ class AccelerometerManager:
             duration = timestamp - self.free_fall_candidate_start
             
             if duration >= self.free_fall_min_duration:
-                # Additional consistency check: verify recent samples also meet criteria
-                if self._verify_free_fall_consistency():
-                    # Confirm free fall and start official tracking
-                    if self.free_fall_start_time is None:
-                        self.free_fall_start_time = self.free_fall_candidate_start
-                        self.logger.debug(f"FREE_FALL confirmed after {duration:.3f}s with consistency check")
-                    
-                    # Check for maximum reasonable duration
-                    total_duration = timestamp - self.free_fall_start_time
-                    if total_duration > self.free_fall_max_duration:
-                        self.logger.warning(f"Free fall duration exceeded maximum ({total_duration:.1f}s), resetting")
-                        self._reset_free_fall_tracking()
-                        return False
-                    
-                    return True
-                else:
-                    # Failed consistency check, reset
-                    self.logger.debug(f"Free fall candidate failed consistency check after {duration:.3f}s")
+                # Confirm free fall immediately - duration requirement already ensures consistency
+                if self.free_fall_start_time is None:
+                    self.free_fall_start_time = self.free_fall_candidate_start
+                    self.logger.debug(f"FREE_FALL confirmed after {duration:.3f}s (consistency check removed for faster detection)")
+                
+                # Check for maximum reasonable duration
+                total_duration = timestamp - self.free_fall_start_time
+                if total_duration > self.free_fall_max_duration:
+                    self.logger.warning(f"Free fall duration exceeded maximum ({total_duration:.1f}s), resetting")
                     self._reset_free_fall_tracking()
                     return False
+                
+                return True
             else:
                 # Still building up to minimum duration
                 return False
@@ -803,64 +794,6 @@ class AccelerometerManager:
             self._reset_free_fall_tracking()
             return False
     
-    def _verify_free_fall_consistency(self) -> bool:
-        """
-        Verify that recent samples consistently meet free fall criteria.
-        This helps distinguish real free fall from momentary sensor fluctuations.
-        
-        Returns:
-            bool: True if recent samples consistently indicate free fall
-        """
-        if len(self.motion_history) < self.free_fall_accel_consistency_samples:
-            return False
-        
-        # Check the last N samples for consistency
-        consistent_samples = 0
-        for i in range(self.free_fall_accel_consistency_samples):
-            sample_idx = -(i + 1)  # Count backwards from most recent
-            if abs(sample_idx) > len(self.motion_history):
-                break
-                
-            sample = self.motion_history[sample_idx]
-            
-            # Extract data from sample
-            accel_raw = sample.get("acceleration", (0, 0, 0))
-            linear_accel = sample.get("linear_acceleration", (0, 0, 0))
-            gyro = sample.get("gyro", (0, 0, 0))
-            
-            # Validate data format
-            if not (isinstance(accel_raw, tuple) and len(accel_raw) == 3 and
-                   isinstance(linear_accel, tuple) and len(linear_accel) == 3 and
-                   isinstance(gyro, tuple) and len(gyro) == 3):
-                continue
-            
-            try:
-                # Calculate magnitudes for this sample
-                total_accel_mag = sqrt(sum(x*x for x in accel_raw))
-                linear_accel_mag = sqrt(sum(x*x for x in linear_accel))
-                gyro_mag = sqrt(sum(x*x for x in gyro))
-                
-                # Check if this sample meets free fall criteria
-                meets_criteria = (total_accel_mag < self.free_fall_accel_threshold and
-                                gyro_mag > self.free_fall_min_rotation and
-                                gyro_mag < self.free_fall_max_rotation and
-                                linear_accel_mag < self.free_fall_linear_accel_max)
-                
-                if meets_criteria:
-                    consistent_samples += 1
-                    
-            except (TypeError, ValueError):
-                continue
-        
-        # Require at least 2 out of 3 samples to meet criteria for consistency
-        required_consistent = max(1, self.free_fall_accel_consistency_samples - 1)
-        is_consistent = consistent_samples >= required_consistent
-        
-        if not is_consistent:
-            self.logger.debug(f"Consistency check failed: {consistent_samples}/{self.free_fall_accel_consistency_samples} samples met criteria")
-        
-        return is_consistent
-
     def _reset_free_fall_tracking(self):
         """Reset free fall tracking state."""
         self.free_fall_start_time = None
