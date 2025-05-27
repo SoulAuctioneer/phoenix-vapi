@@ -80,12 +80,19 @@ class BNO085Interface:
     - Sensor calibration procedures
     """
     
-    def __init__(self):
-        """Initialize the BNO085 interface"""
+    def __init__(self, use_software_i2c=False, software_i2c_bus=8):
+        """Initialize the BNO085 interface
+        
+        Args:
+            use_software_i2c: If True, use software I2C instead of hardware I2C
+            software_i2c_bus: Software I2C bus number (requires dtoverlay configuration)
+        """
         self.i2c = None
         self.imu = None
         self._calibration_good = False
         self.logger = logging.getLogger(__name__)
+        self.use_software_i2c = use_software_i2c
+        self.software_i2c_bus = software_i2c_bus
         
         # I2C performance tracking
         self._consecutive_slow_reads = 0
@@ -104,7 +111,20 @@ class BNO085Interface:
             # Initialize I2C and BNO085 - Explicitly set frequency to 400kHz
             # These are blocking calls, run them in a separate thread
             def _init_i2c_and_imu():
-                i2c = busio.I2C(board.SCL, board.SDA)
+                if self.use_software_i2c:
+                    # Use software I2C for better reliability (requires dtoverlay configuration)
+                    self.logger.info(f"Using software I2C bus {self.software_i2c_bus}")
+                    try:
+                        from adafruit_extended_bus import ExtendedI2C as I2C
+                        i2c = I2C(self.software_i2c_bus)
+                    except ImportError:
+                        self.logger.error("adafruit_extended_bus not available, falling back to hardware I2C")
+                        i2c = busio.I2C(board.SCL, board.SDA)
+                else:
+                    # Use hardware I2C
+                    self.logger.info("Using hardware I2C")
+                    i2c = busio.I2C(board.SCL, board.SDA)
+                
                 imu = BNO08X_I2C(i2c)
                 return i2c, imu
             

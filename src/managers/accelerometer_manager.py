@@ -192,17 +192,18 @@ class AccelerometerManager:
         # Skip expensive calculations for performance optimization
         # Only calculate rotation speed (needed for state detection)
         rot_speed = 0.0
-        if "game_rotation" in data and isinstance(data["game_rotation"], tuple) and len(data["game_rotation"]) == 4:
-            current_quat = data["game_rotation"]
-            now_ts = current_time
-            # Compute rotational speed if we have a previous quaternion
-            if self._prev_game_quat is not None and now_ts > self._prev_quat_ts:
-                dt = now_ts - self._prev_quat_ts
-                if dt > 0:
-                    rot_speed = self._rotation_speed_from_quats(self._prev_game_quat, current_quat, dt)
-            # Cache for next iteration regardless
-            self._prev_game_quat = current_quat
-            self._prev_quat_ts = now_ts
+        # DISABLED: Quaternion rotation speed calculation causes false motion detection due to numerical noise
+        # if "game_rotation" in data and isinstance(data["game_rotation"], tuple) and len(data["game_rotation"]) == 4:
+        #     current_quat = data["game_rotation"]
+        #     now_ts = current_time
+        #     # Compute rotational speed if we have a previous quaternion
+        #     if self._prev_game_quat is not None and now_ts > self._prev_quat_ts:
+        #         dt = now_ts - self._prev_quat_ts
+        #         if dt > 0:
+        #             rot_speed = self._rotation_speed_from_quats(self._prev_game_quat, current_quat, dt)
+        #     # Cache for next iteration regardless
+        #     self._prev_game_quat = current_quat
+        #     self._prev_quat_ts = now_ts
         data["rot_speed"] = rot_speed
 
         # Skip heading and energy calculations for performance
