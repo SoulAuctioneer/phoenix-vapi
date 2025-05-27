@@ -579,8 +579,8 @@ class AccelerometerManager:
 
     def _check_shake(self) -> bool:
         """
-        Check if a shake state is detected using simplified criteria.
-        Focuses on average magnitude and acceleration direction reversals over recent history.
+        Check if a shake state is detected using enhanced criteria.
+        Focuses on peak magnitude, average magnitude, and acceleration direction reversals over recent history.
 
         Returns:
             bool: True if shake state detected
@@ -627,8 +627,61 @@ class AccelerometerManager:
         if avg_accel_magnitude < self.min_magnitude_for_shake:
             return False
 
-        # --- Passed Checks ---
+        # === Acceleration Reversal Check ===
+        # Count significant changes in acceleration direction (back-and-forth motion)
+        reversal_count = self._count_acceleration_reversals(accel_magnitudes)
+        
+        # Require minimum number of reversals for shake detection
+        if reversal_count < self.min_accel_reversals_for_shake:
+            return False
+
+        # --- Passed All Checks ---
         return True
+
+    def _count_acceleration_reversals(self, accel_magnitudes: List[float]) -> int:
+        """
+        Count significant acceleration reversals (direction changes) in the magnitude sequence.
+        
+        A reversal is detected when the acceleration changes from increasing to decreasing
+        or vice versa, with sufficient magnitude change to avoid counting noise.
+        
+        Args:
+            accel_magnitudes: List of acceleration magnitudes over time
+            
+        Returns:
+            int: Number of significant acceleration reversals detected
+        """
+        if len(accel_magnitudes) < 3:
+            return 0
+        
+        # Minimum change required to count as a significant reversal (m/s²)
+        min_reversal_magnitude = 1.0  # Adjust this threshold as needed
+        
+        reversals = 0
+        trend = None  # 'up', 'down', or None
+        last_extreme = accel_magnitudes[0]  # Track local maxima/minima
+        
+        for i in range(1, len(accel_magnitudes)):
+            current = accel_magnitudes[i]
+            
+            # Determine current trend
+            if current > last_extreme + min_reversal_magnitude:
+                # Significant increase
+                if trend == 'down':
+                    # We were going down, now going up - that's a reversal
+                    reversals += 1
+                trend = 'up'
+                last_extreme = current
+                
+            elif current < last_extreme - min_reversal_magnitude:
+                # Significant decrease
+                if trend == 'up':
+                    # We were going up, now going down - that's a reversal
+                    reversals += 1
+                trend = 'down'
+                last_extreme = current
+        
+        return reversals
 
     # Removed _sensor_reports_shake since BNO shake sensor is disabled for performance
 
