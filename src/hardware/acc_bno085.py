@@ -87,6 +87,11 @@ class BNO085Interface:
         self._calibration_good = False
         self.logger = logging.getLogger(__name__)
         
+        # I2C performance tracking
+        self._consecutive_slow_reads = 0
+        self._total_reads = 0
+        self._slow_read_threshold = 100  # ms
+        
     async def initialize(self) -> bool:
         """
         Initialize the BNO085 sensor connection.
@@ -142,13 +147,13 @@ class BNO085Interface:
         async def _enable_feature_wrapper(feature_id, interval_us):
             await self._enable_feature_with_interval(feature_id, interval_us)
 
-        # Essential motion vectors for free fall detection - Optimized frequency
-        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 5000)        # 5ms (200Hz) - Primary for free fall
-        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 5000)  # 5ms (200Hz) - Secondary for free fall
-        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 5000)            # 5ms (200Hz) - Essential for tumbling detection
+        # Essential motion vectors for free fall detection - Reduced frequency to prevent I2C overload
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 20000)        # 20ms (50Hz) - Reduced from 200Hz
+        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 20000)  # 20ms (50Hz) - Reduced from 200Hz
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 20000)            # 20ms (50Hz) - Reduced from 200Hz
         
         # Rotation data - Lower frequency to reduce I2C load
-        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 10000)  # 10ms (100Hz)
+        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 50000)  # 50ms (20Hz) - Reduced from 100Hz
         
         # Classification Reports - Very low frequency (optional)
         await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 100000) # 100ms (10Hz)
@@ -336,12 +341,26 @@ class BNO085Interface:
             read_end = time.perf_counter()
             total_read_time = (read_end - read_start) * 1000
             
+            # Track I2C performance
+            self._total_reads += 1
+            if total_read_time > self._slow_read_threshold:
+                self._consecutive_slow_reads += 1
+            else:
+                self._consecutive_slow_reads = 0
+            
             # Log timing details if read is slow (>50ms)
             if total_read_time > 50:
                 # Find the slowest sensor
                 slowest_sensor = max(individual_timings.items(), key=lambda x: x[1]) if individual_timings else ("unknown", 0)
                 sensor_details = ", ".join([f"{k.replace('_ms', '')}={v:.1f}" for k, v in individual_timings.items()])
-                self.logger.warning(f"Slow sensor read: Total={total_read_time:.1f}ms, Batch={batch_read_time:.1f}ms, Thread={thread_overhead_time:.1f}ms, Extract={extract_time:.1f}ms, Slowest={slowest_sensor[0]}={slowest_sensor[1]:.1f}ms, All=[{sensor_details}]")
+                
+                # Add I2C health info
+                i2c_health = f"ConsecutiveSlow={self._consecutive_slow_reads}, TotalReads={self._total_reads}"
+                self.logger.warning(f"Slow sensor read: Total={total_read_time:.1f}ms, Batch={batch_read_time:.1f}ms, Thread={thread_overhead_time:.1f}ms, Extract={extract_time:.1f}ms, Slowest={slowest_sensor[0]}={slowest_sensor[1]:.1f}ms, I2C=[{i2c_health}], All=[{sensor_details}]")
+                
+                # Alert if we have many consecutive slow reads (possible I2C bus issue)
+                if self._consecutive_slow_reads >= 5:
+                    self.logger.error(f"I2C BUS ISSUE DETECTED: {self._consecutive_slow_reads} consecutive slow reads, consider reducing sensor frequencies or checking I2C bus health")
             
             result = {
                 # Motion Vectors
