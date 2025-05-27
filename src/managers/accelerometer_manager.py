@@ -109,7 +109,7 @@ class AccelerometerManager:
         # Free Fall / Impact - Multi-sensor approach with stricter criteria
         # Free fall detection using sensor fusion for accuracy
         self.free_fall_accel_threshold = 6.0     # m/s^2 - Increased from 4.0 to accommodate real throws
-        self.free_fall_min_rotation = 2.5       # rad/s - Higher rotation requirement (was 1.0)
+        self.free_fall_min_rotation = 2.0       # rad/s - Reduced from 2.5 to catch gentler throws
         self.free_fall_max_rotation = 15.0      # rad/s - Upper limit to exclude violent shaking
         self.free_fall_min_duration = 0.05      # seconds - Longer minimum duration (was 0.02)
         self.free_fall_max_duration = 5.0       # seconds - Max reasonable free fall duration
@@ -697,7 +697,7 @@ class AccelerometerManager:
         
         Real free fall characteristics (updated criteria):
         1. Very low total acceleration (< 6.0 m/s²) - true weightlessness
-        2. Significant rotational motion (2.5-15 rad/s) - objects tumble during free fall
+        2. Significant rotational motion (2.0-15 rad/s) - objects tumble during free fall
         3. Low linear acceleration (< 4.0 m/s²) - minimal forces other than gravity
         4. Consistent readings over multiple samples - not just momentary dips
         5. Sustained for minimum duration (50ms) - rules out brief sensor noise
@@ -746,7 +746,7 @@ class AccelerometerManager:
         # STRICT CRITERIA: All must be met simultaneously
         is_very_low_accel = total_accel_mag < self.free_fall_accel_threshold  # < 6.0 m/s²
         has_significant_rotation = (gyro_mag > self.free_fall_min_rotation and 
-                                   gyro_mag < self.free_fall_max_rotation)  # 2.5-15 rad/s
+                                   gyro_mag < self.free_fall_max_rotation)  # 2.0-15 rad/s
         has_low_linear_accel = linear_accel_mag < self.free_fall_linear_accel_max  # < 4.0 m/s²
         
         # All criteria must be met for a free fall candidate
