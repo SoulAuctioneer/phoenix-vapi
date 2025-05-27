@@ -579,7 +579,7 @@ class AccelerometerManager:
         if new_state != self.current_state:
             self.state_change_time = timestamp
             if new_state != SimplifiedState.UNKNOWN:  # Only log meaningful state changes
-                self.logger.debug(f"State change: {self.current_state.name} → {new_state.name}")
+                self.logger.info(f"State change: {self.current_state.name} → {new_state.name}")
         self.current_state = new_state
 
     def _check_shake(self) -> bool:
