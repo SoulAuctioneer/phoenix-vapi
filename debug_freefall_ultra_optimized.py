@@ -147,15 +147,15 @@ async def debug_freefall_ultra_optimized():
                     print(f"               [{sample_count:4d}]    {ms_since_last:5.1f}ms | {current_state:10s} |     {raw_accel_mag:5.1f} |        {linear_accel_mag:5.2f} |       {gyro_mag:5.2f} |     {avg_read:4.1f} |     {avg_calc:4.1f} |      {avg_total:4.1f} | {alert}")
                     
                     # Show detailed timing breakdown for optimized version
-                    if '_timing' in data:
-                        timing = data['_timing']
-                        print(f"                      OPTIMIZED TIMING: Batch={timing.get('batch_read_ms', 0):.1f}ms, Thread={timing.get('thread_overhead_ms', 0):.1f}ms, Extract={timing.get('extract_ms', 0):.1f}ms")
+                    # if '_timing' in data:
+                    #     timing = data['_timing']
+                    #     print(f"                      OPTIMIZED TIMING: Batch={timing.get('batch_read_ms', 0):.1f}ms, Thread={timing.get('thread_overhead_ms', 0):.1f}ms, Extract={timing.get('extract_ms', 0):.1f}ms")
                         
-                        # Show individual sensor timings if available
-                        individual = timing.get('individual_sensors', {})
-                        if individual:
-                            sensor_times = ", ".join([f"{k.replace('_ms', '')}={v:.1f}" for k, v in individual.items()])
-                            print(f"                      SENSOR TIMINGS (3 only): {sensor_times}")
+                    #     # Show individual sensor timings if available
+                    #     individual = timing.get('individual_sensors', {})
+                    #     if individual:
+                    #         sensor_times = ", ".join([f"{k.replace('_ms', '')}={v:.1f}" for k, v in individual.items()])
+                    #         print(f"                      SENSOR TIMINGS (3 only): {sensor_times}")
                     
                     # Show state diagnostics for oscillating states (when device should be stationary)
                     if current_state != last_state and linear_accel_mag < 0.1 and gyro_mag < 0.1:
