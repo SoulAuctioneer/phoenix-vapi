@@ -340,13 +340,13 @@ class BatteryConfig:
     """Configuration for battery monitoring service"""
     
     # Monitoring intervals (in seconds)
-    NORMAL_CHECK_INTERVAL = 60.0  # Check battery status every minute normally
-    LOW_BATTERY_CHECK_INTERVAL = 30.0  # Check more frequently when battery is low
-    CHARGING_CHECK_INTERVAL = 10.0  # Check more frequently while charging
+    NORMAL_CHECK_INTERVAL = 60.0  # Check battery normally
+    LOW_BATTERY_CHECK_INTERVAL = 60.0  # Check when battery is low
+    CHARGING_CHECK_INTERVAL = 60.0  # Check while charging
     
     # Battery thresholds
     VOLTAGE_ALERT_MIN = 3.5  # Low voltage alert threshold (V)
-    VOLTAGE_ALERT_MAX = 4.1  # High voltage alert threshold (V)
+    VOLTAGE_ALERT_MAX = 4.2  # High voltage alert threshold (V)
     LOW_BATTERY_THRESHOLD = 20.0  # Low battery warning threshold (%)
     CRITICAL_BATTERY_THRESHOLD = 10.0  # Critical battery warning threshold (%)
     
@@ -373,7 +373,7 @@ class BatteryConfig:
 class AccelerometerConfig:
     """Configuration for accelerometer service"""
     # Print debug data to console
-    PRINT_DEBUG_DATA = False
+    PRINT_DEBUG_DATA = True
     # Service event publishing interval in seconds (i.e. 5 milliseconds) NOTE: Not the same as the sampling rate, which is hardcoded in the BNO085 interface
     UPDATE_INTERVAL = 0.005
 

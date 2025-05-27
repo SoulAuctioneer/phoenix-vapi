@@ -172,7 +172,7 @@ class LEDManager:
             self._current_speed = effect_speed
             self._current_relative_brightness = brightness # Store new relative brightness
             self._apply_brightness() # Apply combined brightness
-            logging.info(f"Updated {effect} parameters: speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
+            logging.debug(f"Updated {effect} parameters: speed={effect_speed}, relative_brightness={brightness}, effective_brightness={self.pixels.brightness:.2f}")
             
             # Handle duration-based revert for parameter updates
             if duration is not None:
