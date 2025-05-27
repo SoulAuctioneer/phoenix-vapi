@@ -253,24 +253,64 @@ class BNO085Interface:
         try:
             if not self.imu:
                 return {}
+            
+            import time
+            read_start = time.perf_counter()
                 
             # Batch read all sensor values in a single thread operation to minimize I2C overhead
             def _batch_read_sensors():
+                batch_start = time.perf_counter()
+                
                 # Read only enabled sensors in one thread operation to reduce context switching
-                return {
-                    'acceleration': self.imu.acceleration,
-                    'gyro': self.imu.gyro,
-                    'linear_acceleration': self.imu.linear_acceleration,
-                    'game_quaternion': self.imu.game_quaternion,
-                    'stability_classification': self.imu.stability_classification,
-                    'shake': self.imu.shake,
-                    'calibration_status': self.imu.calibration_status
-                }
+                result = {}
+                timings = {}
+                
+                # Time each sensor read individually
+                sensor_start = time.perf_counter()
+                result['acceleration'] = self.imu.acceleration
+                timings['acceleration_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['gyro'] = self.imu.gyro
+                timings['gyro_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['linear_acceleration'] = self.imu.linear_acceleration
+                timings['linear_acceleration_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['game_quaternion'] = self.imu.game_quaternion
+                timings['game_quaternion_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['stability_classification'] = self.imu.stability_classification
+                timings['stability_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['shake'] = self.imu.shake
+                timings['shake_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['calibration_status'] = self.imu.calibration_status
+                timings['calibration_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                batch_end = time.perf_counter()
+                result['_batch_read_time_ms'] = (batch_end - batch_start) * 1000
+                result['_individual_timings'] = timings
+                return result
             
             # Single batch read instead of multiple individual reads
+            thread_start = time.perf_counter()
             sensor_data = await asyncio.to_thread(_batch_read_sensors)
+            thread_end = time.perf_counter()
+            
+            # Extract timing info
+            batch_read_time = sensor_data.pop('_batch_read_time_ms', 0)
+            individual_timings = sensor_data.pop('_individual_timings', {})
+            thread_overhead_time = (thread_end - thread_start) * 1000 - batch_read_time
             
             # Extract values from batch read
+            extract_start = time.perf_counter()
             accel_x, accel_y, accel_z = sensor_data['acceleration']
             gyro_x, gyro_y, gyro_z = sensor_data['gyro']
             lin_accel_x, lin_accel_y, lin_accel_z = sensor_data['linear_acceleration']
@@ -290,7 +330,20 @@ class BNO085Interface:
             calibration_status = sensor_data['calibration_status']
             calibration_status_text = f"{REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})"
             
-            return {
+            extract_end = time.perf_counter()
+            extract_time = (extract_end - extract_start) * 1000
+            
+            read_end = time.perf_counter()
+            total_read_time = (read_end - read_start) * 1000
+            
+            # Log timing details if read is slow (>50ms)
+            if total_read_time > 50:
+                # Find the slowest sensor
+                slowest_sensor = max(individual_timings.items(), key=lambda x: x[1]) if individual_timings else ("unknown", 0)
+                sensor_details = ", ".join([f"{k.replace('_ms', '')}={v:.1f}" for k, v in individual_timings.items()])
+                self.logger.warning(f"Slow sensor read: Total={total_read_time:.1f}ms, Batch={batch_read_time:.1f}ms, Thread={thread_overhead_time:.1f}ms, Extract={extract_time:.1f}ms, Slowest={slowest_sensor[0]}={slowest_sensor[1]:.1f}ms, All=[{sensor_details}]")
+            
+            result = {
                 # Motion Vectors
                 "acceleration": (accel_x, accel_y, accel_z),
                 "linear_acceleration": (lin_accel_x, lin_accel_y, lin_accel_z),
@@ -310,8 +363,19 @@ class BNO085Interface:
                 
                 # System Information
                 "calibration_status": calibration_status,
-                "calibration_status_text": calibration_status_text
+                "calibration_status_text": calibration_status_text,
+                
+                # Timing diagnostics
+                "_timing": {
+                    "total_read_ms": total_read_time,
+                    "batch_read_ms": batch_read_time,
+                    "thread_overhead_ms": thread_overhead_time,
+                    "extract_ms": extract_time,
+                    "individual_sensors": individual_timings
+                }
             }
+            
+            return result
         except Exception as e:
             self.logger.error(f"Error reading sensor data: {e}", exc_info=True)
             return {}
