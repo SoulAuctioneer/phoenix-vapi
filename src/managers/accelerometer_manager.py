@@ -815,8 +815,8 @@ class AccelerometerManager:
             self.logger.debug(f"Frequency validation: insufficient data ({len(accel_vectors)} < 10)")
             return False
         
-        # Calculate time span (assuming ~200Hz sampling rate)
-        sampling_rate = 200.0  # Hz - approximate sensor sampling rate
+        # Calculate time span (corrected sampling rate: ~50Hz based on 20ms intervals)
+        sampling_rate = 50.0  # Hz - actual sensor sampling rate (20ms intervals)
         time_span = len(accel_vectors) / sampling_rate  # seconds
         
         self.logger.debug(f"Frequency analysis: {len(accel_vectors)} samples over {time_span:.3f}s at {sampling_rate}Hz")
@@ -868,9 +868,10 @@ class AccelerometerManager:
         
         self.logger.debug(f"Zero crossings: {zero_crossings}, estimated frequency: {estimated_frequency:.2f} Hz")
         
-        # Human shaking is typically 3-8 Hz, but allow some margin
-        min_shake_freq = 2.0  # Hz
-        max_shake_freq = 12.0  # Hz
+        # Human shaking is typically 2-10 Hz, but be more lenient for 50Hz sampling
+        # At 50Hz with 30 samples (0.6s window), we expect 1.2-6 complete cycles for 2-10Hz shaking
+        min_shake_freq = 1.5  # Hz - more lenient lower bound
+        max_shake_freq = 15.0  # Hz - more lenient upper bound for rapid shaking
         
         is_valid_frequency = min_shake_freq <= estimated_frequency <= max_shake_freq
         
