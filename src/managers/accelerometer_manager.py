@@ -142,7 +142,7 @@ class AccelerometerManager:
         
         # State stability tracking to prevent rapid oscillation
         self.state_change_time = 0.0              # When the last state change occurred
-        self.min_state_duration = 0.2             # Minimum time to stay in a state (200ms)
+        self.min_state_duration = 0.5             # Minimum time to stay in a state (500ms)
 
         # --- Quaternion / Rotation Tracking ---
         # Cache the previous Game Rotation quaternion to compute rotational speed
@@ -151,14 +151,14 @@ class AccelerometerManager:
 
         # Improved thresholds with hysteresis for stable state detection
         # STATIONARY: Device completely still (on table, etc.) - Very generous thresholds based on real data
-        self.stationary_linear_accel_max = 1.0    # m/s^2 - Very generous for sensor noise
-        self.stationary_gyro_max = 0.20           # rad/s - Much higher than observed 0.00-0.07
-        self.stationary_rot_speed_max = 0.20      # rad/s - Much higher than observed
+        self.stationary_linear_accel_max = 0.25   # m/s^2 - Generous but tighter than observed max 0.19
+        self.stationary_gyro_max = 0.10           # rad/s - Higher than observed 0.00-0.03
+        self.stationary_rot_speed_max = 0.10      # rad/s - Higher than observed
         
         # HELD_STILL: Device held by hand with slight tremor
-        self.held_still_linear_accel_max = 2.0    # m/s^2 - Very generous for hand tremor
-        self.held_still_gyro_max = 0.50           # rad/s - Allow for hand movements
-        self.held_still_rot_speed_max = 0.50      # rad/s - Allow for hand movements
+        self.held_still_linear_accel_max = 0.8    # m/s^2 - Moderate for hand tremor
+        self.held_still_gyro_max = 0.25           # rad/s - Allow for small hand movements
+        self.held_still_rot_speed_max = 0.25      # rad/s - Allow for small hand movements
         
         # Hysteresis: Once in a stable state, require higher thresholds to exit
         self.hysteresis_factor = 3.0               # Very strong hysteresis to prevent oscillation
