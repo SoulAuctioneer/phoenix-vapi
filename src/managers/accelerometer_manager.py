@@ -1117,47 +1117,80 @@ class AccelerometerManager:
         Free fall: Rapid drop from high acceleration (throw) to low acceleration (weightless)
         Circular motion: Gradual decrease in acceleration as motion slows down
         
+        Enhanced for free fall: Once a rapid drop is detected, it remains valid for a grace period
+        to support sustained free fall detection even after the initial drop.
+        
         Args:
             total_accel_mag: Current total acceleration magnitude (m/s²)
             
         Returns:
-            bool: True if rapid acceleration drop is detected
+            bool: True if rapid acceleration drop is detected or recently detected
         """
         if len(self.motion_history) < 8:  # Need enough history to detect rapid change
             return False
         
-        # Look back through recent history to find peak acceleration
-        recent_samples = 8  # Look back ~160ms at 50Hz (8 samples × 20ms)
-        recent_history = list(self.motion_history)[-recent_samples:]
+        # Look back through longer history to find peak acceleration for free fall
+        # Use longer window for free fall detection (20 samples = ~400ms at 50Hz)
+        extended_samples = min(20, len(self.motion_history))  # Look back up to 400ms
+        extended_history = list(self.motion_history)[-extended_samples:]
         
-        # Extract acceleration magnitudes from recent history
+        # Extract acceleration magnitudes from extended history
         accel_magnitudes = []
-        for sample in recent_history:
+        timestamps = []
+        for sample in extended_history:
             accel_raw = sample.get("acceleration", None)
+            timestamp = sample.get("timestamp", 0)
             if isinstance(accel_raw, tuple) and len(accel_raw) == 3:
                 try:
                     accel_mag = sqrt(sum(x*x for x in accel_raw))
                     accel_magnitudes.append(accel_mag)
+                    timestamps.append(timestamp)
                 except (TypeError, ValueError):
                     continue
         
         if len(accel_magnitudes) < 5:
             return False
         
-        # Find the maximum acceleration in recent history
-        max_recent_accel = max(accel_magnitudes)
+        # Find the maximum acceleration in extended history
+        max_extended_accel = max(accel_magnitudes)
+        max_index = accel_magnitudes.index(max_extended_accel)
         
-        # Check for rapid drop: must have dropped significantly from recent peak
+        # Check for rapid drop: must have dropped significantly from peak
         min_drop_threshold = 8.0  # m/s² - minimum drop to consider "rapid"
-        accel_drop = max_recent_accel - total_accel_mag
+        accel_drop = max_extended_accel - total_accel_mag
         
         # Also check that the peak was high enough (indicating a throw)
         min_peak_threshold = 12.0  # m/s² - minimum peak to indicate throwing motion
         
         has_significant_drop = accel_drop >= min_drop_threshold
-        had_high_peak = max_recent_accel >= min_peak_threshold
+        had_high_peak = max_extended_accel >= min_peak_threshold
         
-        self.logger.debug(f"Rapid drop check: peak={max_recent_accel:.1f}, current={total_accel_mag:.1f}, "
+        # Enhanced logic: Check if we're within a reasonable time window after the peak
+        # This allows sustained free fall detection even after the initial rapid drop
+        current_time = time.time()
+        if timestamps and max_index < len(timestamps):
+            peak_time = timestamps[max_index]
+            time_since_peak = current_time - peak_time
+            
+            # Allow rapid drop to remain "active" for up to 2 seconds after the peak
+            # This supports sustained free fall detection
+            within_grace_period = time_since_peak <= 2.0
+            
+            # Also check that we're currently in a low-acceleration state
+            # (to avoid false positives during normal motion)
+            currently_low_accel = total_accel_mag < 6.0  # Same as free fall threshold
+            
+            # Rapid drop is valid if:
+            # 1. Traditional criteria are met, OR
+            # 2. We had a significant drop recently and are still in low-accel state
+            rapid_drop_valid = (has_significant_drop and had_high_peak) or \
+                              (within_grace_period and had_high_peak and currently_low_accel and 
+                               max_extended_accel - min(accel_magnitudes[-5:]) >= min_drop_threshold)
+        else:
+            # Fallback to traditional logic if timestamp data is unavailable
+            rapid_drop_valid = has_significant_drop and had_high_peak
+        
+        self.logger.debug(f"Rapid drop check: peak={max_extended_accel:.1f}, current={total_accel_mag:.1f}, "
                          f"drop={accel_drop:.1f}(>={min_drop_threshold}), peak_high={had_high_peak}")
         
-        return has_significant_drop and had_high_peak
+        return rapid_drop_valid
