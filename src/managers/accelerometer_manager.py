@@ -142,7 +142,7 @@ class AccelerometerManager:
         
         # State stability tracking to prevent rapid oscillation
         self.state_change_time = 0.0              # When the last state change occurred
-        self.min_state_duration = 0.5             # Minimum time to stay in a state (500ms)
+        self.min_state_duration = 1.0             # Minimum time to stay in a state (1000ms) - increased from 500ms
 
         # --- Quaternion / Rotation Tracking ---
         # Cache the previous Game Rotation quaternion to compute rotational speed
@@ -150,20 +150,21 @@ class AccelerometerManager:
         self._prev_quat_ts: float = 0.0
 
         # Improved thresholds with hysteresis for stable state detection
-        # Based on real-world testing data showing hand-held values of 0.23-0.82 m/s²
+        # Based on real-world testing showing oscillation between 0.05-0.47 m/s² when "holding steady"
+        # Need much larger separation between STATIONARY and HELD_STILL to prevent oscillation
         
-        # STATIONARY: Device completely still (on table, etc.) - More restrictive based on observed data
-        self.stationary_linear_accel_max = 0.15   # m/s² - More restrictive than observed 0.23-0.82 range
-        self.stationary_gyro_max = 0.08           # rad/s - Slightly more restrictive
-        self.stationary_rot_speed_max = 0.08      # rad/s - Slightly more restrictive
+        # STATIONARY: Device completely still (on table, etc.) - Very restrictive for true stillness
+        self.stationary_linear_accel_max = 0.06   # m/s² - Much more restrictive (observed min: 0.05)
+        self.stationary_gyro_max = 0.04           # rad/s - More restrictive (observed: 0.015-0.060)
+        self.stationary_rot_speed_max = 0.04      # rad/s - More restrictive
         
-        # HELD_STILL: Device held by hand with slight tremor - Adjusted based on observed data
-        self.held_still_linear_accel_max = 1.0    # m/s² - Increased to accommodate observed 0.82 m/s² values
-        self.held_still_gyro_max = 0.35           # rad/s - Increased to allow for more hand movement
-        self.held_still_rot_speed_max = 0.35      # rad/s - Increased to allow for more hand movement
+        # HELD_STILL: Device held by hand - Much more permissive with large gap
+        self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above observed 0.47 max
+        self.held_still_gyro_max = 0.50           # rad/s - More permissive for hand tremor
+        self.held_still_rot_speed_max = 0.50      # rad/s - More permissive for hand tremor
         
-        # Hysteresis: Strong hysteresis to prevent oscillation, but with improved logic
-        self.hysteresis_factor = 2.5               # Reduced from 3.0 for more responsive transitions
+        # Hysteresis: Strong hysteresis to create large separation zones
+        self.hysteresis_factor = 4.0               # Increased for stronger separation
 
     async def initialize(self) -> bool:
         """
@@ -413,10 +414,17 @@ class AccelerometerManager:
             self._update_state_tracking(candidate_state, timestamp)
             return candidate_state
         
-        # For stable states, require minimum time since last change
+        # Special handling for STATIONARY ↔ HELD_STILL oscillation prevention
+        # Require longer duration for these specific transitions
         time_since_last_change = timestamp - self.state_change_time
+        required_duration = self.min_state_duration
         
-        if time_since_last_change >= self.min_state_duration:
+        # If transitioning between STATIONARY and HELD_STILL, require 2x longer duration
+        if ((self.current_state == SimplifiedState.STATIONARY and candidate_state == SimplifiedState.HELD_STILL) or
+            (self.current_state == SimplifiedState.HELD_STILL and candidate_state == SimplifiedState.STATIONARY)):
+            required_duration = self.min_state_duration * 2.0  # 2 seconds for these transitions
+        
+        if time_since_last_change >= required_duration:
             self._update_state_tracking(candidate_state, timestamp)
             return candidate_state
         
