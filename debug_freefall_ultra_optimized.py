@@ -156,7 +156,7 @@ async def debug_freefall_ultra_optimized():
                         meets_gyro = (gyro_mag > accel_manager.free_fall_min_rotation and 
                                      gyro_mag < accel_manager.free_fall_max_rotation)
                         meets_linear = linear_accel_mag < accel_manager.free_fall_linear_accel_max
-                        alert = f"NOT FREE_FALL: Accel={meets_accel}, Gyro={meets_gyro}, Linear={meets_linear}"
+                        # alert = f"NOT FREE_FALL: Accel={meets_accel}, Gyro={meets_gyro}, Linear={meets_linear}"
                     
                     # Calculate average timings
                     avg_read = sum(read_times) / len(read_times) if read_times else 0

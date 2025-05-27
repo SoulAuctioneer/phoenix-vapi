@@ -412,7 +412,7 @@ class AccelerometerManager:
                 time_since_start = current_time - self.stationary_candidate_start
                 # Only reset if we've been trying for more than 0.5 seconds and still failing
                 if time_since_start > 0.5:
-                    self.logger.debug(f"STATIONARY candidate reset after {time_since_start:.1f}s of failing basic criteria")
+                    # self.logger.debug(f"STATIONARY candidate reset after {time_since_start:.1f}s of failing basic criteria")
                     self.stationary_candidate_start = None
         
         # Check for HELD_STILL (less restrictive)
@@ -469,7 +469,7 @@ class AccelerometerManager:
         # Start tracking if this is the first qualifying sample
         if self.stationary_candidate_start is None:
             self.stationary_candidate_start = current_time
-            self.logger.debug(f"STATIONARY candidate started: linear={linear_accel_mag:.3f}, gyro={gyro_mag:.3f}")
+            # self.logger.debug(f"STATIONARY candidate started: linear={linear_accel_mag:.3f}, gyro={gyro_mag:.3f}")
             return False  # Don't declare stationary immediately
         
         # Check if we have enough readings for variance analysis
