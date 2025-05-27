@@ -123,7 +123,6 @@ async def debug_freefall_ultra_optimized():
                 # Only print on state changes or every 50 samples or alerts
                 should_print = (
                     current_state != last_state or 
-                    sample_count % 50 == 0 or
                     current_state == "FREE_FALL" or
                     sample_count % 200 == 0  # Performance summary every 200 samples
                 )
