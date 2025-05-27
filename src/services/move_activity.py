@@ -92,6 +92,7 @@ class MoveActivity(BaseService):
             # Extract data from accelerometer event
             data = event.get("data", {})
             current_state_name = data.get("current_state", SimplifiedState.UNKNOWN.name)
+            self.logger.debug(f"Current state: {current_state_name}")
             energy = data.get("energy", 0.0) # Get energy level (0-1)
 
             # Convert state name back to enum member
