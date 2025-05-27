@@ -12,6 +12,7 @@ import asyncio
 import sys
 import os
 import logging
+import time
 
 # Add the src directory to the path so we can import our modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -43,12 +44,15 @@ async def debug_freefall():
         
         # Monitor loop
         sample_count = 0
+        last_logged_timer = time.monotonic()
         while True:
             try:
                 # Read sensor data
                 data = await accel_manager.read_sensor_data()
                 sample_count += 1
-                
+                ms_since_last_sample = (time.monotonic() - last_logged_timer) * 1000
+                last_logged_timer = time.monotonic()
+
                 # Extract key values
                 raw_accel = data.get("acceleration", (0, 0, 0))
                 linear_accel = data.get("linear_acceleration", (0, 0, 0))
@@ -62,16 +66,8 @@ async def debug_freefall():
                 # Check if we're in free fall according to our threshold
                 is_freefall_by_threshold = raw_accel_mag < accel_manager.free_fall_threshold
                 
-                # Print status every 50 samples (about 4 times per second at 200Hz)
-                if sample_count % 50 == 0:
-                    print(f"\n--- Sample {sample_count} ---")
-                    print(f"Raw Accel: ({raw_accel[0]:.3f}, {raw_accel[1]:.3f}, {raw_accel[2]:.3f}) m/s²")
-                    print(f"Raw Accel Magnitude: {raw_accel_mag:.3f} m/s²")
-                    print(f"Linear Accel Magnitude: {linear_accel_mag:.3f} m/s²")
-                    print(f"Free Fall Threshold: {accel_manager.free_fall_threshold:.3f} m/s²")
-                    print(f"Below Threshold: {is_freefall_by_threshold}")
-                    print(f"Detected State: {current_state}")
-                    print(f"Stability: {stability}")
+                # Print status every sample
+                print(f"\nTime since last sample: {ms_since_last_sample:.2f}ms, Sample: {sample_count}, Raw Accel: ({raw_accel[0]:.3f}, {raw_accel[1]:.3f}, {raw_accel[2]:.3f}) m/s² | Raw Accel Magnitude: {raw_accel_mag:.3f} m/s² | Linear Accel Magnitude: {linear_accel_mag:.3f} m/s² | Free Fall Threshold: {accel_manager.free_fall_threshold:.3f} m/s² | Below Threshold: {is_freefall_by_threshold} | Detected State: {current_state} | Stability: {stability}")
                 
                 # Alert on state changes or free fall conditions
                 if current_state == "FREE_FALL":
