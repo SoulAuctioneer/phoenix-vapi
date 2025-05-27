@@ -150,18 +150,18 @@ class AccelerometerManager:
         self._prev_quat_ts: float = 0.0
 
         # Improved thresholds with hysteresis for stable state detection
-        # STATIONARY: Device completely still (on table, etc.) - More generous thresholds
-        self.stationary_linear_accel_max = 0.5    # m/s^2 - Allow for sensor noise
-        self.stationary_gyro_max = 0.08           # rad/s - Very low rotation (tighter than observed 0.02-0.06)
-        self.stationary_rot_speed_max = 0.08      # rad/s - Very low quaternion rotation
+        # STATIONARY: Device completely still (on table, etc.) - Very generous thresholds based on real data
+        self.stationary_linear_accel_max = 1.0    # m/s^2 - Very generous for sensor noise
+        self.stationary_gyro_max = 0.20           # rad/s - Much higher than observed 0.00-0.07
+        self.stationary_rot_speed_max = 0.20      # rad/s - Much higher than observed
         
         # HELD_STILL: Device held by hand with slight tremor
-        self.held_still_linear_accel_max = 1.2    # m/s^2 - More generous for hand tremor
-        self.held_still_gyro_max = 0.15           # rad/s - Allow for small hand movements
-        self.held_still_rot_speed_max = 0.15      # rad/s - Allow for small quaternion rotation
+        self.held_still_linear_accel_max = 2.0    # m/s^2 - Very generous for hand tremor
+        self.held_still_gyro_max = 0.50           # rad/s - Allow for hand movements
+        self.held_still_rot_speed_max = 0.50      # rad/s - Allow for hand movements
         
         # Hysteresis: Once in a stable state, require higher thresholds to exit
-        self.hysteresis_factor = 2.0               # Stronger hysteresis to prevent oscillation
+        self.hysteresis_factor = 3.0               # Very strong hysteresis to prevent oscillation
 
     async def initialize(self) -> bool:
         """

@@ -34,9 +34,13 @@ async def debug_freefall_optimized():
             return
         
         print("Accelerometer initialized successfully!")
-        print(f"Thresholds: Accel<{accel_manager.free_fall_accel_threshold:.1f} m/s², Gyro>{accel_manager.free_fall_min_rotation:.1f} rad/s")
+        print(f"Free Fall Thresholds: Accel<{accel_manager.free_fall_accel_threshold:.1f} m/s², Gyro>{accel_manager.free_fall_min_rotation:.1f} rad/s")
+        print(f"State Thresholds:")
+        print(f"  STATIONARY: Linear<{accel_manager.stationary_linear_accel_max:.2f} m/s², Gyro<{accel_manager.stationary_gyro_max:.2f} rad/s")
+        print(f"  HELD_STILL: Linear<{accel_manager.held_still_linear_accel_max:.2f} m/s², Gyro<{accel_manager.held_still_gyro_max:.2f} rad/s")
+        print(f"  Hysteresis Factor: {accel_manager.hysteresis_factor:.1f}x")
         print("Monitoring... (Press Ctrl+C to stop)")
-        print("Output format: [Sample] Time(ms) | State | Accel(m/s²) | Gyro(rad/s) | Alerts")
+        print("Output format: [Sample] Time(ms) | State | Raw(m/s²) | Linear(m/s²) | Gyro(rad/s) | Alerts")
         
         # Monitor loop with minimal processing
         sample_count = 0
@@ -54,11 +58,13 @@ async def debug_freefall_optimized():
 
                 # Extract only essential values
                 raw_accel = data.get("acceleration", (0, 0, 0))
+                linear_accel = data.get("linear_acceleration", (0, 0, 0))
                 gyro = data.get("gyro", (0, 0, 0))
                 current_state = data.get("current_state", "UNKNOWN")
                 
                 # Fast magnitude calculations
                 raw_accel_mag = sqrt(raw_accel[0]**2 + raw_accel[1]**2 + raw_accel[2]**2)
+                linear_accel_mag = sqrt(linear_accel[0]**2 + linear_accel[1]**2 + linear_accel[2]**2)
                 gyro_mag = sqrt(gyro[0]**2 + gyro[1]**2 + gyro[2]**2)
                 
                 # Only print on state changes or every 50 samples or alerts
@@ -75,7 +81,7 @@ async def debug_freefall_optimized():
                     elif current_state != last_state:
                         alert = f"State: {last_state} → {current_state}"
                     
-                    print(f"[{sample_count:4d}] {ms_since_last:5.1f}ms | {current_state:10s} | {raw_accel_mag:5.1f} | {gyro_mag:5.2f} | {alert}")
+                    print(f"[{sample_count:4d}] {ms_since_last:5.1f}ms | {current_state:10s} | {raw_accel_mag:5.1f} | {linear_accel_mag:5.2f} | {gyro_mag:5.2f} | {alert}")
                 
                 last_state = current_state
                 
