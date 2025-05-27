@@ -177,33 +177,33 @@ async def debug_freefall_ultra_optimized():
                     #         print(f"                      SENSOR TIMINGS (3 only): {sensor_times}")
                     
                     # Show state diagnostics for oscillating states (when device should be stationary)
-                    if current_state != last_state and linear_accel_mag < 0.1 and gyro_mag < 0.1:
-                        rot_speed = data.get("rot_speed", 0.0)
-                        print(f"                      STATE DEBUG: Linear={linear_accel_mag:.3f} (thresh: STAT={accel_manager.stationary_linear_accel_max:.3f}, HELD={accel_manager.held_still_linear_accel_max:.2f})")
-                        print(f"                                   Gyro={gyro_mag:.3f} (thresh: STAT={accel_manager.stationary_gyro_max:.3f}, HELD={accel_manager.held_still_gyro_max:.2f})")
-                        print(f"                                   RotSpeed={rot_speed:.3f} (thresh: STAT={accel_manager.stationary_rot_speed_max:.3f}, HELD={accel_manager.held_still_rot_speed_max:.2f})")
-                        print(f"                                   MinStateDuration={accel_manager.min_state_duration:.1f}s, Hysteresis={accel_manager.hysteresis_factor:.1f}x")
+                    # if current_state != last_state and linear_accel_mag < 0.1 and gyro_mag < 0.1:
+                    #     rot_speed = data.get("rot_speed", 0.0)
+                    #     print(f"                      STATE DEBUG: Linear={linear_accel_mag:.3f} (thresh: STAT={accel_manager.stationary_linear_accel_max:.3f}, HELD={accel_manager.held_still_linear_accel_max:.2f})")
+                    #     print(f"                                   Gyro={gyro_mag:.3f} (thresh: STAT={accel_manager.stationary_gyro_max:.3f}, HELD={accel_manager.held_still_gyro_max:.2f})")
+                    #     print(f"                                   RotSpeed={rot_speed:.3f} (thresh: STAT={accel_manager.stationary_rot_speed_max:.3f}, HELD={accel_manager.held_still_rot_speed_max:.2f})")
+                    #     print(f"                                   MinStateDuration={accel_manager.min_state_duration:.1f}s, Hysteresis={accel_manager.hysteresis_factor:.1f}x")
                         
-                        # Show STATIONARY consistency info if available
-                        if hasattr(accel_manager, 'stationary_candidate_readings') and len(accel_manager.stationary_candidate_readings) > 0:
-                            readings_count = len(accel_manager.stationary_candidate_readings)
-                            if readings_count >= 3:
-                                try:
-                                    import statistics
-                                    recent_readings = list(accel_manager.stationary_candidate_readings)[-5:]  # Last 5 readings
-                                    variance = statistics.variance(recent_readings)
-                                    print(f"                                   STATIONARY: {readings_count} readings, variance={variance:.4f} (max={accel_manager.stationary_max_variance:.3f})")
-                                except:
-                                    print(f"                                   STATIONARY: {readings_count} readings (variance calc failed)")
-                            else:
-                                print(f"                                   STATIONARY: {readings_count} readings (need {accel_manager.stationary_consistency_required} for consistency)")
+                    #     # Show STATIONARY consistency info if available
+                    #     if hasattr(accel_manager, 'stationary_candidate_readings') and len(accel_manager.stationary_candidate_readings) > 0:
+                    #         readings_count = len(accel_manager.stationary_candidate_readings)
+                    #         if readings_count >= 3:
+                    #             try:
+                    #                 import statistics
+                    #                 recent_readings = list(accel_manager.stationary_candidate_readings)[-5:]  # Last 5 readings
+                    #                 variance = statistics.variance(recent_readings)
+                    #                 print(f"                                   STATIONARY: {readings_count} readings, variance={variance:.4f} (max={accel_manager.stationary_max_variance:.3f})")
+                    #             except:
+                    #                 print(f"                                   STATIONARY: {readings_count} readings (variance calc failed)")
+                    #         else:
+                    #             print(f"                                   STATIONARY: {readings_count} readings (need {accel_manager.stationary_consistency_required} for consistency)")
                         
-                        # Show candidate start time if tracking
-                        if hasattr(accel_manager, 'stationary_candidate_start') and accel_manager.stationary_candidate_start is not None:
-                            duration = time.time() - accel_manager.stationary_candidate_start
-                            print(f"                                   STATIONARY candidate duration: {duration:.1f}s (need {accel_manager.stationary_min_duration:.1f}s)")
-                        else:
-                            print(f"                                   STATIONARY candidate: Not currently tracking")
+                    #     # Show candidate start time if tracking
+                    #     if hasattr(accel_manager, 'stationary_candidate_start') and accel_manager.stationary_candidate_start is not None:
+                    #         duration = time.time() - accel_manager.stationary_candidate_start
+                    #         print(f"                                   STATIONARY candidate duration: {duration:.1f}s (need {accel_manager.stationary_min_duration:.1f}s)")
+                    #     else:
+                    #         print(f"                                   STATIONARY candidate: Not currently tracking")
                 
                 last_state = current_state
                 
