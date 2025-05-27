@@ -162,12 +162,12 @@ class AccelerometerManager:
         
         # STATIONARY: Device completely still (on table, etc.) - MUCH MORE RESTRICTIVE
         # Real stationary devices should have extremely low and consistent readings
-        self.stationary_linear_accel_max = 0.025  # m/s² - Slightly more lenient (was 0.03)
-        self.stationary_gyro_max = 0.015          # rad/s - Slightly more lenient (was 0.02)
-        self.stationary_rot_speed_max = 0.015     # rad/s - Slightly more lenient (was 0.02)
+        self.stationary_linear_accel_max = 0.05   # m/s² - Accommodate actual sensor readings (was 0.025)
+        self.stationary_gyro_max = 0.02           # rad/s - Accommodate actual sensor readings (was 0.015)
+        self.stationary_rot_speed_max = 0.02      # rad/s - Accommodate actual sensor readings (was 0.015)
         self.stationary_consistency_required = 5  # Require 5 consecutive consistent readings
-        self.stationary_max_variance = 0.00005   # m/s² - Very strict variance for true stationary
-        self.stationary_min_duration = 3.0       # seconds - Longer duration to ensure true stationary
+        self.stationary_max_variance = 0.0005    # m/s² - More realistic variance (10x more lenient)
+        self.stationary_min_duration = 2.0       # seconds - Reasonable duration (was 3.0)
         
         # HELD_STILL: Device held by hand - More permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
