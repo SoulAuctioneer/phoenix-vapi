@@ -282,8 +282,8 @@ class AccelerometerManager:
             # Keep accel_magnitude_linear as 0.0
 
         # --- State Checks (Prioritized) ---
-        # Order: Impact > BNO Stability (Stationary/Held) > Free Fall > Shake > Moving
-        # Moved Free Fall check earlier to prevent false SHAKE trigger during free fall.
+        # Desired order: IMPACT (from FREE_FALL) -> FREE_FALL -> SHAKE -> STATIONARY/HELD_STILL -> MOVING
+        # This ensures SHAKE can be detected from any prior state except FREE_FALL and IMPACT.
 
         # 1. IMPACT: Check for a sudden spike AND if the previous state was FREE_FALL
         previous_state = self.current_state # Store state from *before* this determination
@@ -299,7 +299,23 @@ class AccelerometerManager:
         elif is_potential_impact:
              self.logger.debug(f"Potential impact ignored (not from FREE_FALL): Prev State={previous_state.name}, Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
 
-        # 2. STATIONARY / HELD_STILL (require BOTH BNO stability flag AND locally observed low motion)
+        # 2. FREE_FALL: Check early to avoid mis-classifying SHAKE while airborne.
+        if accel_magnitude_raw < self.free_fall_threshold:
+            if self.current_state != SimplifiedState.FREE_FALL:
+                self.logger.debug(f"FREE_FALL detected: RAW Accel={accel_magnitude_raw:.2f}")
+            self.last_accel_magnitude = accel_magnitude_linear
+            return SimplifiedState.FREE_FALL
+
+        # 3. SHAKE: Either library-provided shake report OR our custom algorithm.
+        # Built-in shake detection (from activity classifier or dedicated shake detector)
+        bno_reports_shake = self._sensor_reports_shake(current_data.get("shake", False))
+        custom_shake = self._check_shake()
+        if bno_reports_shake or custom_shake:
+            self.logger.debug("SHAKE detected (built-in:%s custom:%s)", bno_reports_shake, custom_shake)
+            self.last_accel_magnitude = accel_magnitude_linear
+            return SimplifiedState.SHAKE
+
+        # 4. STATIONARY / HELD_STILL (require BOTH BNO stability flag AND locally observed low motion)
         rot_speed_current = current_data.get("rot_speed", 0.0)
 
         if stability == "On table" and accel_magnitude_linear < self.low_linear_accel_max and rot_speed_current < self.low_rot_speed_max:
@@ -309,22 +325,6 @@ class AccelerometerManager:
         if stability == "Stable" and accel_magnitude_linear < self.low_linear_accel_max and rot_speed_current < self.low_rot_speed_max:
             self.last_accel_magnitude = accel_magnitude_linear
             return SimplifiedState.HELD_STILL
-
-        # 3. FREE_FALL: Check *after* confirming not impact/stationary/held still.
-        # Uses RAW acceleration magnitude. If this triggers, we skip the SHAKE check.
-        if accel_magnitude_raw < self.free_fall_threshold:
-            # Only log if state changes or periodically to reduce spam
-            if self.current_state != SimplifiedState.FREE_FALL:
-                 self.logger.debug(f"FREE_FALL detected: RAW Accel={accel_magnitude_raw:.2f}")
-            self.last_accel_magnitude = accel_magnitude_linear # Still update last_accel based on linear for IMPACT continuity? Or raw? Let's stick to linear.
-            return SimplifiedState.FREE_FALL
-
-        # 4. SHAKE: Check only if not in Free Fall, Stationary, or Held Still.
-        # Uses linear acceleration internally.
-        if self._check_shake():
-             self.logger.debug("SHAKE detected.")
-             self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
-             return SimplifiedState.SHAKE
 
         # 5. MOVING: If none of the specific states above are met
         # (includes BNO "In motion" or "Unknown" stability if not caught by other states)
@@ -386,6 +386,14 @@ class AccelerometerManager:
 
         # --- Passed Checks ---
         return True
+
+    def _sensor_reports_shake(self, shake_val: Any) -> bool:
+        """Return True if sensor indicates a shake via the dedicated SHAKE_DETECTOR.
+
+        The Adafruit driver exposes a latched boolean at `imu.shake`; we ferry that
+        through `data['shake']`.  Just verify it's truthy and boolean.
+        """
+        return bool(shake_val)
 
     def find_heading(self, dqw: float, dqx: float, dqy: float, dqz: float) -> float:
         """

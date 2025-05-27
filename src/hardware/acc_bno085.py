@@ -21,6 +21,17 @@ Classification Reports:
 - Stability Classification: Classifies motion as "On table", "Stable", or "Motion"
 - Step Counter: Tracks number of steps taken
 - Activity Classification: Classifies activity type with confidence levels
+    activities = [
+        "Unknown",
+        "In-Vehicle",
+        "On-Bicycle",
+        "On-Foot",
+        "Still",
+        "Tilting",
+        "Walking",
+        "Running",
+        "OnStairs",
+    ]
 - Shake Detector: Detects if the sensor has been shaken
 
 Docs:
@@ -40,9 +51,10 @@ from adafruit_bno08x import (
     BNO_REPORT_LINEAR_ACCELERATION,
     BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR,
     BNO_REPORT_GAME_ROTATION_VECTOR,
-    BNO_REPORT_STEP_COUNTER,
+    # BNO_REPORT_STEP_COUNTER,
+    BNO_REPORT_SHAKE_DETECTOR,
     BNO_REPORT_STABILITY_CLASSIFIER,
-    BNO_REPORT_ACTIVITY_CLASSIFIER,
+    # BNO_REPORT_ACTIVITY_CLASSIFIER,
     REPORT_ACCURACY_STATUS,
     # Import necessary constants and functions for manual packet sending
     _SET_FEATURE_COMMAND, 
@@ -144,9 +156,10 @@ class BNO085Interface:
         await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 10000)  # 10ms (100Hz)
             
         # Classification Reports
-        await _enable_feature_wrapper(BNO_REPORT_STEP_COUNTER, 100000)       # 100ms (10Hz) - Slower is fine
         await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 50000) # 50ms (20Hz)
-        await _enable_feature_wrapper(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # 50ms (20Hz) - Library default
+        await _enable_feature_wrapper(BNO_REPORT_SHAKE_DETECTOR, 50000)       # 50ms (20Hz)
+        # await _enable_feature_wrapper(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # 50ms (20Hz) - Library default
+        # await _enable_feature_wrapper(BNO_REPORT_STEP_COUNTER, 100000)       # 100ms (10Hz) - Slower is fine
 
         self.logger.info("Finished enabling features using custom intervals.")
 
@@ -161,11 +174,11 @@ class BNO085Interface:
             
         # Determine sensor-specific config
         sensor_config = 0
-        if feature_id == BNO_REPORT_ACTIVITY_CLASSIFIER:
-            sensor_config = _ENABLED_ACTIVITIES
-            self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us and config {sensor_config}")
-        else:
-            self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us")
+        # if feature_id == BNO_REPORT_ACTIVITY_CLASSIFIER:
+        #     sensor_config = _ENABLED_ACTIVITIES
+        #     self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us and config {sensor_config}")
+        # else:
+        self.logger.info(f"Enabling feature {feature_id} with interval {interval_us}us")
         
         # Manually construct the _SET_FEATURE_COMMAND packet
         set_feature_report = bytearray(17)
@@ -226,8 +239,9 @@ class BNO085Interface:
         
         Classification Reports:
         - stability: Current stability classification ("On table", "Stable", or "Motion")
-        - activity: Current activity classification with confidence levels
-        - step_count: Number of steps detected
+        - shake: Current shake detection status
+        - DISABLED: activity: Current activity classification with confidence levels
+        - DISABLED: step_count: Number of steps detected
         
         System Information:
         - calibration_status: Numerical calibration status (0-3)
@@ -254,8 +268,10 @@ class BNO085Interface:
             game_quat_i, game_quat_j, game_quat_k, game_quat_real = await _get_sensor_value("game_quaternion")
             
             stability = await _get_sensor_value("stability_classification")
-            activity = await _get_sensor_value("activity_classification")
-            step_count = await _get_sensor_value("steps")
+            shake_detected = await _get_sensor_value("shake")
+            # activity = await _get_sensor_value("activity_classification")
+            # step_count = await _get_sensor_value("steps")
+
             
             calibration_status = await _get_sensor_value("calibration_status")
             calibration_status_text = f"{REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})"
@@ -274,8 +290,9 @@ class BNO085Interface:
                 
                 # Classification Reports
                 "stability": stability,
-                "activity": activity,
-                "step_count": step_count,
+                "shake": shake_detected,
+                # "activity": activity,
+                # "step_count": step_count,
                 
                 # System Information
                 "calibration_status": calibration_status,
