@@ -160,22 +160,22 @@ class AccelerometerManager:
         # AND observed "completely stationary" values up to 0.048 m/s² linear, 0.029 rad/s gyro
         # Need much larger separation between STATIONARY and HELD_STILL to prevent oscillation
         
-        # STATIONARY: Device completely still (on table, etc.) - MUCH MORE RESTRICTIVE
-        # Real stationary devices should have extremely low and consistent readings
-        self.stationary_linear_accel_max = 0.05   # m/s² - Accommodate actual sensor readings (was 0.025)
-        self.stationary_gyro_max = 0.02           # rad/s - Accommodate actual sensor readings (was 0.015)
-        self.stationary_rot_speed_max = 0.02      # rad/s - Accommodate actual sensor readings (was 0.015)
+        # STATIONARY: Device completely still (on table, etc.) - RELAXED THRESHOLDS
+        # Real stationary devices can have sensor noise, so be more realistic
+        self.stationary_linear_accel_max = 0.10   # m/s² - More realistic for sensor noise (was 0.05)
+        self.stationary_gyro_max = 0.05           # rad/s - More realistic for sensor noise (was 0.02)
+        self.stationary_rot_speed_max = 0.05      # rad/s - More realistic for sensor noise (was 0.02)
         self.stationary_consistency_required = 5  # Require 5 consecutive consistent readings
-        self.stationary_max_variance = 0.001     # m/s² - More lenient variance threshold (was 0.0005)
-        self.stationary_min_duration = 2.0       # seconds - Reasonable duration (was 3.0)
+        self.stationary_max_variance = 0.005     # m/s² - Much more lenient variance threshold (was 0.001)
+        self.stationary_min_duration = 1.0       # seconds - Shorter duration for faster detection (was 2.0)
         
         # HELD_STILL: Device held by hand - More permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
         self.held_still_gyro_max = 0.50           # rad/s - More permissive for hand tremor
         self.held_still_rot_speed_max = 0.50      # rad/s - More permissive for hand tremor
         
-        # Hysteresis: Strong hysteresis to create large separation zones
-        self.hysteresis_factor = 4.0               # Increased for stronger separation
+        # Hysteresis: Moderate hysteresis to prevent oscillation but allow transitions
+        self.hysteresis_factor = 2.0               # Reduced from 4.0 for easier transitions
         
         # Stationary state tracking for consistency checking
         self.stationary_candidate_start = None
@@ -337,15 +337,15 @@ class AccelerometerManager:
                                rot_speed: float, current_state: SimplifiedState) -> SimplifiedState:
         """
         Determine if device is in STATIONARY, HELD_STILL, or MOVING state with improved hysteresis
-        and strict STATIONARY detection with consistency checking.
+        and realistic STATIONARY detection with consistency checking.
         
         STATIONARY now requires:
-        1. Extremely low sensor readings (much stricter thresholds)
+        1. Realistic sensor readings (accommodating sensor noise)
         2. Consistent readings over multiple samples
-        3. Low variance in acceleration (true stillness)
+        3. Reasonable variance in acceleration (not perfect stillness)
         4. Sustained duration
         
-        This prevents hand-held devices with low tremor from being classified as STATIONARY.
+        This allows truly stationary devices to be detected while preventing hand tremor classification.
         """
         
         # Store current reading for variance analysis
@@ -360,9 +360,9 @@ class AccelerometerManager:
         held_still_gyro_base = self.held_still_gyro_max
         held_still_rot_base = self.held_still_rot_speed_max
         
-        # Apply hysteresis based on current state
+        # Apply moderate hysteresis based on current state
         if current_state == SimplifiedState.STATIONARY:
-            # Currently STATIONARY - use higher thresholds to exit (harder to leave)
+            # Currently STATIONARY - use slightly higher thresholds to exit (moderate hysteresis)
             stationary_linear_threshold = stationary_linear_base * self.hysteresis_factor
             stationary_gyro_threshold = stationary_gyro_base * self.hysteresis_factor
             stationary_rot_threshold = stationary_rot_base * self.hysteresis_factor
@@ -373,16 +373,15 @@ class AccelerometerManager:
             held_still_rot_threshold = held_still_rot_base
             
         elif current_state == SimplifiedState.HELD_STILL:
-            # Currently HELD_STILL - use higher thresholds to exit
+            # Currently HELD_STILL - use moderate hysteresis to exit
             held_still_linear_threshold = held_still_linear_base * self.hysteresis_factor
             held_still_gyro_threshold = held_still_gyro_base * self.hysteresis_factor
             held_still_rot_threshold = held_still_rot_base * self.hysteresis_factor
             
-            # For STATIONARY, use normal thresholds but make them more restrictive
-            # to prevent easy transition back to STATIONARY from HELD_STILL
-            stationary_linear_threshold = stationary_linear_base * 0.8  # 20% more restrictive
-            stationary_gyro_threshold = stationary_gyro_base * 0.8
-            stationary_rot_threshold = stationary_rot_base * 0.8
+            # For STATIONARY, use normal thresholds (allow transition if truly stationary)
+            stationary_linear_threshold = stationary_linear_base
+            stationary_gyro_threshold = stationary_gyro_base
+            stationary_rot_threshold = stationary_rot_base
             
         else:
             # Not currently in a stable state - use normal thresholds for entry
@@ -406,8 +405,15 @@ class AccelerometerManager:
                 linear_accel_mag, gyro_mag, rot_speed, current_state
             )
         else:
-            # Reset stationary tracking if basic criteria not met
-            self.stationary_candidate_start = None
+            # Only reset stationary tracking if we've been failing for a while
+            # This prevents constant restarting due to brief sensor spikes
+            if self.stationary_candidate_start is not None:
+                current_time = time.time()
+                time_since_start = current_time - self.stationary_candidate_start
+                # Only reset if we've been trying for more than 0.5 seconds and still failing
+                if time_since_start > 0.5:
+                    self.logger.debug(f"STATIONARY candidate reset after {time_since_start:.1f}s of failing basic criteria")
+                    self.stationary_candidate_start = None
         
         # Check for HELD_STILL (less restrictive)
         is_held_still = (linear_accel_mag < held_still_linear_threshold and
@@ -446,7 +452,7 @@ class AccelerometerManager:
         
         True stationary devices should have:
         1. Consistent readings over time
-        2. Very low variance in acceleration
+        2. Reasonable variance in acceleration (accommodating sensor noise)
         3. Sustained low readings
         
         Args:
@@ -486,31 +492,28 @@ class AccelerometerManager:
                 if should_log_variance:
                     self.logger.debug(f"STATIONARY variance check: readings=[{readings_str}], variance={variance:.6f}")
                 
-                # Use a more realistic variance threshold based on actual sensor behavior
-                # Real stationary devices can have small fluctuations due to sensor noise
+                # Use realistic variance threshold based on actual sensor behavior
+                # Real stationary devices can have sensor noise fluctuations
                 adjusted_variance_threshold = self.stationary_max_variance
                 
-                # If variance is too high, don't immediately restart - give it a few more chances
-                # This prevents constant restarting due to occasional sensor noise spikes
+                # Be more lenient with variance - only reject if variance is extremely high
                 if variance > adjusted_variance_threshold:
-                    # Check if we've been trying for a reasonable time
+                    # Don't immediately restart - be more patient with sensor noise
+                    # Only restart if variance is extremely high (10x threshold) or we've been trying for a long time
+                    extreme_threshold = adjusted_variance_threshold * 10  # 10x more lenient
                     
-                    # Only restart if we've been trying for less than 1 second
-                    # After 1 second, be more lenient with variance to avoid infinite restarts
-                    if duration_so_far < 1.0:
-                        self.logger.debug(f"STATIONARY rejected: variance {variance:.6f} > {adjusted_variance_threshold:.6f} (early rejection after {duration_so_far:.1f}s)")
+                    if variance > extreme_threshold:
+                        self.logger.debug(f"STATIONARY rejected: extreme variance {variance:.6f} > {extreme_threshold:.6f}")
+                        self.stationary_candidate_start = None
+                        return False
+                    elif duration_so_far > 3.0:  # After 3 seconds, be stricter
+                        self.logger.debug(f"STATIONARY rejected: variance {variance:.6f} > {adjusted_variance_threshold:.6f} after {duration_so_far:.1f}s")
                         self.stationary_candidate_start = None
                         return False
                     else:
-                        # After 1 second, use a more lenient variance threshold
-                        lenient_threshold = adjusted_variance_threshold * 100  # 100x more lenient
-                        if variance > lenient_threshold:
-                            self.logger.debug(f"STATIONARY rejected: variance {variance:.6f} > {lenient_threshold:.6f} (lenient rejection after {duration_so_far:.1f}s)")
-                            self.stationary_candidate_start = None
-                            return False
-                        else:
-                            if should_log_variance:
-                                self.logger.debug(f"STATIONARY variance acceptable with lenient threshold: {variance:.6f} <= {lenient_threshold:.6f}")
+                        # Continue tracking despite high variance - sensor might stabilize
+                        if should_log_variance:
+                            self.logger.debug(f"STATIONARY variance high but continuing: {variance:.6f} > {adjusted_variance_threshold:.6f} (will retry)")
                 else:
                     if should_log_variance:
                         self.logger.debug(f"STATIONARY variance good: {variance:.6f} <= {adjusted_variance_threshold:.6f}")
@@ -529,8 +532,9 @@ class AccelerometerManager:
             self.logger.debug(f"STATIONARY confirmed: duration={duration:.1f}s, variance={final_variance:.6f}")
             return True
         
-        # Still building up consistency - show progress
-        self.logger.debug(f"STATIONARY building consistency: duration={duration:.1f}s/{self.stationary_min_duration:.1f}s, variance={variance:.6f}")
+        # Still building up consistency - show progress occasionally
+        if should_log_variance:
+            self.logger.debug(f"STATIONARY building consistency: duration={duration:.1f}s/{self.stationary_min_duration:.1f}s, variance={variance:.6f}")
         return False
 
     def _apply_state_stability(self, candidate_state: SimplifiedState, timestamp: float) -> SimplifiedState:
@@ -551,10 +555,10 @@ class AccelerometerManager:
         time_since_last_change = timestamp - self.state_change_time
         required_duration = self.min_state_duration
         
-        # If transitioning between STATIONARY and HELD_STILL, require 2x longer duration
+        # If transitioning between STATIONARY and HELD_STILL, require slightly longer duration
         if ((self.current_state == SimplifiedState.STATIONARY and candidate_state == SimplifiedState.HELD_STILL) or
             (self.current_state == SimplifiedState.HELD_STILL and candidate_state == SimplifiedState.STATIONARY)):
-            required_duration = self.min_state_duration * 2.0  # 2 seconds for these transitions
+            required_duration = self.min_state_duration * 1.5  # 1.5 seconds for these transitions (was 2.0)
         
         if time_since_last_change >= required_duration:
             self._update_state_tracking(candidate_state, timestamp)
