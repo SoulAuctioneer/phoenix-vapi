@@ -49,7 +49,8 @@ async def debug_freefall_ultra_optimized():
         print("- Linear acceleration (motion without gravity)")  
         print("- Gyroscope (rotation detection)")
         print()
-        print(f"Free Fall Thresholds: Accel<{accel_manager.free_fall_accel_threshold:.1f} m/s², Gyro>{accel_manager.free_fall_min_rotation:.1f} rad/s")
+        print(f"Free Fall Thresholds: Accel<{accel_manager.free_fall_accel_threshold:.1f} m/s², Gyro>{accel_manager.free_fall_min_rotation:.1f}-{accel_manager.free_fall_max_rotation:.1f} rad/s, Linear<{accel_manager.free_fall_linear_accel_max:.1f} m/s²")
+        print(f"Free Fall Duration: Min={accel_manager.free_fall_min_duration*1000:.0f}ms, Consistency={accel_manager.free_fall_accel_consistency_samples} samples")
         print(f"State Thresholds (ANTI-OSCILLATION):")
         print(f"  STATIONARY: Linear<{accel_manager.stationary_linear_accel_max:.2f} m/s², Gyro<{accel_manager.stationary_gyro_max:.2f} rad/s")
         print(f"  HELD_STILL: Linear<{accel_manager.held_still_linear_accel_max:.2f} m/s², Gyro<{accel_manager.held_still_gyro_max:.2f} rad/s")
@@ -129,7 +130,16 @@ async def debug_freefall_ultra_optimized():
                     sample_count % 1000 == 0  # Performance summary every 1000 samples
                 )
                 
-                if should_print:
+                # Also print diagnostic info for potential false positives
+                # (movements that might be confused with free fall)
+                is_potential_false_positive = (
+                    current_state == "MOVING" and
+                    raw_accel_mag < 8.0 and  # Low-ish acceleration
+                    gyro_mag > 1.0 and       # Some rotation
+                    linear_accel_mag > 1.0   # But significant linear motion
+                )
+                
+                if should_print or is_potential_false_positive:
                     alert = ""
                     if current_state == "FREE_FALL":
                         alert = "🚨 FREE_FALL!"
@@ -139,6 +149,13 @@ async def debug_freefall_ultra_optimized():
                         # Performance summary
                         avg_read = sum(read_times) / len(read_times) if read_times else 0
                         alert = f"PERF: Min={min_read_time:.1f}ms, Max={max_read_time:.1f}ms, Avg={avg_read:.1f}ms"
+                    elif is_potential_false_positive:
+                        # Show why this movement doesn't trigger free fall
+                        meets_accel = raw_accel_mag < accel_manager.free_fall_accel_threshold
+                        meets_gyro = (gyro_mag > accel_manager.free_fall_min_rotation and 
+                                     gyro_mag < accel_manager.free_fall_max_rotation)
+                        meets_linear = linear_accel_mag < accel_manager.free_fall_linear_accel_max
+                        alert = f"NOT FREE_FALL: Accel={meets_accel}, Gyro={meets_gyro}, Linear={meets_linear}"
                     
                     # Calculate average timings
                     avg_read = sum(read_times) / len(read_times) if read_times else 0
