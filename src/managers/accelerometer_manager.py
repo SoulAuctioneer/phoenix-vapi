@@ -185,7 +185,7 @@ class AccelerometerManager:
         Returns:
             Dict[str, Any]: Dictionary containing sensor readings and the detected state name.
         """
-        data = await self.interface.read_sensor_data()
+        data = await self.interface.read_sensor_data_optimized()
         current_time = time.time()
         data['timestamp'] = current_time # Add timestamp immediately
 
@@ -290,8 +290,7 @@ class AccelerometerManager:
             self._update_state_tracking(SimplifiedState.FREE_FALL, timestamp)
             return SimplifiedState.FREE_FALL
 
-        # --- Priority 3: SHAKE (with timeout to prevent getting stuck) ---
-        bno_reports_shake = self._sensor_reports_shake(current_data.get("shake", False))
+        # --- Priority 3: SHAKE (software-only detection since BNO sensor disabled) ---
         custom_shake = self._check_shake()
         
         # Check if we've been in SHAKE state too long (add timeout)
@@ -299,8 +298,8 @@ class AccelerometerManager:
         if previous_state == SimplifiedState.SHAKE:
             time_in_shake = timestamp - self.state_change_time
         
-        # Allow SHAKE detection, but with timeout to prevent getting stuck
-        if (bno_reports_shake or custom_shake) and time_in_shake < 2.0:  # 2 second timeout
+        # Use only custom shake detection (BNO shake sensor disabled for performance)
+        if custom_shake and time_in_shake < 2.0:  # 2 second timeout
             self.last_accel_magnitude = accel_magnitude_linear
             self._update_state_tracking(SimplifiedState.SHAKE, timestamp)
             return SimplifiedState.SHAKE
@@ -437,13 +436,7 @@ class AccelerometerManager:
         # --- Passed Checks ---
         return True
 
-    def _sensor_reports_shake(self, shake_val: Any) -> bool:
-        """Return True if sensor indicates a shake via the dedicated SHAKE_DETECTOR.
-
-        The Adafruit driver exposes a latched boolean at `imu.shake`; we ferry that
-        through `data['shake']`.  Just verify it's truthy and boolean.
-        """
-        return bool(shake_val)
+    # Removed _sensor_reports_shake since BNO shake sensor is disabled for performance
 
     def _detect_free_fall_multisensor(self, total_accel_mag: float, gyro: Tuple[float, float, float], 
                                     stability: str, timestamp: float) -> bool:

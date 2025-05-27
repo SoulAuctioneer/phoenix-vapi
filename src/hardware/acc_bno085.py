@@ -156,37 +156,35 @@ class BNO085Interface:
     
     async def _enable_sensor_reports(self):
         """
-        Enable all required sensor reports from the BNO085 sensor
-        with a custom report interval.
+        Enable only essential sensor reports for optimal free fall detection performance.
+        This minimizes I2C traffic by only enabling the 3 sensors we actually read.
         """
         if not self.imu:
             return
 
-        self.logger.info("Using custom interval enabling...")
+        self.logger.info("Enabling optimized sensor configuration for free fall detection...")
 
         async def _enable_feature_wrapper(feature_id, interval_us):
             await self._enable_feature_with_interval(feature_id, interval_us)
 
-        # Essential motion vectors for free fall detection - Reduced frequency to prevent I2C overload
-        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 20000)        # 20ms (50Hz) - Reduced from 200Hz
-        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 20000)  # 20ms (50Hz) - Reduced from 200Hz
-        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 20000)            # 20ms (50Hz) - Reduced from 200Hz
+        # ONLY enable the 3 essential sensors for free fall detection
+        # This should significantly reduce I2C overhead
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 20000)        # 20ms (50Hz) - Essential for total acceleration
+        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 20000)  # 20ms (50Hz) - Essential for motion without gravity
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 20000)            # 20ms (50Hz) - Essential for rotation detection
         
-        # Rotation data - Lower frequency to reduce I2C load
-        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 50000)  # 50ms (20Hz) - Reduced from 100Hz
-        
-        # Classification Reports - Very low frequency (optional)
-        await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 100000) # 100ms (10Hz)
-        await _enable_feature_wrapper(BNO_REPORT_SHAKE_DETECTOR, 100000)       # 100ms (10Hz)
-        
-        # Disabled to reduce I2C overhead - not essential for free fall detection
+        # ALL OTHER SENSORS DISABLED to maximize I2C performance
+        # These can be re-enabled if needed for other applications:
+        # await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 50000)  # 50ms (20Hz) - Not essential for free fall
+        # await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 100000) # 100ms (10Hz) - Not essential for free fall
+        # await _enable_feature_wrapper(BNO_REPORT_SHAKE_DETECTOR, 100000)       # 100ms (10Hz) - Not essential for free fall
         # await _enable_feature_wrapper(BNO_REPORT_MAGNETOMETER, 20000)       # 20ms (50Hz)
         # await _enable_feature_wrapper(BNO_REPORT_ROTATION_VECTOR, 10000)     # 10ms (100Hz)
         # await _enable_feature_wrapper(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR, 20000) # 20ms (50Hz)
         # await _enable_feature_wrapper(BNO_REPORT_ACTIVITY_CLASSIFIER, 50000)  # 50ms (20Hz) - Library default
         # await _enable_feature_wrapper(BNO_REPORT_STEP_COUNTER, 100000)       # 100ms (10Hz) - Slower is fine
 
-        self.logger.info("Finished enabling features using custom intervals.")
+        self.logger.info("Finished enabling optimized sensor configuration (3 sensors only).")
 
     # Re-add the custom enabling function with corrections
     async def _enable_feature_with_interval(self, feature_id: int, interval_us: int):
@@ -243,6 +241,123 @@ class BNO085Interface:
         # If the loop finishes without confirmation, raise an error
         self.logger.error(f"Timeout: Failed to enable feature {feature_id} within {_FEATURE_ENABLE_TIMEOUT}s. Readings: {self.imu._readings.keys()}")
         raise RuntimeError(f"Was not able to enable feature {feature_id}")
+
+    async def read_sensor_data_optimized(self) -> Dict[str, Any]:
+        """
+        Optimized sensor reading that only reads essential sensors for free fall detection.
+        This should be significantly faster than the full sensor read.
+        
+        Essential sensors for free fall detection:
+        - acceleration: Raw acceleration (for total magnitude)
+        - linear_acceleration: Linear acceleration without gravity
+        - gyro: Angular velocity for rotation detection
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing essential sensor readings
+        """
+        try:
+            if not self.imu:
+                return {}
+            
+            import time
+            read_start = time.perf_counter()
+                
+            # Read only essential sensors for maximum performance
+            def _read_essential_sensors():
+                batch_start = time.perf_counter()
+                
+                result = {}
+                timings = {}
+                
+                # Only read the 3 essential sensors for free fall detection
+                sensor_start = time.perf_counter()
+                result['acceleration'] = self.imu.acceleration
+                timings['acceleration_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['linear_acceleration'] = self.imu.linear_acceleration
+                timings['linear_acceleration_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                sensor_start = time.perf_counter()
+                result['gyro'] = self.imu.gyro
+                timings['gyro_ms'] = (time.perf_counter() - sensor_start) * 1000
+                
+                batch_end = time.perf_counter()
+                result['_batch_read_time_ms'] = (batch_end - batch_start) * 1000
+                result['_individual_timings'] = timings
+                return result
+            
+            # Single batch read of essential sensors only
+            thread_start = time.perf_counter()
+            sensor_data = await asyncio.to_thread(_read_essential_sensors)
+            thread_end = time.perf_counter()
+            
+            # Extract timing info
+            batch_read_time = sensor_data.pop('_batch_read_time_ms', 0)
+            individual_timings = sensor_data.pop('_individual_timings', {})
+            thread_overhead_time = (thread_end - thread_start) * 1000 - batch_read_time
+            
+            # Extract values from batch read
+            extract_start = time.perf_counter()
+            accel_x, accel_y, accel_z = sensor_data['acceleration']
+            lin_accel_x, lin_accel_y, lin_accel_z = sensor_data['linear_acceleration']
+            gyro_x, gyro_y, gyro_z = sensor_data['gyro']
+            
+            extract_end = time.perf_counter()
+            extract_time = (extract_end - extract_start) * 1000
+            
+            read_end = time.perf_counter()
+            total_read_time = (read_end - read_start) * 1000
+            
+            # Track I2C performance
+            self._total_reads += 1
+            if total_read_time > self._slow_read_threshold:
+                self._consecutive_slow_reads += 1
+            else:
+                self._consecutive_slow_reads = 0
+            
+            # Log timing details if read is slow (>25ms for optimized version)
+            if total_read_time > 25:
+                # Find the slowest sensor
+                slowest_sensor = max(individual_timings.items(), key=lambda x: x[1]) if individual_timings else ("unknown", 0)
+                sensor_details = ", ".join([f"{k.replace('_ms', '')}={v:.1f}" for k, v in individual_timings.items()])
+                
+                # Add I2C health info
+                i2c_health = f"ConsecutiveSlow={self._consecutive_slow_reads}, TotalReads={self._total_reads}"
+                self.logger.warning(f"Slow optimized read: Total={total_read_time:.1f}ms, Batch={batch_read_time:.1f}ms, Thread={thread_overhead_time:.1f}ms, Extract={extract_time:.1f}ms, Slowest={slowest_sensor[0]}={slowest_sensor[1]:.1f}ms, I2C=[{i2c_health}], All=[{sensor_details}]")
+                
+                # Alert if we have many consecutive slow reads (possible I2C bus issue)
+                if self._consecutive_slow_reads >= 5:
+                    self.logger.error(f"I2C BUS ISSUE DETECTED: {self._consecutive_slow_reads} consecutive slow reads, consider reducing sensor frequencies or checking I2C bus health")
+            
+            result = {
+                # Essential Motion Vectors for free fall detection
+                "acceleration": (accel_x, accel_y, accel_z),
+                "linear_acceleration": (lin_accel_x, lin_accel_y, lin_accel_z),
+                "gyro": (gyro_x, gyro_y, gyro_z),
+                
+                # Set default values for non-essential sensors to maintain compatibility
+                "magnetometer": (0.0, 0.0, 0.0),
+                "rotation_vector": (0.0, 0.0, 0.0, 1.0),
+                "geomagnetic_rotation": (0.0, 0.0, 0.0, 1.0),
+                "game_rotation": (0.0, 0.0, 0.0, 1.0),
+                "stability": "Unknown",
+                "shake": False,
+                
+                # Timing diagnostics
+                "_timing": {
+                    "total_read_ms": total_read_time,
+                    "batch_read_ms": batch_read_time,
+                    "thread_overhead_ms": thread_overhead_time,
+                    "extract_ms": extract_time,
+                    "individual_sensors": individual_timings
+                }
+            }
+            
+            return result
+        except Exception as e:
+            self.logger.error(f"Error reading optimized sensor data: {e}", exc_info=True)
+            return {}
 
     async def read_sensor_data(self) -> Dict[str, Any]:
         """
@@ -315,10 +430,6 @@ class BNO085Interface:
                 result['shake'] = self.imu.shake
                 timings['shake_ms'] = (time.perf_counter() - sensor_start) * 1000
                 
-                sensor_start = time.perf_counter()
-                result['calibration_status'] = self.imu.calibration_status
-                timings['calibration_ms'] = (time.perf_counter() - sensor_start) * 1000
-                
                 batch_end = time.perf_counter()
                 result['_batch_read_time_ms'] = (batch_end - batch_start) * 1000
                 result['_individual_timings'] = timings
@@ -352,8 +463,6 @@ class BNO085Interface:
             
             stability = sensor_data['stability_classification']
             shake_detected = sensor_data['shake']
-            calibration_status = sensor_data['calibration_status']
-            calibration_status_text = f"{REPORT_ACCURACY_STATUS[calibration_status]} ({calibration_status})"
             
             extract_end = time.perf_counter()
             extract_time = (extract_end - extract_start) * 1000
@@ -399,10 +508,6 @@ class BNO085Interface:
                 "shake": shake_detected,
                 # "activity": activity,
                 # "step_count": step_count,
-                
-                # System Information
-                "calibration_status": calibration_status,
-                "calibration_status_text": calibration_status_text,
                 
                 # Timing diagnostics
                 "_timing": {
