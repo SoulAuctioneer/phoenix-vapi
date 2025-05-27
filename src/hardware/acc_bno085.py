@@ -255,7 +255,7 @@ class BNO085Interface:
                 return {}
                 
             # Batch read all sensor values in a single thread operation to minimize I2C overhead
-            async def _batch_read_sensors():
+            def _batch_read_sensors():
                 # Read only enabled sensors in one thread operation to reduce context switching
                 return {
                     'acceleration': self.imu.acceleration,
