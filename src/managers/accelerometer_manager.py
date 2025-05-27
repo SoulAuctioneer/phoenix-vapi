@@ -115,7 +115,7 @@ class AccelerometerManager:
         self.free_fall_max_duration = 5.0       # seconds - Max reasonable free fall duration
         
         # Additional criteria to distinguish from gentle movements
-        self.free_fall_linear_accel_max = 4.0   # m/s^2 - Increased from 2.0 for real throwing motions
+        self.free_fall_linear_accel_max = 12.0   # m/s^2 - Increased from 4.0 due to sensor noise in linear accel during real free fall
         self.free_fall_accel_consistency_samples = 3  # Require consistent readings
         
         self.impact_threshold = 15.0             # m/s^2 - Min accel spike for IMPACT
@@ -693,17 +693,19 @@ class AccelerometerManager:
     def _detect_free_fall_multisensor(self, total_accel_mag: float, gyro: Tuple[float, float, float], 
                                     stability: str, timestamp: float) -> bool:
         """
-        Detect free fall using strict multi-sensor fusion approach.
+        Detect free fall using reliable sensor fusion approach.
         
-        Real free fall characteristics (updated criteria):
+        Real free fall characteristics:
         1. Very low total acceleration (< 6.0 m/s²) - true weightlessness
         2. Significant rotational motion (2.0-15 rad/s) - objects tumble during free fall
-        3. Low linear acceleration (< 4.0 m/s²) - minimal forces other than gravity
-        4. Sustained for minimum duration (50ms) - rules out brief sensor noise
+        3. Sustained for minimum duration (50ms) - rules out brief sensor noise
+        
+        Note: Linear acceleration removed from criteria due to unreliable gravity compensation
+        during actual free fall conditions.
         
         This approach specifically excludes:
         - Gentle arc movements (moderate accel + low rotation)
-        - Controlled movements (high linear acceleration)
+        - Stationary conditions (high accel + low rotation)
         - Sensor noise (brief fluctuations ruled out by duration requirement)
         
         Args:
@@ -741,22 +743,20 @@ class AccelerometerManager:
             self._reset_free_fall_tracking()
             return False
         
-        # STRICT CRITERIA: All must be met simultaneously
+        # STRICT CRITERIA: Must be met simultaneously
         is_very_low_accel = total_accel_mag < self.free_fall_accel_threshold  # < 6.0 m/s²
         has_significant_rotation = (gyro_mag > self.free_fall_min_rotation and 
                                    gyro_mag < self.free_fall_max_rotation)  # 2.0-15 rad/s
-        has_low_linear_accel = linear_accel_mag < self.free_fall_linear_accel_max  # < 4.0 m/s²
         
-        # All criteria must be met for a free fall candidate
-        is_free_fall_candidate = (is_very_low_accel and 
-                                 has_significant_rotation and 
-                                 has_low_linear_accel)
+        # Free fall candidate requires only the two reliable sensors
+        # Linear acceleration removed due to unreliable gravity compensation during free fall
+        is_free_fall_candidate = (is_very_low_accel and has_significant_rotation)
         
         # Debug logging for near-miss cases (when some but not all criteria are met)
         if (is_very_low_accel or has_significant_rotation) and not is_free_fall_candidate:
             self.logger.debug(f"Free fall near-miss: total_accel={total_accel_mag:.2f}(<{self.free_fall_accel_threshold:.1f})={is_very_low_accel}, "
-                            f"linear_accel={linear_accel_mag:.2f}(<{self.free_fall_linear_accel_max:.1f})={has_low_linear_accel}, "
-                            f"gyro={gyro_mag:.3f}({self.free_fall_min_rotation:.1f}-{self.free_fall_max_rotation:.1f})={has_significant_rotation}")
+                            f"gyro={gyro_mag:.3f}({self.free_fall_min_rotation:.1f}-{self.free_fall_max_rotation:.1f})={has_significant_rotation} "
+                            f"[linear_accel={linear_accel_mag:.2f} - not used in detection]")
         
         if is_free_fall_candidate:
             # Start tracking if this is the first candidate sample
@@ -789,8 +789,8 @@ class AccelerometerManager:
             # Conditions no longer met, reset tracking
             if self.free_fall_candidate_start is not None:
                 duration = timestamp - self.free_fall_candidate_start
-                self.logger.debug(f"Free fall candidate ended after {duration:.3f}s: total_accel={total_accel_mag:.2f}, linear_accel={linear_accel_mag:.2f}, gyro={gyro_mag:.3f}")
-                self.logger.debug(f"  Criteria: low_accel={is_very_low_accel}, sig_rotation={has_significant_rotation}, low_linear={has_low_linear_accel}")
+                self.logger.debug(f"Free fall candidate ended after {duration:.3f}s: total_accel={total_accel_mag:.2f}, gyro={gyro_mag:.3f}")
+                self.logger.debug(f"  Criteria: low_accel={is_very_low_accel}, sig_rotation={has_significant_rotation}")
             self._reset_free_fall_tracking()
             return False
     
