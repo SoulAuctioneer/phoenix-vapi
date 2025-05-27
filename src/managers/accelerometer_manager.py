@@ -488,6 +488,8 @@ class AccelerometerManager:
                 # Only log variance check occasionally to avoid spam
                 duration_so_far = current_time - self.stationary_candidate_start
                 should_log_variance = (duration_so_far < 0.5) or (int(duration_so_far * 10) % 10 == 0)  # Log first 0.5s, then every 0.1s
+                # DISABLE because it's spammy
+                should_log_variance = False
                 
                 if should_log_variance:
                     self.logger.debug(f"STATIONARY variance check: readings=[{readings_str}], variance={variance:.6f}")
@@ -529,7 +531,7 @@ class AccelerometerManager:
                 final_variance = statistics.variance(recent_readings) if len(recent_readings) >= 3 else 0.0
             except statistics.StatisticsError:
                 final_variance = 0.0
-            self.logger.debug(f"STATIONARY confirmed: duration={duration:.1f}s, variance={final_variance:.6f}")
+            #self.logger.debug(f"STATIONARY confirmed: duration={duration:.1f}s, variance={final_variance:.6f}")
             return True
         
         # Still building up consistency - show progress occasionally
