@@ -118,7 +118,7 @@ async def debug_freefall_optimized():
                     avg_calc = sum(calc_times) / len(calc_times) if calc_times else 0
                     avg_total = sum(total_times) / len(total_times) if total_times else 0
                     
-                    print(f"            [{sample_count:4d}] {ms_since_last:5.1f}ms | {current_state:10s} | {raw_accel_mag:5.1f} | {linear_accel_mag:5.2f} | {gyro_mag:5.2f} | {avg_read:4.1f} | {avg_calc:4.1f} | {avg_total:4.1f} | {alert}")
+                    print(f"               [{sample_count:4d}]  {ms_since_last:5.1f}ms | {current_state:10s} | {raw_accel_mag:5.1f} | {linear_accel_mag:5.2f} | {gyro_mag:5.2f} | {avg_read:4.1f} | {avg_calc:4.1f} | {avg_total:4.1f} | {alert}")
                 
                 last_state = current_state
                 
