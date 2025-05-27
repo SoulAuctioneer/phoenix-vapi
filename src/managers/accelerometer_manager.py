@@ -316,8 +316,13 @@ class AccelerometerManager:
         if previous_state == SimplifiedState.SHAKE:
             time_in_shake = timestamp - self.state_change_time
         
+        # Prevent false SHAKE detection immediately after IMPACT (post-impact oscillations)
+        # This addresses the issue where catching the device after impact causes oscillations
+        # that are incorrectly detected as intentional shaking
+        allow_shake_transition = previous_state != SimplifiedState.IMPACT
+        
         # Use only custom shake detection (BNO shake sensor disabled for performance)
-        if custom_shake and time_in_shake < 2.0:  # 2 second timeout
+        if custom_shake and time_in_shake < 2.0 and allow_shake_transition:  # 2 second timeout + no IMPACT→SHAKE
             self.last_accel_magnitude = accel_magnitude_linear
             self._update_state_tracking(SimplifiedState.SHAKE, timestamp)
             return SimplifiedState.SHAKE
