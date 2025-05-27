@@ -55,7 +55,7 @@ async def debug_freefall_ultra_optimized():
         print(f"  STATIONARY: Linear<{accel_manager.stationary_linear_accel_max:.3f} m/s², Gyro<{accel_manager.stationary_gyro_max:.3f} rad/s (STRICT + consistency)")
         print(f"  HELD_STILL: Linear<{accel_manager.held_still_linear_accel_max:.2f} m/s², Gyro<{accel_manager.held_still_gyro_max:.2f} rad/s")
         print(f"  Hysteresis Factor: {accel_manager.hysteresis_factor:.1f}x (stronger separation)")
-        print(f"  STATIONARY Requirements: {accel_manager.stationary_consistency_required} samples, variance<{accel_manager.stationary_max_variance:.3f}, 2s duration")
+        print(f"  STATIONARY Requirements: {accel_manager.stationary_consistency_required} samples, variance<{accel_manager.stationary_max_variance:.6f}, {accel_manager.stationary_min_duration:.1f}s duration")
         print(f"  Min State Duration: {accel_manager.min_state_duration:.1f}s (2x longer for STAT↔HELD transitions)")
         print("  Note: STATIONARY thresholds adjusted for observed sensor noise when completely still")
         print("Monitoring... (Press Ctrl+C to stop)")

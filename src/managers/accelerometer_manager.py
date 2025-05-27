@@ -162,11 +162,12 @@ class AccelerometerManager:
         
         # STATIONARY: Device completely still (on table, etc.) - MUCH MORE RESTRICTIVE
         # Real stationary devices should have extremely low and consistent readings
-        self.stationary_linear_accel_max = 0.03   # m/s² - Much more restrictive (was 0.08)
-        self.stationary_gyro_max = 0.02           # rad/s - Much more restrictive (was 0.05)
-        self.stationary_rot_speed_max = 0.02      # rad/s - Much more restrictive (was 0.05)
+        self.stationary_linear_accel_max = 0.025  # m/s² - Slightly more lenient (was 0.03)
+        self.stationary_gyro_max = 0.015          # rad/s - Slightly more lenient (was 0.02)
+        self.stationary_rot_speed_max = 0.015     # rad/s - Slightly more lenient (was 0.02)
         self.stationary_consistency_required = 5  # Require 5 consecutive consistent readings
-        self.stationary_max_variance = 0.01      # m/s² - Max variance in linear accel for true stationary
+        self.stationary_max_variance = 0.00005   # m/s² - Very strict variance for true stationary
+        self.stationary_min_duration = 3.0       # seconds - Longer duration to ensure true stationary
         
         # HELD_STILL: Device held by hand - More permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
@@ -474,18 +475,44 @@ class AccelerometerManager:
         if len(recent_readings) >= 3:  # Need at least 3 points for meaningful variance
             try:
                 variance = statistics.variance(recent_readings)
-                if variance > self.stationary_max_variance:
-                    self.logger.debug(f"STATIONARY rejected: variance {variance:.4f} > {self.stationary_max_variance:.4f}")
-                    self.stationary_candidate_start = None
-                    return False
+                
+                # Debug: Show the actual readings that led to this variance
+                readings_str = ", ".join([f"{r:.4f}" for r in recent_readings])
+                self.logger.debug(f"STATIONARY variance check: readings=[{readings_str}], variance={variance:.6f}")
+                
+                # Use a more realistic variance threshold based on actual sensor behavior
+                # Real stationary devices can have small fluctuations due to sensor noise
+                adjusted_variance_threshold = self.stationary_max_variance
+                
+                # If variance is too high, don't immediately restart - give it a few more chances
+                # This prevents constant restarting due to occasional sensor noise spikes
+                if variance > adjusted_variance_threshold:
+                    # Check if we've been trying for a reasonable time
+                    duration_so_far = current_time - self.stationary_candidate_start
+                    
+                    # Only restart if we've been trying for less than 1 second
+                    # After 1 second, be more lenient with variance to avoid infinite restarts
+                    if duration_so_far < 1.0:
+                        self.logger.debug(f"STATIONARY rejected: variance {variance:.6f} > {adjusted_variance_threshold:.6f} (early rejection)")
+                        self.stationary_candidate_start = None
+                        return False
+                    else:
+                        # After 1 second, use a more lenient variance threshold
+                        lenient_threshold = adjusted_variance_threshold * 100  # 100x more lenient
+                        if variance > lenient_threshold:
+                            self.logger.debug(f"STATIONARY rejected: variance {variance:.6f} > {lenient_threshold:.6f} (lenient rejection)")
+                            self.stationary_candidate_start = None
+                            return False
+                        else:
+                            self.logger.debug(f"STATIONARY variance acceptable with lenient threshold: {variance:.6f} <= {lenient_threshold:.6f}")
+                            
             except statistics.StatisticsError:
                 return False
         
         # Check duration requirement
         duration = current_time - self.stationary_candidate_start
-        min_duration = 2.0  # Require 2 seconds of consistent readings for STATIONARY
         
-        if duration >= min_duration:
+        if duration >= self.stationary_min_duration:
             # Calculate final variance for logging
             try:
                 final_variance = statistics.variance(recent_readings) if len(recent_readings) >= 3 else 0.0
