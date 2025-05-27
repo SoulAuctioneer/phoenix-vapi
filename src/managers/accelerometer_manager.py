@@ -279,15 +279,7 @@ class AccelerometerManager:
             self._update_state_tracking(SimplifiedState.IMPACT, timestamp)
             return SimplifiedState.IMPACT
 
-        # --- Priority 2: SHAKE ---
-        bno_reports_shake = self._sensor_reports_shake(current_data.get("shake", False))
-        custom_shake = self._check_shake()
-        if bno_reports_shake or custom_shake:
-            self.last_accel_magnitude = accel_magnitude_linear
-            self._update_state_tracking(SimplifiedState.SHAKE, timestamp)
-            return SimplifiedState.SHAKE
-
-        # --- Priority 3: FREE_FALL ---
+        # --- Priority 2: FREE_FALL (higher priority than SHAKE for better detection) ---
         free_fall_detected = self._detect_free_fall_multisensor(
             accel_magnitude_raw, gyro, "Unknown", timestamp
         )
@@ -296,6 +288,21 @@ class AccelerometerManager:
             self.last_accel_magnitude = accel_magnitude_linear
             self._update_state_tracking(SimplifiedState.FREE_FALL, timestamp)
             return SimplifiedState.FREE_FALL
+
+        # --- Priority 3: SHAKE (with timeout to prevent getting stuck) ---
+        bno_reports_shake = self._sensor_reports_shake(current_data.get("shake", False))
+        custom_shake = self._check_shake()
+        
+        # Check if we've been in SHAKE state too long (add timeout)
+        time_in_shake = 0.0
+        if previous_state == SimplifiedState.SHAKE:
+            time_in_shake = timestamp - self.state_change_time
+        
+        # Allow SHAKE detection, but with timeout to prevent getting stuck
+        if (bno_reports_shake or custom_shake) and time_in_shake < 2.0:  # 2 second timeout
+            self.last_accel_magnitude = accel_magnitude_linear
+            self._update_state_tracking(SimplifiedState.SHAKE, timestamp)
+            return SimplifiedState.SHAKE
 
         # --- Priority 4: STATIONARY/HELD_STILL with hysteresis ---
         candidate_state = self._determine_stable_state(
