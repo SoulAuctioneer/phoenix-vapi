@@ -124,7 +124,7 @@ async def debug_freefall_ultra_optimized():
                 should_print = (
                     current_state != last_state or 
                     current_state == "FREE_FALL" or
-                    sample_count % 200 == 0  # Performance summary every 200 samples
+                    sample_count % 1000 == 0  # Performance summary every 200 samples
                 )
                 
                 if should_print:
@@ -133,7 +133,7 @@ async def debug_freefall_ultra_optimized():
                         alert = "🚨 FREE_FALL!"
                     elif current_state != last_state:
                         alert = f"State: {last_state} → {current_state}"
-                    elif sample_count % 200 == 0:
+                    elif sample_count % 1000 == 0:
                         # Performance summary
                         avg_read = sum(read_times) / len(read_times) if read_times else 0
                         alert = f"PERF: Min={min_read_time:.1f}ms, Max={max_read_time:.1f}ms, Avg={avg_read:.1f}ms"
