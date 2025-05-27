@@ -42,7 +42,7 @@ async def debug_freefall_optimized():
         print(f"  HELD_STILL: Linear<{accel_manager.held_still_linear_accel_max:.2f} m/s², Gyro<{accel_manager.held_still_gyro_max:.2f} rad/s")
         print(f"  Hysteresis Factor: {accel_manager.hysteresis_factor:.1f}x")
         print("Monitoring... (Press Ctrl+C to stop)")
-        print("Output format: [Sample] Time(ms) | State     | Raw(m/s²) | Linear(m/s²) | Gyro(rad/s) | Read(ms) | Calc(ms) | Total(ms) | Alerts")
+        print("Output format: [Sample] Time(ms) | State      | Raw(m/s²) | Linear(m/s²) | Gyro(rad/s) | Read(ms) | Calc(ms) | Total(ms) | Alerts")
         
         # Monitor loop with timing diagnostics
         sample_count = 0
@@ -118,7 +118,7 @@ async def debug_freefall_optimized():
                     avg_calc = sum(calc_times) / len(calc_times) if calc_times else 0
                     avg_total = sum(total_times) / len(total_times) if total_times else 0
                     
-                    print(f"               [{sample_count:4d}]  {ms_since_last:5.1f}ms | {current_state:10s} | {raw_accel_mag:5.1f} | {linear_accel_mag:5.2f} | {gyro_mag:5.2f} | {avg_read:4.1f} | {avg_calc:4.1f} | {avg_total:4.1f} | {alert}")
+                    print(f"               [{sample_count:4d}]    {ms_since_last:5.1f}ms | {current_state:10s} |  {raw_accel_mag:5.1f} |  {linear_accel_mag:5.2f} |  {gyro_mag:5.2f} |  {avg_read:4.1f} |  {avg_calc:4.1f} |  {avg_total:4.1f} |  {alert}")
                 
                 last_state = current_state
                 
