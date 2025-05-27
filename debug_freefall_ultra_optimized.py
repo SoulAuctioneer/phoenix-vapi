@@ -200,7 +200,7 @@ async def debug_freefall_ultra_optimized():
                         
                         # Show candidate start time if tracking
                         if hasattr(accel_manager, 'stationary_candidate_start') and accel_manager.stationary_candidate_start is not None:
-                            duration = time.perf_counter() - accel_manager.stationary_candidate_start
+                            duration = time.time() - accel_manager.stationary_candidate_start
                             print(f"                                   STATIONARY candidate duration: {duration:.1f}s (need {accel_manager.stationary_min_duration:.1f}s)")
                         else:
                             print(f"                                   STATIONARY candidate: Not currently tracking")
