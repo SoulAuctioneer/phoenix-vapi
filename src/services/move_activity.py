@@ -217,6 +217,8 @@ class MoveActivity(BaseService):
                     # based on the current energy level.
                     self.last_sent_energy = -1.0
 
+            self.logger.debug(f"Current state: {current_state_enum.name}, Energy: {energy:.2f}")
+
             # Log state change if it occurred
             if state_changed:
                 self.logger.info(f"State changed from {self.previous_state.name} to {current_state_enum.name}")
