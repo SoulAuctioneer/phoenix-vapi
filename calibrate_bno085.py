@@ -92,6 +92,43 @@ class BNO085Calibrator:
             print("Calibration cancelled.")
             return False
             
+        # Ask about calibration mode
+        print()
+        print("📋 CALIBRATION MODE OPTIONS:")
+        print("1. Full calibration (accelerometer + gyroscope + magnetometer)")
+        print("2. Minimal calibration (accelerometer + gyroscope only)")
+        print()
+        print("Note: Minimal calibration may work better if magnetometer calibration fails.")
+        print("      You can use Game Rotation Vector mode which doesn't need magnetometer.")
+        mode_response = input("Choose mode (1 or 2): ").strip()
+        
+        minimal_mode = (mode_response == '2')
+        if minimal_mode:
+            print("🎯 Using minimal calibration mode (no magnetometer)")
+        else:
+            print("🎯 Using full calibration mode")
+            
+        # Ask if user wants to clear existing calibration data first
+        print()
+        clear_response = input("Do you want to clear existing calibration data first? (y/n): ").lower().strip()
+        if clear_response == 'y':
+            print("🗑️  Clearing existing calibration data...")
+            try:
+                # Try to clear calibration - this may help with stuck calibration
+                await asyncio.to_thread(self.interface.imu.hard_reset)
+                await asyncio.sleep(1)
+                print("✅ Calibration data cleared")
+                
+                # Re-initialize after reset
+                print("🔄 Re-initializing sensor after reset...")
+                if not await self.interface.initialize():
+                    print("❌ Failed to re-initialize sensor after reset!")
+                    return False
+                print("✅ Sensor re-initialized")
+            except Exception as e:
+                print(f"⚠️  Could not clear calibration data: {e}")
+                print("   Continuing with existing data...")
+            
         print()
         print("Starting calibration process...")
         print("Follow the instructions carefully for best results.")
@@ -108,10 +145,14 @@ class BNO085Calibrator:
         # Guide through calibration steps
         await self._guide_accelerometer_calibration()
         await self._guide_gyroscope_calibration()
-        await self._guide_magnetometer_calibration()
+        
+        if not minimal_mode:
+            await self._guide_magnetometer_calibration()
+        else:
+            print("\n⏭️  Skipping magnetometer calibration (minimal mode)")
         
         # Monitor final calibration status
-        await self._monitor_final_calibration()
+        await self._monitor_final_calibration(minimal_mode=minimal_mode)
         
         return True
         
@@ -231,17 +272,72 @@ class BNO085Calibrator:
                 
         print("\n✅ Magnetometer calibration sequence complete!")
         
-    async def _monitor_final_calibration(self):
+    async def _monitor_final_calibration(self, minimal_mode=False):
         """Monitor calibration status and save when good."""
         print("\n📊 MONITORING CALIBRATION STATUS")
         print("-" * 32)
-        print("Waiting for calibration to stabilize...")
+        if minimal_mode:
+            print("Monitoring accelerometer and gyroscope calibration...")
+            print("Note: Overall status may remain 'Unreliable' without magnetometer.")
+        else:
+            print("Waiting for calibration to stabilize...")
         print("This may take 10-30 seconds.")
+        print()
+        
+        # Add debugging to see what sensors are actually enabled
+        print("🔍 DEBUGGING: Checking enabled sensors...")
+        try:
+            if hasattr(self.interface.imu, '_readings'):
+                enabled_sensors = list(self.interface.imu._readings.keys())
+                print(f"   Enabled sensor IDs: {enabled_sensors}")
+            
+            # Try to read individual sensor data to verify they're working
+            print("🔍 DEBUGGING: Testing sensor readings...")
+            try:
+                accel = await asyncio.to_thread(lambda: self.interface.imu.acceleration)
+                print(f"   Accelerometer: {accel}")
+            except Exception as e:
+                print(f"   ❌ Accelerometer error: {e}")
+                
+            try:
+                gyro = await asyncio.to_thread(lambda: self.interface.imu.gyro)
+                print(f"   Gyroscope: {gyro}")
+            except Exception as e:
+                print(f"   ❌ Gyroscope error: {e}")
+                
+            if not minimal_mode:
+                try:
+                    mag = await asyncio.to_thread(lambda: self.interface.imu.magnetic)
+                    print(f"   Magnetometer: {mag}")
+                except Exception as e:
+                    print(f"   ❌ Magnetometer error: {e}")
+                
+            try:
+                quat = await asyncio.to_thread(lambda: self.interface.imu.quaternion)
+                print(f"   Rotation Vector: {quat}")
+            except Exception as e:
+                print(f"   ❌ Rotation Vector error: {e}")
+                
+        except Exception as e:
+            print(f"   ❌ Debug error: {e}")
+        
         print()
         
         start_time = time.time()
         good_calibration_start = None
         max_wait_time = 60  # Maximum 60 seconds
+        
+        # Try a different approach - continue moving during monitoring
+        if not minimal_mode:
+            print("💡 TIP: Try gently moving the device in small figure-8 motions during monitoring...")
+            print("     The BNO085 may need continuous motion to update calibration status.")
+        else:
+            print("💡 TIP: In minimal mode, the sensor may work fine even with 'Unreliable' status.")
+            print("     Focus on whether accelerometer and gyroscope readings look reasonable.")
+        print()
+        
+        # In minimal mode, be more lenient about what constitutes "success"
+        target_status = 1 if minimal_mode else 2  # Lower threshold for minimal mode
         
         while time.time() - start_time < max_wait_time:
             try:
@@ -249,12 +345,29 @@ class BNO085Calibrator:
                 status_text = await self.interface.get_calibration_status_text()
                 
                 elapsed = int(time.time() - start_time)
-                print(f"[{elapsed:2d}s] Calibration status: {status_text}")
                 
-                if status >= 2:  # Good calibration
+                # Also try to get magnetic field status specifically (as per official docs)
+                mag_status = "Unknown"
+                if not minimal_mode:
+                    try:
+                        # The official docs suggest monitoring magnetic field status specifically
+                        mag_data = await asyncio.to_thread(lambda: self.interface.imu.magnetic)
+                        if mag_data:
+                            mag_status = "Available"
+                    except:
+                        mag_status = "Not Available"
+                    
+                    print(f"[{elapsed:2d}s] Calibration status: {status_text} | Mag: {mag_status}")
+                else:
+                    print(f"[{elapsed:2d}s] Calibration status: {status_text} (minimal mode)")
+                
+                if status >= target_status:  # Good enough calibration
                     if good_calibration_start is None:
                         good_calibration_start = time.time()
-                        print("✅ Good calibration achieved! Waiting for stability...")
+                        if minimal_mode:
+                            print("✅ Minimal calibration achieved! Waiting for stability...")
+                        else:
+                            print("✅ Good calibration achieved! Waiting for stability...")
                         
                     # Wait 5 seconds of good calibration before saving
                     if time.time() - good_calibration_start >= 5:
@@ -263,8 +376,13 @@ class BNO085Calibrator:
                             await asyncio.to_thread(self.interface.imu.save_calibration_data)
                             print("✅ Calibration data saved successfully!")
                             print()
-                            print("🎉 CALIBRATION COMPLETE!")
-                            print("The sensor is now calibrated and ready for use.")
+                            if minimal_mode:
+                                print("🎉 MINIMAL CALIBRATION COMPLETE!")
+                                print("The accelerometer and gyroscope are now calibrated.")
+                                print("💡 Use Game Rotation Vector mode for best results without magnetometer.")
+                            else:
+                                print("🎉 CALIBRATION COMPLETE!")
+                                print("The sensor is now calibrated and ready for use.")
                             return True
                         except Exception as e:
                             print(f"❌ Failed to save calibration: {e}")
@@ -279,8 +397,26 @@ class BNO085Calibrator:
                 print(f"❌ Error reading calibration status: {e}")
                 await asyncio.sleep(1)
                 
-        print(f"\n⚠️  Calibration did not reach good status within {max_wait_time} seconds.")
-        print("You may need to repeat the calibration process.")
+        print(f"\n⚠️  Calibration did not reach target status within {max_wait_time} seconds.")
+        
+        if minimal_mode:
+            print("\n🤔 MINIMAL MODE ASSESSMENT:")
+            print("Even with 'Unreliable' overall status, the accelerometer and gyroscope")
+            print("may be working adequately for many applications.")
+            print("\n💡 RECOMMENDATIONS:")
+            print("1. Test your main application to see if sensor data looks reasonable")
+            print("2. Use Game Rotation Vector mode (doesn't require magnetometer)")
+            print("3. The sensor may still provide useful motion detection")
+        else:
+            print("\n🔧 TROUBLESHOOTING SUGGESTIONS:")
+            print("1. The BNO085 calibration is known to be problematic")
+            print("2. Try running the calibration in a different magnetic environment")
+            print("3. Ensure the device is away from metal objects, computers, speakers")
+            print("4. The sensor may already be working adequately despite showing 'Unreliable'")
+            print("5. Consider using minimal calibration mode (option 2)")
+            
+        print("\n💡 You can test if the sensor is working by running your main application")
+        print("   Even with 'Unreliable' status, the accelerometer and gyro may work fine.")
         return False
         
     def cleanup(self):
