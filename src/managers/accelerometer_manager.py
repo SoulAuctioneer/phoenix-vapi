@@ -124,11 +124,11 @@ class AccelerometerManager:
         self.free_fall_start_time = None
         self.free_fall_candidate_start = None
 
-        # Shake detection tuning (peak-magnitude approach)
+        # Shake detection tuning (enhanced 3D vector approach)
         self.shake_history_size = 30            # Samples (~0.15–0.2 s at 200 Hz)
-        self.peak_magnitude_for_shake = 11.0     # m/s^2 – require at least one spike ≥ 
-        self.min_magnitude_for_shake = 5.0      # m/s^2 – discard almost-still windows
-        self.min_accel_reversals_for_shake = 4  # Require back-and-forth motion
+        self.peak_magnitude_for_shake = 12.0     # m/s^2 – increased from 11.0 to require stronger motion
+        self.min_magnitude_for_shake = 6.0      # m/s^2 – increased from 5.0 to filter out gentle movements
+        self.min_accel_reversals_for_shake = 6  # Increased from 4 - require more direction changes for true shake
 
         # --- History ---
         # Make sure the buffer can always accommodate at least `shake_history_size` samples.
@@ -584,8 +584,8 @@ class AccelerometerManager:
 
     def _check_shake(self) -> bool:
         """
-        Check if a shake state is detected using enhanced criteria.
-        Focuses on peak magnitude, average magnitude, and acceleration direction reversals over recent history.
+        Check if a shake state is detected using enhanced 3D vector analysis.
+        Analyzes acceleration direction changes and oscillation patterns to detect true shaking motion.
 
         Returns:
             bool: True if shake state detected
@@ -595,7 +595,6 @@ class AccelerometerManager:
             return False
 
         # --- Get recent data ---
-        # Take a slice efficiently
         start_index = len(self.motion_history) - history_size
         recent_history = [self.motion_history[i] for i in range(start_index, len(self.motion_history))]
         accelerations = [entry.get("linear_acceleration", None) for entry in recent_history]
@@ -604,25 +603,24 @@ class AccelerometerManager:
         valid_accelerations = [accel for accel in accelerations
                               if isinstance(accel, tuple) and len(accel) == 3]
 
-        if len(valid_accelerations) < 5: # Need a reasonable number of points
+        if len(valid_accelerations) < 8:  # Need more points for direction analysis
             return False
 
         # === Magnitude Check (peak-based) ===
         accel_magnitudes = []
         for accel in valid_accelerations:
             try:
-                # Compute magnitude squared and avoid sqrt of negatives
                 mag_sq = accel[0]**2 + accel[1]**2 + accel[2]**2
                 if mag_sq >= 0:
                     accel_magnitudes.append(sqrt(mag_sq))
             except (TypeError, IndexError):
-                continue  # skip malformed sample
+                continue
 
-        if len(accel_magnitudes) < 5:
+        if len(accel_magnitudes) < 8:
             return False
 
         peak_accel_magnitude = max(accel_magnitudes)
-        avg_accel_magnitude  = statistics.mean(accel_magnitudes)
+        avg_accel_magnitude = statistics.mean(accel_magnitudes)
 
         # Need at least one strong spike
         if peak_accel_magnitude < self.peak_magnitude_for_shake:
@@ -632,63 +630,209 @@ class AccelerometerManager:
         if avg_accel_magnitude < self.min_magnitude_for_shake:
             return False
 
-        # === Acceleration Reversal Check ===
-        # Count significant changes in acceleration direction (back-and-forth motion)
-        reversal_count = self._count_acceleration_reversals(accel_magnitudes)
+        # === Enhanced Direction Change Analysis ===
+        direction_changes = self._count_direction_changes(valid_accelerations)
         
-        # Require minimum number of reversals for shake detection
-        if reversal_count < self.min_accel_reversals_for_shake:
+        # Require multiple direction changes for shake detection
+        if direction_changes < self.min_accel_reversals_for_shake:
             return False
 
-        # --- Passed All Checks ---
+        # === Additional Oscillation Pattern Check ===
+        # Check for rapid oscillations in acceleration magnitude
+        magnitude_oscillations = self._count_magnitude_oscillations(accel_magnitudes)
+        
+        # Require both direction changes AND magnitude oscillations
+        min_oscillations = max(2, self.min_accel_reversals_for_shake // 2)
+        if magnitude_oscillations < min_oscillations:
+            return False
+
+        # === Frequency Analysis ===
+        # Check that the oscillations are in a reasonable frequency range for human shaking
+        if not self._validate_shake_frequency(valid_accelerations):
+            return False
+
         return True
 
-    def _count_acceleration_reversals(self, accel_magnitudes: List[float]) -> int:
+    def _count_direction_changes(self, accel_vectors: List[Tuple[float, float, float]]) -> int:
         """
-        Count significant acceleration reversals (direction changes) in the magnitude sequence.
+        Count significant changes in acceleration direction (3D vector analysis).
         
-        A reversal is detected when the acceleration changes from increasing to decreasing
-        or vice versa, with sufficient magnitude change to avoid counting noise.
+        This analyzes the actual 3D acceleration vectors to detect when the device
+        changes direction rapidly, which is characteristic of shaking motion.
+        
+        Args:
+            accel_vectors: List of 3D acceleration vectors
+            
+        Returns:
+            int: Number of significant direction changes detected
+        """
+        if len(accel_vectors) < 3:
+            return 0
+        
+        direction_changes = 0
+        min_magnitude_for_direction = 2.0  # m/s² - minimum magnitude to consider direction meaningful
+        min_angle_change = 60.0  # degrees - minimum angle change to count as direction change
+        
+        # Convert angle threshold to cosine for dot product comparison
+        import math
+        cos_threshold = math.cos(math.radians(min_angle_change))
+        
+        prev_vector = None
+        
+        for i, current_vector in enumerate(accel_vectors):
+            # Calculate magnitude
+            magnitude = sqrt(sum(x*x for x in current_vector))
+            
+            # Skip vectors that are too small to have meaningful direction
+            if magnitude < min_magnitude_for_direction:
+                continue
+            
+            # Normalize the vector
+            normalized = tuple(x / magnitude for x in current_vector)
+            
+            if prev_vector is not None:
+                # Calculate dot product to find angle between vectors
+                dot_product = sum(a * b for a, b in zip(prev_vector, normalized))
+                
+                # Clamp dot product to valid range for numerical stability
+                dot_product = max(-1.0, min(1.0, dot_product))
+                
+                # If dot product is less than threshold, we have a significant direction change
+                if dot_product < cos_threshold:
+                    direction_changes += 1
+            
+            prev_vector = normalized
+        
+        return direction_changes
+
+    def _count_magnitude_oscillations(self, accel_magnitudes: List[float]) -> int:
+        """
+        Count oscillations in acceleration magnitude using peak detection.
+        
+        This detects rapid increases and decreases in acceleration magnitude,
+        which complements the direction change analysis for shake detection.
         
         Args:
             accel_magnitudes: List of acceleration magnitudes over time
             
         Returns:
-            int: Number of significant acceleration reversals detected
+            int: Number of magnitude oscillations detected
         """
-        if len(accel_magnitudes) < 3:
+        if len(accel_magnitudes) < 5:
             return 0
         
-        # Minimum change required to count as a significant reversal (m/s²)
-        min_reversal_magnitude = 1.0  # Adjust this threshold as needed
+        # Minimum change required to count as a significant oscillation
+        min_oscillation_magnitude = 1.5  # m/s² - increased from 1.0 for more selectivity
         
-        reversals = 0
+        oscillations = 0
         trend = None  # 'up', 'down', or None
-        last_extreme = accel_magnitudes[0]  # Track local maxima/minima
+        last_extreme = accel_magnitudes[0]
+        consecutive_same_trend = 0  # Track how long we've been in the same trend
         
         for i in range(1, len(accel_magnitudes)):
             current = accel_magnitudes[i]
             
-            # Determine current trend
-            if current > last_extreme + min_reversal_magnitude:
+            # Determine current trend with hysteresis
+            if current > last_extreme + min_oscillation_magnitude:
                 # Significant increase
-                if trend == 'down':
-                    # We were going down, now going up - that's a reversal
-                    reversals += 1
+                if trend == 'down' and consecutive_same_trend >= 2:  # Require sustained trend
+                    oscillations += 1
+                    consecutive_same_trend = 0
+                elif trend != 'up':
+                    consecutive_same_trend = 0
+                
                 trend = 'up'
                 last_extreme = current
+                consecutive_same_trend += 1
                 
-            elif current < last_extreme - min_reversal_magnitude:
+            elif current < last_extreme - min_oscillation_magnitude:
                 # Significant decrease
-                if trend == 'up':
-                    # We were going up, now going down - that's a reversal
-                    reversals += 1
+                if trend == 'up' and consecutive_same_trend >= 2:  # Require sustained trend
+                    oscillations += 1
+                    consecutive_same_trend = 0
+                elif trend != 'down':
+                    consecutive_same_trend = 0
+                
                 trend = 'down'
                 last_extreme = current
+                consecutive_same_trend += 1
+            else:
+                # No significant change, continue current trend
+                consecutive_same_trend += 1
         
-        return reversals
+        return oscillations
 
-    # Removed _sensor_reports_shake since BNO shake sensor is disabled for performance
+    def _validate_shake_frequency(self, accel_vectors: List[Tuple[float, float, float]]) -> bool:
+        """
+        Validate that the detected motion has characteristics consistent with intentional shaking.
+        
+        Human shaking typically occurs at 3-8 Hz. This method checks that the detected
+        oscillations are in a reasonable frequency range and have sufficient regularity.
+        
+        Args:
+            accel_vectors: List of 3D acceleration vectors
+            
+        Returns:
+            bool: True if the frequency characteristics are consistent with shaking
+        """
+        if len(accel_vectors) < 10:
+            return False
+        
+        # Calculate time span (assuming ~200Hz sampling rate)
+        sampling_rate = 200.0  # Hz - approximate sensor sampling rate
+        time_span = len(accel_vectors) / sampling_rate  # seconds
+        
+        # Count zero crossings in the dominant acceleration component
+        # Find the component with the highest variance (most active during shaking)
+        x_values = [v[0] for v in accel_vectors]
+        y_values = [v[1] for v in accel_vectors]
+        z_values = [v[2] for v in accel_vectors]
+        
+        try:
+            x_var = statistics.variance(x_values) if len(x_values) > 1 else 0
+            y_var = statistics.variance(y_values) if len(y_values) > 1 else 0
+            z_var = statistics.variance(z_values) if len(z_values) > 1 else 0
+        except statistics.StatisticsError:
+            return False
+        
+        # Use the component with highest variance
+        if x_var >= y_var and x_var >= z_var:
+            dominant_component = x_values
+        elif y_var >= z_var:
+            dominant_component = y_values
+        else:
+            dominant_component = z_values
+        
+        # Remove DC component (mean) to focus on oscillations
+        mean_value = statistics.mean(dominant_component)
+        centered_values = [v - mean_value for v in dominant_component]
+        
+        # Count zero crossings
+        zero_crossings = 0
+        for i in range(1, len(centered_values)):
+            if (centered_values[i-1] >= 0) != (centered_values[i] >= 0):
+                zero_crossings += 1
+        
+        # Estimate frequency from zero crossings
+        # Each complete cycle has 2 zero crossings
+        estimated_frequency = (zero_crossings / 2.0) / time_span if time_span > 0 else 0
+        
+        # Human shaking is typically 3-8 Hz, but allow some margin
+        min_shake_freq = 2.0  # Hz
+        max_shake_freq = 12.0  # Hz
+        
+        is_valid_frequency = min_shake_freq <= estimated_frequency <= max_shake_freq
+        
+        # Additional check: ensure there's sufficient variation in the dominant component
+        # to distinguish from sensor noise
+        try:
+            std_dev = statistics.stdev(centered_values)
+            min_variation = 1.0  # m/s² - minimum standard deviation for meaningful oscillation
+            has_sufficient_variation = std_dev >= min_variation
+        except statistics.StatisticsError:
+            has_sufficient_variation = False
+        
+        return is_valid_frequency and has_sufficient_variation
 
     def _detect_free_fall_multisensor(self, total_accel_mag: float, gyro: Tuple[float, float, float], 
                                     stability: str, timestamp: float) -> bool:
