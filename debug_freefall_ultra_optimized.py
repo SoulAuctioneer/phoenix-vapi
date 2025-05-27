@@ -140,11 +140,9 @@ async def debug_freefall_ultra_optimized():
                     linear_accel_mag > 1.0   # But significant linear motion
                 )
                 
-                if should_print or is_potential_false_positive:
+                if should_print:
                     alert = ""
-                    if current_state == "FREE_FALL":
-                        alert = "🚨 FREE_FALL!"
-                    elif current_state != last_state:
+                    if current_state != last_state:
                         alert = f"State: {last_state} → {current_state}"
                     elif sample_count % 1000 == 0:
                         # Performance summary
