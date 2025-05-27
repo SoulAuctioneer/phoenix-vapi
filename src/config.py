@@ -373,7 +373,7 @@ class BatteryConfig:
 class AccelerometerConfig:
     """Configuration for accelerometer service"""
     # Print debug data to console
-    PRINT_DEBUG_DATA = True
+    PRINT_DEBUG_DATA = False
     # Service event publishing interval in seconds (i.e. 5 milliseconds) NOTE: Not the same as the sampling rate, which is hardcoded in the BNO085 interface
     UPDATE_INTERVAL = 0.005
 

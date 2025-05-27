@@ -169,9 +169,9 @@ class BNO085Interface:
 
         # ONLY enable the 3 essential sensors for free fall detection
         # This should significantly reduce I2C overhead
-        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 10000)        # 10ms (100Hz) - Essential for total acceleration
-        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 10000)  # 10ms (100Hz) - Essential for motion without gravity
-        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 10000)            # 10ms (100Hz) - Essential for rotation detection
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 20000)        # 20ms (50Hz) - Essential for total acceleration
+        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 20000)  # 20ms (50Hz) - Essential for motion without gravity
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 20000)            # 20ms (50Hz) - Essential for rotation detection
         
         # ALL OTHER SENSORS DISABLED to maximize I2C performance
         # These can be re-enabled if needed for other applications:
