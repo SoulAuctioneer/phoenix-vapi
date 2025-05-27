@@ -80,15 +80,15 @@ async def diagnose_timing():
                     print(f"Acceleration magnitude: {accel_mag:.2f} m/s²")
                     print(f"Raw accel: {raw_accel}")
                 
-                # Regular status every 100 samples
-                if sample_count % 100 == 0:
+                # Regular status every 5 samples
+                if sample_count % 5 == 0:
                     recent_intervals = [s['interval_ms'] for s in list(timing_stats)[-100:]]
                     avg_interval = sum(recent_intervals) / len(recent_intervals)
                     max_interval = max(recent_intervals)
                     min_interval = min(recent_intervals)
                     
                     print(f"\n--- Sample {sample_count} Statistics ---")
-                    print(f"Last 100 samples:")
+                    print(f"Last 5 samples:")
                     print(f"  Avg interval: {avg_interval:.1f}ms")
                     print(f"  Min interval: {min_interval:.1f}ms") 
                     print(f"  Max interval: {max_interval:.1f}ms")
