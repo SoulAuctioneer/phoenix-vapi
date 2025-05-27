@@ -109,7 +109,7 @@ class AccelerometerManager:
         # Free Fall / Impact - Multi-sensor approach with stricter criteria
         # Free fall detection using sensor fusion for accuracy
         self.free_fall_accel_threshold = 6.0     # m/s^2 - Increased from 4.0 to accommodate real throws
-        self.free_fall_min_rotation = 2.0       # rad/s - Reduced from 2.5 to catch gentler throws
+        self.free_fall_min_rotation = 1.5       # rad/s - Reduced from 2.0 to catch gentler throws and less tumbling
         self.free_fall_max_rotation = 15.0      # rad/s - Upper limit to exclude violent shaking
         self.free_fall_min_duration = 0.05      # seconds - Longer minimum duration (was 0.02)
         self.free_fall_max_duration = 5.0       # seconds - Max reasonable free fall duration
