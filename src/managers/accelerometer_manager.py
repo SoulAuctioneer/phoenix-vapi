@@ -137,19 +137,31 @@ class AccelerometerManager:
             self.motion_history = deque(self.motion_history, maxlen=new_len)
 
         # --- State Tracking ---
-        # Removed self.in_stationary_band_start_time
-        # Removed self.in_held_still_band_start_time
         self.last_accel_magnitude = 0.0          # Store previous accel magnitude for impact detection edge
         self.current_state = SimplifiedState.UNKNOWN # Store the determined state
+        
+        # State stability tracking to prevent rapid oscillation
+        self.state_change_time = 0.0              # When the last state change occurred
+        self.min_state_duration = 0.2             # Minimum time to stay in a state (200ms)
 
         # --- Quaternion / Rotation Tracking ---
         # Cache the previous Game Rotation quaternion to compute rotational speed
         self._prev_game_quat: Optional[Tuple[float, float, float, float]] = None
         self._prev_quat_ts: float = 0.0
 
-        # Low-motion thresholds used to validate BNO stability reports
-        self.low_linear_accel_max = 1.0   # m/s^2 – ~0.1 g tolerance
-        self.low_rot_speed_max   = 0.5   # rad/s  – slow orientation drift
+        # Improved thresholds with hysteresis for stable state detection
+        # STATIONARY: Device completely still (on table, etc.) - More generous thresholds
+        self.stationary_linear_accel_max = 0.5    # m/s^2 - Allow for sensor noise
+        self.stationary_gyro_max = 0.08           # rad/s - Very low rotation (tighter than observed 0.02-0.06)
+        self.stationary_rot_speed_max = 0.08      # rad/s - Very low quaternion rotation
+        
+        # HELD_STILL: Device held by hand with slight tremor
+        self.held_still_linear_accel_max = 1.2    # m/s^2 - More generous for hand tremor
+        self.held_still_gyro_max = 0.15           # rad/s - Allow for small hand movements
+        self.held_still_rot_speed_max = 0.15      # rad/s - Allow for small quaternion rotation
+        
+        # Hysteresis: Once in a stable state, require higher thresholds to exit
+        self.hysteresis_factor = 2.0               # Stronger hysteresis to prevent oscillation
 
     async def initialize(self) -> bool:
         """
@@ -221,126 +233,148 @@ class AccelerometerManager:
 
     def _determine_current_state(self, current_data: Dict[str, Any]) -> SimplifiedState:
         """
-        Determine the current motion state based on simplified criteria.
-        Checks for IMPACT, SHAKE, then uses BNO stability for STATIONARY/HELD_STILL,
-        then checks FREE_FALL. Requires linear_acceleration and stability data.
-
+        Determine the current motion state with stability and hysteresis to prevent oscillation.
+        
         Args:
             current_data: Current sensor readings dictionary.
 
         Returns:
             SimplifiedState: The detected state.
         """
-        if len(self.motion_history) < 2: # Need at least previous + current
-            self.last_accel_magnitude = 0.0 # Reset on insufficient history
-            # No timers to reset now
+        if len(self.motion_history) < 2:
+            self.last_accel_magnitude = 0.0
             return SimplifiedState.UNKNOWN
 
-        # Use RAW acceleration for free fall detection
+        # Extract sensor data
         accel_raw = current_data.get("acceleration", None)
-        # Still need linear accel for other checks like shake, keep it
         linear_accel = current_data.get("linear_acceleration", None)
-        timestamp = current_data.get('timestamp', time.time()) # Use provided or current time
-        stability = current_data.get("stability", "Unknown") # Get stability from BNO
+        gyro = current_data.get("gyro", (0, 0, 0))
+        timestamp = current_data.get('timestamp', time.time())
+        rot_speed_current = current_data.get("rot_speed", 0.0)
 
-        # Validate RAW acceleration for free fall check
+        # Validate essential data
         if not (isinstance(accel_raw, tuple) and len(accel_raw) == 3 and
                 all(isinstance(x, (int, float)) for x in accel_raw)):
-            self.logger.warning(f"Invalid/missing RAW acceleration for free fall detection: {accel_raw}")
-            # If raw is bad, can we still determine state? Maybe fallback needed?
-            # For now, treat as UNKNOWN if raw is missing, might prevent free fall detection.
-            self.last_accel_magnitude = 0.0 # Reset based on linear or raw? Let's use linear for consistency with IMPACT.
+            self.last_accel_magnitude = 0.0
             return SimplifiedState.UNKNOWN
 
-        # Calculate RAW acceleration magnitude for free fall check
+        if not (isinstance(linear_accel, tuple) and len(linear_accel) == 3):
+            self.last_accel_magnitude = 0.0
+            return SimplifiedState.UNKNOWN
+
+        # Calculate magnitudes
         accel_magnitude_raw = sqrt(sum(x*x for x in accel_raw))
-
-        # Calculate Linear acceleration magnitude for IMPACT/other checks (if needed)
-        # Need to handle potential missing linear_accel for subsequent checks (e.g. IMPACT)
-        accel_magnitude_linear = 0.0
-        if isinstance(linear_accel, tuple) and len(linear_accel) == 3:
-            try:
-                accel_magnitude_linear = sqrt(sum(x*x for x in linear_accel))
-            except TypeError:
-                 self.logger.warning(f"Invalid linear acceleration data: {linear_accel}, falling back to magnitude 0")
-                 accel_magnitude_linear = 0.0 # Fallback
-        else:
-            # If linear accel is missing/invalid, impact/shake detection might fail later.
-            # Log this potential issue.
-            self.logger.warning(f"Missing or invalid linear acceleration: {linear_accel}. Impact/Shake detection may be affected.")
-            # Keep accel_magnitude_linear as 0.0
-
-        # --- State Checks (Prioritized) ---
-        # Desired order: IMPACT (from FREE_FALL) -> STATIONARY/HELD_STILL -> SHAKE -> FREE_FALL -> MOVING
-        # Check stability-based states first to avoid false FREE_FALL detection when stationary
-
-        # 1. IMPACT: Check for a sudden spike AND if the previous state was FREE_FALL
-        previous_state = self.current_state # Store state from *before* this determination
-        is_potential_impact = (accel_magnitude_linear >= self.impact_threshold and
-                               self.last_accel_magnitude < self.impact_threshold)
-
-        if is_potential_impact and previous_state == SimplifiedState.FREE_FALL:
-            self.logger.debug(f"IMPACT detected (from FREE_FALL): Linear Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
-            # Update last magnitude based on what impact check used (linear)
-            self.last_accel_magnitude = accel_magnitude_linear
-            return SimplifiedState.IMPACT
-        # Optional: Log if potential impact occurs but not from FREE_FALL?
-        elif is_potential_impact:
-             self.logger.debug(f"Potential impact ignored (not from FREE_FALL): Prev State={previous_state.name}, Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
-
-        # 2. STATIONARY / HELD_STILL (use sensor data directly, ignore slow BNO stability)
-        rot_speed_current = current_data.get("rot_speed", 0.0)
-        gyro = current_data.get("gyro", (0, 0, 0))
+        accel_magnitude_linear = sqrt(sum(x*x for x in linear_accel))
         gyro_mag = sqrt(sum(x*x for x in gyro)) if isinstance(gyro, tuple) and len(gyro) == 3 else 0.0
 
-        # Very strict stationary detection: extremely low motion on all sensors
-        is_very_still = (accel_magnitude_linear < 0.1 and  # Very low linear acceleration
-                        gyro_mag < 0.05 and               # Very low rotation
-                        rot_speed_current < 0.1)          # Very low quaternion-derived rotation
+        # Store previous state for comparison
+        previous_state = self.current_state
 
-        # Moderately still (held by hand with slight tremor)
-        is_held_still = (accel_magnitude_linear < self.low_linear_accel_max and 
-                        gyro_mag < 0.2 and 
-                        rot_speed_current < self.low_rot_speed_max)
-
-        if is_very_still:
+        # --- Priority 1: IMPACT (from FREE_FALL) ---
+        is_potential_impact = (accel_magnitude_linear >= self.impact_threshold and
+                               self.last_accel_magnitude < self.impact_threshold)
+        
+        if is_potential_impact and previous_state == SimplifiedState.FREE_FALL:
             self.last_accel_magnitude = accel_magnitude_linear
-            return SimplifiedState.STATIONARY
-        elif is_held_still:
-            self.last_accel_magnitude = accel_magnitude_linear
-            return SimplifiedState.HELD_STILL
+            self._update_state_tracking(SimplifiedState.IMPACT, timestamp)
+            return SimplifiedState.IMPACT
 
-        # 3. SHAKE: Either library-provided shake report OR our custom algorithm.
-        # Built-in shake detection (from activity classifier or dedicated shake detector)
+        # --- Priority 2: SHAKE ---
         bno_reports_shake = self._sensor_reports_shake(current_data.get("shake", False))
         custom_shake = self._check_shake()
         if bno_reports_shake or custom_shake:
-            self.logger.debug("SHAKE detected (built-in:%s custom:%s)", bno_reports_shake, custom_shake)
             self.last_accel_magnitude = accel_magnitude_linear
+            self._update_state_tracking(SimplifiedState.SHAKE, timestamp)
             return SimplifiedState.SHAKE
 
-        # 4. FREE_FALL: Multi-sensor fusion approach
-        # Check for free fall using total acceleration, gyroscope, and duration
+        # --- Priority 3: FREE_FALL ---
         free_fall_detected = self._detect_free_fall_multisensor(
-            accel_magnitude_raw, 
-            current_data.get("gyro", (0, 0, 0)), 
-            stability, 
-            timestamp
+            accel_magnitude_raw, gyro, "Unknown", timestamp
         )
         
         if free_fall_detected:
-            if self.current_state != SimplifiedState.FREE_FALL:
-                self.logger.debug(f"FREE_FALL detected: Total Accel={accel_magnitude_raw:.2f}, Stability={stability}")
             self.last_accel_magnitude = accel_magnitude_linear
+            self._update_state_tracking(SimplifiedState.FREE_FALL, timestamp)
             return SimplifiedState.FREE_FALL
 
-        # 5. MOVING: If none of the specific states above are met
-        # (includes BNO "In motion" or "Unknown" stability if not caught by other states)
-        # Only log if state changes
-        if self.current_state != SimplifiedState.MOVING:
-            self.logger.debug(f"MOVING state: Linear Accel={accel_magnitude_linear:.2f}, Stability={stability}")
-        self.last_accel_magnitude = accel_magnitude_linear # Update based on linear
+        # --- Priority 4: STATIONARY/HELD_STILL with hysteresis ---
+        candidate_state = self._determine_stable_state(
+            accel_magnitude_linear, gyro_mag, rot_speed_current, previous_state
+        )
+        
+        # Apply state stability logic
+        stable_state = self._apply_state_stability(candidate_state, timestamp)
+        
+        self.last_accel_magnitude = accel_magnitude_linear
+        return stable_state
+
+    def _determine_stable_state(self, linear_accel_mag: float, gyro_mag: float, 
+                               rot_speed: float, current_state: SimplifiedState) -> SimplifiedState:
+        """
+        Determine if device is in STATIONARY, HELD_STILL, or MOVING state with hysteresis.
+        """
+        # Apply hysteresis if currently in a stable state
+        hysteresis_multiplier = 1.0
+        if current_state in [SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
+            hysteresis_multiplier = self.hysteresis_factor
+
+        # Check for STATIONARY (most restrictive)
+        stationary_linear_threshold = self.stationary_linear_accel_max * hysteresis_multiplier
+        stationary_gyro_threshold = self.stationary_gyro_max * hysteresis_multiplier
+        stationary_rot_threshold = self.stationary_rot_speed_max * hysteresis_multiplier
+        
+        is_stationary = (linear_accel_mag < stationary_linear_threshold and
+                        gyro_mag < stationary_gyro_threshold and
+                        rot_speed < stationary_rot_threshold)
+        
+        if is_stationary:
+            return SimplifiedState.STATIONARY
+
+        # Check for HELD_STILL (less restrictive)
+        held_still_linear_threshold = self.held_still_linear_accel_max * hysteresis_multiplier
+        held_still_gyro_threshold = self.held_still_gyro_max * hysteresis_multiplier
+        held_still_rot_threshold = self.held_still_rot_speed_max * hysteresis_multiplier
+        
+        is_held_still = (linear_accel_mag < held_still_linear_threshold and
+                        gyro_mag < held_still_gyro_threshold and
+                        rot_speed < held_still_rot_threshold)
+        
+        if is_held_still:
+            return SimplifiedState.HELD_STILL
+
+        # Default to MOVING
         return SimplifiedState.MOVING
+
+    def _apply_state_stability(self, candidate_state: SimplifiedState, timestamp: float) -> SimplifiedState:
+        """
+        Apply state stability logic to prevent rapid oscillation between states.
+        """
+        # If candidate state matches current state, stay in current state
+        if candidate_state == self.current_state:
+            return self.current_state
+        
+        # For high-priority states (IMPACT, SHAKE, FREE_FALL), allow immediate changes
+        if candidate_state in [SimplifiedState.IMPACT, SimplifiedState.SHAKE, SimplifiedState.FREE_FALL]:
+            self._update_state_tracking(candidate_state, timestamp)
+            return candidate_state
+        
+        # For stable states, require minimum time since last change
+        time_since_last_change = timestamp - self.state_change_time
+        
+        if time_since_last_change >= self.min_state_duration:
+            self._update_state_tracking(candidate_state, timestamp)
+            return candidate_state
+        
+        # Not enough time has passed, stay in current state
+        return self.current_state
+
+    def _update_state_tracking(self, new_state: SimplifiedState, timestamp: float):
+        """Update state tracking variables when state changes."""
+        if new_state != self.current_state:
+            self.state_change_time = timestamp
+            if new_state != SimplifiedState.UNKNOWN:  # Only log meaningful state changes
+                self.logger.debug(f"State change: {self.current_state.name} → {new_state.name}")
+        self.current_state = new_state
 
     def _check_shake(self) -> bool:
         """
