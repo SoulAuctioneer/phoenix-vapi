@@ -24,16 +24,47 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from hardware.acc_bno085 import BNO085Interface, REPORT_ACCURACY_STATUS
+from adafruit_bno08x import (
+    BNO_REPORT_ACCELEROMETER,
+    BNO_REPORT_GYROSCOPE,
+    BNO_REPORT_MAGNETOMETER,
+    BNO_REPORT_ROTATION_VECTOR,
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+class BNO085CalibrationInterface(BNO085Interface):
+    """Specialized BNO085 interface for calibration with all sensors enabled."""
+    
+    async def _enable_sensor_reports(self):
+        """
+        Enable ALL sensor reports needed for proper calibration.
+        This includes the magnetometer which is disabled in the main interface.
+        """
+        if not self.imu:
+            return
+
+        self.logger.info("Enabling FULL sensor configuration for calibration...")
+
+        async def _enable_feature_wrapper(feature_id, interval_us):
+            await self._enable_feature_with_interval(feature_id, interval_us)
+
+        # Enable ALL sensors needed for calibration
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 20000)        # 20ms (50Hz) - Essential for calibration
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 20000)            # 20ms (50Hz) - Essential for calibration  
+        await _enable_feature_wrapper(BNO_REPORT_MAGNETOMETER, 20000)         # 20ms (50Hz) - ESSENTIAL for calibration!
+        await _enable_feature_wrapper(BNO_REPORT_ROTATION_VECTOR, 20000)      # 20ms (50Hz) - Needed for calibration status
+
+        self.logger.info("Finished enabling FULL sensor configuration for calibration.")
+
 class BNO085Calibrator:
     """Handles BNO085 sensor calibration process."""
     
     def __init__(self):
-        self.interface = BNO085Interface()
+        # Use the specialized calibration interface
+        self.interface = BNO085CalibrationInterface()
         
     async def run_calibration(self):
         """Run the complete calibration process."""
