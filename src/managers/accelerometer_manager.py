@@ -150,18 +150,20 @@ class AccelerometerManager:
         self._prev_quat_ts: float = 0.0
 
         # Improved thresholds with hysteresis for stable state detection
-        # STATIONARY: Device completely still (on table, etc.) - Very generous thresholds based on real data
-        self.stationary_linear_accel_max = 0.25   # m/s^2 - Generous but tighter than observed max 0.19
-        self.stationary_gyro_max = 0.10           # rad/s - Higher than observed 0.00-0.03
-        self.stationary_rot_speed_max = 0.10      # rad/s - Higher than observed
+        # Based on real-world testing data showing hand-held values of 0.23-0.82 m/s²
         
-        # HELD_STILL: Device held by hand with slight tremor
-        self.held_still_linear_accel_max = 0.8    # m/s^2 - Moderate for hand tremor
-        self.held_still_gyro_max = 0.25           # rad/s - Allow for small hand movements
-        self.held_still_rot_speed_max = 0.25      # rad/s - Allow for small hand movements
+        # STATIONARY: Device completely still (on table, etc.) - More restrictive based on observed data
+        self.stationary_linear_accel_max = 0.15   # m/s² - More restrictive than observed 0.23-0.82 range
+        self.stationary_gyro_max = 0.08           # rad/s - Slightly more restrictive
+        self.stationary_rot_speed_max = 0.08      # rad/s - Slightly more restrictive
         
-        # Hysteresis: Once in a stable state, require higher thresholds to exit
-        self.hysteresis_factor = 3.0               # Very strong hysteresis to prevent oscillation
+        # HELD_STILL: Device held by hand with slight tremor - Adjusted based on observed data
+        self.held_still_linear_accel_max = 1.0    # m/s² - Increased to accommodate observed 0.82 m/s² values
+        self.held_still_gyro_max = 0.35           # rad/s - Increased to allow for more hand movement
+        self.held_still_rot_speed_max = 0.35      # rad/s - Increased to allow for more hand movement
+        
+        # Hysteresis: Strong hysteresis to prevent oscillation, but with improved logic
+        self.hysteresis_factor = 2.5               # Reduced from 3.0 for more responsive transitions
 
     async def initialize(self) -> bool:
         """
@@ -318,34 +320,80 @@ class AccelerometerManager:
     def _determine_stable_state(self, linear_accel_mag: float, gyro_mag: float, 
                                rot_speed: float, current_state: SimplifiedState) -> SimplifiedState:
         """
-        Determine if device is in STATIONARY, HELD_STILL, or MOVING state with hysteresis.
-        """
-        # Apply hysteresis if currently in a stable state
-        hysteresis_multiplier = 1.0
-        if current_state in [SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
-            hysteresis_multiplier = self.hysteresis_factor
-
-        # Check for STATIONARY (most restrictive)
-        stationary_linear_threshold = self.stationary_linear_accel_max * hysteresis_multiplier
-        stationary_gyro_threshold = self.stationary_gyro_max * hysteresis_multiplier
-        stationary_rot_threshold = self.stationary_rot_speed_max * hysteresis_multiplier
+        Determine if device is in STATIONARY, HELD_STILL, or MOVING state with improved hysteresis.
         
+        The key insight is that hysteresis should work in both directions:
+        - When transitioning TO a stable state, use normal thresholds
+        - When transitioning FROM a stable state, use higher thresholds (harder to exit)
+        
+        This prevents oscillation at threshold boundaries.
+        """
+        
+        # Define base thresholds
+        stationary_linear_base = self.stationary_linear_accel_max
+        stationary_gyro_base = self.stationary_gyro_max
+        stationary_rot_base = self.stationary_rot_speed_max
+        
+        held_still_linear_base = self.held_still_linear_accel_max
+        held_still_gyro_base = self.held_still_gyro_max
+        held_still_rot_base = self.held_still_rot_speed_max
+        
+        # Apply hysteresis based on current state
+        if current_state == SimplifiedState.STATIONARY:
+            # Currently STATIONARY - use higher thresholds to exit (harder to leave)
+            stationary_linear_threshold = stationary_linear_base * self.hysteresis_factor
+            stationary_gyro_threshold = stationary_gyro_base * self.hysteresis_factor
+            stationary_rot_threshold = stationary_rot_base * self.hysteresis_factor
+            
+            # For HELD_STILL, use normal thresholds (easier to transition to)
+            held_still_linear_threshold = held_still_linear_base
+            held_still_gyro_threshold = held_still_gyro_base
+            held_still_rot_threshold = held_still_rot_base
+            
+        elif current_state == SimplifiedState.HELD_STILL:
+            # Currently HELD_STILL - use higher thresholds to exit
+            held_still_linear_threshold = held_still_linear_base * self.hysteresis_factor
+            held_still_gyro_threshold = held_still_gyro_base * self.hysteresis_factor
+            held_still_rot_threshold = held_still_rot_base * self.hysteresis_factor
+            
+            # For STATIONARY, use normal thresholds but make them more restrictive
+            # to prevent easy transition back to STATIONARY from HELD_STILL
+            stationary_linear_threshold = stationary_linear_base * 0.8  # 20% more restrictive
+            stationary_gyro_threshold = stationary_gyro_base * 0.8
+            stationary_rot_threshold = stationary_rot_base * 0.8
+            
+        else:
+            # Not currently in a stable state - use normal thresholds for entry
+            stationary_linear_threshold = stationary_linear_base
+            stationary_gyro_threshold = stationary_gyro_base
+            stationary_rot_threshold = stationary_rot_base
+            
+            held_still_linear_threshold = held_still_linear_base
+            held_still_gyro_threshold = held_still_gyro_base
+            held_still_rot_threshold = held_still_rot_base
+        
+        # Check for STATIONARY (most restrictive)
         is_stationary = (linear_accel_mag < stationary_linear_threshold and
                         gyro_mag < stationary_gyro_threshold and
                         rot_speed < stationary_rot_threshold)
         
-        if is_stationary:
-            return SimplifiedState.STATIONARY
-
         # Check for HELD_STILL (less restrictive)
-        held_still_linear_threshold = self.held_still_linear_accel_max * hysteresis_multiplier
-        held_still_gyro_threshold = self.held_still_gyro_max * hysteresis_multiplier
-        held_still_rot_threshold = self.held_still_rot_speed_max * hysteresis_multiplier
-        
         is_held_still = (linear_accel_mag < held_still_linear_threshold and
                         gyro_mag < held_still_gyro_threshold and
                         rot_speed < held_still_rot_threshold)
         
+        # Debug logging for state transitions to understand threshold behavior
+        if current_state in [SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
+            candidate_state = SimplifiedState.STATIONARY if is_stationary else (SimplifiedState.HELD_STILL if is_held_still else SimplifiedState.MOVING)
+            if candidate_state != current_state:
+                self.logger.debug(f"State transition candidate: {current_state.name} → {candidate_state.name}")
+                self.logger.debug(f"  Linear: {linear_accel_mag:.3f} (STAT<{stationary_linear_threshold:.3f}, HELD<{held_still_linear_threshold:.3f})")
+                self.logger.debug(f"  Gyro: {gyro_mag:.3f} (STAT<{stationary_gyro_threshold:.3f}, HELD<{held_still_gyro_threshold:.3f})")
+                self.logger.debug(f"  RotSpeed: {rot_speed:.3f} (STAT<{stationary_rot_threshold:.3f}, HELD<{held_still_rot_threshold:.3f})")
+        
+        if is_stationary:
+            return SimplifiedState.STATIONARY
+
         if is_held_still:
             return SimplifiedState.HELD_STILL
 

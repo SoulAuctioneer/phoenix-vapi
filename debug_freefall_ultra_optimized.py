@@ -50,10 +50,11 @@ async def debug_freefall_ultra_optimized():
         print("- Gyroscope (rotation detection)")
         print()
         print(f"Free Fall Thresholds: Accel<{accel_manager.free_fall_accel_threshold:.1f} m/s², Gyro>{accel_manager.free_fall_min_rotation:.1f} rad/s")
-        print(f"State Thresholds:")
+        print(f"State Thresholds (IMPROVED):")
         print(f"  STATIONARY: Linear<{accel_manager.stationary_linear_accel_max:.2f} m/s², Gyro<{accel_manager.stationary_gyro_max:.2f} rad/s")
         print(f"  HELD_STILL: Linear<{accel_manager.held_still_linear_accel_max:.2f} m/s², Gyro<{accel_manager.held_still_gyro_max:.2f} rad/s")
-        print(f"  Hysteresis Factor: {accel_manager.hysteresis_factor:.1f}x")
+        print(f"  Hysteresis Factor: {accel_manager.hysteresis_factor:.1f}x (with improved bidirectional logic)")
+        print("  Note: Hysteresis now prevents oscillation by making it harder to exit stable states")
         print("Monitoring... (Press Ctrl+C to stop)")
         print("Output format: [Sample] Time(ms) | State      | Raw(m/s²) | Linear(m/s²) | Gyro(rad/s) | Read(ms) | Calc(ms) | Total(ms) | Alerts")
         
@@ -124,7 +125,7 @@ async def debug_freefall_ultra_optimized():
                 should_print = (
                     current_state != last_state or 
                     current_state == "FREE_FALL" or
-                    sample_count % 1000 == 0  # Performance summary every 200 samples
+                    sample_count % 1000 == 0  # Performance summary every 1000 samples
                 )
                 
                 if should_print:
