@@ -71,7 +71,7 @@ async def debug_freefall():
                 # Check free fall conditions using new multi-sensor approach
                 is_low_accel = raw_accel_mag < accel_manager.free_fall_accel_threshold
                 has_rotation = gyro_mag > accel_manager.free_fall_min_rotation
-                is_extremely_still = (raw_accel_mag > 8.0 and raw_accel_mag < 12.0 and gyro_mag < 0.02)
+                is_extremely_still = (raw_accel_mag > 9.0 and raw_accel_mag < 11.0 and gyro_mag < 0.1)
                 
                 # Print status every sample
                 print(f"\nTime since last sample: {ms_since_last_sample:.2f}ms, Sample: {sample_count}")

@@ -108,9 +108,9 @@ class AccelerometerManager:
 
         # Free Fall / Impact - Multi-sensor approach
         # Free fall detection using sensor fusion for accuracy
-        self.free_fall_accel_threshold = 2.0    # m/s^2 - Max total accel magnitude for FREE_FALL (more lenient)
-        self.free_fall_min_rotation = 0.1       # rad/s - Min gyro magnitude indicating tumbling motion
-        self.free_fall_min_duration = 0.05      # seconds - Min duration to confirm free fall
+        self.free_fall_accel_threshold = 7.0    # m/s^2 - Max total accel magnitude for FREE_FALL (more realistic)
+        self.free_fall_min_rotation = 1.0       # rad/s - Min gyro magnitude indicating tumbling motion
+        self.free_fall_min_duration = 0.02      # seconds - Min duration to confirm free fall (1-2 samples)
         self.free_fall_max_duration = 5.0       # seconds - Max reasonable free fall duration
         self.impact_threshold = 15.0             # m/s^2 - Min accel spike for IMPACT
         
@@ -177,13 +177,8 @@ class AccelerometerManager:
         current_time = time.time()
         data['timestamp'] = current_time # Add timestamp immediately
 
-        # Calculate optional values first
-        # If data contains rotation vector, calculate heading
-        if "rotation_vector" in data and isinstance(data["rotation_vector"], tuple) and len(data["rotation_vector"]) == 4:
-            quat_i, quat_j, quat_k, quat_real = data["rotation_vector"]
-            data["heading"] = self.find_heading(quat_real, quat_i, quat_j, quat_k)
-
-        # --- Rotation speed from Game Rotation quaternion ---
+        # Skip expensive calculations for performance optimization
+        # Only calculate rotation speed (needed for state detection)
         rot_speed = 0.0
         if "game_rotation" in data and isinstance(data["game_rotation"], tuple) and len(data["game_rotation"]) == 4:
             current_quat = data["game_rotation"]
@@ -198,20 +193,8 @@ class AccelerometerManager:
             self._prev_quat_ts = now_ts
         data["rot_speed"] = rot_speed
 
-        # Calculate energy level if we have the required data
-        if ("linear_acceleration" in data and isinstance(data["linear_acceleration"], tuple) and len(data["linear_acceleration"]) == 3 and
-            "gyro" in data and isinstance(data["gyro"], tuple) and len(data["gyro"]) == 3):
-            data["energy"] = self.calculate_energy(
-                data["linear_acceleration"],
-                data["gyro"],
-                MoveActivityConfig.ACCEL_WEIGHT,
-                MoveActivityConfig.GYRO_WEIGHT,
-                rot_speed,
-                MoveActivityConfig.ROT_WEIGHT
-            )
-        else:
-            # Ensure energy field exists even if calculation fails
-            data["energy"] = 0.0 # Or None, depending on desired handling
+        # Skip heading and energy calculations for performance
+        # These can be added back if needed for specific applications
 
         # Update motion history regardless of calculation success
         self._update_motion_history(data)
@@ -448,8 +431,8 @@ class AccelerometerManager:
         
         # Rule out if device is extremely still (stationary detection)
         # Use stricter thresholds than the main stationary detection to avoid conflicts
-        is_extremely_still = (total_accel_mag > 8.0 and total_accel_mag < 12.0 and  # Near 1g (9.8 m/s²) - sitting still
-                             gyro_mag < 0.02)  # Almost no rotation
+        is_extremely_still = (total_accel_mag > 9.0 and total_accel_mag < 11.0 and  # Near 1g (9.8 m/s²) - sitting still
+                             gyro_mag < 0.1)  # Almost no rotation
         
         if is_extremely_still:
             self._reset_free_fall_tracking()

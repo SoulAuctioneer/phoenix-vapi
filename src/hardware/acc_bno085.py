@@ -142,17 +142,17 @@ class BNO085Interface:
         async def _enable_feature_wrapper(feature_id, interval_us):
             await self._enable_feature_with_interval(feature_id, interval_us)
 
-        # Essential motion vectors for free fall detection - Higher frequency
-        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 10000) # 10ms (100Hz) - Primary for free fall
-        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 10000)       # 10ms (100Hz) - Backup/comparison
+        # Essential motion vectors for free fall detection - Optimized frequency
+        await _enable_feature_wrapper(BNO_REPORT_ACCELEROMETER, 5000)        # 5ms (200Hz) - Primary for free fall
+        await _enable_feature_wrapper(BNO_REPORT_LINEAR_ACCELERATION, 5000)  # 5ms (200Hz) - Secondary for free fall
+        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 5000)            # 5ms (200Hz) - Essential for tumbling detection
         
-        # Secondary motion data - Lower frequency to reduce I2C load
-        await _enable_feature_wrapper(BNO_REPORT_GYROSCOPE, 20000)          # 20ms (50Hz)
-        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 20000)  # 20ms (50Hz)
+        # Rotation data - Lower frequency to reduce I2C load
+        await _enable_feature_wrapper(BNO_REPORT_GAME_ROTATION_VECTOR, 10000)  # 10ms (100Hz)
         
-        # Classification Reports - Low frequency
-        await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 50000) # 50ms (20Hz)
-        await _enable_feature_wrapper(BNO_REPORT_SHAKE_DETECTOR, 50000)       # 50ms (20Hz)
+        # Classification Reports - Very low frequency (optional)
+        await _enable_feature_wrapper(BNO_REPORT_STABILITY_CLASSIFIER, 100000) # 100ms (10Hz)
+        await _enable_feature_wrapper(BNO_REPORT_SHAKE_DETECTOR, 100000)       # 100ms (10Hz)
         
         # Disabled to reduce I2C overhead - not essential for free fall detection
         # await _enable_feature_wrapper(BNO_REPORT_MAGNETOMETER, 20000)       # 20ms (50Hz)
