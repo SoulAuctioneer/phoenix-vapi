@@ -126,9 +126,9 @@ class AccelerometerManager:
 
         # Shake detection tuning (peak-magnitude approach)
         self.shake_history_size = 30            # Samples (~0.15–0.2 s at 200 Hz)
-        self.peak_magnitude_for_shake = 10.0     # m/s^2 – require at least one spike ≥ 0.8 g
-        self.min_magnitude_for_shake = 4.0      # m/s^2 – discard almost-still windows
-        self.min_accel_reversals_for_shake = 3  # Require back-and-forth motion
+        self.peak_magnitude_for_shake = 11.0     # m/s^2 – require at least one spike ≥ 
+        self.min_magnitude_for_shake = 5.0      # m/s^2 – discard almost-still windows
+        self.min_accel_reversals_for_shake = 4  # Require back-and-forth motion
 
         # --- History ---
         # Make sure the buffer can always accommodate at least `shake_history_size` samples.
