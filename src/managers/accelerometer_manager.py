@@ -856,7 +856,8 @@ class AccelerometerManager:
         1. Very low total acceleration (< 6.0 m/s²) - true weightlessness
         2. Significant rotational motion (2.0-15 rad/s) - objects tumble during free fall
         3. High linear acceleration (> 8.0 m/s²) - BNO085 gravity compensation failure signature
-        4. Sustained for minimum duration (50ms) - rules out brief sensor noise
+        4. Rapid acceleration drop (> 8.0 m/s² drop from recent peak) - distinguishes from circular motion
+        5. Sustained for minimum duration (50ms) - rules out brief sensor noise
         
         Note: The BNO085's gravity compensation algorithm predictably fails during free fall,
         causing linear acceleration to read ~10+ m/s² instead of near zero. We exploit this
@@ -865,7 +866,8 @@ class AccelerometerManager:
         This approach specifically excludes:
         - Gentle arc movements (moderate total accel + low rotation)
         - Stationary conditions (high total accel + low rotation + low linear accel)
-        - Normal motion (varies widely but doesn't match all three signatures)
+        - Circular motion (gradual deceleration without rapid acceleration drop)
+        - Normal motion (varies widely but doesn't match all four signatures)
         - Sensor noise (brief fluctuations ruled out by duration requirement)
         
         Args:
@@ -913,17 +915,23 @@ class AccelerometerManager:
         # We can use this predictable failure as a positive indicator!
         has_free_fall_linear_signature = linear_accel_mag > 8.0  # m/s² - gravity compensation failure signature
         
-        # Free fall candidate requires all three criteria:
+        # Acceleration rate check: Free fall has rapid acceleration drop, circular motion has gradual decrease
+        has_rapid_accel_drop = self._check_rapid_acceleration_drop(total_accel_mag)
+        
+        # Free fall candidate requires all four criteria:
         # 1. Low total acceleration (weightlessness)
         # 2. Significant rotation (tumbling)  
         # 3. High linear acceleration (gravity compensation failure signature)
-        is_free_fall_candidate = (is_very_low_accel and has_significant_rotation and has_free_fall_linear_signature)
+        # 4. Rapid acceleration drop (distinguishes from circular motion)
+        is_free_fall_candidate = (is_very_low_accel and has_significant_rotation and 
+                                 has_free_fall_linear_signature and has_rapid_accel_drop)
         
         # Debug logging for near-miss cases (when some but not all criteria are met)
-        if (is_very_low_accel or has_significant_rotation or has_free_fall_linear_signature) and not is_free_fall_candidate:
+        if (is_very_low_accel or has_significant_rotation or has_free_fall_linear_signature or has_rapid_accel_drop) and not is_free_fall_candidate:
             self.logger.debug(f"Free fall near-miss: total_accel={total_accel_mag:.2f}(<{self.free_fall_accel_threshold:.1f})={is_very_low_accel}, "
                             f"gyro={gyro_mag:.3f}({self.free_fall_min_rotation:.1f}-{self.free_fall_max_rotation:.1f})={has_significant_rotation}, "
-                            f"linear_accel={linear_accel_mag:.2f}(>8.0)={has_free_fall_linear_signature}")
+                            f"linear_accel={linear_accel_mag:.2f}(>8.0)={has_free_fall_linear_signature}, "
+                            f"rapid_drop={has_rapid_accel_drop}")
         
         if is_free_fall_candidate:
             # Start tracking if this is the first candidate sample
@@ -957,7 +965,7 @@ class AccelerometerManager:
             if self.free_fall_candidate_start is not None:
                 duration = timestamp - self.free_fall_candidate_start
                 self.logger.debug(f"Free fall candidate ended after {duration:.3f}s: total_accel={total_accel_mag:.2f}, gyro={gyro_mag:.3f}, linear_accel={linear_accel_mag:.2f}")
-                self.logger.debug(f"  Criteria: low_accel={is_very_low_accel}, sig_rotation={has_significant_rotation}, linear_signature={has_free_fall_linear_signature}")
+                self.logger.debug(f"  Criteria: low_accel={is_very_low_accel}, sig_rotation={has_significant_rotation}, linear_signature={has_free_fall_linear_signature}, rapid_drop={has_rapid_accel_drop}")
             self._reset_free_fall_tracking()
             return False
     
@@ -1101,3 +1109,55 @@ class AccelerometerManager:
                 # Print other types as strings, aligned
                 print(f"  {key:<25}: {str(value)}")
         print("-------------------")
+
+    def _check_rapid_acceleration_drop(self, total_accel_mag: float) -> bool:
+        """
+        Check if the acceleration dropped rapidly in recent history.
+        
+        Free fall: Rapid drop from high acceleration (throw) to low acceleration (weightless)
+        Circular motion: Gradual decrease in acceleration as motion slows down
+        
+        Args:
+            total_accel_mag: Current total acceleration magnitude (m/s²)
+            
+        Returns:
+            bool: True if rapid acceleration drop is detected
+        """
+        if len(self.motion_history) < 8:  # Need enough history to detect rapid change
+            return False
+        
+        # Look back through recent history to find peak acceleration
+        recent_samples = 8  # Look back ~160ms at 50Hz (8 samples × 20ms)
+        recent_history = list(self.motion_history)[-recent_samples:]
+        
+        # Extract acceleration magnitudes from recent history
+        accel_magnitudes = []
+        for sample in recent_history:
+            accel_raw = sample.get("acceleration", None)
+            if isinstance(accel_raw, tuple) and len(accel_raw) == 3:
+                try:
+                    accel_mag = sqrt(sum(x*x for x in accel_raw))
+                    accel_magnitudes.append(accel_mag)
+                except (TypeError, ValueError):
+                    continue
+        
+        if len(accel_magnitudes) < 5:
+            return False
+        
+        # Find the maximum acceleration in recent history
+        max_recent_accel = max(accel_magnitudes)
+        
+        # Check for rapid drop: must have dropped significantly from recent peak
+        min_drop_threshold = 8.0  # m/s² - minimum drop to consider "rapid"
+        accel_drop = max_recent_accel - total_accel_mag
+        
+        # Also check that the peak was high enough (indicating a throw)
+        min_peak_threshold = 12.0  # m/s² - minimum peak to indicate throwing motion
+        
+        has_significant_drop = accel_drop >= min_drop_threshold
+        had_high_peak = max_recent_accel >= min_peak_threshold
+        
+        self.logger.debug(f"Rapid drop check: peak={max_recent_accel:.1f}, current={total_accel_mag:.1f}, "
+                         f"drop={accel_drop:.1f}(>={min_drop_threshold}), peak_high={had_high_peak}")
+        
+        return has_significant_drop and had_high_peak
