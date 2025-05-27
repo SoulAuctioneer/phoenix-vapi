@@ -55,7 +55,7 @@ async def debug_freefall_ultra_optimized():
         print(f"  HELD_STILL: Linear<{accel_manager.held_still_linear_accel_max:.2f} m/s², Gyro<{accel_manager.held_still_gyro_max:.2f} rad/s")
         print(f"  Hysteresis Factor: {accel_manager.hysteresis_factor:.1f}x (stronger separation)")
         print(f"  Min State Duration: {accel_manager.min_state_duration:.1f}s (2x longer for STAT↔HELD transitions)")
-        print("  Note: Large gap between thresholds to prevent oscillation when holding steady")
+        print("  Note: STATIONARY thresholds adjusted for observed sensor noise when completely still")
         print("Monitoring... (Press Ctrl+C to stop)")
         print("Output format: [Sample] Time(ms) | State      | Raw(m/s²) | Linear(m/s²) | Gyro(rad/s) | Read(ms) | Calc(ms) | Total(ms) | Alerts")
         

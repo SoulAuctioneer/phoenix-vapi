@@ -151,12 +151,13 @@ class AccelerometerManager:
 
         # Improved thresholds with hysteresis for stable state detection
         # Based on real-world testing showing oscillation between 0.05-0.47 m/s² when "holding steady"
+        # AND observed "completely stationary" values up to 0.048 m/s² linear, 0.029 rad/s gyro
         # Need much larger separation between STATIONARY and HELD_STILL to prevent oscillation
         
-        # STATIONARY: Device completely still (on table, etc.) - Very restrictive for true stillness
-        self.stationary_linear_accel_max = 0.06   # m/s² - Much more restrictive (observed min: 0.05)
-        self.stationary_gyro_max = 0.04           # rad/s - More restrictive (observed: 0.015-0.060)
-        self.stationary_rot_speed_max = 0.04      # rad/s - More restrictive
+        # STATIONARY: Device completely still (on table, etc.) - Accommodate sensor noise
+        self.stationary_linear_accel_max = 0.08   # m/s² - Above observed max (0.048) with margin
+        self.stationary_gyro_max = 0.05           # rad/s - Above observed max (0.029) with margin
+        self.stationary_rot_speed_max = 0.05      # rad/s - Above observed max with margin
         
         # HELD_STILL: Device held by hand - Much more permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above observed 0.47 max
