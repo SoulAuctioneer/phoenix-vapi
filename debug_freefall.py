@@ -38,7 +38,10 @@ async def debug_freefall():
             return
         
         logger.info("Accelerometer initialized successfully!")
-        logger.info(f"Free fall threshold: {accel_manager.free_fall_threshold} m/s²")
+        logger.info(f"Multi-sensor free fall detection:")
+        logger.info(f"  - Max acceleration: {accel_manager.free_fall_accel_threshold} m/s²")
+        logger.info(f"  - Min rotation: {accel_manager.free_fall_min_rotation} rad/s")
+        logger.info(f"  - Min duration: {accel_manager.free_fall_min_duration} seconds")
         logger.info("Starting monitoring... (Press Ctrl+C to stop)")
         logger.info("Try dropping or throwing the device to test free fall detection!")
         
@@ -56,34 +59,40 @@ async def debug_freefall():
                 # Extract key values
                 raw_accel = data.get("acceleration", (0, 0, 0))
                 linear_accel = data.get("linear_acceleration", (0, 0, 0))
+                gyro = data.get("gyro", (0, 0, 0))
                 current_state = data.get("current_state", "UNKNOWN")
                 stability = data.get("stability", "Unknown")
                 
                 # Calculate magnitudes
                 raw_accel_mag = sqrt(sum(x*x for x in raw_accel)) if isinstance(raw_accel, tuple) else 0.0
                 linear_accel_mag = sqrt(sum(x*x for x in linear_accel)) if isinstance(linear_accel, tuple) else 0.0
+                gyro_mag = sqrt(sum(x*x for x in gyro)) if isinstance(gyro, tuple) else 0.0
                 
-                # Check if we're in free fall according to our threshold (now using linear acceleration)
-                is_freefall_by_threshold_raw = raw_accel_mag < accel_manager.free_fall_threshold
-                is_freefall_by_threshold_linear = linear_accel_mag < accel_manager.free_fall_threshold
+                # Check free fall conditions using new multi-sensor approach
+                is_low_accel = raw_accel_mag < accel_manager.free_fall_accel_threshold
+                has_rotation = gyro_mag > accel_manager.free_fall_min_rotation
+                is_extremely_still = (raw_accel_mag > 8.0 and raw_accel_mag < 12.0 and gyro_mag < 0.02)
                 
                 # Print status every sample
                 print(f"\nTime since last sample: {ms_since_last_sample:.2f}ms, Sample: {sample_count}")
                 print(f"Raw Accel: ({raw_accel[0]:.3f}, {raw_accel[1]:.3f}, {raw_accel[2]:.3f}) m/s² | Mag: {raw_accel_mag:.3f}")
                 print(f"Linear Accel: ({linear_accel[0]:.3f}, {linear_accel[1]:.3f}, {linear_accel[2]:.3f}) m/s² | Mag: {linear_accel_mag:.3f}")
-                print(f"Threshold: {accel_manager.free_fall_threshold:.3f} | Raw<Thresh: {is_freefall_by_threshold_raw} | Linear<Thresh: {is_freefall_by_threshold_linear}")
+                print(f"Gyro: ({gyro[0]:.3f}, {gyro[1]:.3f}, {gyro[2]:.3f}) rad/s | Mag: {gyro_mag:.3f}")
+                print(f"Multi-sensor FF: LowAccel({raw_accel_mag:.3f}<{accel_manager.free_fall_accel_threshold:.1f})={is_low_accel} | HasRotation({gyro_mag:.3f}>{accel_manager.free_fall_min_rotation:.1f})={has_rotation} | ExtremelyStill={is_extremely_still}")
                 print(f"State: {current_state} | Stability: {stability}")
                 
                 # Alert on state changes or free fall conditions
                 if current_state == "FREE_FALL":
-                    print(f"🚨 FREE FALL DETECTED! Linear accel mag: {linear_accel_mag:.3f} m/s²")
-                elif is_freefall_by_threshold_linear and current_state != "FREE_FALL":
-                    print(f"⚠️  Linear accel below threshold ({linear_accel_mag:.3f} < {accel_manager.free_fall_threshold:.3f}) but state is {current_state}")
-                elif is_freefall_by_threshold_raw and current_state != "FREE_FALL":
-                    print(f"ℹ️  Raw accel below threshold ({raw_accel_mag:.3f} < {accel_manager.free_fall_threshold:.3f}) but state is {current_state}")
+                    print(f"🚨 FREE FALL DETECTED! Multi-sensor approach confirmed")
+                elif is_low_accel and has_rotation and not is_extremely_still:
+                    print(f"⚠️  Free fall conditions met but not yet confirmed (duration/timing)")
+                elif is_low_accel and not has_rotation:
+                    print(f"ℹ️  Low acceleration but no rotation - likely stationary, not free fall")
+                elif is_extremely_still:
+                    print(f"📍 Device is extremely still (near 1g acceleration, minimal rotation)")
                 
                 # Small delay to avoid overwhelming output
-                await asyncio.sleep(0.01)  # 10ms delay
+                # await asyncio.sleep(0.01)  # 10ms delay
                 
             except KeyboardInterrupt:
                 break

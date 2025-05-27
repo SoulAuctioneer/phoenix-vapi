@@ -106,11 +106,17 @@ class AccelerometerManager:
         # Removed self.stationary_duration
         # Removed self.held_still_duration
 
-        # Free Fall / Impact
-        # Using RAW acceleration magnitude now, per standard free fall detection methods.
-        # Threshold set slightly below 1.0 m/s^2 to account for noise.
-        self.free_fall_threshold = 0.8          # m/s^2 - Max RAW accel magnitude for FREE_FALL
-        self.impact_threshold = 15.0            # m/s^2 - Min accel spike for IMPACT
+        # Free Fall / Impact - Multi-sensor approach
+        # Free fall detection using sensor fusion for accuracy
+        self.free_fall_accel_threshold = 2.0    # m/s^2 - Max total accel magnitude for FREE_FALL (more lenient)
+        self.free_fall_min_rotation = 0.1       # rad/s - Min gyro magnitude indicating tumbling motion
+        self.free_fall_min_duration = 0.05      # seconds - Min duration to confirm free fall
+        self.free_fall_max_duration = 5.0       # seconds - Max reasonable free fall duration
+        self.impact_threshold = 15.0             # m/s^2 - Min accel spike for IMPACT
+        
+        # Free fall state tracking
+        self.free_fall_start_time = None
+        self.free_fall_candidate_start = None
 
         # Shake detection tuning (peak-magnitude approach)
         self.shake_history_size = 30            # Samples (~0.15–0.2 s at 200 Hz)
@@ -282,8 +288,8 @@ class AccelerometerManager:
             # Keep accel_magnitude_linear as 0.0
 
         # --- State Checks (Prioritized) ---
-        # Desired order: IMPACT (from FREE_FALL) -> FREE_FALL -> SHAKE -> STATIONARY/HELD_STILL -> MOVING
-        # This ensures SHAKE can be detected from any prior state except FREE_FALL and IMPACT.
+        # Desired order: IMPACT (from FREE_FALL) -> STATIONARY/HELD_STILL -> SHAKE -> FREE_FALL -> MOVING
+        # Check stability-based states first to avoid false FREE_FALL detection when stationary
 
         # 1. IMPACT: Check for a sudden spike AND if the previous state was FREE_FALL
         previous_state = self.current_state # Store state from *before* this determination
@@ -299,13 +305,27 @@ class AccelerometerManager:
         elif is_potential_impact:
              self.logger.debug(f"Potential impact ignored (not from FREE_FALL): Prev State={previous_state.name}, Accel {self.last_accel_magnitude:.2f} -> {accel_magnitude_linear:.2f}")
 
-        # 2. FREE_FALL: Check early to avoid mis-classifying SHAKE while airborne.
-        # Use linear acceleration for more reliable free fall detection (removes gravity component)
-        if accel_magnitude_linear < self.free_fall_threshold:
-            if self.current_state != SimplifiedState.FREE_FALL:
-                self.logger.debug(f"FREE_FALL detected: Linear Accel={accel_magnitude_linear:.2f}")
+        # 2. STATIONARY / HELD_STILL (use sensor data directly, ignore slow BNO stability)
+        rot_speed_current = current_data.get("rot_speed", 0.0)
+        gyro = current_data.get("gyro", (0, 0, 0))
+        gyro_mag = sqrt(sum(x*x for x in gyro)) if isinstance(gyro, tuple) and len(gyro) == 3 else 0.0
+
+        # Very strict stationary detection: extremely low motion on all sensors
+        is_very_still = (accel_magnitude_linear < 0.1 and  # Very low linear acceleration
+                        gyro_mag < 0.05 and               # Very low rotation
+                        rot_speed_current < 0.1)          # Very low quaternion-derived rotation
+
+        # Moderately still (held by hand with slight tremor)
+        is_held_still = (accel_magnitude_linear < self.low_linear_accel_max and 
+                        gyro_mag < 0.2 and 
+                        rot_speed_current < self.low_rot_speed_max)
+
+        if is_very_still:
             self.last_accel_magnitude = accel_magnitude_linear
-            return SimplifiedState.FREE_FALL
+            return SimplifiedState.STATIONARY
+        elif is_held_still:
+            self.last_accel_magnitude = accel_magnitude_linear
+            return SimplifiedState.HELD_STILL
 
         # 3. SHAKE: Either library-provided shake report OR our custom algorithm.
         # Built-in shake detection (from activity classifier or dedicated shake detector)
@@ -316,16 +336,20 @@ class AccelerometerManager:
             self.last_accel_magnitude = accel_magnitude_linear
             return SimplifiedState.SHAKE
 
-        # 4. STATIONARY / HELD_STILL (require BOTH BNO stability flag AND locally observed low motion)
-        rot_speed_current = current_data.get("rot_speed", 0.0)
-
-        if stability == "On table" and accel_magnitude_linear < self.low_linear_accel_max and rot_speed_current < self.low_rot_speed_max:
+        # 4. FREE_FALL: Multi-sensor fusion approach
+        # Check for free fall using total acceleration, gyroscope, and duration
+        free_fall_detected = self._detect_free_fall_multisensor(
+            accel_magnitude_raw, 
+            current_data.get("gyro", (0, 0, 0)), 
+            stability, 
+            timestamp
+        )
+        
+        if free_fall_detected:
+            if self.current_state != SimplifiedState.FREE_FALL:
+                self.logger.debug(f"FREE_FALL detected: Total Accel={accel_magnitude_raw:.2f}, Stability={stability}")
             self.last_accel_magnitude = accel_magnitude_linear
-            return SimplifiedState.STATIONARY
-
-        if stability == "Stable" and accel_magnitude_linear < self.low_linear_accel_max and rot_speed_current < self.low_rot_speed_max:
-            self.last_accel_magnitude = accel_magnitude_linear
-            return SimplifiedState.HELD_STILL
+            return SimplifiedState.FREE_FALL
 
         # 5. MOVING: If none of the specific states above are met
         # (includes BNO "In motion" or "Unknown" stability if not caught by other states)
@@ -395,6 +419,89 @@ class AccelerometerManager:
         through `data['shake']`.  Just verify it's truthy and boolean.
         """
         return bool(shake_val)
+
+    def _detect_free_fall_multisensor(self, total_accel_mag: float, gyro: Tuple[float, float, float], 
+                                    stability: str, timestamp: float) -> bool:
+        """
+        Detect free fall using multi-sensor fusion approach.
+        
+        True free fall characteristics:
+        1. Low total acceleration (weightlessness)
+        2. Some rotational motion (objects tumble during free fall)
+        3. NOT extremely still (rules out stationary objects)
+        4. Sustained for minimum duration
+        
+        Args:
+            total_accel_mag: Total acceleration magnitude (m/s²)
+            gyro: Gyroscope readings (rad/s)
+            stability: BNO085 stability classification (ignored, kept for compatibility)
+            timestamp: Current timestamp
+            
+        Returns:
+            bool: True if free fall is detected
+        """
+        # Calculate gyroscope magnitude
+        try:
+            gyro_mag = sqrt(sum(x*x for x in gyro)) if isinstance(gyro, tuple) and len(gyro) == 3 else 0.0
+        except (TypeError, ValueError):
+            gyro_mag = 0.0
+        
+        # Rule out if device is extremely still (stationary detection)
+        # Use stricter thresholds than the main stationary detection to avoid conflicts
+        is_extremely_still = (total_accel_mag > 8.0 and total_accel_mag < 12.0 and  # Near 1g (9.8 m/s²) - sitting still
+                             gyro_mag < 0.02)  # Almost no rotation
+        
+        if is_extremely_still:
+            self._reset_free_fall_tracking()
+            return False
+        
+        # Check if current conditions suggest free fall candidate
+        is_low_accel = total_accel_mag < self.free_fall_accel_threshold
+        has_rotation = gyro_mag > self.free_fall_min_rotation
+        
+        # Free fall requires BOTH low acceleration AND some rotation
+        # (stationary objects have low accel but no rotation)
+        is_free_fall_candidate = is_low_accel and has_rotation
+        
+        if is_free_fall_candidate:
+            # Start tracking if this is the first candidate sample
+            if self.free_fall_candidate_start is None:
+                self.free_fall_candidate_start = timestamp
+                self.logger.debug(f"Free fall candidate started: accel={total_accel_mag:.2f}, gyro={gyro_mag:.3f}")
+                return False  # Don't declare free fall immediately
+            
+            # Check if we've sustained the conditions long enough
+            duration = timestamp - self.free_fall_candidate_start
+            
+            if duration >= self.free_fall_min_duration:
+                # Confirm free fall and start official tracking
+                if self.free_fall_start_time is None:
+                    self.free_fall_start_time = self.free_fall_candidate_start
+                    self.logger.debug(f"FREE_FALL confirmed after {duration:.3f}s")
+                
+                # Check for maximum reasonable duration
+                total_duration = timestamp - self.free_fall_start_time
+                if total_duration > self.free_fall_max_duration:
+                    self.logger.warning(f"Free fall duration exceeded maximum ({total_duration:.1f}s), resetting")
+                    self._reset_free_fall_tracking()
+                    return False
+                
+                return True
+            else:
+                # Still building up to minimum duration
+                return False
+        else:
+            # Conditions no longer met, reset tracking
+            if self.free_fall_candidate_start is not None:
+                duration = timestamp - self.free_fall_candidate_start
+                self.logger.debug(f"Free fall candidate ended after {duration:.3f}s: accel={total_accel_mag:.2f}, gyro={gyro_mag:.3f}")
+            self._reset_free_fall_tracking()
+            return False
+    
+    def _reset_free_fall_tracking(self):
+        """Reset free fall tracking state."""
+        self.free_fall_start_time = None
+        self.free_fall_candidate_start = None
 
     def find_heading(self, dqw: float, dqx: float, dqy: float, dqz: float) -> float:
         """
