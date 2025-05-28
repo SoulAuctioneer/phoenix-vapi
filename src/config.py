@@ -570,7 +570,7 @@ ACTIVITIES_CONFIG = {
 
 # Generate a prompt that lists type and metadata for each activity in ACTIVITIES_CONFIG
 ACTIVITIES_PROMPT = dedent("""
-    This is a list of possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided.
+    This is a list of possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
     """) + "\n".join([
         f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: ```json {{ "Vapi Speaker": "functions.list_activities", "parameters": {{ "activity_type": "{key}" }} }} ```'
         for key, value in ACTIVITIES_CONFIG.items()
