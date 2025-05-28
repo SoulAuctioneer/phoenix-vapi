@@ -471,8 +471,12 @@ class AccelerometerManager:
                         gyro_mag < held_still_gyro_threshold and
                         rot_speed < held_still_rot_threshold)
         
-        # Determine candidate state based on criteria
+        # Determine candidate state based on criteria with special handling for UNKNOWN→STATIONARY
         if is_truly_stationary:
+            candidate_state = SimplifiedState.STATIONARY
+        elif meets_basic_stationary and current_state == SimplifiedState.UNKNOWN:
+            # Special case: When starting from UNKNOWN, if we meet basic STATIONARY criteria,
+            # prefer STATIONARY over HELD_STILL to give consistency check time to build up
             candidate_state = SimplifiedState.STATIONARY
         elif is_held_still:
             candidate_state = SimplifiedState.HELD_STILL
@@ -486,6 +490,10 @@ class AccelerometerManager:
             self.logger.debug(f"  Gyro: {gyro_mag:.3f} (STAT<{stationary_gyro_threshold:.3f}, HELD<{held_still_gyro_threshold:.3f})")
             self.logger.debug(f"  RotSpeed: {rot_speed:.3f} (STAT<{stationary_rot_threshold:.3f}, HELD<{held_still_rot_threshold:.3f})")
             self.logger.debug(f"  STATIONARY checks: basic={meets_basic_stationary}, truly={is_truly_stationary}")
+            
+            # Show special case handling
+            if candidate_state == SimplifiedState.STATIONARY and not is_truly_stationary and meets_basic_stationary and current_state == SimplifiedState.UNKNOWN:
+                self.logger.debug(f"  UNKNOWN→STATIONARY special case: using basic criteria to give consistency check time")
             
             # Show hysteresis factors being applied
             if current_state == SimplifiedState.STATIONARY:
@@ -682,8 +690,11 @@ class AccelerometerManager:
         
         # Special handling for different state transitions with reasonable timing
         if self.current_state == SimplifiedState.UNKNOWN:
-            # Allow quick initial transition from UNKNOWN to any state
-            required_duration = 0.1  # 100ms for initial state detection
+            # Allow quick initial transition from UNKNOWN to most states, but give STATIONARY more time
+            if candidate_state == SimplifiedState.STATIONARY:
+                required_duration = 1.0  # Give STATIONARY time for consistency checks
+            else:
+                required_duration = 0.1  # 100ms for other initial state detection
             self.logger.debug(f"UNKNOWN→{candidate_state.name} transition requires {required_duration:.1f}s, elapsed: {time_since_last_change:.1f}s")
         elif self.current_state == SimplifiedState.STATIONARY and candidate_state == SimplifiedState.HELD_STILL:
             # Moderate delay to exit STATIONARY due to tiny jolts, but not excessive
