@@ -499,9 +499,10 @@ ACTIVITIES_CONFIG = {
         },
         "instructions": dedent("""
             * Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
-            * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the show_color function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
+            * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the `show_color` function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
             * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
-            * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the play_special_effect function, and narrate the ending of the game. Then, suggest another activity to do.
+            For example, ```json {{ "Vapi Speaker": "functions.show_color", "parameters": {{ "color": "red" }} }} ```
+            * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the `play_special_effect` function, and narrate the ending of the game. Then, suggest another activity to do.
         """),
         "content": dedent("""
             Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
@@ -528,6 +529,7 @@ ACTIVITIES_CONFIG = {
         "instructions": dedent("""
             Silly Spells: Bring magic to life with movement and song! Get ready to dance, clap, stomp, and sing for different kinds of magic.
             For each spell, you will use the play_special_effect function to trigger the effect, as shown for each spell. 
+            To start, tell your companion what spells they can cast: Rainstorm, Lightning, Rainbow, or Stars, and ask them to choose one.
         """),
         "content": dedent("""
             Here are the spells to choose from:

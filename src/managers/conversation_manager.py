@@ -216,7 +216,9 @@ class CallStateManager:
                     # A tool-initiated LED effect was active. Let it play for this duration of speech.
                     # Set the flag to False so that next time the assistant stops/starts speaking,
                     # the normal speaking/idle LED logic resumes.
-                    self._is_tool_led_effect_active = False
+                    # NOTE: Moved to the user role's is_speaking state.
+                    pass
+                    # self._is_tool_led_effect_active = False
                     # DO NOT change the LED effect, let the tool's effect continue.
                 else:
                     # If _is_tool_led_effect_active is False (meaning a tool effect just played during speech, 
@@ -234,6 +236,9 @@ class CallStateManager:
         # but no longer triggers LED effects in this method.
         elif role == "user":
              self._user_speaking = is_speaking
+             if is_speaking:
+                # Hopefully this should give more time for the effect to play.
+                self._is_tool_led_effect_active = False
 
 
 def thread_safe_event(func):
