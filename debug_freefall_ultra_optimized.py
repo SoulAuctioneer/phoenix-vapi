@@ -26,7 +26,7 @@ hardware_logger.setLevel(logging.WARNING)
 
 # Enable debug logging for the accelerometer manager to see state transitions
 accel_logger = logging.getLogger('managers.accelerometer_manager')
-accel_logger.setLevel(logging.DEBUG)
+accel_logger.setLevel(logging.INFO)
 
 async def debug_freefall_ultra_optimized():
     """Ultra-optimized debug function with only essential sensors."""
