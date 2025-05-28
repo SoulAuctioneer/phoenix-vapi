@@ -34,6 +34,7 @@ for logger_name in [
     'services.intent',
     'services.activity',
     'services.sleep_activity',
+    'services.call_activity',
     # Too noisy, disable for now
     'services.location',
     'managers.location_manager'

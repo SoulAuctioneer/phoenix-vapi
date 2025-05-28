@@ -277,7 +277,7 @@ class CallActivity(BaseService):
             with response.connect() as connect:
                 connect.stream(url=self.ws_url)
                 
-            self.logger.debug(f"Returning TwiML: {response}")
+            self.logger.info(f"Returning TwiML: {response}")
             return Response(str(response), mimetype="text/xml")
 
         except Exception as e:
@@ -361,24 +361,24 @@ class CallActivity(BaseService):
                 if payload:
                     # Decode base64 string
                     audio_bytes = base64.b64decode(payload)
-                    self.logger.debug(f"Received {len(audio_bytes)} bytes of µ-law audio from Twilio")
+                    self.logger.info(f"Received {len(audio_bytes)} bytes of µ-law audio from Twilio")
                     
                     # Convert µ-law to PCM
                     # Twilio sends 8kHz µ-law audio
                     pcm_audio = self._ulaw_to_pcm(audio_bytes)
                     
                     # Log audio characteristics for debugging
-                    self.logger.debug(f"After conversion: {len(pcm_audio)} PCM samples, dtype={pcm_audio.dtype}")
+                    self.logger.info(f"After conversion: {len(pcm_audio)} PCM samples, dtype={pcm_audio.dtype}")
                     if len(pcm_audio) > 0:
-                        self.logger.debug(f"Audio stats: min={np.min(pcm_audio)}, max={np.max(pcm_audio)}, mean={np.mean(pcm_audio):.2f}, std={np.std(pcm_audio):.2f}")
+                        self.logger.info(f"Audio stats: min={np.min(pcm_audio)}, max={np.max(pcm_audio)}, mean={np.mean(pcm_audio):.2f}, std={np.std(pcm_audio):.2f}")
                         # Log first few samples to check if they look reasonable
-                        self.logger.debug(f"First 10 samples: {pcm_audio[:10].tolist()}")
+                        self.logger.info(f"First 10 samples: {pcm_audio[:10].tolist()}")
                     
                     # Buffer and play full chunks
                     if self.audio_manager and self.call_producer and self.call_producer.active:
                         self.twilio_pcm_buffer = np.concatenate((self.twilio_pcm_buffer, pcm_audio))
                         chunk_size = self.audio_manager.config.chunk # Get chunk size from AudioManager
-                        self.logger.debug(f"Buffer size: {len(self.twilio_pcm_buffer)}, chunk size: {chunk_size}")
+                        self.logger.info(f"Buffer size: {len(self.twilio_pcm_buffer)}, chunk size: {chunk_size}")
                         
                         while len(self.twilio_pcm_buffer) >= chunk_size:
                             chunk_to_play = self.twilio_pcm_buffer[:chunk_size]
@@ -496,22 +496,22 @@ class CallActivity(BaseService):
         pcm_8khz_inverted = np.frombuffer(pcm_bytes_8khz_inverted, dtype=np.int16)
         
         # Log both results to compare
-        self.logger.debug(f"Standard µ-law stats: min={np.min(pcm_8khz_standard)}, max={np.max(pcm_8khz_standard)}, mean={np.mean(pcm_8khz_standard):.2f}, std={np.std(pcm_8khz_standard):.2f}")
-        self.logger.debug(f"Inverted µ-law stats: min={np.min(pcm_8khz_inverted)}, max={np.max(pcm_8khz_inverted)}, mean={np.mean(pcm_8khz_inverted):.2f}, std={np.std(pcm_8khz_inverted):.2f}")
+        self.logger.info(f"Standard µ-law stats: min={np.min(pcm_8khz_standard)}, max={np.max(pcm_8khz_standard)}, mean={np.mean(pcm_8khz_standard):.2f}, std={np.std(pcm_8khz_standard):.2f}")
+        self.logger.info(f"Inverted µ-law stats: min={np.min(pcm_8khz_inverted)}, max={np.max(pcm_8khz_inverted)}, mean={np.mean(pcm_8khz_inverted):.2f}, std={np.std(pcm_8khz_inverted):.2f}")
         
         # Use the one with higher standard deviation (more dynamic range)
         if np.std(pcm_8khz_standard) > np.std(pcm_8khz_inverted):
-            self.logger.debug("Using standard µ-law (no inversion)")
+            self.logger.info("Using standard µ-law (no inversion)")
             pcm_bytes_8khz = pcm_bytes_8khz_standard
         else:
-            self.logger.debug("Using inverted µ-law")
+            self.logger.info("Using inverted µ-law")
             pcm_bytes_8khz = pcm_bytes_8khz_inverted
         
         # Log intermediate conversion results
         pcm_8khz_array = np.frombuffer(pcm_bytes_8khz, dtype=np.int16)
-        self.logger.debug(f"After µ-law to PCM: {len(pcm_8khz_array)} samples at 8kHz")
+        self.logger.info(f"After µ-law to PCM: {len(pcm_8khz_array)} samples at 8kHz")
         if len(pcm_8khz_array) > 0:
-            self.logger.debug(f"8kHz PCM stats: min={np.min(pcm_8khz_array)}, max={np.max(pcm_8khz_array)}, mean={np.mean(pcm_8khz_array):.2f}")
+            self.logger.info(f"8kHz PCM stats: min={np.min(pcm_8khz_array)}, max={np.max(pcm_8khz_array)}, mean={np.mean(pcm_8khz_array):.2f}")
         
         # Resample from 8kHz to 16kHz using audioop.ratecv
         # Parameters: (input_bytes, width_in_bytes, num_channels, input_rate, output_rate, state, weight_A, weight_B)
@@ -527,7 +527,7 @@ class CallActivity(BaseService):
         # Convert PCM bytes to numpy array of int16
         pcm_audio = np.frombuffer(pcm_bytes_16khz, dtype=np.int16)
         
-        self.logger.debug(f"After resampling to 16kHz: {len(pcm_audio)} samples")
+        self.logger.info(f"After resampling to 16kHz: {len(pcm_audio)} samples")
         
         return pcm_audio
 
