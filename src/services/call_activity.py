@@ -471,11 +471,8 @@ class CallActivity(BaseService):
         # Convert PCM to µ-law using audioop
         ulaw_bytes = audioop.lin2ulaw(pcm_bytes_8khz, 2)
         
-        # Twilio expects inverted µ-law, so invert the bytes
-        ulaw_array = np.frombuffer(ulaw_bytes, dtype=np.uint8)
-        inverted_ulaw = 255 - ulaw_array
-        
-        return inverted_ulaw.tobytes()
+        # Twilio expects standard µ-law, not inverted
+        return ulaw_bytes
 
     def _ulaw_to_pcm(self, ulaw_data: bytes) -> np.ndarray:
         """Convert µ-law audio from Twilio to PCM using audioop for accuracy.
@@ -483,35 +480,18 @@ class CallActivity(BaseService):
         Note: Twilio sends 8kHz µ-law audio, but our AudioManager expects 16kHz PCM.
         This function handles both the µ-law to PCM conversion and the resampling.
         """
-        # Try both inverted and non-inverted µ-law to see which produces valid audio
-        temp_ulaw_array = np.frombuffer(ulaw_data, dtype=np.uint8)
-        
-        # Test 1: Try without inversion (standard µ-law)
-        pcm_bytes_8khz_standard = audioop.ulaw2lin(ulaw_data, 2)
-        pcm_8khz_standard = np.frombuffer(pcm_bytes_8khz_standard, dtype=np.int16)
-        
-        # Test 2: Try with inversion (inverted µ-law)
-        inverted_ulaw_bytes = (255 - temp_ulaw_array).astype(np.uint8).tobytes()
-        pcm_bytes_8khz_inverted = audioop.ulaw2lin(inverted_ulaw_bytes, 2)
-        pcm_8khz_inverted = np.frombuffer(pcm_bytes_8khz_inverted, dtype=np.int16)
-        
-        # Log both results to compare
-        self.logger.info(f"Standard µ-law stats: min={np.min(pcm_8khz_standard)}, max={np.max(pcm_8khz_standard)}, mean={np.mean(pcm_8khz_standard):.2f}, std={np.std(pcm_8khz_standard):.2f}")
-        self.logger.info(f"Inverted µ-law stats: min={np.min(pcm_8khz_inverted)}, max={np.max(pcm_8khz_inverted)}, mean={np.mean(pcm_8khz_inverted):.2f}, std={np.std(pcm_8khz_inverted):.2f}")
-        
-        # Use the one with higher standard deviation (more dynamic range)
-        if np.std(pcm_8khz_standard) > np.std(pcm_8khz_inverted):
-            self.logger.info("Using standard µ-law (no inversion)")
-            pcm_bytes_8khz = pcm_bytes_8khz_standard
-        else:
-            self.logger.info("Using inverted µ-law")
-            pcm_bytes_8khz = pcm_bytes_8khz_inverted
+        # Twilio sends standard µ-law, not inverted
+        # Convert µ-law bytes to linear PCM bytes (16-bit, mono)
+        pcm_bytes_8khz = audioop.ulaw2lin(ulaw_data, 2)
         
         # Log intermediate conversion results
         pcm_8khz_array = np.frombuffer(pcm_bytes_8khz, dtype=np.int16)
         self.logger.info(f"After µ-law to PCM: {len(pcm_8khz_array)} samples at 8kHz")
         if len(pcm_8khz_array) > 0:
-            self.logger.info(f"8kHz PCM stats: min={np.min(pcm_8khz_array)}, max={np.max(pcm_8khz_array)}, mean={np.mean(pcm_8khz_array):.2f}")
+            self.logger.info(f"8kHz PCM stats: min={np.min(pcm_8khz_array)}, max={np.max(pcm_8khz_array)}, mean={np.mean(pcm_8khz_array):.2f}, std={np.std(pcm_8khz_array):.2f}")
+            # Check if this looks like valid audio (should be centered around 0)
+            if abs(np.mean(pcm_8khz_array)) > 1000:
+                self.logger.warning(f"Audio has large DC offset: {np.mean(pcm_8khz_array):.2f}, this might indicate incorrect decoding")
         
         # Resample from 8kHz to 16kHz using audioop.ratecv
         # Parameters: (input_bytes, width_in_bytes, num_channels, input_rate, output_rate, state, weight_A, weight_B)
