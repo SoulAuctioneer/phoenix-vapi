@@ -273,20 +273,10 @@ class CallActivity(BaseService):
             self.logger.info("Received TwiML request from Twilio")
             response = VoiceResponse()
 
-            # --- TEST: Use simpler unidirectional <Start><Stream> ---
-            # This tells Twilio to start streaming *to* your WebSocket
-            # It doesn't expect audio *from* your WebSocket initially
-            start = Start()
-            start.stream(url=self.ws_url)
-            response.append(start)
-            response.say("Attempting unidirectional stream connection.")
-            response.pause(length=60) # Keep call alive for testing
-            # --- END TEST ---
-
-            # Original <Connect><Stream> (commented out for test)
-            # with response.connect() as connect:
-            #     connect.stream(url=self.ws_url)
-
+            # Use bidirectional streaming with Connect/Stream
+            with response.connect() as connect:
+                connect.stream(url=self.ws_url)
+                
             self.logger.debug(f"Returning TwiML: {response}")
             return Response(str(response), mimetype="text/xml")
 
@@ -294,7 +284,7 @@ class CallActivity(BaseService):
             self.logger.error(f"Error handling TwiML request: {e}", exc_info=True)
             # Return a simple TwiML in case of error
             response = VoiceResponse()
-            response.say("An error occurred setting up the call TwiML")
+            response.say("An error occurred setting up the call")
             return Response(str(response), mimetype="text/xml")
 
     async def _run_websocket_server(self):
@@ -361,6 +351,9 @@ class CallActivity(BaseService):
             
             if event == "start":
                 self.logger.info("WebSocket stream started")
+                # Log stream metadata if available
+                stream_data = data.get("start", {})
+                self.logger.info(f"Stream metadata: {stream_data}")
                 
             elif event == "media":
                 # Extract and decode audio payload
@@ -368,15 +361,24 @@ class CallActivity(BaseService):
                 if payload:
                     # Decode base64 string
                     audio_bytes = base64.b64decode(payload)
+                    self.logger.debug(f"Received {len(audio_bytes)} bytes of µ-law audio from Twilio")
                     
                     # Convert µ-law to PCM
                     # Twilio sends 8kHz µ-law audio
                     pcm_audio = self._ulaw_to_pcm(audio_bytes)
                     
+                    # Log audio characteristics for debugging
+                    self.logger.debug(f"After conversion: {len(pcm_audio)} PCM samples, dtype={pcm_audio.dtype}")
+                    if len(pcm_audio) > 0:
+                        self.logger.debug(f"Audio stats: min={np.min(pcm_audio)}, max={np.max(pcm_audio)}, mean={np.mean(pcm_audio):.2f}, std={np.std(pcm_audio):.2f}")
+                        # Log first few samples to check if they look reasonable
+                        self.logger.debug(f"First 10 samples: {pcm_audio[:10].tolist()}")
+                    
                     # Buffer and play full chunks
                     if self.audio_manager and self.call_producer and self.call_producer.active:
                         self.twilio_pcm_buffer = np.concatenate((self.twilio_pcm_buffer, pcm_audio))
                         chunk_size = self.audio_manager.config.chunk # Get chunk size from AudioManager
+                        self.logger.debug(f"Buffer size: {len(self.twilio_pcm_buffer)}, chunk size: {chunk_size}")
                         
                         while len(self.twilio_pcm_buffer) >= chunk_size:
                             chunk_to_play = self.twilio_pcm_buffer[:chunk_size]
@@ -481,13 +483,35 @@ class CallActivity(BaseService):
         Note: Twilio sends 8kHz µ-law audio, but our AudioManager expects 16kHz PCM.
         This function handles both the µ-law to PCM conversion and the resampling.
         """
-        # Handle Twilio's inverted µ-law format
+        # Try both inverted and non-inverted µ-law to see which produces valid audio
         temp_ulaw_array = np.frombuffer(ulaw_data, dtype=np.uint8)
+        
+        # Test 1: Try without inversion (standard µ-law)
+        pcm_bytes_8khz_standard = audioop.ulaw2lin(ulaw_data, 2)
+        pcm_8khz_standard = np.frombuffer(pcm_bytes_8khz_standard, dtype=np.int16)
+        
+        # Test 2: Try with inversion (inverted µ-law)
         inverted_ulaw_bytes = (255 - temp_ulaw_array).astype(np.uint8).tobytes()
-
-        # Convert µ-law bytes to linear PCM bytes (16-bit, mono)
-        # The '2' indicates 2-byte (16-bit) samples for the output.
-        pcm_bytes_8khz = audioop.ulaw2lin(inverted_ulaw_bytes, 2)
+        pcm_bytes_8khz_inverted = audioop.ulaw2lin(inverted_ulaw_bytes, 2)
+        pcm_8khz_inverted = np.frombuffer(pcm_bytes_8khz_inverted, dtype=np.int16)
+        
+        # Log both results to compare
+        self.logger.debug(f"Standard µ-law stats: min={np.min(pcm_8khz_standard)}, max={np.max(pcm_8khz_standard)}, mean={np.mean(pcm_8khz_standard):.2f}, std={np.std(pcm_8khz_standard):.2f}")
+        self.logger.debug(f"Inverted µ-law stats: min={np.min(pcm_8khz_inverted)}, max={np.max(pcm_8khz_inverted)}, mean={np.mean(pcm_8khz_inverted):.2f}, std={np.std(pcm_8khz_inverted):.2f}")
+        
+        # Use the one with higher standard deviation (more dynamic range)
+        if np.std(pcm_8khz_standard) > np.std(pcm_8khz_inverted):
+            self.logger.debug("Using standard µ-law (no inversion)")
+            pcm_bytes_8khz = pcm_bytes_8khz_standard
+        else:
+            self.logger.debug("Using inverted µ-law")
+            pcm_bytes_8khz = pcm_bytes_8khz_inverted
+        
+        # Log intermediate conversion results
+        pcm_8khz_array = np.frombuffer(pcm_bytes_8khz, dtype=np.int16)
+        self.logger.debug(f"After µ-law to PCM: {len(pcm_8khz_array)} samples at 8kHz")
+        if len(pcm_8khz_array) > 0:
+            self.logger.debug(f"8kHz PCM stats: min={np.min(pcm_8khz_array)}, max={np.max(pcm_8khz_array)}, mean={np.mean(pcm_8khz_array):.2f}")
         
         # Resample from 8kHz to 16kHz using audioop.ratecv
         # Parameters: (input_bytes, width_in_bytes, num_channels, input_rate, output_rate, state, weight_A, weight_B)
@@ -502,6 +526,8 @@ class CallActivity(BaseService):
         
         # Convert PCM bytes to numpy array of int16
         pcm_audio = np.frombuffer(pcm_bytes_16khz, dtype=np.int16)
+        
+        self.logger.debug(f"After resampling to 16kHz: {len(pcm_audio)} samples")
         
         return pcm_audio
 
