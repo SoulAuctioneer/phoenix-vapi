@@ -278,7 +278,7 @@ class CallActivity(BaseService):
             with response.connect() as connect:
                 connect.stream(url=self.ws_url)
                 
-            self.logger.info(f"Returning TwiML: {response}")
+            self.logger.debug(f"Returning TwiML: {response}")
             return Response(str(response), mimetype="text/xml")
 
         except Exception as e:
@@ -363,24 +363,24 @@ class CallActivity(BaseService):
                 if payload:
                     # Decode base64 string
                     audio_bytes = base64.b64decode(payload)
-                    self.logger.info(f"Received {len(audio_bytes)} bytes of µ-law audio from Twilio")
+                    self.logger.debug(f"Received {len(audio_bytes)} bytes of µ-law audio from Twilio")
                     
                     # Convert µ-law to PCM
                     # Twilio sends 8kHz µ-law audio
                     pcm_audio = self._ulaw_to_pcm(audio_bytes)
                     
                     # Log audio characteristics for debugging
-                    self.logger.info(f"After conversion: {len(pcm_audio)} PCM samples, dtype={pcm_audio.dtype}")
+                    self.logger.debug(f"After conversion: {len(pcm_audio)} PCM samples, dtype={pcm_audio.dtype}")
                     if len(pcm_audio) > 0:
-                        self.logger.info(f"Audio stats: min={np.min(pcm_audio)}, max={np.max(pcm_audio)}, mean={np.mean(pcm_audio):.2f}, std={np.std(pcm_audio):.2f}")
+                        self.logger.debug(f"Audio stats: min={np.min(pcm_audio)}, max={np.max(pcm_audio)}, mean={np.mean(pcm_audio):.2f}, std={np.std(pcm_audio):.2f}")
                         # Log first few samples to check if they look reasonable
-                        self.logger.info(f"First 10 samples: {pcm_audio[:10].tolist()}")
+                        self.logger.debug(f"First 10 samples: {pcm_audio[:10].tolist()}")
                     
                     # Buffer and play full chunks
                     if self.audio_manager and self.call_producer and self.call_producer.active:
                         self.twilio_pcm_buffer = np.concatenate((self.twilio_pcm_buffer, pcm_audio))
                         chunk_size = self.audio_manager.config.chunk # Get chunk size from AudioManager
-                        self.logger.info(f"Buffer size: {len(self.twilio_pcm_buffer)}, chunk size: {chunk_size}")
+                        self.logger.debug(f"Buffer size: {len(self.twilio_pcm_buffer)}, chunk size: {chunk_size}")
                         
                         while len(self.twilio_pcm_buffer) >= chunk_size:
                             chunk_to_play = self.twilio_pcm_buffer[:chunk_size]
@@ -409,11 +409,11 @@ class CallActivity(BaseService):
             return
             
         try:
-            self.logger.info(f"Processing mic audio: {len(audio_data)} samples, dtype={audio_data.dtype}")
+            self.logger.debug(f"Processing mic audio: {len(audio_data)} samples, dtype={audio_data.dtype}")
             
             # Convert PCM to µ-law (Twilio expects 8kHz µ-law)
             ulaw_audio = self._pcm_to_ulaw(audio_data)
-            self.logger.info(f"Converted to µ-law: {len(ulaw_audio)} bytes")
+            self.logger.debug(f"Converted to µ-law: {len(ulaw_audio)} bytes")
             
             # Encode to base64
             base64_audio = base64.b64encode(ulaw_audio).decode('utf-8')
@@ -427,7 +427,7 @@ class CallActivity(BaseService):
                 }
             })
             
-            self.logger.info(f"Sending mic audio message: {len(message)} chars, streamSid: {self.stream_sid}")
+            self.logger.debug(f"Sending mic audio message: {len(message)} chars, streamSid: {self.stream_sid}")
             
             # Send to all active WebSockets (usually just one)
             # Use run_coroutine_threadsafe as _handle_mic_audio is called from a different thread
@@ -435,7 +435,7 @@ class CallActivity(BaseService):
                 for ws in list(self.active_websockets):
                     future = asyncio.run_coroutine_threadsafe(self._send_to_websocket(ws, message), self.websocket_loop)
                     # Log if the send was scheduled successfully
-                    self.logger.info(f"Scheduled mic audio send to WebSocket")
+                    self.logger.debug(f"Scheduled mic audio send to WebSocket")
             else:
                 self.logger.warning("WebSocket event loop not available/running; cannot send mic audio.")
                 
@@ -497,9 +497,9 @@ class CallActivity(BaseService):
         
         # Log intermediate conversion results
         pcm_8khz_array = np.frombuffer(pcm_bytes_8khz, dtype=np.int16)
-        self.logger.info(f"After µ-law to PCM: {len(pcm_8khz_array)} samples at 8kHz")
+        self.logger.debug(f"After µ-law to PCM: {len(pcm_8khz_array)} samples at 8kHz")
         if len(pcm_8khz_array) > 0:
-            self.logger.info(f"8kHz PCM stats: min={np.min(pcm_8khz_array)}, max={np.max(pcm_8khz_array)}, mean={np.mean(pcm_8khz_array):.2f}, std={np.std(pcm_8khz_array):.2f}")
+            self.logger.debug(f"8kHz PCM stats: min={np.min(pcm_8khz_array)}, max={np.max(pcm_8khz_array)}, mean={np.mean(pcm_8khz_array):.2f}, std={np.std(pcm_8khz_array):.2f}")
             # Check if this looks like valid audio (should be centered around 0)
             if abs(np.mean(pcm_8khz_array)) > 1000:
                 self.logger.warning(f"Audio has large DC offset: {np.mean(pcm_8khz_array):.2f}, this might indicate incorrect decoding")
@@ -518,7 +518,7 @@ class CallActivity(BaseService):
         # Convert PCM bytes to numpy array of int16
         pcm_audio = np.frombuffer(pcm_bytes_16khz, dtype=np.int16)
         
-        self.logger.info(f"After resampling to 16kHz: {len(pcm_audio)} samples")
+        self.logger.debug(f"After resampling to 16kHz: {len(pcm_audio)} samples")
         
         return pcm_audio
 
