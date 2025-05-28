@@ -5,7 +5,6 @@ It is used for making voice calls to regular phone numbers with bidirectional au
 import os
 import base64
 import json
-import threading
 import numpy as np
 from typing import Dict, Any, Optional, List
 from flask import Flask, request, Response
@@ -14,7 +13,7 @@ from twilio.twiml.voice_response import VoiceResponse, Start
 from twilio.base.exceptions import TwilioRestException
 from services.service import BaseService
 from managers.audio_manager import AudioManager, AudioConsumer, AudioProducer
-from pyngrok import ngrok, conf
+from managers.server_manager import ServerManager
 import websockets
 import asyncio
 import logging
@@ -32,7 +31,6 @@ from config import (
 # Additional configuration for the Flask/WebSocket servers
 FLASK_PORT = 5000
 WEBSOCKET_PORT = 3000
-NGROK_AUTH_TOKEN = os.environ.get("NGROK_AUTH_TOKEN", "")  # Set in .env or environment
 
 class CallActivity(BaseService):
     """
@@ -64,23 +62,19 @@ class CallActivity(BaseService):
         self.mic_consumer = None
         self.call_producer = None
         
+        # Server manager for handling Flask and WebSocket servers with ngrok
+        self.server_manager = ServerManager(ngrok_auth_token=NGROK_AUTH_TOKEN)
+        
         # Flask app for TwiML
         self.flask_app = Flask(__name__)
         self.flask_app.route("/twiml", methods=["POST"])(self._handle_twiml_request)
-        self.flask_thread = None
-        self.flask_stop_event = threading.Event()
         
-        # WebSocket for media streaming
-        self.websocket_server = None
-        self.active_websockets = set()  # Track active WebSocket connections
-        self.websocket_task = None
-        self.stream_sid = None  # Store the Twilio stream SID
-        
-        # ngrok tunnels
-        self.ngrok_flask_tunnel = None
-        self.ngrok_ws_tunnel = None
+        # Server info
         self.twiml_url = None
         self.ws_url = None
+        
+        # WebSocket tracking
+        self.stream_sid = None  # Store the Twilio stream SID
         self.websocket_loop = None
         self.twilio_pcm_buffer = np.array([], dtype=np.int16) # Buffer for incoming Twilio PCM audio
 
@@ -95,20 +89,35 @@ class CallActivity(BaseService):
             self.logger.error("AudioManager not initialized. Cannot start CallActivity.")
             return
         
-        # Set up ngrok tunnels
-        success = await self._setup_ngrok()
-        if not success:
-            self.logger.error("Failed to set up ngrok tunnels. Cannot start CallActivity.")
+        # Set up Flask server with ngrok tunnel
+        try:
+            flask_info = self.server_manager.create_flask_server(
+                name="twilio_twiml",
+                app=self.flask_app,
+                port=FLASK_PORT,
+                create_tunnel=True,
+                tunnel_path="/twiml"
+            )
+            self.twiml_url = flask_info["public_url"]
+            self.logger.info(f"Flask server started with TwiML URL: {self.twiml_url}")
+        except Exception as e:
+            self.logger.error(f"Failed to set up Flask server: {e}", exc_info=True)
             return
             
-        # Start Flask server in a separate thread
-        self.flask_thread = threading.Thread(target=self._run_flask_server, daemon=True)
-        self.flask_thread.start()
-        self.logger.info(f"Flask server started on port {FLASK_PORT}, tunneled at {self.twiml_url}")
-        
-        # Start WebSocket server
-        self.websocket_task = asyncio.create_task(self._run_websocket_server())
-        self.logger.info(f"WebSocket server starting on port {WEBSOCKET_PORT}, tunneled at {self.ws_url}")
+        # Set up WebSocket server with ngrok tunnel
+        try:
+            ws_info = await self.server_manager.create_websocket_server(
+                name="twilio_media",
+                handler=self._handle_websocket_connection,
+                port=WEBSOCKET_PORT,
+                create_tunnel=True
+            )
+            self.ws_url = ws_info["public_url"]
+            self.websocket_loop = asyncio.get_event_loop()
+            self.logger.info(f"WebSocket server started with URL: {self.ws_url}")
+        except Exception as e:
+            self.logger.error(f"Failed to set up WebSocket server: {e}", exc_info=True)
+            return
         
         # Give a moment for servers to start
         await asyncio.sleep(1)
@@ -150,30 +159,8 @@ class CallActivity(BaseService):
         # End the call via API
         await self._end_call()
         
-        # Close all active WebSocket connections
-        for ws in list(self.active_websockets):
-            try:
-                await ws.close()
-            except Exception as e:
-                self.logger.error(f"Error closing WebSocket: {e}")
-        self.active_websockets.clear()
-        
-        # Stop WebSocket server
-        if self.websocket_task and not self.websocket_task.done():
-            self.websocket_task.cancel()
-            try:
-                await self.websocket_task
-            except asyncio.CancelledError:
-                pass
-        self.websocket_task = None
-        
-        # Stop Flask server
-        self.flask_stop_event.set()
-        if self.flask_thread and self.flask_thread.is_alive():
-            self.flask_thread.join(timeout=5.0)
-        
-        # Stop ngrok tunnels
-        await self._cleanup_ngrok()
+        # Stop servers and clean up ngrok tunnels
+        await self.server_manager.cleanup()
         
         # Clean up audio resources
         if self.mic_consumer:
@@ -205,69 +192,6 @@ class CallActivity(BaseService):
                 self.mic_consumer.active = True
                 self.logger.info("Call microphone unmuted")
 
-    async def _setup_ngrok(self) -> bool:
-        """Set up ngrok tunnels for Flask and WebSocket servers."""
-        try:
-            # Configure ngrok
-            if NGROK_AUTH_TOKEN:
-                conf.get_default().auth_token = NGROK_AUTH_TOKEN
-                
-            # Create tunnels
-            self.ngrok_flask_tunnel = ngrok.connect(FLASK_PORT, "http")
-            self.twiml_url = f"{self.ngrok_flask_tunnel.public_url}/twiml"
-            self.logger.info(f"ngrok Flask tunnel established: {self.twiml_url}")
-            
-            self.ngrok_ws_tunnel = ngrok.connect(WEBSOCKET_PORT, "http")
-            # Convert http:// or https:// to wss:// for WebSocket
-            public_url = self.ngrok_ws_tunnel.public_url
-            if public_url.startswith("https://"):
-                ws_url = public_url.replace("https://", "wss://", 1)
-            elif public_url.startswith("http://"):
-                ws_url = public_url.replace("http://", "wss://", 1)
-            else:
-                self.logger.error(f"Unexpected ngrok public URL scheme: {public_url}. Using as is.")
-                ws_url = public_url # Fallback, though this might still cause issues
-            
-            # self.ws_url = f"{ws_url}/media" # REMOVE /media path for testing
-            self.ws_url = ws_url # Use root path
-            self.logger.info(f"ngrok WebSocket tunnel established: {self.ws_url}")
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to set up ngrok tunnels: {e}", exc_info=True)
-            await self._cleanup_ngrok()  # Clean up any partial setup
-            return False
-
-    async def _cleanup_ngrok(self):
-        """Clean up ngrok tunnels."""
-        try:
-            ngrok.kill()  # This kills all tunnels
-            self.logger.info("ngrok tunnels terminated")
-        except Exception as e:
-            self.logger.error(f"Error cleaning up ngrok tunnels: {e}")
-        self.ngrok_flask_tunnel = None
-        self.ngrok_ws_tunnel = None
-        self.twiml_url = None
-        self.ws_url = None
-
-    def _run_flask_server(self):
-        """Run Flask server in a separate thread."""
-        try:
-            from werkzeug.serving import make_server
-            
-            server = make_server('0.0.0.0', FLASK_PORT, self.flask_app)
-            server.timeout = 0.5  # Short timeout to allow checking stop_event
-            
-            self.logger.info(f"Flask server starting on port {FLASK_PORT}")
-            
-            while not self.flask_stop_event.is_set():
-                server.handle_request()
-                
-        except Exception as e:
-            self.logger.error(f"Error in Flask server: {e}", exc_info=True)
-        finally:
-            self.logger.info("Flask server stopped")
-
     def _handle_twiml_request(self):
         """Handle incoming TwiML request from Twilio."""
         try:
@@ -288,60 +212,18 @@ class CallActivity(BaseService):
             response.say("An error occurred setting up the call")
             return Response(str(response), mimetype="text/xml")
 
-    async def _run_websocket_server(self):
-        """Run WebSocket server to handle media streaming."""
+    async def _handle_websocket_connection(self, websocket, path):
+        """Handle a WebSocket connection from Twilio."""
+        self.logger.info(f"New WebSocket connection from {websocket.remote_address} to path '{path}'")
         try:
-            self.logger.info(f"Starting WebSocket server on port {WEBSOCKET_PORT}")
-            self.websocket_loop = asyncio.get_event_loop() # Capture the loop
-
-            async def handle_websocket(websocket_conn): # Expecting one argument
-                self.logger.debug(f"Inspecting websocket_conn object attributes: {dir(websocket_conn)}")
+            # Process incoming messages (audio from Twilio)
+            async for message in websocket:
+                await self._handle_websocket_message(websocket, message)
                 
-                path_to_use = "<unknown_path>"
-                if hasattr(websocket_conn, 'request') and websocket_conn.request and hasattr(websocket_conn.request, 'path'):
-                    path_to_use = websocket_conn.request.path
-                    self.logger.info(f"Found path via websocket_conn.request.path: {path_to_use}")
-                elif hasattr(websocket_conn, 'path'): # Fallback if request.path isn't there
-                    path_to_use = websocket_conn.path
-                    self.logger.info(f"Found path via websocket_conn.path: {path_to_use}")
-                else:
-                    self.logger.warning("Could not find path attribute directly on websocket_conn or via websocket_conn.request.path. Check dir() output.")
-
-                self.logger.info(f"WebSocket connection attempt from {websocket_conn.remote_address} to path '{path_to_use}'")
-                try:
-                    self.logger.info(f"New WebSocket connection accepted from {websocket_conn.remote_address}")
-                    self.active_websockets.add(websocket_conn)
-                    
-                    # Process incoming messages (audio from Twilio)
-                    async for message in websocket_conn: 
-                        await self._handle_websocket_message(websocket_conn, message)
-                        
-                except websockets.exceptions.ConnectionClosed:
-                    self.logger.info(f"WebSocket connection closed by client {websocket_conn.remote_address}")
-                except Exception as e:
-                    self.logger.error(f"Error in WebSocket handler: {e}", exc_info=True)
-                finally:
-                    if websocket_conn in self.active_websockets:
-                        self.active_websockets.remove(websocket_conn)
-            
-            # Start the WebSocket server
-            self.websocket_server = await websockets.serve(handle_websocket, "0.0.0.0", WEBSOCKET_PORT)
-            self.logger.info(f"WebSocket server started on port {WEBSOCKET_PORT}")
-            
-            # Keep the server running until the task is cancelled
-            await asyncio.Future()
-            
-        except asyncio.CancelledError:
-            self.logger.info("WebSocket server task cancelled")
-            raise
+        except websockets.exceptions.ConnectionClosed:
+            self.logger.info(f"WebSocket connection closed by client {websocket.remote_address}")
         except Exception as e:
-            self.logger.error(f"Error starting WebSocket server: {e}", exc_info=True)
-        finally:
-            if self.websocket_server:
-                self.websocket_server.close()
-                await self.websocket_server.wait_closed()
-                self.logger.info("WebSocket server closed")
-                self.websocket_server = None
+            self.logger.error(f"Error in WebSocket handler: {e}", exc_info=True)
 
     async def _handle_websocket_message(self, websocket, message):
         """Handle incoming WebSocket message from Twilio."""
@@ -404,7 +286,10 @@ class CallActivity(BaseService):
 
     def _handle_mic_audio(self, audio_data: np.ndarray):
         """Handle audio data from the microphone and send it to Twilio."""
-        if not self.active_websockets:  # No active WebSocket connections
+        # Get active WebSocket connections from the server manager
+        active_websockets = self.server_manager.get_active_connections("twilio_media")
+        
+        if not active_websockets:  # No active WebSocket connections
             self.logger.warning("No active WebSocket connections to send mic audio")
             return
             
@@ -432,7 +317,7 @@ class CallActivity(BaseService):
             # Send to all active WebSockets (usually just one)
             # Use run_coroutine_threadsafe as _handle_mic_audio is called from a different thread
             if self.websocket_loop and self.websocket_loop.is_running():
-                for ws in list(self.active_websockets):
+                for ws in list(active_websockets):
                     future = asyncio.run_coroutine_threadsafe(self._send_to_websocket(ws, message), self.websocket_loop)
                     # Log if the send was scheduled successfully
                     self.logger.debug(f"Scheduled mic audio send to WebSocket")
@@ -449,12 +334,8 @@ class CallActivity(BaseService):
             self.logger.debug(f"Successfully sent message to WebSocket ({len(message)} chars)")
         except websockets.exceptions.ConnectionClosed:
             self.logger.info("WebSocket connection closed while sending")
-            if websocket in self.active_websockets:
-                self.active_websockets.remove(websocket)
         except Exception as e:
             self.logger.error(f"Error sending to WebSocket: {e}")
-            if websocket in self.active_websockets:
-                self.active_websockets.remove(websocket)
 
     def _pcm_to_ulaw(self, pcm_data: np.ndarray) -> bytes:
         """Convert PCM audio to µ-law format for Twilio.
