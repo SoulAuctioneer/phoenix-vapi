@@ -15,6 +15,7 @@ from managers.accelerometer_manager import SimplifiedState
 # Store giggle sounds for easy cycling
 _giggle_sounds = (SoundEffect.GIGGLE1, SoundEffect.GIGGLE2, SoundEffect.GIGGLE3)
 _wee_sounds = (SoundEffect.WEE1, SoundEffect.WEE2, SoundEffect.WEE3, SoundEffect.WEE4)
+_ouch_sounds = (SoundEffect.OUCH1, SoundEffect.OUCH2)
 
 # Cooldown period before a giggle sound can play after ANY sound effect (in seconds)
 GIGGLE_COOLDOWN_SECONDS = 2.0
@@ -61,6 +62,7 @@ class MoveActivity(BaseService):
         # --- Shake Handling ---
         self._giggle_index = 0 # Index for cycling through giggle sounds
         self._wee_index = 0 # Index for cycling through WEE sounds
+        self._ouch_index = 0 # Index for cycling through OUCH sounds
         self._last_sound_play_time: float = 0.0 # Timestamp of the last sound played by this service
         
     async def start(self):
@@ -144,9 +146,11 @@ class MoveActivity(BaseService):
                 # Stop WEE
                 await self.publish({"type": "stop_sound", "effect_name": _wee_sounds[self._wee_index]})
                 # Play sound (using default volume)
-                await self.publish({"type": "play_sound", "effect_name": SoundEffect.OOF})
+                await self.publish({"type": "play_sound", "effect_name": _ouch_sounds[self._ouch_index]})
                 # Update last sound play time
                 self._last_sound_play_time = current_time
+                # Increment index for next time, cycling through 0, 1
+                self._ouch_index = (self._ouch_index + 1) % len(_ouch_sounds)
 
             # Entering FREE_FALL
             elif state_changed and current_state_enum == SimplifiedState.FREE_FALL:

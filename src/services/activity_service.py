@@ -321,8 +321,9 @@ class ActivityService(BaseService):
                 # pass
 
         elif event_type == "conversation_ended":
-            # A conversation has finished. The default transition to SLEEP is handled by _stop_activity if needed.
-            pass 
+            # A conversation has finished. Stop the conversation activity.
+            if self.current_activity == ActivityType.CONVERSATION:
+                await self._stop_activity(ActivityType.CONVERSATION)
                 
         elif event_type == "hide_seek_won":
             # TODO: When hide and seek is won, transition to special conversation
