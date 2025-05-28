@@ -155,33 +155,37 @@ class AccelerometerManager:
         self._prev_game_quat: Optional[Tuple[float, float, float, float]] = None
         self._prev_quat_ts: float = 0.0
 
-        # Enhanced thresholds with stronger hysteresis for stable state detection
+        # Enhanced thresholds with balanced hysteresis for stable state detection
         # Based on real-world testing showing oscillation between 0.05-0.47 m/s² when "holding steady"
         # AND observed "completely stationary" values up to 0.048 m/s² linear, 0.029 rad/s gyro
-        # Need much larger separation between STATIONARY and HELD_STILL to prevent oscillation
+        # Need larger separation between STATIONARY and HELD_STILL to prevent oscillation
         
-        # STATIONARY: Device completely still (on table, etc.) - CONSERVATIVE THRESHOLDS
-        # Make it much harder to exit STATIONARY state due to tiny jolts
-        self.stationary_linear_accel_max = 0.08   # m/s² - More conservative (was 0.10)
-        self.stationary_gyro_max = 0.03           # rad/s - More conservative (was 0.05)
-        self.stationary_rot_speed_max = 0.03      # rad/s - More conservative (was 0.05)
-        self.stationary_consistency_required = 8  # Require more consecutive consistent readings (was 5)
-        self.stationary_max_variance = 0.002     # m/s² - Much stricter variance threshold (was 0.005)
-        self.stationary_min_duration = 2.0       # seconds - Longer duration for more stability (was 1.0)
+        # STATIONARY: Device completely still (on table, etc.) - BALANCED THRESHOLDS
+        # Conservative but not overly restrictive
+        self.stationary_linear_accel_max = 0.10   # m/s² - Balanced threshold
+        self.stationary_gyro_max = 0.04           # rad/s - Balanced threshold
+        self.stationary_rot_speed_max = 0.04      # rad/s - Balanced threshold
+        self.stationary_consistency_required = 6  # Require consistent readings but not excessive
+        self.stationary_max_variance = 0.008     # m/s² - More realistic variance threshold (was 0.002)
+        self.stationary_min_duration = 1.5       # seconds - Reasonable duration for stability
         
         # HELD_STILL: Device held by hand - More permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
         self.held_still_gyro_max = 0.50           # rad/s - More permissive for hand tremor
         self.held_still_rot_speed_max = 0.50      # rad/s - More permissive for hand tremor
         
-        # Hysteresis: Strong hysteresis to prevent oscillation, especially for STATIONARY
-        self.hysteresis_factor = 5.0              # Increased from 2.0 for much stronger hysteresis
-        self.stationary_exit_hysteresis = 8.0     # Special strong hysteresis for exiting STATIONARY (was part of general hysteresis)
+        # Hysteresis: Moderate hysteresis to prevent oscillation without being excessive
+        self.hysteresis_factor = 3.0              # Moderate hysteresis (was 5.0)
+        self.stationary_exit_hysteresis = 4.0     # Moderate hysteresis for exiting STATIONARY (was 8.0)
         
         # Dead zone: Ignore tiny changes that are likely sensor noise or table vibrations
-        self.dead_zone_threshold = 0.15          # m/s² - Changes smaller than this are ignored when in stable states
-        self.dead_zone_duration = 0.1            # seconds - How long to ignore small changes
+        self.dead_zone_threshold = 0.20          # m/s² - Larger dead zone for table vibrations (was 0.15)
+        self.dead_zone_duration = 0.5            # seconds - Longer duration to ignore small changes (was 0.1)
         self.last_significant_change_time = None # Track when last significant change occurred
+        
+        # Stability tracking: Prevent rapid oscillations with reasonable timing
+        self.oscillation_prevention_window = 3.0  # seconds - Prevent oscillations within this window
+        self.last_transition_time = None         # Track last transition to prevent rapid oscillations
         
         # Stationary state tracking for consistency checking
         self.stationary_candidate_start = None
@@ -412,23 +416,33 @@ class AccelerometerManager:
             held_still_gyro_threshold = held_still_gyro_base
             held_still_rot_threshold = held_still_rot_base
         
-        # Dead zone logic: Ignore tiny changes when in stable states
+        # Enhanced dead zone logic: Ignore tiny changes when in stable states
         current_time = time.time()
         if current_state in [SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
-            # Check if this is a tiny change that should be ignored
-            if self.last_significant_change_time is not None:
-                time_since_significant_change = current_time - self.last_significant_change_time
+            # Get recent readings for better dead zone analysis
+            if len(self.stationary_candidate_readings) >= 3:
+                recent_readings = list(self.stationary_candidate_readings)[-3:]
+                baseline = statistics.median(recent_readings)
                 
-                # If we're within the dead zone duration and the change is small, ignore it
-                if (time_since_significant_change < self.dead_zone_duration and 
-                    abs(linear_accel_mag - self.stationary_candidate_readings[-1] if self.stationary_candidate_readings else 0) < self.dead_zone_threshold):
-                    # This is a tiny change within the dead zone - ignore it and stay in current state
+                # Check if this is a tiny change that should be ignored
+                change_magnitude = abs(linear_accel_mag - baseline)
+                
+                if change_magnitude < self.dead_zone_threshold:
+                    # This is within the dead zone - ignore it and stay in current state
+                    self.logger.debug(f"Dead zone: ignoring change {change_magnitude:.3f} < {self.dead_zone_threshold:.3f}")
                     return current_state
-            
-            # Check if this is a significant change
-            if (self.stationary_candidate_readings and 
-                abs(linear_accel_mag - self.stationary_candidate_readings[-1]) >= self.dead_zone_threshold):
-                self.last_significant_change_time = current_time
+                else:
+                    # This is a significant change - update tracking
+                    self.last_significant_change_time = current_time
+                    self.logger.debug(f"Significant change detected: {change_magnitude:.3f} >= {self.dead_zone_threshold:.3f}")
+            elif self.stationary_candidate_readings:
+                # Fallback for fewer readings
+                last_reading = self.stationary_candidate_readings[-1]
+                change_magnitude = abs(linear_accel_mag - last_reading)
+                
+                if change_magnitude < self.dead_zone_threshold:
+                    self.logger.debug(f"Dead zone (fallback): ignoring change {change_magnitude:.3f} < {self.dead_zone_threshold:.3f}")
+                    return current_state
         
         # Check basic STATIONARY criteria (must pass these first)
         meets_basic_stationary = (linear_accel_mag < stationary_linear_threshold and
@@ -558,7 +572,7 @@ class AccelerometerManager:
                         self.logger.debug(f"STATIONARY rejected: extreme filtered variance {filtered_variance:.6f} > {extreme_threshold:.6f}")
                         self.stationary_candidate_start = None
                         return False
-                    elif duration_so_far > 5.0:  # After 5 seconds, be stricter (was 3.0)
+                    elif duration_so_far > 8.0:  # After 8 seconds, be stricter (was 5.0) - more patient
                         self.logger.debug(f"STATIONARY rejected: filtered variance {filtered_variance:.6f} > {adjusted_variance_threshold:.6f} after {duration_so_far:.1f}s")
                         self.stationary_candidate_start = None
                         return False
@@ -661,23 +675,28 @@ class AccelerometerManager:
         time_since_last_change = timestamp - self.state_change_time
         required_duration = self.min_state_duration
         
-        # Special handling for different state transitions
+        # Check for oscillation prevention first
+        if self._is_oscillation_attempt(candidate_state, timestamp):
+            self.logger.debug(f"Preventing oscillation: {self.current_state.name}↔{candidate_state.name} within {self.oscillation_prevention_window:.1f}s window")
+            return self.current_state
+        
+        # Special handling for different state transitions with reasonable timing
         if self.current_state == SimplifiedState.UNKNOWN:
             # Allow quick initial transition from UNKNOWN to any state
             required_duration = 0.1  # 100ms for initial state detection
             self.logger.debug(f"UNKNOWN→{candidate_state.name} transition requires {required_duration:.1f}s, elapsed: {time_since_last_change:.1f}s")
         elif self.current_state == SimplifiedState.STATIONARY and candidate_state == SimplifiedState.HELD_STILL:
-            # Make it very hard to exit STATIONARY due to tiny jolts
-            required_duration = self.min_state_duration * 2.5  # 5.0 seconds to exit STATIONARY
+            # Moderate delay to exit STATIONARY due to tiny jolts, but not excessive
+            required_duration = 1.0  # 1.0 second max as requested
             self.logger.debug(f"STATIONARY→HELD_STILL transition requires {required_duration:.1f}s, elapsed: {time_since_last_change:.1f}s")
         elif self.current_state == SimplifiedState.HELD_STILL and candidate_state == SimplifiedState.STATIONARY:
-            # Allow easier transition back to STATIONARY
-            required_duration = self.min_state_duration * 1.0  # 2.0 seconds to return to STATIONARY
+            # Allow reasonable transition back to STATIONARY
+            required_duration = 0.8  # Slightly easier to return to STATIONARY
             self.logger.debug(f"HELD_STILL→STATIONARY transition requires {required_duration:.1f}s, elapsed: {time_since_last_change:.1f}s")
         elif ((self.current_state == SimplifiedState.STATIONARY and candidate_state == SimplifiedState.MOVING) or
               (self.current_state == SimplifiedState.HELD_STILL and candidate_state == SimplifiedState.MOVING)):
             # Transitions to MOVING should be easier to allow responsiveness
-            required_duration = self.min_state_duration * 0.5  # 1.0 second to transition to MOVING
+            required_duration = 0.5  # 0.5 second to transition to MOVING
         
         if time_since_last_change >= required_duration:
             self._update_state_tracking(candidate_state, timestamp)
@@ -690,9 +709,39 @@ class AccelerometerManager:
         """Update state tracking variables when state changes."""
         if new_state != self.current_state:
             self.state_change_time = timestamp
+            self.last_transition_time = timestamp  # Track for oscillation prevention
             if new_state != SimplifiedState.UNKNOWN:  # Only log meaningful state changes
                 self.logger.info(f"State change: {self.current_state.name} → {new_state.name}")
         self.current_state = new_state
+
+    def _is_oscillation_attempt(self, candidate_state: SimplifiedState, timestamp: float) -> bool:
+        """
+        Check if this transition would be an oscillation (rapid back-and-forth between states).
+        
+        Prevents rapid oscillations between STATIONARY and HELD_STILL by tracking recent transitions.
+        
+        Args:
+            candidate_state: The state we want to transition to
+            timestamp: Current timestamp
+            
+        Returns:
+            bool: True if this would be an oscillation that should be prevented
+        """
+        if self.last_transition_time is None:
+            return False
+        
+        time_since_last_transition = timestamp - self.last_transition_time
+        
+        # Only prevent oscillations between stable states
+        stable_states = {SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL}
+        
+        if (self.current_state in stable_states and 
+            candidate_state in stable_states and 
+            self.current_state != candidate_state and
+            time_since_last_transition < self.oscillation_prevention_window):
+            return True
+        
+        return False
 
     def _check_shake(self) -> bool:
         """
