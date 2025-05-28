@@ -405,6 +405,7 @@ class MoveActivityConfig:
 ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # Mister Wibble
 
 
+
 ACTIVITIES_CONFIG = {
     "poem_with_effects": {
         "metadata": {
@@ -413,13 +414,14 @@ ACTIVITIES_CONFIG = {
         },
         "instructions": dedent("""
             With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function, as shown for each line. 
+            Don't pause between lines, just read the poem in one continuous flow.
         """).strip(),
         "content": dedent("""
         The poem is below, with each line listing the function call syntax to play the relevant effect, followed by the line of the poem:
-        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ``` Raindrops dance upon the ground.
-        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "LIGHTNING" }} }} ``` Lightning flashes all around.
-        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ``` A sparkling spell lights up the sky.
-        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAINBOW" }} }} ``` Then a rainbow waves goodbye!
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ``` Drippy-drop raindrops splash around, making puddles on the ground.
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "LIGHTNING" }} }} ``` Flashy lightning scribbles bright, zigs and zags across the night.
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ``` I wave my wand, shout "Storm, goodbye!" Magic sparkles fill the sky.
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAINBOW" }} }} ``` Now a rainbow smiles at me, colorful for all to see!
         """).strip(),
     },
     "poem": {
