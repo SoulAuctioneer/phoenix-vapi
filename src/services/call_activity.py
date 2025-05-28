@@ -446,65 +446,62 @@ class CallActivity(BaseService):
     def _pcm_to_ulaw(self, pcm_data: np.ndarray) -> bytes:
         """Convert PCM audio to µ-law format for Twilio.
         
-        Note: This is a simplified version - in production, you'd want to 
-        use a proper audio library with resampling capabilities to handle
-        different sample rates.
+        Note: Our AudioManager provides 16kHz PCM, but Twilio expects 8kHz µ-law.
+        This function handles both the downsampling and the PCM to µ-law conversion.
         """
-        # Twilio expects 8kHz mono µ-law audio
-        # This is a basic implementation assuming pcm_data is already at 8kHz
-        
         # Normalize to int16 range if not already
         if pcm_data.dtype != np.int16:
             pcm_data = np.clip(pcm_data, -32768, 32767).astype(np.int16)
         
-        # Basic µ-law conversion (simplified)
-        # In production, use a proper audio library like audioop or scipy
-        sign = np.signbit(pcm_data).astype(np.uint8)
-        pcm_abs = np.abs(pcm_data)
+        # Convert numpy array to bytes for audioop
+        pcm_bytes_16khz = pcm_data.tobytes()
         
-        # µ-law conversion formula (simplified)
-        ulaw = np.zeros_like(pcm_abs, dtype=np.uint8)
-        mask = pcm_abs > 0
-        # Add a small epsilon to prevent log(0) or log(negative)
-        epsilon = 1e-9 
-        log_argument = 1 + 255 * pcm_abs[mask] / 32767
-        ulaw[mask] = 127 - np.clip(np.log(log_argument + epsilon) / np.log(256) * 127, 0, 127).astype(np.uint8)
+        # Downsample from 16kHz to 8kHz using audioop.ratecv
+        pcm_bytes_8khz, _ = audioop.ratecv(
+            pcm_bytes_16khz,  # input bytes
+            2,                # 2 bytes per sample (16-bit)
+            1,                # 1 channel (mono)
+            16000,            # input rate (16kHz)
+            8000,             # output rate (8kHz)
+            None              # no previous state
+        )
         
-        # Apply sign bit
-        ulaw = (sign * 128 + ulaw).astype(np.uint8)
-        ulaw = 255 - ulaw  # Twilio expects inverted µ-law
+        # Convert PCM to µ-law using audioop
+        ulaw_bytes = audioop.lin2ulaw(pcm_bytes_8khz, 2)
         
-        return ulaw.tobytes()
+        # Twilio expects inverted µ-law, so invert the bytes
+        ulaw_array = np.frombuffer(ulaw_bytes, dtype=np.uint8)
+        inverted_ulaw = 255 - ulaw_array
+        
+        return inverted_ulaw.tobytes()
 
     def _ulaw_to_pcm(self, ulaw_data: bytes) -> np.ndarray:
         """Convert µ-law audio from Twilio to PCM using audioop for accuracy.
         
-        Note: Twilio might send inverted µ-law. This implementation assumes
-        the standard µ-law byte format after any necessary pre-processing
-        (like inversion if Twilio does that).
-        The current code already handles a potential inversion:
-        `# ulaw_array = 255 - ulaw_array`
-        This means the `ulaw_data` received here should be ready for standard conversion.
-        If Twilio does not send inverted mu-law, the inversion step should be removed
-        or this function should handle the raw Twilio payload.
-        For now, assuming `ulaw_data` (after potential earlier inversion) is standard µ-law.
+        Note: Twilio sends 8kHz µ-law audio, but our AudioManager expects 16kHz PCM.
+        This function handles both the µ-law to PCM conversion and the resampling.
         """
-        # The original code had an inversion step: `ulaw_array = 255 - ulaw_array`
-        # If Twilio sends inverted µ-law, that inversion should happen *before* this function,
-        # or this function needs to be aware of it. Assuming ulaw_data here is "standard" µ-law.
-        # However, to match the previous behavior if Twilio *does* invert:
-        
-        # To be safe and replicate the previous code's intent if Twilio inverts:
-        # Convert to numpy array to perform the inversion, then back to bytes for audioop
+        # Handle Twilio's inverted µ-law format
         temp_ulaw_array = np.frombuffer(ulaw_data, dtype=np.uint8)
         inverted_ulaw_bytes = (255 - temp_ulaw_array).astype(np.uint8).tobytes()
 
         # Convert µ-law bytes to linear PCM bytes (16-bit, mono)
         # The '2' indicates 2-byte (16-bit) samples for the output.
-        pcm_bytes = audioop.ulaw2lin(inverted_ulaw_bytes, 2)
+        pcm_bytes_8khz = audioop.ulaw2lin(inverted_ulaw_bytes, 2)
+        
+        # Resample from 8kHz to 16kHz using audioop.ratecv
+        # Parameters: (input_bytes, width_in_bytes, num_channels, input_rate, output_rate, state, weight_A, weight_B)
+        pcm_bytes_16khz, _ = audioop.ratecv(
+            pcm_bytes_8khz,  # input bytes
+            2,               # 2 bytes per sample (16-bit)
+            1,               # 1 channel (mono)
+            8000,            # input rate (8kHz)
+            16000,           # output rate (16kHz)
+            None             # no previous state
+        )
         
         # Convert PCM bytes to numpy array of int16
-        pcm_audio = np.frombuffer(pcm_bytes, dtype=np.int16)
+        pcm_audio = np.frombuffer(pcm_bytes_16khz, dtype=np.int16)
         
         return pcm_audio
 
