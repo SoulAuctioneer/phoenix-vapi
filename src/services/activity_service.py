@@ -28,7 +28,6 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
-    ActivityType.SLEEP: ([], 'sleep', None, None, None, None),
     ActivityType.CALL: ([], 'call', "BRING_BRING", None, None, None)
 }
 
@@ -317,9 +316,9 @@ class ActivityService(BaseService):
                 
             elif intent == "call":
                 # Start call activity
-                # await self._queue_transition(ActivityType.CALL)
+                await self._queue_transition(ActivityType.CALL)
                 # TODO: This seems to be breaking the conversation activity.
-                pass
+                # pass
 
         elif event_type == "conversation_ended":
             # A conversation has finished. The default transition to SLEEP is handled by _stop_activity if needed.

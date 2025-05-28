@@ -43,12 +43,13 @@ class LEDManager:
         "GREEN_BREATHING": {'method': '_green_breathing_effect', 'default_speed': 0.05},
         "ROTATING_PINK_BLUE": {'method': '_rotating_pink_blue_effect', 'default_speed': 0.05},
         "ROTATING_GREEN_YELLOW": {'method': '_rotating_green_yellow_effect', 'default_speed': 0.05},
-        "RAINBOW": {'method': '_RAINBOW_effect', 'default_speed': 0.02},
+        "RAINBOW": {'method': '_rainbow_effect', 'default_speed': 0.02},
         "TWINKLING": {'method': '_random_twinkling_effect', 'default_speed': 0.03},
         "RAIN": {'method': '_rain_effect', 'default_speed': 0.05},
         "LIGHTNING": {'method': '_lightning_effect', 'default_speed': 0.05},
         "PURRING": {'method': '_purring_effect', 'default_speed': 0.01},
         "ROTATING_COLOR": {'method': '_rotating_color_effect', 'default_speed': 0.05},
+        "MAGICAL_SPELL": {'method': '_magical_spell_effect', 'default_speed': 0.03},
     }
 
     def __init__(self, initial_brightness=LEDConfig.LED_BRIGHTNESS):
@@ -311,7 +312,7 @@ class LEDManager:
                 self.pixels.show()
                 time.sleep(wait)
 
-    def _RAINBOW_effect(self, wait):
+    def _rainbow_effect(self, wait):
         """Generate rainbow colors across all pixels"""
         while not self._stop_event.is_set():
             for j in range(255):
@@ -630,6 +631,156 @@ class LEDManager:
         # Call the generalized method with custom colors
         self._two_color_rotation_effect("magic_green", "magic_blue", wait)
 
+    def _magical_spell_effect(self, wait):
+        """Create a magical spell casting effect with charging, burst, and sparkle phases"""
+        # Define magical colors
+        spell_colors = [
+            (138, 43, 226),   # Blue Violet
+            (255, 0, 255),    # Magenta
+            (0, 191, 255),    # Deep Sky Blue
+            (255, 20, 147),   # Deep Pink
+            (148, 0, 211),    # Dark Violet
+        ]
+        
+        while not self._stop_event.is_set():
+            # Phase 1: Charging (1-2 seconds)
+            charge_duration = random.uniform(1.0, 2.0)
+            charge_steps = int(charge_duration / wait)
+            
+            for step in range(charge_steps):
+                if self._stop_event.is_set():
+                    break
+                
+                # Calculate charge intensity (0 to 1)
+                charge_progress = step / charge_steps
+                
+                # Create swirling effect during charge
+                for i in range(LEDConfig.LED_COUNT):
+                    # Multiple color waves at different speeds
+                    wave1 = math.sin((i / LEDConfig.LED_COUNT + step * 0.1) * math.pi * 2) * 0.5 + 0.5
+                    wave2 = math.sin((i / LEDConfig.LED_COUNT - step * 0.15) * math.pi * 3) * 0.5 + 0.5
+                    
+                    # Pick color based on position and time
+                    color_index = int((wave1 + step * 0.05) * len(spell_colors)) % len(spell_colors)
+                    base_color = spell_colors[color_index]
+                    
+                    # Intensity increases as we charge
+                    intensity = charge_progress * wave2 * 0.8
+                    
+                    # Add some random flickering
+                    if random.random() < 0.1:
+                        intensity *= random.uniform(0.7, 1.3)
+                    
+                    intensity = min(1.0, intensity)
+                    
+                    color = tuple(int(c * intensity) for c in base_color)
+                    self.pixels[i] = color
+                
+                self.pixels.show()
+                time.sleep(wait)
+            
+            # Phase 2: Cast burst (0.2-0.4 seconds)
+            burst_duration = random.uniform(0.2, 0.4)
+            burst_steps = max(1, int(burst_duration / wait))
+            burst_center = random.randint(0, LEDConfig.LED_COUNT - 1)
+            
+            for step in range(burst_steps):
+                if self._stop_event.is_set():
+                    break
+                
+                burst_progress = step / burst_steps
+                
+                # Create expanding ring effect
+                for i in range(LEDConfig.LED_COUNT):
+                    # Calculate distance from burst center
+                    distance = min(abs(i - burst_center), 
+                                 abs(i - burst_center + LEDConfig.LED_COUNT),
+                                 abs(i - burst_center - LEDConfig.LED_COUNT))
+                    
+                    # Normalize distance
+                    norm_distance = distance / (LEDConfig.LED_COUNT / 2)
+                    
+                    # Calculate if this pixel is in the current ring
+                    ring_position = burst_progress * 1.5  # Ring expands beyond 1.0
+                    ring_width = 0.3
+                    
+                    if abs(norm_distance - ring_position) < ring_width:
+                        # Pixel is in the ring
+                        ring_intensity = 1.0 - abs(norm_distance - ring_position) / ring_width
+                        ring_intensity *= (1.0 - burst_progress * 0.5)  # Fade as it expands
+                        
+                        # Bright white-ish color for the burst
+                        color = (int(255 * ring_intensity),
+                                int(200 * ring_intensity),
+                                int(255 * ring_intensity))
+                    else:
+                        color = (0, 0, 0)
+                    
+                    self.pixels[i] = self._blend_colors(self.pixels[i], color)
+                
+                self.pixels.show()
+                time.sleep(wait)
+            
+            # Phase 3: Magical sparkles (1-2 seconds)
+            sparkle_duration = random.uniform(1.0, 2.0)
+            sparkle_steps = int(sparkle_duration / wait)
+            
+            # Initialize sparkle particles
+            sparkles = []
+            for _ in range(random.randint(10, 20)):
+                sparkles.append({
+                    'position': random.randint(0, LEDConfig.LED_COUNT - 1),
+                    'lifetime': random.uniform(0.3, 1.0),
+                    'age': 0.0,
+                    'color': random.choice(spell_colors),
+                    'twinkle_speed': random.uniform(5, 15)
+                })
+            
+            for step in range(sparkle_steps):
+                if self._stop_event.is_set():
+                    break
+                
+                # Clear pixels
+                self.pixels.fill((0, 0, 0))
+                
+                # Update and draw sparkles
+                active_sparkles = []
+                for sparkle in sparkles:
+                    sparkle['age'] += wait
+                    
+                    if sparkle['age'] < sparkle['lifetime']:
+                        # Calculate sparkle intensity
+                        age_factor = 1.0 - (sparkle['age'] / sparkle['lifetime'])
+                        twinkle = (math.sin(sparkle['age'] * sparkle['twinkle_speed']) + 1) / 2
+                        intensity = age_factor * twinkle
+                        
+                        # Apply color
+                        color = tuple(int(c * intensity) for c in sparkle['color'])
+                        pos = sparkle['position']
+                        self.pixels[pos] = self._blend_colors(self.pixels[pos], color)
+                        
+                        # Small chance to create a new sparkle nearby
+                        if random.random() < 0.05 and len(active_sparkles) < 30:
+                            new_pos = (pos + random.randint(-2, 2)) % LEDConfig.LED_COUNT
+                            active_sparkles.append({
+                                'position': new_pos,
+                                'lifetime': random.uniform(0.2, 0.5),
+                                'age': 0.0,
+                                'color': sparkle['color'],
+                                'twinkle_speed': random.uniform(8, 20)
+                            })
+                        
+                        active_sparkles.append(sparkle)
+                
+                sparkles = active_sparkles
+                self.pixels.show()
+                time.sleep(wait)
+            
+            # Brief pause before next spell
+            self.pixels.fill((0, 0, 0))
+            self.pixels.show()
+            time.sleep(random.uniform(0.3, 0.8))
+
 class LEDManagerRings(LEDManager):
     """
     LED Manager specifically for setups with two concentric rings.
@@ -794,7 +945,7 @@ class LEDManagerRings(LEDManager):
                 self.pixels.show()
                 time.sleep(wait)
 
-    def _RAINBOW_effect(self, wait):
+    def _rainbow_effect(self, wait):
         """Override: Generate counter-rotating rainbow colors on the two rings."""
         num_leds_ring1 = LEDConfig.LED_COUNT_RING1
         num_leds_ring2 = LEDConfig.LED_COUNT_RING2
@@ -802,7 +953,7 @@ class LEDManagerRings(LEDManager):
         if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
             logging.warning("Rotating rainbow effect requires both rings to have LEDs. Falling back to default.")
             # Fallback to the original implementation if rings aren't configured properly
-            return super()._RAINBOW_effect(wait)
+            return super()._rainbow_effect(wait)
 
         while not self._stop_event.is_set():
             for j in range(255):
@@ -1218,3 +1369,212 @@ class LEDManagerRings(LEDManager):
         """Override: Generate rotating magic green/blue gradients, counter-rotating on the inner ring."""
         # Call the generalized method for rings with custom colors
         self._two_color_rotation_effect("magic_green", "magic_blue", wait)
+
+    def _magical_spell_effect(self, wait):
+        """Override: Magical spell with inner ring charging and outer ring burst"""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+        
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Magical spell effect requires both rings to have LEDs. Falling back to default.")
+            return super()._magical_spell_effect(wait)
+        
+        # Define magical colors
+        spell_colors = [
+            (138, 43, 226),   # Blue Violet
+            (255, 0, 255),    # Magenta
+            (0, 191, 255),    # Deep Sky Blue
+            (255, 20, 147),   # Deep Pink
+            (148, 0, 211),    # Dark Violet
+        ]
+        
+        while not self._stop_event.is_set():
+            # Phase 1: Inner ring charges with swirling energy
+            charge_duration = random.uniform(1.5, 2.5)
+            charge_steps = int(charge_duration / wait)
+            
+            for step in range(charge_steps):
+                if self._stop_event.is_set():
+                    break
+                
+                charge_progress = step / charge_steps
+                
+                # Inner ring - intense swirling charge
+                for i in range(num_leds_ring2):
+                    wave = math.sin((i / num_leds_ring2 - step * 0.2) * math.pi * 4) * 0.5 + 0.5
+                    color_index = int((i + step * 0.1) * len(spell_colors)) % len(spell_colors)
+                    base_color = spell_colors[color_index]
+                    
+                    # Intensity builds up
+                    intensity = charge_progress * wave
+                    if random.random() < 0.2:  # More frequent flickers
+                        intensity *= random.uniform(0.8, 1.2)
+                    intensity = min(1.0, intensity)
+                    
+                    color = tuple(int(c * intensity) for c in base_color)
+                    self.pixels[num_leds_ring1 + i] = color
+                
+                # Outer ring - subtle anticipation glow
+                outer_glow = charge_progress * 0.2
+                for i in range(num_leds_ring1):
+                    # Faint pulsing in sync with charge
+                    pulse = (math.sin(step * 0.1) + 1) / 2
+                    intensity = outer_glow * pulse
+                    color_index = (step // 10) % len(spell_colors)
+                    base_color = spell_colors[color_index]
+                    color = tuple(int(c * intensity) for c in base_color)
+                    self.pixels[i] = color
+                
+                self.pixels.show()
+                time.sleep(wait)
+            
+            # Phase 2: Energy transfers from inner to outer ring
+            transfer_steps = int(0.3 / wait)  # Quick transfer
+            
+            for step in range(transfer_steps):
+                if self._stop_event.is_set():
+                    break
+                
+                transfer_progress = step / transfer_steps
+                
+                # Inner ring fades
+                for i in range(num_leds_ring2):
+                    current_color = self.pixels[num_leds_ring1 + i]
+                    fade_factor = 1.0 - transfer_progress
+                    new_color = tuple(int(c * fade_factor) for c in current_color)
+                    self.pixels[num_leds_ring1 + i] = new_color
+                
+                # Outer ring brightens with energy waves
+                for i in range(num_leds_ring1):
+                    # Create wave effect moving outward
+                    wave_pos = transfer_progress * 2 * math.pi
+                    wave = (math.sin(i / num_leds_ring1 * math.pi * 2 + wave_pos) + 1) / 2
+                    intensity = transfer_progress * wave
+                    
+                    # Mix of colors for energy transfer
+                    r = int(255 * intensity)
+                    g = int(200 * intensity * 0.8)
+                    b = int(255 * intensity)
+                    self.pixels[i] = (r, g, b)
+                
+                self.pixels.show()
+                time.sleep(wait)
+            
+            # Phase 3: Outer ring explosion with inner ring echo
+            explosion_steps = int(0.5 / wait)
+            explosion_center = random.randint(0, num_leds_ring1 - 1)
+            
+            for step in range(explosion_steps):
+                if self._stop_event.is_set():
+                    break
+                
+                explosion_progress = step / explosion_steps
+                
+                # Outer ring - main explosion
+                for i in range(num_leds_ring1):
+                    distance = min(abs(i - explosion_center),
+                                 abs(i - explosion_center + num_leds_ring1),
+                                 abs(i - explosion_center - num_leds_ring1))
+                    norm_distance = distance / (num_leds_ring1 / 2)
+                    
+                    # Expanding shockwave
+                    wave_position = explosion_progress * 2
+                    wave_width = 0.4
+                    
+                    if abs(norm_distance - wave_position) < wave_width:
+                        wave_intensity = 1.0 - abs(norm_distance - wave_position) / wave_width
+                        wave_intensity *= (1.0 - explosion_progress * 0.7)
+                        
+                        # Bright explosion colors
+                        if explosion_progress < 0.3:
+                            # Initial white flash
+                            color = tuple(int(255 * wave_intensity) for _ in range(3))
+                        else:
+                            # Colorful aftermath
+                            color_index = int(norm_distance * len(spell_colors)) % len(spell_colors)
+                            base_color = spell_colors[color_index]
+                            color = tuple(int(c * wave_intensity) for c in base_color)
+                        
+                        self.pixels[i] = color
+                    else:
+                        self.pixels[i] = (0, 0, 0)
+                
+                # Inner ring - echo effect
+                echo_delay = 0.2
+                if explosion_progress > echo_delay:
+                    echo_progress = (explosion_progress - echo_delay) / (1.0 - echo_delay)
+                    echo_intensity = (1.0 - echo_progress) * 0.6
+                    
+                    for i in range(num_leds_ring2):
+                        # Radial pulse on inner ring
+                        angle = i / num_leds_ring2 * math.pi * 2
+                        pulse = (math.sin(echo_progress * math.pi * 3 + angle) + 1) / 2
+                        intensity = echo_intensity * pulse
+                        
+                        color_index = (i + int(echo_progress * 10)) % len(spell_colors)
+                        base_color = spell_colors[color_index]
+                        color = tuple(int(c * intensity) for c in base_color)
+                        self.pixels[num_leds_ring1 + i] = color
+                
+                self.pixels.show()
+                time.sleep(wait)
+            
+            # Phase 4: Magical sparkles on both rings
+            sparkle_duration = random.uniform(1.5, 2.5)
+            sparkle_steps = int(sparkle_duration / wait)
+            
+            # Initialize sparkles for both rings
+            sparkles = []
+            # More sparkles on outer ring
+            for _ in range(random.randint(15, 25)):
+                sparkles.append({
+                    'ring': 1,
+                    'position': random.randint(0, num_leds_ring1 - 1),
+                    'lifetime': random.uniform(0.3, 1.2),
+                    'age': 0.0,
+                    'color': random.choice(spell_colors),
+                    'twinkle_speed': random.uniform(5, 15)
+                })
+            # Fewer sparkles on inner ring
+            for _ in range(random.randint(5, 10)):
+                sparkles.append({
+                    'ring': 2,
+                    'position': random.randint(0, num_leds_ring2 - 1),
+                    'lifetime': random.uniform(0.5, 1.5),
+                    'age': 0.0,
+                    'color': random.choice(spell_colors),
+                    'twinkle_speed': random.uniform(3, 10)
+                })
+            
+            for step in range(sparkle_steps):
+                if self._stop_event.is_set():
+                    break
+                
+                self.pixels.fill((0, 0, 0))
+                
+                active_sparkles = []
+                for sparkle in sparkles:
+                    sparkle['age'] += wait
+                    
+                    if sparkle['age'] < sparkle['lifetime']:
+                        age_factor = 1.0 - (sparkle['age'] / sparkle['lifetime'])
+                        twinkle = (math.sin(sparkle['age'] * sparkle['twinkle_speed']) + 1) / 2
+                        intensity = age_factor * twinkle
+                        
+                        color = tuple(int(c * intensity) for c in sparkle['color'])
+                        
+                        if sparkle['ring'] == 1:
+                            self.pixels[sparkle['position']] = color
+                        else:
+                            self.pixels[num_leds_ring1 + sparkle['position']] = color
+                        
+                        active_sparkles.append(sparkle)
+                
+                sparkles = active_sparkles
+                self.pixels.show()
+                time.sleep(wait)
+            
+            # Clear and pause
+            self.pixels.fill((0, 0, 0))
+            self.pixels.show()
+            time.sleep(random.uniform(0.5, 1.0))

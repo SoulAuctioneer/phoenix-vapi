@@ -66,7 +66,7 @@ class WakeWordConfig:
 # LED Configuration
 class LEDConfig:
     LED_PIN = 21  # GPIO10 for NeoPixel data - Using this to keep audio enabled on GPIO18
-    LED_BRIGHTNESS = 0.6  # LED brightness (0.0 to 1.0)
+    LED_BRIGHTNESS = 0.4  # LED brightness (0.0 to 1.0)
     LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
     LED_COUNT = 32  # Number of NeoPixels in the ring / strip - 24 for ring, 160 for COB strip, 24+8 for large+small ring
     IS_DUAL_RINGS = True # Whether the LED strip is composed of two rings
@@ -132,7 +132,7 @@ class SoundEffect(str, Enum):
     MMHMM = "mmhmm.wav"
     YAWN = "yawn.wav"
     YAWN2 = "yawn2.wav"
-    MAGICAL_SPELL = "MAGICAL_SPELL.wav"
+    MAGICAL_SPELL = "magical_spell.wav"
     LIGHTNING = "lightning.wav"
     RAIN = "rain.wav"
     WHOOSH = "whoosh.wav"
@@ -385,16 +385,25 @@ class AccelerometerConfig:
 class MoveActivityConfig:
     """Configuration for move activity service"""
     ENERGY_UPDATE_THRESHOLD = 0.05 # Only update LEDs if energy has changed by this much
-    ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation
+    ENERGY_WINDOW_SIZE = 20 # Number of samples to use for energy calculation
     ACCEL_WEIGHT = 0.7 # Weight for acceleration in energy calculation
     GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
     # Weight for rotation speed derived from the Game Rotation Vector quaternion
     ROT_WEIGHT = 0.2 # Weight for quaternion-based rotation speed in energy calculation
+    
+    # HELD_STILL ROTATING_PINK_BLUE effect configuration
+    HELD_STILL_EFFECT_DELAY = 2.0  # Seconds to wait before starting ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_SPEED_TIME = 10.0  # Seconds to reach maximum speed
+    HELD_STILL_MIN_SPEED = 0.2  # Minimum speed for ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_SPEED = 0.02  # Maximum speed for ROTATING_PINK_BLUE effect (lower = faster)
+    HELD_STILL_MIN_BRIGHTNESS = 0.1  # Minimum brightness for ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_BRIGHTNESS = 0.7  # Maximum brightness for ROTATING_PINK_BLUE effect
 
 
 # AI Assistant Configuration
 # ASSISTANT_ID = "22526ed1-6961-4760-8d93-c3759d64557c" # Fifi the Phoenix
 ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # Mister Wibble
+
 
 
 ACTIVITIES_CONFIG = {
@@ -404,15 +413,15 @@ ACTIVITIES_CONFIG = {
             "author": "Ash",
         },
         "instructions": dedent("""
-            With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function. 
-            The effect_name to pass to the function is listed for each line in square brackets, e.g. [RAIN]. Invoke each effect before saying its corresponding line.
-            For example: ```json { "Vapi Speaker": "functions.play_special_effect", "parameters": { "effect_name": "RAIN" } } ```
+            With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function, as shown for each line. 
+            Don't pause between lines, just read the poem in one continuous flow.
         """).strip(),
         "content": dedent("""
-            [RAIN] Raindrops dance upon the ground,
-            [LIGHTNING] Lightning flashes all around.
-            [MAGICAL_SPELL] A sparkling spell lights up the sky,
-            [RAINBOW] Then a rainbow waves goodbye!
+        The poem is below, with each line listing the function call syntax to play the relevant effect, followed by the line of the poem:
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ``` Drippy-drop raindrops splash around, making puddles on the ground.
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "LIGHTNING" }} }} ``` Flashy lightning scribbles bright, zigs and zags across the night.
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ``` I wave my wand, shout "Storm, goodbye!" Magic sparkles fill the sky.
+        ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAINBOW" }} }} ``` Now a rainbow smiles at me, colorful for all to see!
         """).strip(),
     },
     "poem": {
@@ -452,19 +461,18 @@ ACTIVITIES_CONFIG = {
     },
     "story": {
         "metadata": {
-            "title": "The Famous Three and the Tree of Secrets",
-            "synopsis": "The Famous Three are trapped at Owl's Deen and must uncover a magical mystery hidden inside an ancient tree."
+            "title": "The Famous Five and the Tree of Secrets",
+            "synopsis": "The Famous Five are trapped at Owl's Deen and must uncover a magical mystery hidden inside an ancient tree."
         },
         "instructions": dedent("""
-            * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing George. Arianne will play Timmy, and Arianne's dad will be Julian.
+            * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the Famous Five. You will be the narrator. You are also playing George. Ask your companion which character they want to play.
             * For each scene, describe the setting, then describe what you and other non-player characters do. Then, ask your companion to suggest what you should do next. Give them a choice of a couople of options. If relevant, ask them if there's anything around that they might be able to use to help.
             * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
             * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
-            * A magic spell can be cast by pairing a lively dance with a fun chant or song. For example: "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!" [you will then trigger the relevant special effect]
         """),
         "content": dedent("""
             **Scene 1: The Tree of Secrets**  
-            The Famous Three escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
+            The Famous Five escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
             **Choices**: Look for a hidden key, press the carvings, or use Phoenix magic.
 
             **Scene 2: The Hidden Passageway**  
@@ -480,7 +488,7 @@ ACTIVITIES_CONFIG = {
             **Choices**: Search for a loose floorboard, find a tool in the kitchen, or use Phoenix fire to warm the wood.  
 
             **Scene 5: The Great Escape!**  
-            With the secret uncovered, the Famous Three must decide how to escape before the villains return.  
+            With the secret uncovered, the Famous Five must decide how to escape before the villains return.  
             **Choices**: Sneak out quietly, hide and wait for the villains to leave, or use Phoenix magic to create a distraction.  
 
             **Goal**: Solve the mystery and escape safely!
@@ -493,9 +501,10 @@ ACTIVITIES_CONFIG = {
         },
         "instructions": dedent("""
             * Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
-            * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the show_color function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
+            * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the `show_color` function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
             * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
-            * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the play_special_effect function, and narrate the ending of the game. Then, suggest another activity to do.
+            For example, ```json {{ "Vapi Speaker": "functions.show_color", "parameters": {{ "color": "red" }} }} ```
+            * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the `play_special_effect` function, and narrate the ending of the game. Then, suggest another activity to do.
         """),
         "content": dedent("""
             Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
@@ -521,16 +530,15 @@ ACTIVITIES_CONFIG = {
         },
         "instructions": dedent("""
             Silly Spells: Bring magic to life with movement and song! Get ready to dance, clap, stomp, and sing for different kinds of magic.
-            For each spell, you will use the play_special_effect function to trigger the effect. If there is a relevant special effect, use that effect name, else just use the "MAGICAL_SPELL" effect name.
-            When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
+            For each spell, you will use the play_special_effect function to trigger the effect, as shown for each spell. 
+            To start, tell your companion what spells they can cast: Rainstorm, Lightning, Rainbow, or Stars, and ask them to choose one.
         """),
         "content": dedent("""
-            Here are some ideas, but be creative! You can make up your own spells.
-            * "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!"
-            * "Let's cast a lightning spell! Clap your hands like thunder, then jump in the air and touch the floor like lightning, then say "Flash!". Ready? One, two, three—FLASH!"
-            * "Let's make a rainbow! Hop up and down like raindrops, then spread your arms really wide, then say "Rainbow-bright!". Ready? One, two, three—RAINBOW-BRIGHT!"
-            * "Let's grow a flower garden! Wiggle your fingers like you're sprinkling seeds, stomp your feet to make the ground shake, then say, 'Blossom-pop!' Ready? One, two, three—BLOSSOM-POP! Use the play_special_effect function to trigger the 'garden' effect."
-            * "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH!
+            Here are the spells to choose from:
+            * "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE! ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ```"
+            * "Let's cast a lightning spell! Clap your hands like thunder, then jump in the air and touch the floor like lightning, then say "Flash!". Ready? One, two, three—FLASH! ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "LIGHTNING" }} }} ```"
+            * "Let's make a rainbow! Hop up and down like raindrops, then spread your arms really wide, then say "Rainbow-bright!". Ready? One, two, three—RAINBOW-BRIGHT! ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAINBOW" }} }} ```"
+            * "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH! ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ```"
             """)
     },
     "discovery": {
@@ -565,13 +573,11 @@ ACTIVITIES_CONFIG = {
 
 # Generate a prompt that lists type and metadata for each activity in ACTIVITIES_CONFIG
 ACTIVITIES_PROMPT = dedent("""
-    This is a list of possible activities. ALWAYS use the start_activity function to start an activity.
+    This is a list of possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
     """) + "\n".join([
-        f"{key}: {value['metadata']}"
+        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: ```json {{ "Vapi Speaker": "functions.list_activities", "parameters": {{ "activity_type": "{key}" }} }} ```'
         for key, value in ACTIVITIES_CONFIG.items()
-    ]) + "\n\n" + dedent("""
-    To start an activity, use the start_activity function, passing the activity key as a parameter. Important: REMEMBER to do this!
-    """)
+    ])
 
 
 # BASE_ASSISTANT_CONTEXT = dedent(f"""
@@ -662,29 +668,10 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
     * When you should call a tool/function, immediately call the relevant tool, and end your current response without any further output.
     * Add human-like imperfections in your responses. Occasionally add one subtle hesitation like 'umm,' 'uhh,' or 'hmm' in the middle of a sentence where someone might naturally pause to think. Occasionally add a fillers word like "Ah" or "Mmm" in the beginning of your sentence. Occasionally repeat words or short phrases, such as 'so, so' or 'and, and umm,' to make it sound more natural.
     * Occasionally add a stutter at the beginning of certain words (e.g., 'I...I think' or 'th...that's right') but keep it mild and varied. Sometimes, correct yourself mid-sentence or trail off slightly before continuing, as a human might when thinking. Use casual contractions and slightly imprecise phrasing instead of being overly formal. For example: 'Yeah, so umm I think', 'I mean... yeah', 'Hmm... or actually', 'wait, maybe we should try, 'uhh, hold on, lemme think.'
-
-    ----
-
-    Here's an example activity: Spell Casting. Tell your companion how to cast one of the following five spells, then call the play_special_effect function, passing the relevant effect_name, i.e. one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
-    Here are some ideas:
-    * [RAIN] "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!"
-    * [LIGHTNING] "Let's cast a lightning spell! Clap your hands like thunder, then jump in the air and touch the floor like lightning, then say "Flash!". Ready? One, two, three—FLASH!"
-    * [RAINBOW] "Let's make a rainbow! Hop up and down like raindrops, then spread your arms really wide, then say "Rainbow-bright!". Ready? One, two, three—RAINBOW-BRIGHT!"
-    * [MAGICAL_SPELL] "Let's grow a flower garden! Wiggle your fingers like you're sprinkling seeds, stomp your feet to make the ground shake, then say, 'Blossom-pop!' Ready? One, two, three—BLOSSOM-POP! Use the play_special_effect function to trigger the 'garden' effect."
-    * [MAGICAL_SPELL] "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH!
-    
-    ----
-
-    Below is a second example activity, a poem you can read named "Raindrops". With each line of this poem, you can first play a special light effect, by invoking the play_special_effect function. 
-    The poem is:
-    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ``` Raindrops dance upon the ground.
-    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "LIGHTNING" }} }} ``` Lightning flashes all around.
-    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ``` A sparkling spell lights up the sky.
-    ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAINBOW" }} }} ``` Then a rainbow waves goodbye!
     """).strip()
 
 ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
-    Here are some memories about your companion. You may wish to start the conversation by playfully referencing one of these:
+    Here are some memories about your companion. Start the conversation by playfully referencing one of these:
     {memories}
     """).strip()
 
@@ -694,10 +681,7 @@ ASSISTANT_CONFIG = {
     "context": f"It is currently {time.strftime('%I:%M %p')}, on {time.strftime('%A')}, {time.strftime('%B %d, %Y')}.\n" 
         + BASE_ASSISTANT_CONTEXT 
         + "\n\n"
-        # + ACTIVITIES_PROMPT
-        # + dedent("""
-        # IMPORTANT: If you want to suggest some activities, call the list_activities function to receive a list of activities to choose from. Do not forget to call this list_activities function!
-        # """),
+        + ACTIVITIES_PROMPT
         + "\n\n",
     "name": ASSISTANT_NAME,
     "voice": {

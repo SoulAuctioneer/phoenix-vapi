@@ -216,7 +216,9 @@ class CallStateManager:
                     # A tool-initiated LED effect was active. Let it play for this duration of speech.
                     # Set the flag to False so that next time the assistant stops/starts speaking,
                     # the normal speaking/idle LED logic resumes.
-                    self._is_tool_led_effect_active = False
+                    # NOTE: Moved to the user role's is_speaking state.
+                    pass
+                    # self._is_tool_led_effect_active = False
                     # DO NOT change the LED effect, let the tool's effect continue.
                 else:
                     # If _is_tool_led_effect_active is False (meaning a tool effect just played during speech, 
@@ -234,6 +236,9 @@ class CallStateManager:
         # but no longer triggers LED effects in this method.
         elif role == "user":
              self._user_speaking = is_speaking
+             if is_speaking:
+                # Hopefully this should give more time for the effect to play.
+                self._is_tool_led_effect_active = False
 
 
 def thread_safe_event(func):
@@ -666,8 +671,8 @@ class ConversationManager:
                 # }
                 # TODO: Need to figure out how to send response back to assistant properly.
                 #self._call_client.send_app_message(message)
-                #self.send_message(message)
-                self.add_message("tool", ACTIVITIES_PROMPT)
+                #self.send_message(ACTIVITIES_PROMPT)
+                self.add_message("system", ACTIVITIES_PROMPT)
 
             elif name == 'start_activity':
                 # await self.publish_event_callback({
@@ -700,7 +705,7 @@ class ConversationManager:
                 activity_config_str = parse_activity_config(activity_config)
                 if activity_config:
                     logging.info(f"Sending activity {activity_key} config: {activity_config_str}")
-                    self.add_message("tool", activity_config_str)
+                    self.add_message("system", activity_config_str)
                 else:
                     logging.warning(f"Unknown activity: {activity_key}")
             else:

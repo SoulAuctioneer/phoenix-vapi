@@ -29,8 +29,10 @@ class MoveActivity(BaseService):
     3. Publish events when significant changes occur (like playing sounds or changing LEDs)
     4. Control LED effect based on state:
         - FREE_FALL: RAINBOW
-        - HELD_STILL: BLUE_BREATHING
-        - Otherwise: TWINKLING (speed/brightness based on movement energy)
+        - HELD_STILL: ROTATING_PINK_BLUE (starts after 2s, gets faster and brighter over 10s)
+        - MOVING: BLUE_BREATHING (static)
+        - STATIONARY: No LED effect
+        - Other states: BLUE_BREATHING (static)
     """
     
     def __init__(self, service_manager):
@@ -44,13 +46,18 @@ class MoveActivity(BaseService):
         # --- State Flags ---
         self.in_free_fall = False
         self.is_held_still = False # Added for HELD_STILL state
+        self.is_moving = False # Added for MOVING state
+        self.is_stationary = False # Added for STATIONARY state
         # --- LED Effect Tracking ---
         self.current_led_effect: Dict[str, Any] = {"name": None, "params": {}} # Track current effect sent
-        # Store the default effect name used by this activity
+        # Store the default effect name used by this activity (no longer used for energy patterns)
         self.default_effect_name = "BLUE_BREATHING"
         # Store the current parameters for the default effect (updated dynamically)
         self.twinkling_speed: float = 0.3 # Slower sparkle/update rate initially
         self.twinkling_brightness: float = 0.05 # Dim initial brightness
+        # --- HELD_STILL ROTATING_PINK_BLUE Effect Tracking ---
+        self.held_still_start_time: Optional[float] = None  # When HELD_STILL state started
+        self.held_still_effect_active = False  # Whether ROTATING_PINK_BLUE effect is currently active
         # --- Shake Handling ---
         self._giggle_index = 0 # Index for cycling through giggle sounds
         self._wee_index = 0 # Index for cycling through WEE sounds
@@ -59,18 +66,19 @@ class MoveActivity(BaseService):
     async def start(self):
         """Start the move activity service and set initial LED effect."""
         await super().start()
-        # Set initial LED effect to twinkling, using initial parameter values
+        # Set initial LED effect to a gentle breathing effect since we don't know the state yet
+        initial_effect = "BLUE_BREATHING"
         initial_params = {
-            "speed": self.twinkling_speed,
-            "brightness": self.twinkling_brightness
+            "speed": 0.2,
+            "brightness": 0.2
         }
-        self.logger.info(f"Setting initial LED effect: {self.default_effect_name}, params={initial_params}")
+        self.logger.info(f"Setting initial LED effect: {initial_effect}, params={initial_params}")
         await self.publish({
             "type": "start_led_effect",
-            "data": { "effect_name": self.default_effect_name, **initial_params }
+            "data": { "effect_name": initial_effect, **initial_params }
         })
         # Track the initial effect
-        self.current_led_effect = {"name": self.default_effect_name, "params": initial_params}
+        self.current_led_effect = {"name": initial_effect, "params": initial_params}
         self.logger.info("Move activity service started")
         
     async def stop(self):
@@ -84,8 +92,12 @@ class MoveActivity(BaseService):
         """
         Handle events from other services, particularly accelerometer sensor data.
         Detects state transitions to trigger sounds (SHAKE, IMPACT, FREE_FALL).
-        Determines the appropriate LED effect based on the current state (FREE_FALL, HELD_STILL, or default).
-        Updates the default LED effect (TWINKLING) parameters based on movement energy.
+        Determines the appropriate LED effect based on the current state:
+        - FREE_FALL: RAINBOW effect
+        - HELD_STILL: ROTATING_PINK_BLUE effect (starts after 2s delay, gets faster and brighter over time)
+        - MOVING: BLUE_BREATHING effect (static)
+        - STATIONARY: No LED effect
+        - Other states: Static BLUE_BREATHING effect
         Publishes LED changes when the target effect or its parameters change significantly.
         
         Args:
@@ -152,7 +164,24 @@ class MoveActivity(BaseService):
 
             # Update internal state flags based on current state
             self.in_free_fall = (current_state_enum == SimplifiedState.FREE_FALL)
+            previous_held_still = self.is_held_still
             self.is_held_still = (current_state_enum == SimplifiedState.HELD_STILL)
+            self.is_moving = (current_state_enum == SimplifiedState.MOVING)
+            self.is_stationary = (current_state_enum == SimplifiedState.STATIONARY)
+            
+            # Track HELD_STILL timing for ROTATING_PINK_BLUE effect
+            current_time = time.monotonic()
+            if self.is_held_still and not previous_held_still:
+                # Just entered HELD_STILL state
+                self.held_still_start_time = current_time
+                self.held_still_effect_active = False
+                self.logger.info("Entered HELD_STILL state, starting timer for ROTATING_PINK_BLUE effect")
+            elif not self.is_held_still and previous_held_still:
+                # Just exited HELD_STILL state
+                self.held_still_start_time = None
+                if self.held_still_effect_active:
+                    self.held_still_effect_active = False
+                    self.logger.info("Exited HELD_STILL state, canceling ROTATING_PINK_BLUE effect")
 
 
             # --- Determine Target LED Effect based on Current State ---
@@ -164,31 +193,51 @@ class MoveActivity(BaseService):
                 # Define consistent parameters for this effect
                 target_params = {"speed": 0.05, "brightness": 0.8}
             elif self.is_held_still:
+                # Check if we should start or update ROTATING_PINK_BLUE effect
+                if self.held_still_start_time is not None:
+                    time_held_still = current_time - self.held_still_start_time
+                    
+                    if time_held_still >= MoveActivityConfig.HELD_STILL_EFFECT_DELAY:
+                        # Start or update ROTATING_PINK_BLUE effect
+                        target_effect_name = "ROTATING_PINK_BLUE"
+                        
+                        # Calculate progress based on how long we've been held still
+                        progress = min(1.0, (time_held_still - MoveActivityConfig.HELD_STILL_EFFECT_DELAY) / 
+                                      (MoveActivityConfig.HELD_STILL_MAX_SPEED_TIME - MoveActivityConfig.HELD_STILL_EFFECT_DELAY))
+                        
+                        # Interpolate speed between min and max (lower = faster)
+                        speed = MoveActivityConfig.HELD_STILL_MIN_SPEED - (progress * 
+                               (MoveActivityConfig.HELD_STILL_MIN_SPEED - MoveActivityConfig.HELD_STILL_MAX_SPEED))
+                        
+                        # Interpolate brightness between min and max (higher = brighter)
+                        brightness = MoveActivityConfig.HELD_STILL_MIN_BRIGHTNESS + (progress * 
+                                   (MoveActivityConfig.HELD_STILL_MAX_BRIGHTNESS - MoveActivityConfig.HELD_STILL_MIN_BRIGHTNESS))
+                        
+                        target_params = {"speed": speed, "brightness": brightness}
+                        
+                        if not self.held_still_effect_active:
+                            self.held_still_effect_active = True
+                            self.logger.info(f"Starting ROTATING_PINK_BLUE effect after {time_held_still:.1f}s held still")
+                    else:
+                        # Still waiting for delay, use default stationary effect
+                        target_effect_name = "BLUE_BREATHING"
+                        target_params = {"speed": 0.1, "brightness": 0.3}
+                else:
+                    # Fallback if timing is somehow broken
+                    target_effect_name = "BLUE_BREATHING"
+                    target_params = {"speed": 0.1, "brightness": 0.3}
+            elif self.is_stationary:
+                # No LED effect when stationary
+                target_effect_name = None
+                target_params = {}
+            elif self.is_moving:
+                # Use blue breathing effect when moving
                 target_effect_name = "BLUE_BREATHING"
-                # Define consistent parameters for this effect
-                target_params = {"speed": 0.1, "brightness": 0.5}
-            else: # Default state: TWINKLING based on energy
-                target_effect_name = self.default_effect_name
-                # Calculate desired parameters based on energy
-                # Speed: Higher energy -> faster sparkle/update rate (lower delay/interval)
-                min_speed = 0.01 # Fastest
-                max_speed = 0.3  # Slowest
-                speed_range = max_speed - min_speed
-                # Use linear mapping for interval
-                interval = max(min_speed, min(max_speed, max_speed - (energy * speed_range)))
-
-                # Brightness: Higher energy -> brighter
-                min_brightness = 0.05 # Min brightness
-                max_brightness = 1.0 # Max brightness
-                brightness_range = max_brightness - min_brightness
-                # Use linear mapping for brightness
-                brightness = max(min_brightness, min(max_brightness, min_brightness + (energy * brightness_range)))
-
-                target_params = {"speed": interval, "brightness": brightness}
-
-                # Update stored parameters for the default effect (for potential future reverts)
-                self.twinkling_speed = interval
-                self.twinkling_brightness = brightness
+                target_params = {"speed": 0.15, "brightness": 0.6}
+            else:
+                # For other states (IMPACT, SHAKE, UNKNOWN), use a simple static effect
+                target_effect_name = "BLUE_BREATHING"
+                target_params = {"speed": 0.2, "brightness": 0.2}
 
 
             # --- Publish LED Update if Needed ---
@@ -200,30 +249,37 @@ class MoveActivity(BaseService):
                 # Effect name changed, definitely update
                 needs_update = True
                 self.logger.info(f"Target LED Effect changed from {current_effect_name} to {target_effect_name} due to state {current_state_enum.name}")
-            elif target_effect_name == self.default_effect_name:
-                # Effect is default, check if parameters changed significantly compared to *last sent* parameters for this effect
-                # Using energy threshold is a proxy for parameter change significance
-                 if abs(energy - self.last_sent_energy) > MoveActivityConfig.ENERGY_UPDATE_THRESHOLD:
+            elif target_effect_name == "ROTATING_PINK_BLUE" and self.held_still_effect_active:
+                # For ROTATING_PINK_BLUE effect, check if speed or brightness changed significantly
+                current_speed = current_params.get("speed", 0)
+                current_brightness = current_params.get("brightness", 0)
+                target_speed = target_params.get("speed", 0)
+                target_brightness = target_params.get("brightness", 0)
+                if (abs(current_speed - target_speed) > 0.01 or  # Update if speed changed by more than 0.01
+                    abs(current_brightness - target_brightness) > 0.05):  # Update if brightness changed by more than 0.05
                     needs_update = True
-                    # self.logger.debug(f"Target {self.default_effect_name} params changed significantly: {target_params}")
 
-
-            if needs_update and target_effect_name is not None:
-                self.logger.debug(f"Publishing LED update: {target_effect_name}, {target_params}")
-                await self.publish({
-                    "type": "start_led_effect",
-                    "data": { "effect_name": target_effect_name, **target_params }
-                })
-                # Update tracked state
-                self.current_led_effect = {"name": target_effect_name, "params": target_params}
-                # Update last sent energy only if the effect *is* the default one
-                if target_effect_name == self.default_effect_name:
-                     self.last_sent_energy = energy
+            if needs_update:
+                if target_effect_name is not None:
+                    # Start or update LED effect
+                    self.logger.debug(f"Publishing LED update: {target_effect_name}, {target_params}")
+                    await self.publish({
+                        "type": "start_led_effect",
+                        "data": { "effect_name": target_effect_name, **target_params }
+                    })
+                    # Update tracked state
+                    self.current_led_effect = {"name": target_effect_name, "params": target_params}
                 else:
-                    # Reset last_sent_energy when switching *away* from default,
-                    # so the next time we switch *back* to default, it updates immediately
-                    # based on the current energy level.
-                    self.last_sent_energy = -1.0
+                    # Stop LED effect (for STATIONARY state)
+                    self.logger.debug("Stopping LED effect for STATIONARY state")
+                    await self.publish({
+                        "type": "stop_led_effect"
+                    })
+                    # Update tracked state
+                    self.current_led_effect = {"name": None, "params": {}}
+                
+                # Reset last_sent_energy since we're no longer using energy-based effects
+                self.last_sent_energy = -1.0
 
             self.logger.debug(f"Current state: {current_state_enum.name}, Energy: {energy:.2f}")
 
