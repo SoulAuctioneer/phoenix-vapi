@@ -373,8 +373,9 @@ class AccelerometerManager:
         This allows truly stationary devices to be detected while preventing hand tremor classification.
         """
         
-        # Store current reading for variance analysis
-        self.stationary_candidate_readings.append(linear_accel_mag)
+        # Store current reading for variance analysis ONLY if we're tracking or about to track
+        # This prevents contamination from non-stationary periods
+        # (moved from here to after we check if we meet basic criteria)
         
         # Define base thresholds
         stationary_linear_base = self.stationary_linear_accel_max
@@ -450,6 +451,10 @@ class AccelerometerManager:
         meets_basic_stationary = (linear_accel_mag < stationary_linear_threshold and
                                  gyro_mag < stationary_gyro_threshold and
                                  rot_speed < stationary_rot_threshold)
+        
+        # Only add readings to the deque if we're tracking or about to start tracking
+        if meets_basic_stationary or self.stationary_candidate_start is not None:
+            self.stationary_candidate_readings.append(linear_accel_mag)
         
         # Enhanced STATIONARY detection with consistency and variance checking
         is_truly_stationary = False

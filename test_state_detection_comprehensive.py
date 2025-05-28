@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug test script to show variance calculations for HELD_STILL to STATIONARY transitions.
+Comprehensive test script for state detection logic.
 """
 
 import sys
@@ -14,19 +14,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from managers.accelerometer_manager import AccelerometerManager, SimplifiedState
 
-async def test_held_still_to_stationary_debug():
-    """Test the transition from HELD_STILL to STATIONARY state with debug info."""
+async def test_state_detection_comprehensive():
+    """Comprehensive test of state detection logic."""
     
     manager = AccelerometerManager()
     
-    print("=== HELD_STILL to STATIONARY Debug Test ===")
+    print("=== Comprehensive State Detection Test ===")
     print(f"STATIONARY thresholds:")
     print(f"  Linear: < {manager.stationary_linear_accel_max:.3f} m/s²")
     print(f"  Gyro: < {manager.stationary_gyro_max:.3f} rad/s")
-    print(f"  Min duration: {manager.stationary_min_duration:.1f}s")
-    print(f"  Required consistency: {manager.stationary_consistency_required} samples")
-    print(f"  Max variance: {manager.stationary_max_variance:.3f}")
-    print(f"  Variance timeout: {manager.stationary_variance_timeout:.1f}s")
+    print(f"  Exit hysteresis: {manager.stationary_exit_hysteresis}x")
+    print(f"HELD_STILL thresholds:")
+    print(f"  Linear: < {manager.held_still_linear_accel_max:.3f} m/s²")
+    print(f"  Gyro: < {manager.held_still_gyro_max:.3f} rad/s")
+    print(f"  Exit hysteresis: {manager.hysteresis_factor}x")
     print()
     
     # Initialize the manager
@@ -34,7 +35,7 @@ async def test_held_still_to_stationary_debug():
         print("Failed to initialize accelerometer")
         return
     
-    print("Starting test - hold device still, then place on table...")
+    print("Starting test - try different movements...")
     print("Press Ctrl+C to stop\n")
     
     start_time = time.time()
@@ -61,8 +62,8 @@ async def test_held_still_to_stationary_debug():
                 last_state = current_state
                 state_start_time = current_time
             
-            # Show detailed info every 1 second
-            if int(elapsed * 10) % 10 == 0:
+            # Show detailed info every 0.5 seconds
+            if int(elapsed * 20) % 10 == 0:  # Every 0.5s
                 linear_accel = data.get("linear_acceleration", (0, 0, 0))
                 gyro = data.get("gyro", (0, 0, 0))
                 
@@ -76,42 +77,50 @@ async def test_held_still_to_stationary_debug():
                 else:
                     gyro_mag = 0.0
                 
-                # Check if we meet basic STATIONARY criteria
-                meets_stationary = (linear_mag < manager.stationary_linear_accel_max and
-                                  gyro_mag < manager.stationary_gyro_max)
+                # Calculate thresholds based on current state
+                if current_state == SimplifiedState.STATIONARY:
+                    stat_linear_thresh = manager.stationary_linear_accel_max * manager.stationary_exit_hysteresis
+                    stat_gyro_thresh = manager.stationary_gyro_max * manager.stationary_exit_hysteresis
+                elif current_state == SimplifiedState.HELD_STILL:
+                    stat_linear_thresh = manager.stationary_linear_accel_max
+                    stat_gyro_thresh = manager.stationary_gyro_max
+                else:
+                    stat_linear_thresh = manager.stationary_linear_accel_max
+                    stat_gyro_thresh = manager.stationary_gyro_max
                 
-                # Check stationary candidate tracking and variance
-                candidate_info = ""
-                variance_info = ""
+                # Check if we meet basic STATIONARY criteria
+                meets_stationary = (linear_mag < stat_linear_thresh and gyro_mag < stat_gyro_thresh)
+                
+                # Build status string
+                status = f"[{elapsed:6.1f}s] {current_state.name}: L={linear_mag:.3f}"
+                if linear_mag >= stat_linear_thresh:
+                    status += f"(>{stat_linear_thresh:.3f})"
+                status += f", G={gyro_mag:.3f}"
+                if gyro_mag >= stat_gyro_thresh:
+                    status += f"(>{stat_gyro_thresh:.3f})"
+                
+                # Show candidate tracking
                 if manager.stationary_candidate_start is not None:
                     candidate_duration = current_time - manager.stationary_candidate_start
-                    candidate_info = f", STAT candidate: {candidate_duration:.1f}s"
+                    status += f", STAT cand: {candidate_duration:.1f}s"
                     
-                    # Calculate variance if we have enough readings
-                    if len(manager.stationary_candidate_readings) >= 3:
-                        recent_readings = list(manager.stationary_candidate_readings)[-manager.stationary_consistency_required:]
-                        if len(recent_readings) >= 3:
+                    # Show readings count
+                    readings_count = len(manager.stationary_candidate_readings)
+                    status += f" ({readings_count} readings)"
+                    
+                    # Calculate variance if possible
+                    if readings_count >= 3:
+                        recent = list(manager.stationary_candidate_readings)[-4:]
+                        if len(recent) >= 3:
                             try:
-                                variance = statistics.variance(recent_readings)
-                                variance_info = f", Variance: {variance:.4f}"
-                                
-                                # Show if variance would cause rejection
-                                if variance > manager.stationary_max_variance:
-                                    if candidate_duration > manager.stationary_variance_timeout:
-                                        variance_info += " (WILL REJECT!)"
-                                    else:
-                                        variance_info += f" (high, but only {candidate_duration:.1f}s)"
+                                var = statistics.variance(recent)
+                                status += f", Var: {var:.4f}"
                             except:
                                 pass
+                elif meets_stationary:
+                    status += " (meets STAT but no candidate)"
                 
-                print(f"[{elapsed:6.1f}s] {current_state.name}: Linear={linear_mag:.3f}, Gyro={gyro_mag:.3f}, "
-                      f"Meets STAT={meets_stationary}{candidate_info}{variance_info}")
-                
-                # Show the actual readings in the buffer
-                if manager.stationary_candidate_readings and len(manager.stationary_candidate_readings) >= 3:
-                    recent = list(manager.stationary_candidate_readings)[-5:]
-                    readings_str = ", ".join([f"{r:.3f}" for r in recent])
-                    print(f"          Recent readings: [{readings_str}]")
+                print(status)
             
             # Small delay to not overwhelm the system
             await asyncio.sleep(0.05)
@@ -123,4 +132,4 @@ async def test_held_still_to_stationary_debug():
         print("Test complete")
 
 if __name__ == "__main__":
-    asyncio.run(test_held_still_to_stationary_debug()) 
+    asyncio.run(test_state_detection_comprehensive()) 
