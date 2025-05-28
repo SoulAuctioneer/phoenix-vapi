@@ -186,6 +186,7 @@ class AccelerometerManager:
         # Stability tracking: Prevent rapid oscillations with reasonable timing
         self.oscillation_prevention_window = 1.5  # seconds - Prevent oscillations within this window (reduced from 3.0)
         self.last_transition_time = None         # Track last transition to prevent rapid oscillations
+        self.previous_stable_state = None        # Track the previous stable state to detect true oscillations
         
         # Stationary state tracking for consistency checking
         self.stationary_candidate_start = None
@@ -685,7 +686,7 @@ class AccelerometerManager:
         
         # Check for oscillation prevention first
         if self._is_oscillation_attempt(candidate_state, timestamp):
-            self.logger.debug(f"Preventing oscillation: {self.current_state.name}↔{candidate_state.name} within {self.oscillation_prevention_window:.1f}s window")
+            self.logger.debug(f"Preventing true oscillation: {self.previous_stable_state.name if self.previous_stable_state else 'None'} → {self.current_state.name} → {candidate_state.name} within {self.oscillation_prevention_window:.1f}s window")
             return self.current_state
         
         # Special handling for different state transitions with reasonable timing
@@ -719,6 +720,11 @@ class AccelerometerManager:
     def _update_state_tracking(self, new_state: SimplifiedState, timestamp: float):
         """Update state tracking variables when state changes."""
         if new_state != self.current_state:
+            # Track previous stable state for oscillation detection
+            stable_states = {SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL}
+            if self.current_state in stable_states:
+                self.previous_stable_state = self.current_state
+            
             self.state_change_time = timestamp
             self.last_transition_time = timestamp  # Track for oscillation prevention
             if new_state != SimplifiedState.UNKNOWN:  # Only log meaningful state changes
@@ -730,6 +736,7 @@ class AccelerometerManager:
         Check if this transition would be an oscillation (rapid back-and-forth between states).
         
         Prevents rapid oscillations between STATIONARY and HELD_STILL by tracking recent transitions.
+        Now uses smarter logic to distinguish true oscillations from legitimate movement sequences.
         
         Args:
             candidate_state: The state we want to transition to
@@ -738,7 +745,7 @@ class AccelerometerManager:
         Returns:
             bool: True if this would be an oscillation that should be prevented
         """
-        if self.last_transition_time is None:
+        if self.last_transition_time is None or self.previous_stable_state is None:
             return False
         
         time_since_last_transition = timestamp - self.last_transition_time
@@ -746,10 +753,21 @@ class AccelerometerManager:
         # Only prevent oscillations between stable states
         stable_states = {SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL}
         
-        if (self.current_state in stable_states and 
+        # Check if this would be a true oscillation:
+        # 1. Current state and candidate state are both stable states
+        # 2. They are different from each other
+        # 3. The candidate state is the same as the previous stable state (going back)
+        # 4. Within the oscillation prevention window
+        is_true_oscillation = (
+            self.current_state in stable_states and 
             candidate_state in stable_states and 
             self.current_state != candidate_state and
-            time_since_last_transition < self.oscillation_prevention_window):
+            candidate_state == self.previous_stable_state and
+            time_since_last_transition < self.oscillation_prevention_window
+        )
+        
+        if is_true_oscillation:
+            self.logger.debug(f"True oscillation detected: {self.previous_stable_state.name} → {self.current_state.name} → {candidate_state.name} within {time_since_last_transition:.1f}s")
             return True
         
         return False
