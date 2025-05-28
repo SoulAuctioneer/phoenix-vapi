@@ -390,6 +390,12 @@ class MoveActivityConfig:
     GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
     # Weight for rotation speed derived from the Game Rotation Vector quaternion
     ROT_WEIGHT = 0.2 # Weight for quaternion-based rotation speed in energy calculation
+    
+    # HELD_STILL ROTATING_PINK_BLUE effect configuration
+    HELD_STILL_EFFECT_DELAY = 2.0  # Seconds to wait before starting ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_SPEED_TIME = 10.0  # Seconds to reach maximum speed
+    HELD_STILL_MIN_SPEED = 0.1  # Minimum speed for ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_SPEED = 0.01  # Maximum speed for ROTATING_PINK_BLUE effect (lower = faster)
 
 
 # AI Assistant Configuration
