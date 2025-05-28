@@ -415,7 +415,6 @@ ACTIVITIES_CONFIG = {
         },
         "instructions": dedent("""
             With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function, as shown for each line. 
-            Don't pause between lines, just read the poem in one continuous flow.
         """).strip(),
         "content": dedent("""
         The poem is below, with each line listing the function call syntax to play the relevant effect, followed by the line of the poem:
