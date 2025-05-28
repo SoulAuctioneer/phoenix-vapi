@@ -166,8 +166,9 @@ class AccelerometerManager:
         self.stationary_gyro_max = 0.08           # rad/s - Realistic for actual hardware (was 0.04)
         self.stationary_rot_speed_max = 0.08      # rad/s - Realistic for actual hardware (was 0.04)
         self.stationary_consistency_required = 4  # Reduced consistency requirement (was 5)
-        self.stationary_max_variance = 0.050     # m/s² - Much more lenient variance for hardware (was 0.020)
+        self.stationary_max_variance = 0.100     # m/s² - More realistic for actual hardware variance (was 0.050)
         self.stationary_min_duration = 0.8       # seconds - Faster responsiveness (was 1.0)
+        self.stationary_variance_timeout = 15.0  # seconds - Much longer patience for variance (was hardcoded 8.0)
         
         # HELD_STILL: Device held by hand - More permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
@@ -587,7 +588,7 @@ class AccelerometerManager:
                         self.stationary_candidate_start = None
                         self.stationary_candidate_readings.clear()
                         return False
-                    elif duration_so_far > 8.0:  # After 8 seconds, be stricter (was 5.0) - more patient
+                    elif duration_so_far > self.stationary_variance_timeout:  # After timeout, be stricter (was 8.0) - more patient
                         self.logger.debug(f"STATIONARY rejected: filtered variance {filtered_variance:.6f} > {adjusted_variance_threshold:.6f} after {duration_so_far:.1f}s")
                         self.stationary_candidate_start = None
                         self.stationary_candidate_readings.clear()
