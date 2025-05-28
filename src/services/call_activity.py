@@ -74,6 +74,7 @@ class CallActivity(BaseService):
         self.websocket_server = None
         self.active_websockets = set()  # Track active WebSocket connections
         self.websocket_task = None
+        self.stream_sid = None  # Store the Twilio stream SID
         
         # ngrok tunnels
         self.ngrok_flask_tunnel = None
@@ -354,6 +355,7 @@ class CallActivity(BaseService):
                 # Log stream metadata if available
                 stream_data = data.get("start", {})
                 self.logger.info(f"Stream metadata: {stream_data}")
+                self.stream_sid = stream_data.get("streamSid")
                 
             elif event == "media":
                 # Extract and decode audio payload
@@ -403,11 +405,15 @@ class CallActivity(BaseService):
     def _handle_mic_audio(self, audio_data: np.ndarray):
         """Handle audio data from the microphone and send it to Twilio."""
         if not self.active_websockets:  # No active WebSocket connections
+            self.logger.warning("No active WebSocket connections to send mic audio")
             return
             
         try:
+            self.logger.info(f"Processing mic audio: {len(audio_data)} samples, dtype={audio_data.dtype}")
+            
             # Convert PCM to µ-law (Twilio expects 8kHz µ-law)
             ulaw_audio = self._pcm_to_ulaw(audio_data)
+            self.logger.info(f"Converted to µ-law: {len(ulaw_audio)} bytes")
             
             # Encode to base64
             base64_audio = base64.b64encode(ulaw_audio).decode('utf-8')
@@ -415,17 +421,21 @@ class CallActivity(BaseService):
             # Create JSON message
             message = json.dumps({
                 "event": "media",
-                "streamSid": "STREAM_SID",  # This is normally provided by Twilio but we're sending TO Twilio
+                "streamSid": self.stream_sid,
                 "media": {
                     "payload": base64_audio
                 }
             })
             
+            self.logger.info(f"Sending mic audio message: {len(message)} chars, streamSid: {self.stream_sid}")
+            
             # Send to all active WebSockets (usually just one)
             # Use run_coroutine_threadsafe as _handle_mic_audio is called from a different thread
             if self.websocket_loop and self.websocket_loop.is_running():
                 for ws in list(self.active_websockets):
-                    asyncio.run_coroutine_threadsafe(self._send_to_websocket(ws, message), self.websocket_loop)
+                    future = asyncio.run_coroutine_threadsafe(self._send_to_websocket(ws, message), self.websocket_loop)
+                    # Log if the send was scheduled successfully
+                    self.logger.info(f"Scheduled mic audio send to WebSocket")
             else:
                 self.logger.warning("WebSocket event loop not available/running; cannot send mic audio.")
                 
@@ -436,6 +446,7 @@ class CallActivity(BaseService):
         """Send a message to a WebSocket with error handling."""
         try:
             await websocket.send(message)
+            self.logger.debug(f"Successfully sent message to WebSocket ({len(message)} chars)")
         except websockets.exceptions.ConnectionClosed:
             self.logger.info("WebSocket connection closed while sending")
             if websocket in self.active_websockets:
