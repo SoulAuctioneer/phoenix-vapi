@@ -184,7 +184,7 @@ class AccelerometerManager:
         self.last_significant_change_time = None # Track when last significant change occurred
         
         # Stability tracking: Prevent rapid oscillations with reasonable timing
-        self.oscillation_prevention_window = 3.0  # seconds - Prevent oscillations within this window
+        self.oscillation_prevention_window = 1.5  # seconds - Prevent oscillations within this window (reduced from 3.0)
         self.last_transition_time = None         # Track last transition to prevent rapid oscillations
         
         # Stationary state tracking for consistency checking
@@ -471,11 +471,11 @@ class AccelerometerManager:
                         gyro_mag < held_still_gyro_threshold and
                         rot_speed < held_still_rot_threshold)
         
-        # Determine candidate state based on criteria with special handling for UNKNOWN→STATIONARY
+        # Determine candidate state based on criteria with special handling for UNKNOWN→STATIONARY and HELD_STILL→STATIONARY
         if is_truly_stationary:
             candidate_state = SimplifiedState.STATIONARY
-        elif meets_basic_stationary and current_state == SimplifiedState.UNKNOWN:
-            # Special case: When starting from UNKNOWN, if we meet basic STATIONARY criteria,
+        elif meets_basic_stationary and current_state in [SimplifiedState.UNKNOWN, SimplifiedState.HELD_STILL]:
+            # Special case: When starting from UNKNOWN or HELD_STILL, if we meet basic STATIONARY criteria,
             # prefer STATIONARY over HELD_STILL to give consistency check time to build up
             candidate_state = SimplifiedState.STATIONARY
         elif is_held_still:
@@ -492,8 +492,8 @@ class AccelerometerManager:
             self.logger.debug(f"  STATIONARY checks: basic={meets_basic_stationary}, truly={is_truly_stationary}")
             
             # Show special case handling
-            if candidate_state == SimplifiedState.STATIONARY and not is_truly_stationary and meets_basic_stationary and current_state == SimplifiedState.UNKNOWN:
-                self.logger.debug(f"  UNKNOWN→STATIONARY special case: using basic criteria to give consistency check time")
+            if candidate_state == SimplifiedState.STATIONARY and not is_truly_stationary and meets_basic_stationary and current_state in [SimplifiedState.UNKNOWN, SimplifiedState.HELD_STILL]:
+                self.logger.debug(f"  {current_state.name}→STATIONARY special case: using basic criteria to give consistency check time")
             
             # Show hysteresis factors being applied
             if current_state == SimplifiedState.STATIONARY:
