@@ -666,8 +666,8 @@ class ConversationManager:
                 # }
                 # TODO: Need to figure out how to send response back to assistant properly.
                 #self._call_client.send_app_message(message)
-                #self.send_message(message)
-                self.add_message("tool", ACTIVITIES_PROMPT)
+                self.send_message(ACTIVITIES_PROMPT)
+                #self.add_message("tool", ACTIVITIES_PROMPT)
 
             elif name == 'start_activity':
                 # await self.publish_event_callback({
@@ -700,7 +700,8 @@ class ConversationManager:
                 activity_config_str = parse_activity_config(activity_config)
                 if activity_config:
                     logging.info(f"Sending activity {activity_key} config: {activity_config_str}")
-                    self.add_message("tool", activity_config_str)
+                    self.send_message(activity_config_str)
+                    #self.add_message("tool", activity_config_str)
                 else:
                     logging.warning(f"Unknown activity: {activity_key}")
             else:
