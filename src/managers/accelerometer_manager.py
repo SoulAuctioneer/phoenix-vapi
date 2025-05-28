@@ -452,9 +452,15 @@ class AccelerometerManager:
                                  gyro_mag < stationary_gyro_threshold and
                                  rot_speed < stationary_rot_threshold)
         
-        # Only add readings to the deque if we're tracking or about to start tracking
-        if meets_basic_stationary or self.stationary_candidate_start is not None:
+        # Add readings to the deque BEFORE checking consistency
+        # This ensures we accumulate readings even when transitioning states
+        if meets_basic_stationary:
             self.stationary_candidate_readings.append(linear_accel_mag)
+            # Start tracking if not already tracking
+            if self.stationary_candidate_start is None:
+                self.stationary_candidate_start = current_time
+                # Don't clear readings here - we just added one!
+                self.logger.debug(f"STATIONARY candidate tracking started from {current_state.name}")
         
         # Enhanced STATIONARY detection with consistency and variance checking
         is_truly_stationary = False
@@ -537,14 +543,12 @@ class AccelerometerManager:
         """
         current_time = time.time()
         
-        # Start tracking if this is the first qualifying sample
+        # Note: stationary_candidate_start should already be set by _determine_stable_state
+        # if we meet basic criteria. Don't reset tracking here.
         if self.stationary_candidate_start is None:
-            self.stationary_candidate_start = current_time
-            # Clear old readings when starting fresh stationary candidate tracking
-            # This is especially important when transitioning from HELD_STILL
-            self.stationary_candidate_readings.clear()
-            # self.logger.debug(f"STATIONARY candidate started: linear={linear_accel_mag:.3f}, gyro={gyro_mag:.3f}")
-            return False  # Don't declare stationary immediately
+            # This shouldn't happen if called from _determine_stable_state correctly
+            self.logger.warning("_verify_stationary_consistency called without candidate tracking started")
+            return False
         
         # Check if we have enough readings for variance analysis
         if len(self.stationary_candidate_readings) < self.stationary_consistency_required:
