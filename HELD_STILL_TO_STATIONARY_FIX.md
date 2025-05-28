@@ -10,9 +10,11 @@ The device was unable to transition from `HELD_STILL` state to `STATIONARY` stat
 
 1. **Stale readings in the variance buffer**: The `stationary_candidate_readings` deque was not being cleared when the stationary candidate tracking was reset. This meant old readings from the `HELD_STILL` state were contaminating the variance calculation.
 
-2. **Overly strict variance threshold**: The maximum allowed variance of 0.050 was too strict for real hardware. Even when trying to hold the device perfectly still, readings would vary from 0.084 to 0.171 m/s², resulting in a variance that exceeded the threshold.
+2. **Readings added when not tracking**: The deque was being populated on every call, even when not tracking a stationary candidate. This meant that when the device finally met stationary criteria, the buffer already contained non-stationary readings.
 
-3. **Too short variance timeout**: The 8-second timeout for variance checking was too aggressive, causing valid STATIONARY states to be rejected prematurely.
+3. **Overly strict variance threshold**: The maximum allowed variance of 0.050 was too strict for real hardware. Even when trying to hold the device perfectly still, readings would vary from 0.084 to 0.171 m/s², resulting in a variance that exceeded the threshold.
+
+4. **Too short variance timeout**: The 8-second timeout for variance checking was too aggressive, causing valid STATIONARY states to be rejected prematurely.
 
 ## Solutions Implemented
 
@@ -33,7 +35,17 @@ if self.stationary_candidate_start is None:
     return False
 ```
 
-### 2. Increased variance threshold
+### 2. Only add readings when tracking or about to track
+
+Modified the logic to only add readings to the deque when we're actually tracking a stationary candidate or meet the basic criteria:
+
+```python
+# Only add readings to the deque if we're tracking or about to start tracking
+if meets_basic_stationary or self.stationary_candidate_start is not None:
+    self.stationary_candidate_readings.append(linear_accel_mag)
+```
+
+### 3. Increased variance threshold
 
 Changed from 0.050 to 0.100 to accommodate real hardware variance:
 
@@ -41,7 +53,7 @@ Changed from 0.050 to 0.100 to accommodate real hardware variance:
 self.stationary_max_variance = 0.100  # m/s² - More realistic for actual hardware variance (was 0.050)
 ```
 
-### 3. Made variance timeout configurable and increased it
+### 4. Made variance timeout configurable and increased it
 
 Added a configurable timeout and increased from 8.0 to 15.0 seconds:
 

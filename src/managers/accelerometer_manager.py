@@ -483,10 +483,12 @@ class AccelerometerManager:
         # Determine candidate state based on criteria with special handling for UNKNOWN→STATIONARY and HELD_STILL→STATIONARY
         if is_truly_stationary:
             candidate_state = SimplifiedState.STATIONARY
+            self.logger.debug(f"Truly stationary confirmed: {current_state.name}→STATIONARY")
         elif meets_basic_stationary and current_state in [SimplifiedState.UNKNOWN, SimplifiedState.HELD_STILL]:
             # Special case: When starting from UNKNOWN or HELD_STILL, if we meet basic STATIONARY criteria,
             # prefer STATIONARY over HELD_STILL to give consistency check time to build up
             candidate_state = SimplifiedState.STATIONARY
+            self.logger.debug(f"Special case: {current_state.name}→STATIONARY (meets_basic={meets_basic_stationary}, truly={is_truly_stationary})")
         elif is_held_still:
             candidate_state = SimplifiedState.HELD_STILL
         else:
@@ -617,7 +619,7 @@ class AccelerometerManager:
                 final_variance = statistics.variance(recent_readings) if len(recent_readings) >= 3 else 0.0
             except statistics.StatisticsError:
                 final_variance = 0.0
-            #self.logger.debug(f"STATIONARY confirmed: duration={duration:.1f}s, variance={final_variance:.6f}")
+            self.logger.debug(f"STATIONARY confirmed: duration={duration:.1f}s, variance={final_variance:.6f}")
             return True
         
         # Still building up consistency - show progress occasionally
