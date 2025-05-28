@@ -165,9 +165,9 @@ class AccelerometerManager:
         self.stationary_linear_accel_max = 0.50   # m/s² - Realistic for actual hardware (was 0.10)
         self.stationary_gyro_max = 0.08           # rad/s - Realistic for actual hardware (was 0.04)
         self.stationary_rot_speed_max = 0.08      # rad/s - Realistic for actual hardware (was 0.04)
-        self.stationary_consistency_required = 5  # Reasonable consistency requirement
-        self.stationary_max_variance = 0.020     # m/s² - Realistic variance for hardware (was 0.008)
-        self.stationary_min_duration = 1.0       # seconds - Reasonable duration for responsiveness
+        self.stationary_consistency_required = 4  # Reduced consistency requirement (was 5)
+        self.stationary_max_variance = 0.050     # m/s² - Much more lenient variance for hardware (was 0.020)
+        self.stationary_min_duration = 0.8       # seconds - Faster responsiveness (was 1.0)
         
         # HELD_STILL: Device held by hand - More permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
