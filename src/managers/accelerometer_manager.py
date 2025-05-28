@@ -160,27 +160,27 @@ class AccelerometerManager:
         # AND observed "completely stationary" values up to 0.048 m/s² linear, 0.029 rad/s gyro
         # Need larger separation between STATIONARY and HELD_STILL to prevent oscillation
         
-        # STATIONARY: Device completely still (on table, etc.) - BALANCED THRESHOLDS
-        # Conservative but not overly restrictive
-        self.stationary_linear_accel_max = 0.10   # m/s² - Balanced threshold
-        self.stationary_gyro_max = 0.04           # rad/s - Balanced threshold
-        self.stationary_rot_speed_max = 0.04      # rad/s - Balanced threshold
-        self.stationary_consistency_required = 6  # Require consistent readings but not excessive
-        self.stationary_max_variance = 0.008     # m/s² - More realistic variance threshold (was 0.002)
-        self.stationary_min_duration = 1.5       # seconds - Reasonable duration for stability
+        # STATIONARY: Device completely still (on table, etc.) - REALISTIC THRESHOLDS
+        # Based on actual hardware testing showing readings of 0.2-0.4 m/s² when stationary
+        self.stationary_linear_accel_max = 0.50   # m/s² - Realistic for actual hardware (was 0.10)
+        self.stationary_gyro_max = 0.08           # rad/s - Realistic for actual hardware (was 0.04)
+        self.stationary_rot_speed_max = 0.08      # rad/s - Realistic for actual hardware (was 0.04)
+        self.stationary_consistency_required = 5  # Reasonable consistency requirement
+        self.stationary_max_variance = 0.020     # m/s² - Realistic variance for hardware (was 0.008)
+        self.stationary_min_duration = 1.0       # seconds - Reasonable duration for responsiveness
         
         # HELD_STILL: Device held by hand - More permissive with large gap
         self.held_still_linear_accel_max = 1.5    # m/s² - Large gap above STATIONARY
         self.held_still_gyro_max = 0.50           # rad/s - More permissive for hand tremor
         self.held_still_rot_speed_max = 0.50      # rad/s - More permissive for hand tremor
         
-        # Hysteresis: Moderate hysteresis to prevent oscillation without being excessive
-        self.hysteresis_factor = 3.0              # Moderate hysteresis (was 5.0)
-        self.stationary_exit_hysteresis = 4.0     # Moderate hysteresis for exiting STATIONARY (was 8.0)
+        # Hysteresis: Reasonable hysteresis to prevent oscillation
+        self.hysteresis_factor = 2.0              # Reasonable hysteresis (was 3.0)
+        self.stationary_exit_hysteresis = 2.5     # Reasonable hysteresis for exiting STATIONARY (was 4.0)
         
         # Dead zone: Ignore tiny changes that are likely sensor noise or table vibrations
-        self.dead_zone_threshold = 0.20          # m/s² - Larger dead zone for table vibrations (was 0.15)
-        self.dead_zone_duration = 0.5            # seconds - Longer duration to ignore small changes (was 0.1)
+        self.dead_zone_threshold = 0.30          # m/s² - Larger dead zone for realistic hardware (was 0.20)
+        self.dead_zone_duration = 0.5            # seconds - Longer duration to ignore small changes
         self.last_significant_change_time = None # Track when last significant change occurred
         
         # Stability tracking: Prevent rapid oscillations with reasonable timing
