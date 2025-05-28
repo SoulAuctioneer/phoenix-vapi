@@ -466,6 +466,8 @@ class AccelerometerManager:
                 if time_since_start > 0.5:
                     # self.logger.debug(f"STATIONARY candidate reset after {time_since_start:.1f}s of failing basic criteria")
                     self.stationary_candidate_start = None
+                    # IMPORTANT: Also clear the readings deque to start fresh
+                    self.stationary_candidate_readings.clear()
         
         # Check for HELD_STILL (less restrictive)
         is_held_still = (linear_accel_mag < held_still_linear_threshold and
@@ -530,6 +532,9 @@ class AccelerometerManager:
         # Start tracking if this is the first qualifying sample
         if self.stationary_candidate_start is None:
             self.stationary_candidate_start = current_time
+            # Clear old readings when starting fresh stationary candidate tracking
+            # This is especially important when transitioning from HELD_STILL
+            self.stationary_candidate_readings.clear()
             # self.logger.debug(f"STATIONARY candidate started: linear={linear_accel_mag:.3f}, gyro={gyro_mag:.3f}")
             return False  # Don't declare stationary immediately
         
@@ -580,10 +585,12 @@ class AccelerometerManager:
                     if filtered_variance > extreme_threshold:
                         self.logger.debug(f"STATIONARY rejected: extreme filtered variance {filtered_variance:.6f} > {extreme_threshold:.6f}")
                         self.stationary_candidate_start = None
+                        self.stationary_candidate_readings.clear()
                         return False
                     elif duration_so_far > 8.0:  # After 8 seconds, be stricter (was 5.0) - more patient
                         self.logger.debug(f"STATIONARY rejected: filtered variance {filtered_variance:.6f} > {adjusted_variance_threshold:.6f} after {duration_so_far:.1f}s")
                         self.stationary_candidate_start = None
+                        self.stationary_candidate_readings.clear()
                         return False
                     else:
                         # Continue tracking despite high variance - sensor might stabilize
