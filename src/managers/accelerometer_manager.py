@@ -109,13 +109,13 @@ class AccelerometerManager:
         # Free Fall / Impact - Multi-sensor approach with stricter criteria
         # Free fall detection using sensor fusion for accuracy
         self.free_fall_accel_threshold = 6.0     # m/s^2 - Increased from 4.0 to accommodate real throws
-        self.free_fall_min_rotation = 2.0       # rad/s - Reduced from 2.5 to catch gentler throws
+        self.free_fall_min_rotation = 1.5       # rad/s - Reduced from 2.0 to catch gentler throws and less tumbling
         self.free_fall_max_rotation = 15.0      # rad/s - Upper limit to exclude violent shaking
         self.free_fall_min_duration = 0.05      # seconds - Longer minimum duration (was 0.02)
         self.free_fall_max_duration = 5.0       # seconds - Max reasonable free fall duration
         
         # Additional criteria to distinguish from gentle movements
-        self.free_fall_linear_accel_max = 4.0   # m/s^2 - Increased from 2.0 for real throwing motions
+        self.free_fall_linear_accel_max = 12.0   # m/s^2 - Increased from 4.0 due to sensor noise in linear accel during real free fall
         self.free_fall_accel_consistency_samples = 3  # Require consistent readings
         
         self.impact_threshold = 15.0             # m/s^2 - Min accel spike for IMPACT
@@ -124,11 +124,11 @@ class AccelerometerManager:
         self.free_fall_start_time = None
         self.free_fall_candidate_start = None
 
-        # Shake detection tuning (peak-magnitude approach)
+        # Shake detection tuning (enhanced 3D vector approach)
         self.shake_history_size = 30            # Samples (~0.15–0.2 s at 200 Hz)
-        self.peak_magnitude_for_shake = 11.0     # m/s^2 – require at least one spike ≥ 
-        self.min_magnitude_for_shake = 5.0      # m/s^2 – discard almost-still windows
-        self.min_accel_reversals_for_shake = 4  # Require back-and-forth motion
+        self.peak_magnitude_for_shake = 12.0     # m/s^2 – increased from 11.0 to require stronger motion
+        self.min_magnitude_for_shake = 6.0      # m/s^2 – increased from 5.0 to filter out gentle movements
+        self.min_accel_reversals_for_shake = 6  # Increased from 4 - require more direction changes for true shake
 
         # --- History ---
         # Make sure the buffer can always accommodate at least `shake_history_size` samples.
@@ -224,8 +224,16 @@ class AccelerometerManager:
         #     self._prev_quat_ts = now_ts
         data["rot_speed"] = rot_speed
 
-        # Skip heading and energy calculations for performance
-        # These can be added back if needed for specific applications
+        # Calculate energy level for movement-based activities
+        linear_accel = data.get("linear_acceleration", (0, 0, 0))
+        gyro = data.get("gyro", (0, 0, 0))
+        if isinstance(linear_accel, tuple) and len(linear_accel) == 3 and isinstance(gyro, tuple) and len(gyro) == 3:
+            energy = self.calculate_energy(linear_accel, gyro, rot_speed=rot_speed)
+            data["energy"] = energy
+        else:
+            data["energy"] = 0.0
+
+        # Skip heading calculation for performance (can be added back if needed)
 
         # Update motion history regardless of calculation success
         self._update_motion_history(data)
@@ -584,8 +592,8 @@ class AccelerometerManager:
 
     def _check_shake(self) -> bool:
         """
-        Check if a shake state is detected using enhanced criteria.
-        Focuses on peak magnitude, average magnitude, and acceleration direction reversals over recent history.
+        Check if a shake state is detected using enhanced 3D vector analysis.
+        Analyzes acceleration direction changes and oscillation patterns to detect true shaking motion.
 
         Returns:
             bool: True if shake state detected
@@ -595,7 +603,6 @@ class AccelerometerManager:
             return False
 
         # --- Get recent data ---
-        # Take a slice efficiently
         start_index = len(self.motion_history) - history_size
         recent_history = [self.motion_history[i] for i in range(start_index, len(self.motion_history))]
         accelerations = [entry.get("linear_acceleration", None) for entry in recent_history]
@@ -604,25 +611,24 @@ class AccelerometerManager:
         valid_accelerations = [accel for accel in accelerations
                               if isinstance(accel, tuple) and len(accel) == 3]
 
-        if len(valid_accelerations) < 5: # Need a reasonable number of points
+        if len(valid_accelerations) < 8:  # Need more points for direction analysis
             return False
 
         # === Magnitude Check (peak-based) ===
         accel_magnitudes = []
         for accel in valid_accelerations:
             try:
-                # Compute magnitude squared and avoid sqrt of negatives
                 mag_sq = accel[0]**2 + accel[1]**2 + accel[2]**2
                 if mag_sq >= 0:
                     accel_magnitudes.append(sqrt(mag_sq))
             except (TypeError, IndexError):
-                continue  # skip malformed sample
+                continue
 
-        if len(accel_magnitudes) < 5:
+        if len(accel_magnitudes) < 8:
             return False
 
         peak_accel_magnitude = max(accel_magnitudes)
-        avg_accel_magnitude  = statistics.mean(accel_magnitudes)
+        avg_accel_magnitude = statistics.mean(accel_magnitudes)
 
         # Need at least one strong spike
         if peak_accel_magnitude < self.peak_magnitude_for_shake:
@@ -632,81 +638,239 @@ class AccelerometerManager:
         if avg_accel_magnitude < self.min_magnitude_for_shake:
             return False
 
-        # === Acceleration Reversal Check ===
-        # Count significant changes in acceleration direction (back-and-forth motion)
-        reversal_count = self._count_acceleration_reversals(accel_magnitudes)
+        # === Enhanced Direction Change Analysis ===
+        direction_changes = self._count_direction_changes(valid_accelerations)
         
-        # Require minimum number of reversals for shake detection
-        if reversal_count < self.min_accel_reversals_for_shake:
+        # Require multiple direction changes for shake detection
+        if direction_changes < self.min_accel_reversals_for_shake:
             return False
 
-        # --- Passed All Checks ---
-        return True
-
-    def _count_acceleration_reversals(self, accel_magnitudes: List[float]) -> int:
-        """
-        Count significant acceleration reversals (direction changes) in the magnitude sequence.
+        # === Additional Oscillation Pattern Check ===
+        # Check for rapid oscillations in acceleration magnitude
+        magnitude_oscillations = self._count_magnitude_oscillations(accel_magnitudes)
         
-        A reversal is detected when the acceleration changes from increasing to decreasing
-        or vice versa, with sufficient magnitude change to avoid counting noise.
+        # Require both direction changes AND magnitude oscillations
+        min_oscillations = max(2, self.min_accel_reversals_for_shake // 2)
+        
+        if magnitude_oscillations < min_oscillations:
+            return False
+
+        # === Frequency Analysis ===
+        # Check that the oscillations are in a reasonable frequency range for human shaking
+        return self._validate_shake_frequency(valid_accelerations)
+
+    def _count_direction_changes(self, accel_vectors: List[Tuple[float, float, float]]) -> int:
+        """
+        Count significant changes in acceleration direction (3D vector analysis).
+        
+        This analyzes the actual 3D acceleration vectors to detect when the device
+        changes direction rapidly, which is characteristic of shaking motion.
+        
+        Args:
+            accel_vectors: List of 3D acceleration vectors
+            
+        Returns:
+            int: Number of significant direction changes detected
+        """
+        if len(accel_vectors) < 3:
+            return 0
+        
+        direction_changes = 0
+        min_magnitude_for_direction = 2.0  # m/s² - minimum magnitude to consider direction meaningful
+        min_angle_change = 60.0  # degrees - minimum angle change to count as direction change
+        
+        # Convert angle threshold to cosine for dot product comparison
+        import math
+        cos_threshold = math.cos(math.radians(min_angle_change))
+        
+        prev_vector = None
+        valid_vectors_count = 0
+        
+        for i, current_vector in enumerate(accel_vectors):
+            # Calculate magnitude
+            magnitude = sqrt(sum(x*x for x in current_vector))
+            
+            # Skip vectors that are too small to have meaningful direction
+            if magnitude < min_magnitude_for_direction:
+                continue
+            
+            valid_vectors_count += 1
+            
+            # Normalize the vector
+            normalized = tuple(x / magnitude for x in current_vector)
+            
+            if prev_vector is not None:
+                # Calculate dot product to find angle between vectors
+                dot_product = sum(a * b for a, b in zip(prev_vector, normalized))
+                
+                # Clamp dot product to valid range for numerical stability
+                dot_product = max(-1.0, min(1.0, dot_product))
+                
+                # If dot product is less than threshold, we have a significant direction change
+                if dot_product < cos_threshold:
+                    direction_changes += 1
+            
+            prev_vector = normalized
+        
+        return direction_changes
+
+    def _count_magnitude_oscillations(self, accel_magnitudes: List[float]) -> int:
+        """
+        Count oscillations in acceleration magnitude using peak detection.
+        
+        This detects rapid increases and decreases in acceleration magnitude,
+        which complements the direction change analysis for shake detection.
         
         Args:
             accel_magnitudes: List of acceleration magnitudes over time
             
         Returns:
-            int: Number of significant acceleration reversals detected
+            int: Number of magnitude oscillations detected
         """
-        if len(accel_magnitudes) < 3:
+        if len(accel_magnitudes) < 5:
             return 0
         
-        # Minimum change required to count as a significant reversal (m/s²)
-        min_reversal_magnitude = 1.0  # Adjust this threshold as needed
+        # Minimum change required to count as a significant oscillation
+        min_oscillation_magnitude = 1.5  # m/s² - increased from 1.0 for more selectivity
         
-        reversals = 0
+        oscillations = 0
         trend = None  # 'up', 'down', or None
-        last_extreme = accel_magnitudes[0]  # Track local maxima/minima
+        last_extreme = accel_magnitudes[0]
+        consecutive_same_trend = 0  # Track how long we've been in the same trend
         
         for i in range(1, len(accel_magnitudes)):
             current = accel_magnitudes[i]
             
-            # Determine current trend
-            if current > last_extreme + min_reversal_magnitude:
+            # Determine current trend with hysteresis
+            if current > last_extreme + min_oscillation_magnitude:
                 # Significant increase
-                if trend == 'down':
-                    # We were going down, now going up - that's a reversal
-                    reversals += 1
+                if trend == 'down' and consecutive_same_trend >= 2:  # Require sustained trend
+                    oscillations += 1
+                    consecutive_same_trend = 0
+                elif trend != 'up':
+                    consecutive_same_trend = 0
+                
                 trend = 'up'
                 last_extreme = current
+                consecutive_same_trend += 1
                 
-            elif current < last_extreme - min_reversal_magnitude:
+            elif current < last_extreme - min_oscillation_magnitude:
                 # Significant decrease
-                if trend == 'up':
-                    # We were going up, now going down - that's a reversal
-                    reversals += 1
+                if trend == 'up' and consecutive_same_trend >= 2:  # Require sustained trend
+                    oscillations += 1
+                    consecutive_same_trend = 0
+                elif trend != 'down':
+                    consecutive_same_trend = 0
+                
                 trend = 'down'
                 last_extreme = current
+                consecutive_same_trend += 1
+            else:
+                # No significant change, continue current trend
+                consecutive_same_trend += 1
         
-        return reversals
+        return oscillations
 
-    # Removed _sensor_reports_shake since BNO shake sensor is disabled for performance
+    def _validate_shake_frequency(self, accel_vectors: List[Tuple[float, float, float]]) -> bool:
+        """
+        Validate that the detected motion has characteristics consistent with intentional shaking.
+        
+        Human shaking typically occurs at 3-8 Hz. This method checks that the detected
+        oscillations are in a reasonable frequency range and have sufficient regularity.
+        
+        Args:
+            accel_vectors: List of 3D acceleration vectors
+            
+        Returns:
+            bool: True if the frequency characteristics are consistent with shaking
+        """
+        if len(accel_vectors) < 10:
+            return False
+        
+        # Calculate time span (corrected sampling rate: ~50Hz based on 20ms intervals)
+        sampling_rate = 50.0  # Hz - actual sensor sampling rate (20ms intervals)
+        time_span = len(accel_vectors) / sampling_rate  # seconds
+        
+        # Count zero crossings in the dominant acceleration component
+        # Find the component with the highest variance (most active during shaking)
+        x_values = [v[0] for v in accel_vectors]
+        y_values = [v[1] for v in accel_vectors]
+        z_values = [v[2] for v in accel_vectors]
+        
+        try:
+            x_var = statistics.variance(x_values) if len(x_values) > 1 else 0
+            y_var = statistics.variance(y_values) if len(y_values) > 1 else 0
+            z_var = statistics.variance(z_values) if len(z_values) > 1 else 0
+        except statistics.StatisticsError:
+            return False
+        
+        # Use the component with highest variance
+        if x_var >= y_var and x_var >= z_var:
+            dominant_component = x_values
+            dominant_axis = "X"
+        elif y_var >= z_var:
+            dominant_component = y_values
+            dominant_axis = "Y"
+        else:
+            dominant_component = z_values
+            dominant_axis = "Z"
+        
+        # Remove DC component (mean) to focus on oscillations
+        mean_value = statistics.mean(dominant_component)
+        centered_values = [v - mean_value for v in dominant_component]
+        
+        # Count zero crossings
+        zero_crossings = 0
+        for i in range(1, len(centered_values)):
+            if (centered_values[i-1] >= 0) != (centered_values[i] >= 0):
+                zero_crossings += 1
+        
+        # Estimate frequency from zero crossings
+        # Each complete cycle has 2 zero crossings
+        estimated_frequency = (zero_crossings / 2.0) / time_span if time_span > 0 else 0
+        
+        # Human shaking is typically 2-10 Hz, but be more lenient for 50Hz sampling
+        # At 50Hz with 30 samples (0.6s window), we expect 1.2-6 complete cycles for 2-10Hz shaking
+        min_shake_freq = 1.5  # Hz - more lenient lower bound
+        max_shake_freq = 15.0  # Hz - more lenient upper bound for rapid shaking
+        
+        is_valid_frequency = min_shake_freq <= estimated_frequency <= max_shake_freq
+        
+        # Additional check: ensure there's sufficient variation in the dominant component
+        # to distinguish from sensor noise
+        try:
+            std_dev = statistics.stdev(centered_values)
+            min_variation = 1.0  # m/s² - minimum standard deviation for meaningful oscillation
+            has_sufficient_variation = std_dev >= min_variation
+        except statistics.StatisticsError:
+            has_sufficient_variation = False
+        
+        result = is_valid_frequency and has_sufficient_variation
+        
+        return result
 
     def _detect_free_fall_multisensor(self, total_accel_mag: float, gyro: Tuple[float, float, float], 
                                     stability: str, timestamp: float) -> bool:
         """
-        Detect free fall using strict multi-sensor fusion approach.
+        Detect free fall using reliable sensor fusion approach.
         
-        Real free fall characteristics (updated criteria):
+        Real free fall characteristics:
         1. Very low total acceleration (< 6.0 m/s²) - true weightlessness
         2. Significant rotational motion (2.0-15 rad/s) - objects tumble during free fall
-        3. Low linear acceleration (< 4.0 m/s²) - minimal forces other than gravity
-        4. Consistent readings over multiple samples - not just momentary dips
+        3. High linear acceleration (> 8.0 m/s²) - BNO085 gravity compensation failure signature
+        4. Rapid acceleration drop (> 8.0 m/s² drop from recent peak) - distinguishes from circular motion
         5. Sustained for minimum duration (50ms) - rules out brief sensor noise
         
+        Note: The BNO085's gravity compensation algorithm predictably fails during free fall,
+        causing linear acceleration to read ~10+ m/s² instead of near zero. We exploit this
+        predictable failure as a positive indicator of free fall conditions.
+        
         This approach specifically excludes:
-        - Gentle arc movements (moderate accel + low rotation)
-        - Controlled movements (high linear acceleration)
-        - Sensor noise (inconsistent readings)
-        - Brief fluctuations (too short duration)
+        - Gentle arc movements (moderate total accel + low rotation)
+        - Stationary conditions (high total accel + low rotation + low linear accel)
+        - Circular motion (gradual deceleration without rapid acceleration drop)
+        - Normal motion (varies widely but doesn't match all four signatures)
+        - Sensor noise (brief fluctuations ruled out by duration requirement)
         
         Args:
             total_accel_mag: Total acceleration magnitude (m/s²)
@@ -743,22 +907,33 @@ class AccelerometerManager:
             self._reset_free_fall_tracking()
             return False
         
-        # STRICT CRITERIA: All must be met simultaneously
+        # STRICT CRITERIA: Must be met simultaneously
         is_very_low_accel = total_accel_mag < self.free_fall_accel_threshold  # < 6.0 m/s²
         has_significant_rotation = (gyro_mag > self.free_fall_min_rotation and 
                                    gyro_mag < self.free_fall_max_rotation)  # 2.0-15 rad/s
-        has_low_linear_accel = linear_accel_mag < self.free_fall_linear_accel_max  # < 4.0 m/s²
         
-        # All criteria must be met for a free fall candidate
-        is_free_fall_candidate = (is_very_low_accel and 
-                                 has_significant_rotation and 
-                                 has_low_linear_accel)
+        # Linear acceleration signature: BNO085 gravity compensation fails during free fall
+        # This causes linear accel to read ~10+ m/s² instead of near zero
+        # We can use this predictable failure as a positive indicator!
+        has_free_fall_linear_signature = linear_accel_mag > 8.0  # m/s² - gravity compensation failure signature
+        
+        # Acceleration rate check: Free fall has rapid acceleration drop, circular motion has gradual decrease
+        has_rapid_accel_drop = self._check_rapid_acceleration_drop(total_accel_mag)
+        
+        # Free fall candidate requires all four criteria:
+        # 1. Low total acceleration (weightlessness)
+        # 2. Significant rotation (tumbling)  
+        # 3. High linear acceleration (gravity compensation failure signature)
+        # 4. Rapid acceleration drop (distinguishes from circular motion)
+        is_free_fall_candidate = (is_very_low_accel and has_significant_rotation and 
+                                 has_free_fall_linear_signature and has_rapid_accel_drop)
         
         # Debug logging for near-miss cases (when some but not all criteria are met)
-        if (is_very_low_accel or has_significant_rotation) and not is_free_fall_candidate:
+        if (is_very_low_accel or has_significant_rotation or has_free_fall_linear_signature or has_rapid_accel_drop) and not is_free_fall_candidate:
             self.logger.debug(f"Free fall near-miss: total_accel={total_accel_mag:.2f}(<{self.free_fall_accel_threshold:.1f})={is_very_low_accel}, "
-                            f"linear_accel={linear_accel_mag:.2f}(<{self.free_fall_linear_accel_max:.1f})={has_low_linear_accel}, "
-                            f"gyro={gyro_mag:.3f}({self.free_fall_min_rotation:.1f}-{self.free_fall_max_rotation:.1f})={has_significant_rotation}")
+                            f"gyro={gyro_mag:.3f}({self.free_fall_min_rotation:.1f}-{self.free_fall_max_rotation:.1f})={has_significant_rotation}, "
+                            f"linear_accel={linear_accel_mag:.2f}(>8.0)={has_free_fall_linear_signature}, "
+                            f"rapid_drop={has_rapid_accel_drop}")
         
         if is_free_fall_candidate:
             # Start tracking if this is the first candidate sample
@@ -771,26 +946,19 @@ class AccelerometerManager:
             duration = timestamp - self.free_fall_candidate_start
             
             if duration >= self.free_fall_min_duration:
-                # Additional consistency check: verify recent samples also meet criteria
-                if self._verify_free_fall_consistency():
-                    # Confirm free fall and start official tracking
-                    if self.free_fall_start_time is None:
-                        self.free_fall_start_time = self.free_fall_candidate_start
-                        self.logger.debug(f"FREE_FALL confirmed after {duration:.3f}s with consistency check")
-                    
-                    # Check for maximum reasonable duration
-                    total_duration = timestamp - self.free_fall_start_time
-                    if total_duration > self.free_fall_max_duration:
-                        self.logger.warning(f"Free fall duration exceeded maximum ({total_duration:.1f}s), resetting")
-                        self._reset_free_fall_tracking()
-                        return False
-                    
-                    return True
-                else:
-                    # Failed consistency check, reset
-                    self.logger.debug(f"Free fall candidate failed consistency check after {duration:.3f}s")
+                # Confirm free fall immediately - duration requirement already ensures consistency
+                if self.free_fall_start_time is None:
+                    self.free_fall_start_time = self.free_fall_candidate_start
+                    self.logger.debug(f"FREE_FALL confirmed after {duration:.3f}s (consistency check removed for faster detection)")
+                
+                # Check for maximum reasonable duration
+                total_duration = timestamp - self.free_fall_start_time
+                if total_duration > self.free_fall_max_duration:
+                    self.logger.warning(f"Free fall duration exceeded maximum ({total_duration:.1f}s), resetting")
                     self._reset_free_fall_tracking()
                     return False
+                
+                return True
             else:
                 # Still building up to minimum duration
                 return False
@@ -798,69 +966,11 @@ class AccelerometerManager:
             # Conditions no longer met, reset tracking
             if self.free_fall_candidate_start is not None:
                 duration = timestamp - self.free_fall_candidate_start
-                self.logger.debug(f"Free fall candidate ended after {duration:.3f}s: total_accel={total_accel_mag:.2f}, linear_accel={linear_accel_mag:.2f}, gyro={gyro_mag:.3f}")
-                self.logger.debug(f"  Criteria: low_accel={is_very_low_accel}, sig_rotation={has_significant_rotation}, low_linear={has_low_linear_accel}")
+                self.logger.debug(f"Free fall candidate ended after {duration:.3f}s: total_accel={total_accel_mag:.2f}, gyro={gyro_mag:.3f}, linear_accel={linear_accel_mag:.2f}")
+                self.logger.debug(f"  Criteria: low_accel={is_very_low_accel}, sig_rotation={has_significant_rotation}, linear_signature={has_free_fall_linear_signature}, rapid_drop={has_rapid_accel_drop}")
             self._reset_free_fall_tracking()
             return False
     
-    def _verify_free_fall_consistency(self) -> bool:
-        """
-        Verify that recent samples consistently meet free fall criteria.
-        This helps distinguish real free fall from momentary sensor fluctuations.
-        
-        Returns:
-            bool: True if recent samples consistently indicate free fall
-        """
-        if len(self.motion_history) < self.free_fall_accel_consistency_samples:
-            return False
-        
-        # Check the last N samples for consistency
-        consistent_samples = 0
-        for i in range(self.free_fall_accel_consistency_samples):
-            sample_idx = -(i + 1)  # Count backwards from most recent
-            if abs(sample_idx) > len(self.motion_history):
-                break
-                
-            sample = self.motion_history[sample_idx]
-            
-            # Extract data from sample
-            accel_raw = sample.get("acceleration", (0, 0, 0))
-            linear_accel = sample.get("linear_acceleration", (0, 0, 0))
-            gyro = sample.get("gyro", (0, 0, 0))
-            
-            # Validate data format
-            if not (isinstance(accel_raw, tuple) and len(accel_raw) == 3 and
-                   isinstance(linear_accel, tuple) and len(linear_accel) == 3 and
-                   isinstance(gyro, tuple) and len(gyro) == 3):
-                continue
-            
-            try:
-                # Calculate magnitudes for this sample
-                total_accel_mag = sqrt(sum(x*x for x in accel_raw))
-                linear_accel_mag = sqrt(sum(x*x for x in linear_accel))
-                gyro_mag = sqrt(sum(x*x for x in gyro))
-                
-                # Check if this sample meets free fall criteria
-                meets_criteria = (total_accel_mag < self.free_fall_accel_threshold and
-                                gyro_mag > self.free_fall_min_rotation and
-                                gyro_mag < self.free_fall_max_rotation and
-                                linear_accel_mag < self.free_fall_linear_accel_max)
-                
-                if meets_criteria:
-                    consistent_samples += 1
-                    
-            except (TypeError, ValueError):
-                continue
-        
-        # Require at least 2 out of 3 samples to meet criteria for consistency
-        required_consistent = max(1, self.free_fall_accel_consistency_samples - 1)
-        is_consistent = consistent_samples >= required_consistent
-        
-        if not is_consistent:
-            self.logger.debug(f"Consistency check failed: {consistent_samples}/{self.free_fall_accel_consistency_samples} samples met criteria")
-        
-        return is_consistent
-
     def _reset_free_fall_tracking(self):
         """Reset free fall tracking state."""
         self.free_fall_start_time = None
@@ -1001,3 +1111,88 @@ class AccelerometerManager:
                 # Print other types as strings, aligned
                 print(f"  {key:<25}: {str(value)}")
         print("-------------------")
+
+    def _check_rapid_acceleration_drop(self, total_accel_mag: float) -> bool:
+        """
+        Check if the acceleration dropped rapidly in recent history.
+        
+        Free fall: Rapid drop from high acceleration (throw) to low acceleration (weightless)
+        Circular motion: Gradual decrease in acceleration as motion slows down
+        
+        Enhanced for free fall: Once a rapid drop is detected, it remains valid for a grace period
+        to support sustained free fall detection even after the initial drop.
+        
+        Args:
+            total_accel_mag: Current total acceleration magnitude (m/s²)
+            
+        Returns:
+            bool: True if rapid acceleration drop is detected or recently detected
+        """
+        if len(self.motion_history) < 8:  # Need enough history to detect rapid change
+            return False
+        
+        # Look back through longer history to find peak acceleration for free fall
+        # Use longer window for free fall detection (20 samples = ~400ms at 50Hz)
+        extended_samples = min(20, len(self.motion_history))  # Look back up to 400ms
+        extended_history = list(self.motion_history)[-extended_samples:]
+        
+        # Extract acceleration magnitudes from extended history
+        accel_magnitudes = []
+        timestamps = []
+        for sample in extended_history:
+            accel_raw = sample.get("acceleration", None)
+            timestamp = sample.get("timestamp", 0)
+            if isinstance(accel_raw, tuple) and len(accel_raw) == 3:
+                try:
+                    accel_mag = sqrt(sum(x*x for x in accel_raw))
+                    accel_magnitudes.append(accel_mag)
+                    timestamps.append(timestamp)
+                except (TypeError, ValueError):
+                    continue
+        
+        if len(accel_magnitudes) < 5:
+            return False
+        
+        # Find the maximum acceleration in extended history
+        max_extended_accel = max(accel_magnitudes)
+        max_index = accel_magnitudes.index(max_extended_accel)
+        
+        # Check for rapid drop: must have dropped significantly from peak
+        min_drop_threshold = 8.0  # m/s² - minimum drop to consider "rapid"
+        accel_drop = max_extended_accel - total_accel_mag
+        
+        # Also check that the peak was high enough (indicating a throw)
+        min_peak_threshold = 12.0  # m/s² - minimum peak to indicate throwing motion
+        
+        has_significant_drop = accel_drop >= min_drop_threshold
+        had_high_peak = max_extended_accel >= min_peak_threshold
+        
+        # Enhanced logic: Check if we're within a reasonable time window after the peak
+        # This allows sustained free fall detection even after the initial rapid drop
+        current_time = time.time()
+        if timestamps and max_index < len(timestamps):
+            peak_time = timestamps[max_index]
+            time_since_peak = current_time - peak_time
+            
+            # Allow rapid drop to remain "active" for up to 2 seconds after the peak
+            # This supports sustained free fall detection
+            within_grace_period = time_since_peak <= 2.0
+            
+            # Also check that we're currently in a low-acceleration state
+            # (to avoid false positives during normal motion)
+            currently_low_accel = total_accel_mag < 6.0  # Same as free fall threshold
+            
+            # Rapid drop is valid if:
+            # 1. Traditional criteria are met, OR
+            # 2. We had a significant drop recently and are still in low-accel state
+            rapid_drop_valid = (has_significant_drop and had_high_peak) or \
+                              (within_grace_period and had_high_peak and currently_low_accel and 
+                               max_extended_accel - min(accel_magnitudes[-5:]) >= min_drop_threshold)
+        else:
+            # Fallback to traditional logic if timestamp data is unavailable
+            rapid_drop_valid = has_significant_drop and had_high_peak
+        
+        self.logger.debug(f"Rapid drop check: peak={max_extended_accel:.1f}, current={total_accel_mag:.1f}, "
+                         f"drop={accel_drop:.1f}(>={min_drop_threshold}), peak_high={had_high_peak}")
+        
+        return rapid_drop_valid

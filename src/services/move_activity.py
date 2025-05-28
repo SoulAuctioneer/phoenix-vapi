@@ -5,6 +5,7 @@ We also detect state changes, like entering FREE_FALL, to trigger specific sound
 """
 
 import logging
+import random
 import time # Import time module
 from typing import Dict, Any, Optional
 from services.service import BaseService
@@ -13,6 +14,7 @@ from managers.accelerometer_manager import SimplifiedState
 
 # Store giggle sounds for easy cycling
 _giggle_sounds = (SoundEffect.GIGGLE1, SoundEffect.GIGGLE2, SoundEffect.GIGGLE3)
+_wee_sounds = (SoundEffect.WEE1, SoundEffect.WEE2, SoundEffect.WEE3, SoundEffect.WEE4)
 
 # Cooldown period before a giggle sound can play after ANY sound effect (in seconds)
 GIGGLE_COOLDOWN_SECONDS = 2.0
@@ -51,6 +53,7 @@ class MoveActivity(BaseService):
         self.twinkling_brightness: float = 0.05 # Dim initial brightness
         # --- Shake Handling ---
         self._giggle_index = 0 # Index for cycling through giggle sounds
+        self._wee_index = 0 # Index for cycling through WEE sounds
         self._last_sound_play_time: float = 0.0 # Timestamp of the last sound played by this service
         
     async def start(self):
@@ -127,7 +130,7 @@ class MoveActivity(BaseService):
                 self.logger.info("Detected IMPACT entry. Stopping WEE and playing OOF sound.")
                 current_time = time.monotonic()
                 # Stop WEE
-                await self.publish({"type": "stop_sound", "effect_name": SoundEffect.WEE})
+                await self.publish({"type": "stop_sound", "effect_name": _wee_sounds[self._wee_index]})
                 # Play sound (using default volume)
                 await self.publish({"type": "play_sound", "effect_name": SoundEffect.OOF})
                 # Update last sound play time
@@ -138,9 +141,13 @@ class MoveActivity(BaseService):
                 self.logger.info(f"Detected FREE_FALL entry from {self.previous_state.name}.")
                 current_time = time.monotonic()
                 # Play sound
-                await self.publish({"type": "play_sound", "effect_name": SoundEffect.WEE, "volume": 0.4})
+                # Choose a random WEE sound
+                effect_to_play = _wee_sounds[self._wee_index]
+                await self.publish({"type": "play_sound", "effect_name": effect_to_play, "volume": 0.4})
                 # Update last sound play time
                 self._last_sound_play_time = current_time
+                # Increment index for next time, cycling through 0, 1, 2, 3
+                self._wee_index = (self._wee_index + 1) % len(_wee_sounds)
                 # LED change handled below based on current state
 
             # Update internal state flags based on current state
