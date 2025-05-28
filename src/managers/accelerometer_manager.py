@@ -1082,17 +1082,17 @@ class AccelerometerManager:
                                  has_free_fall_linear_signature and has_rapid_accel_drop)
         
         # Debug logging for near-miss cases (when some but not all criteria are met)
-        if (is_very_low_accel or has_significant_rotation or has_free_fall_linear_signature or has_rapid_accel_drop) and not is_free_fall_candidate:
-            self.logger.debug(f"Free fall near-miss: total_accel={total_accel_mag:.2f}(<{self.free_fall_accel_threshold:.1f})={is_very_low_accel}, "
-                            f"gyro={gyro_mag:.3f}({self.free_fall_min_rotation:.1f}-{self.free_fall_max_rotation:.1f})={has_significant_rotation}, "
-                            f"linear_accel={linear_accel_mag:.2f}(>8.0)={has_free_fall_linear_signature}, "
-                            f"rapid_drop={has_rapid_accel_drop}")
+        # if (is_very_low_accel or has_significant_rotation or has_free_fall_linear_signature or has_rapid_accel_drop) and not is_free_fall_candidate:
+        #     self.logger.debug(f"Free fall near-miss: total_accel={total_accel_mag:.2f}(<{self.free_fall_accel_threshold:.1f})={is_very_low_accel}, "
+        #                     f"gyro={gyro_mag:.3f}({self.free_fall_min_rotation:.1f}-{self.free_fall_max_rotation:.1f})={has_significant_rotation}, "
+        #                     f"linear_accel={linear_accel_mag:.2f}(>8.0)={has_free_fall_linear_signature}, "
+        #                     f"rapid_drop={has_rapid_accel_drop}")
         
         if is_free_fall_candidate:
             # Start tracking if this is the first candidate sample
             if self.free_fall_candidate_start is None:
                 self.free_fall_candidate_start = timestamp
-                self.logger.debug(f"Free fall candidate started: total_accel={total_accel_mag:.2f}, linear_accel={linear_accel_mag:.2f}, gyro={gyro_mag:.3f}")
+                # self.logger.debug(f"Free fall candidate started: total_accel={total_accel_mag:.2f}, linear_accel={linear_accel_mag:.2f}, gyro={gyro_mag:.3f}")
                 return False  # Don't declare free fall immediately
             
             # Check if we've sustained the conditions long enough
@@ -1345,7 +1345,7 @@ class AccelerometerManager:
             # Fallback to traditional logic if timestamp data is unavailable
             rapid_drop_valid = has_significant_drop and had_high_peak
         
-        self.logger.debug(f"Rapid drop check: peak={max_extended_accel:.1f}, current={total_accel_mag:.1f}, "
-                         f"drop={accel_drop:.1f}(>={min_drop_threshold}), peak_high={had_high_peak}")
+        # self.logger.debug(f"Rapid drop check: peak={max_extended_accel:.1f}, current={total_accel_mag:.1f}, "
+        #                  f"drop={accel_drop:.1f}(>={min_drop_threshold}), peak_high={had_high_peak}")
         
         return rapid_drop_valid
