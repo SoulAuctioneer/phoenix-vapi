@@ -385,7 +385,7 @@ class AccelerometerConfig:
 class MoveActivityConfig:
     """Configuration for move activity service"""
     ENERGY_UPDATE_THRESHOLD = 0.05 # Only update LEDs if energy has changed by this much
-    ENERGY_WINDOW_SIZE = 10 # Number of samples to use for energy calculation
+    ENERGY_WINDOW_SIZE = 20 # Number of samples to use for energy calculation
     ACCEL_WEIGHT = 0.7 # Weight for acceleration in energy calculation
     GYRO_WEIGHT = 0.3 # Weight for rotation in energy calculation
     # Weight for rotation speed derived from the Game Rotation Vector quaternion
@@ -415,7 +415,7 @@ ACTIVITIES_CONFIG = {
             With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function, as shown for each line. 
         """).strip(),
         "content": dedent("""
-        The poem is:
+        The poem is below, with each line listing the function call syntax to play the relevant effect, followed by the line of the poem:
         ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAIN" }} }} ``` Raindrops dance upon the ground.
         ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "LIGHTNING" }} }} ``` Lightning flashes all around.
         ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ``` A sparkling spell lights up the sky.
@@ -459,19 +459,18 @@ ACTIVITIES_CONFIG = {
     },
     "story": {
         "metadata": {
-            "title": "The Famous Three and the Tree of Secrets",
-            "synopsis": "The Famous Three are trapped at Owl's Deen and must uncover a magical mystery hidden inside an ancient tree."
+            "title": "The Famous Five and the Tree of Secrets",
+            "synopsis": "The Famous Five are trapped at Owl's Deen and must uncover a magical mystery hidden inside an ancient tree."
         },
         "instructions": dedent("""
-            * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the "Famous Three". You will be the narrator. You are playing George. Arianne will play Timmy, and Arianne's dad will be Julian.
+            * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the Famous Five. You will be the narrator. You are also playing George. Ask your companion which character they want to play.
             * For each scene, describe the setting, then describe what you and other non-player characters do. Then, ask your companion to suggest what you should do next. Give them a choice of a couople of options. If relevant, ask them if there's anything around that they might be able to use to help.
             * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
             * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
-            * A magic spell can be cast by pairing a lively dance with a fun chant or song. For example: "Let's make a magic rainstorm! Wiggle your fingers and toes like rain, then wave your arms like the wind, Then say "Raindance!". Ready? One, two, three—RAINDANCE!" [you will then trigger the relevant special effect]
         """),
         "content": dedent("""
             **Scene 1: The Tree of Secrets**  
-            The Famous Three escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
+            The Famous Five escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
             **Choices**: Look for a hidden key, press the carvings, or use Phoenix magic.
 
             **Scene 2: The Hidden Passageway**  
@@ -487,7 +486,7 @@ ACTIVITIES_CONFIG = {
             **Choices**: Search for a loose floorboard, find a tool in the kitchen, or use Phoenix fire to warm the wood.  
 
             **Scene 5: The Great Escape!**  
-            With the secret uncovered, the Famous Three must decide how to escape before the villains return.  
+            With the secret uncovered, the Famous Five must decide how to escape before the villains return.  
             **Choices**: Sneak out quietly, hide and wait for the villains to leave, or use Phoenix magic to create a distraction.  
 
             **Goal**: Solve the mystery and escape safely!

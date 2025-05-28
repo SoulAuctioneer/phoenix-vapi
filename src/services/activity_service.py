@@ -317,9 +317,9 @@ class ActivityService(BaseService):
                 
             elif intent == "call":
                 # Start call activity
-                # await self._queue_transition(ActivityType.CALL)
+                await self._queue_transition(ActivityType.CALL)
                 # TODO: This seems to be breaking the conversation activity.
-                pass
+                # pass
 
         elif event_type == "conversation_ended":
             # A conversation has finished. The default transition to SLEEP is handled by _stop_activity if needed.
