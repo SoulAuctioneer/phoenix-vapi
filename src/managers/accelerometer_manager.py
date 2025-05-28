@@ -457,37 +457,31 @@ class AccelerometerManager:
                         gyro_mag < held_still_gyro_threshold and
                         rot_speed < held_still_rot_threshold)
         
-        # Debug logging for state transitions to understand threshold behavior
-        if current_state in [SimplifiedState.STATIONARY, SimplifiedState.HELD_STILL]:
-            if is_truly_stationary:
-                candidate_state = SimplifiedState.STATIONARY
-            elif is_held_still:
-                candidate_state = SimplifiedState.HELD_STILL
-            else:
-                candidate_state = SimplifiedState.MOVING
-                
-            # Enhanced debug logging for troubleshooting oscillations
-            if candidate_state != current_state:
-                self.logger.debug(f"State transition candidate: {current_state.name} → {candidate_state.name}")
-                self.logger.debug(f"  Linear: {linear_accel_mag:.3f} (STAT<{stationary_linear_threshold:.3f}, HELD<{held_still_linear_threshold:.3f})")
-                self.logger.debug(f"  Gyro: {gyro_mag:.3f} (STAT<{stationary_gyro_threshold:.3f}, HELD<{held_still_gyro_threshold:.3f})")
-                self.logger.debug(f"  RotSpeed: {rot_speed:.3f} (STAT<{stationary_rot_threshold:.3f}, HELD<{held_still_rot_threshold:.3f})")
-                self.logger.debug(f"  STATIONARY checks: basic={meets_basic_stationary}, truly={is_truly_stationary}")
-                
-                # Show hysteresis factors being applied
-                if current_state == SimplifiedState.STATIONARY:
-                    self.logger.debug(f"  STATIONARY exit hysteresis: {self.stationary_exit_hysteresis}x (thresholds multiplied)")
-                elif current_state == SimplifiedState.HELD_STILL:
-                    self.logger.debug(f"  HELD_STILL exit hysteresis: {self.hysteresis_factor}x (thresholds multiplied)")
-        
+        # Determine candidate state based on criteria
         if is_truly_stationary:
-            return SimplifiedState.STATIONARY
-
-        if is_held_still:
-            return SimplifiedState.HELD_STILL
-
-        # Default to MOVING
-        return SimplifiedState.MOVING
+            candidate_state = SimplifiedState.STATIONARY
+        elif is_held_still:
+            candidate_state = SimplifiedState.HELD_STILL
+        else:
+            candidate_state = SimplifiedState.MOVING
+        
+        # Enhanced debug logging for troubleshooting oscillations
+        if candidate_state != current_state:
+            self.logger.debug(f"State transition candidate: {current_state.name} → {candidate_state.name}")
+            self.logger.debug(f"  Linear: {linear_accel_mag:.3f} (STAT<{stationary_linear_threshold:.3f}, HELD<{held_still_linear_threshold:.3f})")
+            self.logger.debug(f"  Gyro: {gyro_mag:.3f} (STAT<{stationary_gyro_threshold:.3f}, HELD<{held_still_gyro_threshold:.3f})")
+            self.logger.debug(f"  RotSpeed: {rot_speed:.3f} (STAT<{stationary_rot_threshold:.3f}, HELD<{held_still_rot_threshold:.3f})")
+            self.logger.debug(f"  STATIONARY checks: basic={meets_basic_stationary}, truly={is_truly_stationary}")
+            
+            # Show hysteresis factors being applied
+            if current_state == SimplifiedState.STATIONARY:
+                self.logger.debug(f"  STATIONARY exit hysteresis: {self.stationary_exit_hysteresis}x (thresholds multiplied)")
+            elif current_state == SimplifiedState.HELD_STILL:
+                self.logger.debug(f"  HELD_STILL exit hysteresis: {self.hysteresis_factor}x (thresholds multiplied)")
+            elif current_state == SimplifiedState.UNKNOWN:
+                self.logger.debug(f"  UNKNOWN state - using normal entry thresholds")
+        
+        return candidate_state
     
     def _verify_stationary_consistency(self, linear_accel_mag: float, gyro_mag: float, 
                                      rot_speed: float, current_state: SimplifiedState) -> bool:
@@ -667,9 +661,12 @@ class AccelerometerManager:
         time_since_last_change = timestamp - self.state_change_time
         required_duration = self.min_state_duration
         
-        # Special handling for STATIONARY ↔ HELD_STILL oscillation prevention
-        # Require much longer duration for these specific transitions, especially exiting STATIONARY
-        if self.current_state == SimplifiedState.STATIONARY and candidate_state == SimplifiedState.HELD_STILL:
+        # Special handling for different state transitions
+        if self.current_state == SimplifiedState.UNKNOWN:
+            # Allow quick initial transition from UNKNOWN to any state
+            required_duration = 0.1  # 100ms for initial state detection
+            self.logger.debug(f"UNKNOWN→{candidate_state.name} transition requires {required_duration:.1f}s, elapsed: {time_since_last_change:.1f}s")
+        elif self.current_state == SimplifiedState.STATIONARY and candidate_state == SimplifiedState.HELD_STILL:
             # Make it very hard to exit STATIONARY due to tiny jolts
             required_duration = self.min_state_duration * 2.5  # 5.0 seconds to exit STATIONARY
             self.logger.debug(f"STATIONARY→HELD_STILL transition requires {required_duration:.1f}s, elapsed: {time_since_last_change:.1f}s")
