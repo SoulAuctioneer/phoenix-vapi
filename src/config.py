@@ -396,6 +396,8 @@ class MoveActivityConfig:
     HELD_STILL_MAX_SPEED_TIME = 10.0  # Seconds to reach maximum speed
     HELD_STILL_MIN_SPEED = 0.1  # Minimum speed for ROTATING_PINK_BLUE effect
     HELD_STILL_MAX_SPEED = 0.01  # Maximum speed for ROTATING_PINK_BLUE effect (lower = faster)
+    HELD_STILL_MIN_BRIGHTNESS = 0.3  # Minimum brightness for ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_BRIGHTNESS = 1.0  # Maximum brightness for ROTATING_PINK_BLUE effect
 
 
 # AI Assistant Configuration
