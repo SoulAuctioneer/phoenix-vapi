@@ -132,7 +132,7 @@ class SoundEffect(str, Enum):
     MMHMM = "mmhmm.wav"
     YAWN = "yawn.wav"
     YAWN2 = "yawn2.wav"
-    MAGICAL_SPELL = "MAGICAL_SPELL.wav"
+    MAGICAL_SPELL = "magical_spell.wav"
     LIGHTNING = "lightning.wav"
     RAIN = "rain.wav"
     WHOOSH = "whoosh.wav"
