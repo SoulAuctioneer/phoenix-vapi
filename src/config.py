@@ -394,10 +394,10 @@ class MoveActivityConfig:
     # HELD_STILL ROTATING_PINK_BLUE effect configuration
     HELD_STILL_EFFECT_DELAY = 2.0  # Seconds to wait before starting ROTATING_PINK_BLUE effect
     HELD_STILL_MAX_SPEED_TIME = 10.0  # Seconds to reach maximum speed
-    HELD_STILL_MIN_SPEED = 0.1  # Minimum speed for ROTATING_PINK_BLUE effect
-    HELD_STILL_MAX_SPEED = 0.01  # Maximum speed for ROTATING_PINK_BLUE effect (lower = faster)
-    HELD_STILL_MIN_BRIGHTNESS = 0.3  # Minimum brightness for ROTATING_PINK_BLUE effect
-    HELD_STILL_MAX_BRIGHTNESS = 1.0  # Maximum brightness for ROTATING_PINK_BLUE effect
+    HELD_STILL_MIN_SPEED = 0.2  # Minimum speed for ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_SPEED = 0.02  # Maximum speed for ROTATING_PINK_BLUE effect (lower = faster)
+    HELD_STILL_MIN_BRIGHTNESS = 0.1  # Minimum brightness for ROTATING_PINK_BLUE effect
+    HELD_STILL_MAX_BRIGHTNESS = 0.7  # Maximum brightness for ROTATING_PINK_BLUE effect
 
 
 # AI Assistant Configuration
