@@ -52,7 +52,7 @@ class CallActivity(BaseService):
         # Call tracking
         self.call_sid = None
         self._polling_task: Optional[asyncio.Task] = None  # Currently disabled - using status callbacks instead
-        
+        self.is_ringing = False
         # Audio integration
         self.audio_manager = None
         self.mic_consumer = None
@@ -264,6 +264,7 @@ class CallActivity(BaseService):
             if hasattr(self, 'websocket_loop') and self.websocket_loop:
                 # Publish specific events based on status
                 if call_status == 'ringing':
+                    self.is_ringing = True
                     asyncio.run_coroutine_threadsafe(
                         self.publish({
                             "type": "pstn_call_ringing",
@@ -284,14 +285,16 @@ class CallActivity(BaseService):
                     )
                 elif call_status == 'in-progress':
                     # Stop the ringing sound when call is answered
-                    self.logger.info("Call answered, stopping ringing sound")
-                    asyncio.run_coroutine_threadsafe(
-                        self.publish({
-                            "type": "stop_sound",
-                            "effect_name": "BRING_BRING"
-                        }),
-                        self.websocket_loop
-                    )
+                    if self.is_ringing:
+                        self.is_ringing = False
+                        self.logger.info("Call answered")
+                        asyncio.run_coroutine_threadsafe(
+                            self.publish({
+                                "type": "stop_sound",
+                                "effect_name": "BRING_BRING"
+                            }),
+                            self.websocket_loop
+                        )
                     asyncio.run_coroutine_threadsafe(
                         self.publish({
                             "type": "pstn_call_answered",
@@ -301,15 +304,17 @@ class CallActivity(BaseService):
                         self.websocket_loop
                     )
                 elif call_status in ['completed', 'canceled', 'failed', 'no-answer', 'busy']:
+                    self.logger.info(f"Call ended with status: {call_status}")
                     # Stop any playing sounds when call ends
-                    self.logger.info(f"Call ended with status: {call_status}, stopping any sounds")
-                    asyncio.run_coroutine_threadsafe(
-                        self.publish({
-                            "type": "stop_sound",
-                            "effect_name": "BRING_BRING"
-                        }),
-                        self.websocket_loop
-                    )
+                    if self.is_ringing:
+                        self.is_ringing = False
+                        asyncio.run_coroutine_threadsafe(
+                            self.publish({
+                                "type": "stop_sound",
+                                "effect_name": "BRING_BRING"
+                            }),
+                            self.websocket_loop
+                        )
                     asyncio.run_coroutine_threadsafe(
                         self.publish({
                             "type": "pstn_call_completed_remotely",
