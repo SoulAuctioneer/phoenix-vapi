@@ -28,7 +28,7 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
-    ActivityType.CALL: ([], 'call', "BRING_BRING", None, None, None)
+    ActivityType.CALL: ([], 'call', None, None, None, None)
 }
 
 class ActivityService(BaseService):
@@ -320,7 +320,12 @@ class ActivityService(BaseService):
                 # Start call activity, passing the contact name
                 slots = event.get("slots")
                 if slots and "contact" in slots:
-                    await self._queue_transition(ActivityType.CALL, contact=slots["contact"])
+                    contact = slots["contact"]
+                    await self.publish({
+                        "type": "speak_audio",
+                        "text": f"Okay let's phone {contact}"
+                    })
+                    await self._queue_transition(ActivityType.CALL, contact=contact)
                 else:
                     self.logger.error("No contact name provided for call activity")
 

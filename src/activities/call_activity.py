@@ -51,7 +51,7 @@ class CallActivity(BaseService):
                 
         # Call tracking
         self.call_sid = None
-        self._polling_task: Optional[asyncio.Task] = None
+        self._polling_task: Optional[asyncio.Task] = None  # Currently disabled - using status callbacks instead
         
         # Audio integration
         self.audio_manager = None
@@ -64,10 +64,12 @@ class CallActivity(BaseService):
         # Flask app for TwiML
         self.flask_app = Flask(__name__)
         self.flask_app.route("/twiml", methods=["POST"])(self._handle_twiml_request)
+        self.flask_app.route("/status", methods=["POST"])(self._handle_status_callback)
         
         # Server info
         self.twiml_url = None
         self.ws_url = None
+        self.status_callback_url = None
         
         # WebSocket tracking
         self.stream_sid = None  # Store the Twilio stream SID
@@ -98,7 +100,11 @@ class CallActivity(BaseService):
                 tunnel_path="/twiml"
             )
             self.twiml_url = flask_info["public_url"]
+            # Create status callback URL using the same base URL
+            base_url = flask_info["public_url"].rsplit('/twiml', 1)[0]
+            self.status_callback_url = f"{base_url}/status"
             self.logger.info(f"Flask server started with TwiML URL: {self.twiml_url}")
+            self.logger.info(f"Status callback URL: {self.status_callback_url}")
         except Exception as e:
             self.logger.error(f"Failed to set up Flask server: {e}", exc_info=True)
             return
@@ -144,9 +150,10 @@ class CallActivity(BaseService):
         await self._initiate_call(to_number=to_number)
         
         # Start polling only if call initiation seemed successful (got a SID)
-        if self.call_sid and not self._polling_task:
-            self.logger.info(f"Starting call status polling for SID: {self.call_sid} every {CallConfig.TWILIO_POLL_INTERVAL}s")
-            self._polling_task = asyncio.create_task(self._poll_call_status())
+        # COMMENTED OUT: Relying on status callbacks instead of polling
+        # if self.call_sid and not self._polling_task:
+        #     self.logger.info(f"Starting call status polling for SID: {self.call_sid} every {CallConfig.TWILIO_POLL_INTERVAL}s")
+        #     self._polling_task = asyncio.create_task(self._poll_call_status())
         
         self.logger.info("Call Activity started")
 
@@ -173,15 +180,16 @@ class CallActivity(BaseService):
             self.logger.info("Call audio producer removed")
         
         # Cancel polling task
-        if self._polling_task:
-            if not self._polling_task.done():
-                self.logger.info("Cancelling call status polling task.")
-                self._polling_task.cancel()
-                try:
-                    await self._polling_task
-                except asyncio.CancelledError:
-                    pass
-            self._polling_task = None
+        # COMMENTED OUT: Not using polling, relying on status callbacks
+        # if self._polling_task:
+        #     if not self._polling_task.done():
+        #         self.logger.info("Cancelling call status polling task.")
+        #         self._polling_task.cancel()
+        #         try:
+        #             await self._polling_task
+        #         except asyncio.CancelledError:
+        #             pass
+        #     self._polling_task = None
         
         # End the call via API (this may take time)
         await self._end_call()
@@ -236,6 +244,58 @@ class CallActivity(BaseService):
             response = VoiceResponse()
             response.say("An error occurred setting up the call")
             return Response(str(response), mimetype="text/xml")
+
+    def _handle_status_callback(self):
+        """Handle status callbacks from Twilio for real-time call status updates."""
+        try:
+            # Get the call status from the request
+            call_sid = request.form.get('CallSid')
+            call_status = request.form.get('CallStatus')
+            
+            self.logger.info(f"Received status callback - SID: {call_sid}, Status: {call_status}")
+            
+            # Run the async publish in the event loop
+            if hasattr(self, 'websocket_loop') and self.websocket_loop:
+                # Publish specific events based on status
+                if call_status == 'ringing':
+                    asyncio.run_coroutine_threadsafe(
+                        self.publish({
+                            "type": "pstn_call_ringing",
+                            "sid": call_sid,
+                            "status": call_status
+                        }), 
+                        self.websocket_loop
+                    )
+                    self.publish({
+                        "type": "play_sound",
+                        "effect_name": "BRING_BRING",
+                        "loop": True,
+                        "volume": 0.5
+                    })
+                elif call_status == 'in-progress':
+                    asyncio.run_coroutine_threadsafe(
+                        self.publish({
+                            "type": "pstn_call_answered",
+                            "sid": call_sid,
+                            "status": call_status
+                        }), 
+                        self.websocket_loop
+                    )
+                elif call_status in ['completed', 'canceled', 'failed', 'no-answer', 'busy']:
+                    asyncio.run_coroutine_threadsafe(
+                        self.publish({
+                            "type": "pstn_call_completed_remotely",
+                            "sid": call_sid,
+                            "status": call_status
+                        }), 
+                        self.websocket_loop
+                    )
+                    
+            return Response("OK", status=200)
+            
+        except Exception as e:
+            self.logger.error(f"Error handling status callback: {e}", exc_info=True)
+            return Response("Error", status=500)
 
     async def _handle_websocket_connection(self, websocket, path):
         """Handle a WebSocket connection from Twilio."""
@@ -428,10 +488,14 @@ class CallActivity(BaseService):
         
         return pcm_audio
 
+    # POLLING METHOD - Currently disabled in favor of status callbacks
+    # This method is kept for reference and can be re-enabled if needed
     async def _poll_call_status(self):
         """Periodically polls the Twilio API for the call status."""
         self.logger.debug(f"Polling task started for SID: {self.call_sid}")
         terminal_statuses = ['completed', 'canceled', 'failed', 'no-answer']
+        last_status = None  # Track last known status to detect changes
+        
         while True:
             await asyncio.sleep(CallConfig.TWILIO_POLL_INTERVAL)
             if not self.call_sid or not self.twilio_client:
@@ -442,6 +506,26 @@ class CallActivity(BaseService):
                 self.logger.debug(f"Polling status for call SID: {self.call_sid}")
                 call = self.twilio_client.calls(self.call_sid).fetch()
                 self.logger.debug(f"Call SID {self.call_sid} status: {call.status}")
+
+                # Report status changes
+                if call.status != last_status:
+                    last_status = call.status
+                    
+                    # Publish status change events
+                    if call.status == 'ringing':
+                        self.logger.info(f"Call SID {self.call_sid} is ringing at recipient")
+                        await self.publish({
+                            "type": "pstn_call_ringing",
+                            "sid": self.call_sid,
+                            "status": call.status
+                        })
+                    elif call.status == 'in-progress':
+                        self.logger.info(f"Call SID {self.call_sid} was answered")
+                        await self.publish({
+                            "type": "pstn_call_answered", 
+                            "sid": self.call_sid,
+                            "status": call.status
+                        })
 
                 if call.status in terminal_statuses:
                     self.logger.info(f"Call SID {self.call_sid} reached terminal state '{call.status}' via polling. Requesting activity stop.")
@@ -504,11 +588,21 @@ class CallActivity(BaseService):
             # Ensure self.twiml_url (Flask ngrok URL) is correctly set in _setup_ngrok
             self.logger.info(f"Initiating call from {CallConfig.TWILIO_FROM_NUMBER} to {to_number} using TwiML URL: {self.twiml_url}")
             
-            call = self.twilio_client.calls.create(
-                to=to_number,
-                from_=CallConfig.TWILIO_FROM_NUMBER,
-                url=self.twiml_url # Use the app's Flask ngrok HTTP URL
-            )
+            # Create call with status callbacks if available
+            call_params = {
+                "to": to_number,
+                "from_": CallConfig.TWILIO_FROM_NUMBER,
+                "url": self.twiml_url  # Use the app's Flask ngrok HTTP URL
+            }
+            
+            # Add status callback parameters if we have the URL
+            if hasattr(self, 'status_callback_url') and self.status_callback_url:
+                call_params["status_callback"] = self.status_callback_url
+                call_params["status_callback_event"] = ["initiated", "ringing", "answered", "completed"]
+                call_params["status_callback_method"] = "POST"
+                self.logger.info(f"Using status callback URL: {self.status_callback_url}")
+            
+            call = self.twilio_client.calls.create(**call_params)
             # --- END REVERTED ---
             
             self.call_sid = call.sid
