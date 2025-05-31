@@ -14,6 +14,7 @@ twilio # PSTN calling
 flask # web server for CallActivity
 pyngrok # ngrok for local development server
 elevenlabs # ElevenLabs Text-to-Speech API
+aiofiles # async file I/O for TTS caching
 
 # Platform-specific packages
 rpi_ws281x; sys_platform == 'linux'  # Only install on Linux
