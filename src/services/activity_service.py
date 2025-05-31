@@ -166,8 +166,9 @@ class ActivityService(BaseService):
                     await self._service_manager.stop_service(service_name)
                 except Exception as e:
                      self.logger.error(f"Failed to stop service {service_name}: {e}", exc_info=True)
-                # Always remove from active services, even if stop failed
-                del self.active_services[service_name]
+                # Always remove from active services, even if stop failed, but check if it still exists
+                if service_name in self.active_services:
+                    del self.active_services[service_name]
         
     async def _start_activity(self, activity: ActivityType, **kwargs):
         """Start a new activity, stopping the current activity if one is running

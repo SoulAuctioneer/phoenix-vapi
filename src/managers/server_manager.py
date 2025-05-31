@@ -170,6 +170,7 @@ class ServerManager:
         self.tunnels: Dict[str, NgrokTunnel] = {}
         self.flask_servers: Dict[str, FlaskServer] = {}
         self.websocket_servers: Dict[str, WebSocketServer] = {}
+        self._cleaning_up = False  # Flag to prevent concurrent cleanup
         
     def create_flask_server(self, name: str, app: Flask, port: int, 
                           create_tunnel: bool = True, tunnel_path: Optional[str] = None) -> Dict[str, Any]:
@@ -291,22 +292,32 @@ class ServerManager:
         
     async def cleanup(self):
         """Clean up all servers and tunnels."""
-        # Stop all Flask servers
-        for name in list(self.flask_servers.keys()):
-            self.stop_flask_server(name)
+        # Prevent concurrent cleanup operations
+        if self._cleaning_up:
+            self.logger.warning("Cleanup already in progress, skipping duplicate call")
+            return
             
-        # Stop all WebSocket servers
-        for name in list(self.websocket_servers.keys()):
-            await self.stop_websocket_server(name)
-            
-        # Disconnect any remaining tunnels
-        for tunnel in self.tunnels.values():
-            tunnel.disconnect()
-        self.tunnels.clear()
+        self._cleaning_up = True
         
-        # Kill all ngrok processes
         try:
-            ngrok.kill()
-            self.logger.info("All ngrok tunnels terminated")
-        except Exception as e:
-            self.logger.error(f"Error killing ngrok: {e}") 
+            # Stop all Flask servers
+            for name in list(self.flask_servers.keys()):
+                self.stop_flask_server(name)
+                
+            # Stop all WebSocket servers
+            for name in list(self.websocket_servers.keys()):
+                await self.stop_websocket_server(name)
+                
+            # Disconnect any remaining tunnels
+            for tunnel in self.tunnels.values():
+                tunnel.disconnect()
+            self.tunnels.clear()
+            
+            # Kill all ngrok processes
+            try:
+                ngrok.kill()
+                self.logger.info("All ngrok tunnels terminated")
+            except Exception as e:
+                self.logger.error(f"Error killing ngrok: {e}")
+        finally:
+            self._cleaning_up = False 

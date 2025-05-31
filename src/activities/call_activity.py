@@ -73,6 +73,9 @@ class CallActivity(BaseService):
         self.stream_sid = None  # Store the Twilio stream SID
         self.websocket_loop = None
         self.twilio_pcm_buffer = np.array([], dtype=np.int16) # Buffer for incoming Twilio PCM audio
+        
+        # Stop operation tracking
+        self._stopping = False  # Flag to prevent concurrent stop operations
 
     async def start(self, contact: str):
         """Start the call activity by setting up servers and tunnels, then initiating the call."""
@@ -149,29 +152,49 @@ class CallActivity(BaseService):
 
     async def stop(self):
         """Stop the call activity by ending the call and cleaning up all resources."""
+        # Prevent multiple concurrent stop operations
+        if self._stopping:
+            self.logger.info("Call Activity stop already in progress, skipping duplicate call")
+            return
+            
+        self._stopping = True
         self.logger.info("Call Activity stopping")
         
-        # Cancel polling task first
-        if self._polling_task:
-            if not self._polling_task.done():
-                self.logger.info("Cancelling call status polling task.")
-                self._polling_task.cancel()
-            self._polling_task = None
-        
-        # End the call via API
-        await self._end_call()
-        
-        # Stop servers and clean up ngrok tunnels
-        await self.server_manager.cleanup()
-        
-        # Clean up audio resources
+        # First, remove audio resources to stop processing immediately
+        # This prevents the "No active WebSocket connections" warnings
         if self.mic_consumer:
             self.audio_manager.remove_consumer(self.mic_consumer)
             self.mic_consumer = None
+            self.logger.info("Microphone consumer removed")
             
         if self.call_producer:
             self.audio_manager.remove_producer("twilio_call")
             self.call_producer = None
+            self.logger.info("Call audio producer removed")
+        
+        # Cancel polling task
+        if self._polling_task:
+            if not self._polling_task.done():
+                self.logger.info("Cancelling call status polling task.")
+                self._polling_task.cancel()
+                try:
+                    await self._polling_task
+                except asyncio.CancelledError:
+                    pass
+            self._polling_task = None
+        
+        # End the call via API (this may take time)
+        await self._end_call()
+        
+        # Small delay to allow WebSocket to close gracefully after call ends
+        await asyncio.sleep(0.5)
+        
+        # Stop servers and clean up ngrok tunnels
+        # Use try-except to handle potential double-cleanup scenarios
+        try:
+            await self.server_manager.cleanup()
+        except Exception as e:
+            self.logger.warning(f"Error during server cleanup (may be already cleaned up): {e}")
         
         await super().stop()
         self.logger.info("Call Activity stopped")
@@ -274,8 +297,8 @@ class CallActivity(BaseService):
                 
             elif event == "stop":
                 self.logger.info("WebSocket stream stopped by Twilio")
-                # The call might have ended - check status
-                if self.call_sid:
+                # The call might have ended - check status only if not already stopping
+                if self.call_sid and not self._stopping:
                     asyncio.create_task(self._check_call_status(self.call_sid))
                 
             else:
