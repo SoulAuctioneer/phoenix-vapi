@@ -357,9 +357,9 @@ class CallActivity(BaseService):
                 
             elif event == "stop":
                 self.logger.info("WebSocket stream stopped by Twilio")
-                # The call might have ended - check status only if not already stopping
-                if self.call_sid and not self._stopping:
-                    asyncio.create_task(self._check_call_status(self.call_sid))
+                # Note: We don't need to check call status here since we have reliable status callbacks
+                # that will notify us when the call ends. The WebSocket stop just indicates the media
+                # stream ended, which happens both for natural call completion and manual termination.
                 
             else:
                 self.logger.debug(f"Received unknown WebSocket event: {event}")

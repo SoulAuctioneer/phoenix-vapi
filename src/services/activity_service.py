@@ -378,4 +378,4 @@ class ActivityService(BaseService):
                 # We just need to stop the activity here, which will trigger transition to SLEEP
                 await self._stop_activity(ActivityType.CALL)
             else:
-                self.logger.warning(f"Received pstn_call_completed_remotely but current activity is {self.current_activity}. Ignoring.")
+                self.logger.debug(f"Received pstn_call_completed_remotely but current activity is {self.current_activity}. Ignoring.")

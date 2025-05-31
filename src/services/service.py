@@ -169,6 +169,8 @@ class ServiceManager:
             await service.stop()                
             del self.services[name]
             self.logger.debug(f"Stopped service: {name}")
+        else:
+            self.logger.debug(f"Service {name} already stopped or not found")
             
     async def stop_all(self):
         """Stop all services"""
