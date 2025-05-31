@@ -1,7 +1,6 @@
 import logging
 import numpy as np
 from elevenlabs.client import ElevenLabs, AsyncElevenLabs
-from elevenlabs import stream as eleven_stream
 from config import ElevenLabsConfig, AudioBaseConfig
 
 logger = logging.getLogger(__name__)
@@ -44,7 +43,7 @@ class VoiceManager:
 
         try:
             logger.info(f"Generating audio stream for text: '{text[:30]}...' using voice {voice_id}")
-            audio_stream_generator = self._async_client.text_to_speech.convert_as_stream(
+            audio_stream_generator = self._async_client.text_to_speech.stream(
                 text=text,
                 voice_id=voice_id,
                 model_id=model_id,

@@ -91,7 +91,7 @@ class VoiceService(BaseService):
                     logger.error(f"Failed to recreate TTS audio producer: {e}")
                     return
 
-            logger.info(f"Received speak_audio event for text: '{text_to_speak[:30]}...'")
+            logger.info(f"Received speak_audio event for text: '{text_to_speak[:30]}'")
             # Run the streaming and playback in a new task to avoid blocking event handling
             asyncio.create_task(self._stream_and_play_tts(text_to_speak, voice_id, model_id))
 
