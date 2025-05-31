@@ -175,4 +175,8 @@ if is_raspberry_pi; then
     echo "- To diagnose BNO085 sensor: python3 src/diagnostics/i2c_test.py"
     echo "- To test LED ring: python src/led_control.py"
     echo "- To verify Bluetooth is working: sudo hciconfig"
-fi 
+    echo ""
+    echo "Audio optimization (if using Respeaker USB microphone):"
+    echo "- Run 'sudo bash scripts/setup_respeaker_only.sh' to disable other audio devices"
+    echo "- This will eliminate ALSA errors and significantly speed up app startup"
+   
