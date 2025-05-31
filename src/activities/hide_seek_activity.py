@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 from services.service import BaseService
 from config import HideSeekConfig, Distance, SoundEffect
 
-class HideSeekService(BaseService):
+class HideSeekActivity(BaseService):
     """Service that manages the hide and seek game activity"""
     
     def __init__(self, service_manager):

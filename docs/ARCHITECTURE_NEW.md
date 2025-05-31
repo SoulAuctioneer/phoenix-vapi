@@ -186,7 +186,7 @@ A typical interaction flow:
    - Activity coordinates required services
 
 4. **Conversation Flow**:
-   - `ConversationService` manages the conversation
+   - `ConversationActivity` manages the conversation
    - Publishes `SpeechUpdateEvent` when user or assistant speaks
    - Other services respond accordingly (LEDs, haptics, etc.)
 

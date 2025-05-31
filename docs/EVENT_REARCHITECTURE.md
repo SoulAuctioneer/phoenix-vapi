@@ -264,7 +264,7 @@ Unlike a phased approach, we'll implement this architecture in a single intensiv
      - IntentService
      - ActivityService
      - AudioService
-     - ConversationService
+     - ConversationActivity
    - Add comprehensive unit tests for each
 
 2. **Hardware Integration**

@@ -26,23 +26,22 @@ for logger_name in [
     'services.service',
     'services.audio',
     'services.wake_word',
-    'services.conversation',
     'services.led',
     'services.special_effect',
     'services.sensor',
     'services.haptic',
     'services.intent',
     'services.activity',
-    'services.sleep_activity',
-    # Too noisy, disable for now
-    # 'services.call_activity',
+    'activities.sleep_activity',
+    'activities.conversation',
+    # 'activities.call', # Too noisy
     'services.location',
     'managers.location_manager'
 ]:
     logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
 for logger_name in [
-    'services.hide_seek_service'
+    'services.hide_seek_activity'
 ]:
     logging.getLogger(logger_name).setLevel(logging.WARNING)
 

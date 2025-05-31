@@ -67,11 +67,11 @@ cd phoenix-vapi
 2. Run the install script:
 ```bash
 # On macOS/Linux/Rasperry Pi OS:
-./install.sh
+scripts/install.sh
 
 # On Windows (UNTESTED!):
 # First ensure you have Python and Visual C++ Build Tools installed
-./install.sh
+scripts/install.sh
 ```
 
 3. Reboot the device (maybe?)

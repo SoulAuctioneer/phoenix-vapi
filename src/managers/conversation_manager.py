@@ -9,7 +9,7 @@ import time
 import requests
 from enum import Enum
 from managers.audio_manager import AudioManager
-from config import CallConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT
+from config import ConversationConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT
 import queue
 
 logger = logging.getLogger('conversation_manager')
@@ -57,7 +57,7 @@ class CallStateManager:
         self._conversation_manager = conversation_manager
         self._state_handlers = {}
         self._participants = {}
-        self._volume = CallConfig.Audio.DEFAULT_VOLUME
+        self._volume = ConversationConfig.Audio.DEFAULT_VOLUME
         self._start_event = asyncio.Event()
         self._is_muted = False  # Track microphone mute state
         self._user_speaking = False  # Track if user is currently speaking
@@ -155,7 +155,7 @@ class CallStateManager:
         old_state = self._state
         self._start_event.clear()
         self._participants.clear()
-        self._volume = CallConfig.Audio.DEFAULT_VOLUME
+        self._volume = ConversationConfig.Audio.DEFAULT_VOLUME
         self._is_muted = False  # Reset mute state
         self._state = CallState.INITIALIZED  # Reset to initialized state
         logging.info(f"Reset state from {old_state} to {self._state}")
@@ -196,7 +196,7 @@ class CallStateManager:
             self._assistant_speaking = is_speaking
                 
             # Toggle the mute state if the assistant is speaking (existing logic)
-            if CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
+            if ConversationConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
                 self._is_muted = self._assistant_speaking
 
             if is_speaking: # Assistant starts speaking
@@ -289,8 +289,8 @@ class ConversationManager:
     
     def __init__(self, *, publish_event_callback=None, memory_manager=None):
         # Public attributes
-        self.api_key = CallConfig.Vapi.API_KEY
-        self.api_url = CallConfig.Vapi.DEFAULT_API_URL
+        self.api_key = ConversationConfig.Vapi.API_KEY
+        self.api_url = ConversationConfig.Vapi.DEFAULT_API_URL
         self.publish_event_callback = publish_event_callback
         self.state_manager = CallStateManager(self)
         self.audio_manager = None
@@ -353,16 +353,16 @@ class ConversationManager:
             
             # Create base Daily devices - these persist for the life of the class
             self._mic_device = daily.Daily.create_microphone_device(
-                CallConfig.Daily.MIC_DEVICE_ID,
-                sample_rate=CallConfig.Audio.SAMPLE_RATE,
-                channels=CallConfig.Audio.NUM_CHANNELS
+                ConversationConfig.Daily.MIC_DEVICE_ID,
+                sample_rate=ConversationConfig.Audio.SAMPLE_RATE,
+                channels=ConversationConfig.Audio.NUM_CHANNELS
             )
             self._speaker_device = daily.Daily.create_speaker_device(
-                CallConfig.Daily.SPEAKER_DEVICE_ID,
-                sample_rate=CallConfig.Audio.SAMPLE_RATE,
-                channels=CallConfig.Audio.NUM_CHANNELS
+                ConversationConfig.Daily.SPEAKER_DEVICE_ID,
+                sample_rate=ConversationConfig.Audio.SAMPLE_RATE,
+                channels=ConversationConfig.Audio.NUM_CHANNELS
             )
-            daily.Daily.select_speaker_device(CallConfig.Daily.SPEAKER_DEVICE_ID)
+            daily.Daily.select_speaker_device(ConversationConfig.Daily.SPEAKER_DEVICE_ID)
             
             # Small delay after device creation
             await asyncio.sleep(0.1)
@@ -389,12 +389,12 @@ class ConversationManager:
             # Register with audio manager for this call
             self._audio_consumer = self.audio_manager.add_consumer(
                 self._handle_input_audio,
-                chunk_size=CallConfig.Audio.CHUNK_SIZE
+                chunk_size=ConversationConfig.Audio.CHUNK_SIZE
             )
             self._audio_producer = self.audio_manager.add_producer(
                 "daily_call",
-                chunk_size=CallConfig.Audio.CHUNK_SIZE,
-                buffer_size=CallConfig.Audio.BUFFER_SIZE
+                chunk_size=ConversationConfig.Audio.CHUNK_SIZE,
+                buffer_size=ConversationConfig.Audio.BUFFER_SIZE
             )
             # Clear any existing data in the buffer
             self._audio_producer.buffer.clear()
@@ -442,14 +442,14 @@ class ConversationManager:
             "microphone": {
                 "isEnabled": True,  # Start unmuted
                 "settings": {
-                    "deviceId": CallConfig.Daily.MIC_DEVICE_ID,
-                    "customConstraints": CallConfig.Daily.MIC_CONSTRAINTS
+                    "deviceId": ConversationConfig.Daily.MIC_DEVICE_ID,
+                    "customConstraints": ConversationConfig.Daily.MIC_CONSTRAINTS
                 }
             }
         })
         self.state_manager.set_muted(False)  # Initialize mute state
         
-        self._call_client.update_subscription_profiles(CallConfig.Daily.SUBSCRIPTION_PROFILES)
+        self._call_client.update_subscription_profiles(ConversationConfig.Daily.SUBSCRIPTION_PROFILES)
         
         # Initialize participants
         participants = dict(self._call_client.participants())
@@ -940,7 +940,7 @@ class ConversationManager:
 
     def is_playable_speaker(self, participant):
         """Check if a participant is a playable speaker."""
-        is_speaker = "userName" in participant["info"] and participant["info"]["userName"] == CallConfig.Vapi.SPEAKER_USERNAME
+        is_speaker = "userName" in participant["info"] and participant["info"]["userName"] == ConversationConfig.Vapi.SPEAKER_USERNAME
         mic = participant["media"]["microphone"]
         is_subscribed = mic["subscribed"] == "subscribed"
         is_playable = mic["state"] == "playable"
@@ -1111,7 +1111,7 @@ class ConversationManager:
 
     def interrupt_assistant(self):
         """Stop the assistant from speaking if it's speaking"""
-        if self.state_manager.assistant_speaking and CallConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
+        if self.state_manager.assistant_speaking and ConversationConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
             self.add_message("user", "Wait, I want to say something.")
     
     async def _receive_bot_audio(self):
@@ -1124,12 +1124,12 @@ class ConversationManager:
                 
             logging.info("Started receiving bot audio")
             # Calculate sleep time based on chunk size
-            chunk_duration = CallConfig.Audio.CHUNK_SIZE / CallConfig.Audio.SAMPLE_RATE
+            chunk_duration = ConversationConfig.Audio.CHUNK_SIZE / ConversationConfig.Audio.SAMPLE_RATE
             sleep_duration = chunk_duration / 2  # Sleep for half chunk duration
             
             while self.state_manager.state.can_receive_audio:
                 try:
-                    buffer = self._speaker_device.read_frames(CallConfig.Audio.CHUNK_SIZE)
+                    buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
                     if len(buffer) > 0 and self._audio_producer and self._audio_producer.active:
                         # Convert bytes to numpy array and send to audio manager
                         audio_np = np.frombuffer(buffer, dtype=np.int16)
@@ -1210,8 +1210,8 @@ class ConversationManager:
                 "microphone": {
                     "isEnabled": False,
                     "settings": {
-                        "deviceId": CallConfig.Daily.MIC_DEVICE_ID,
-                        "customConstraints": CallConfig.Daily.MIC_CONSTRAINTS
+                        "deviceId": ConversationConfig.Daily.MIC_DEVICE_ID,
+                        "customConstraints": ConversationConfig.Daily.MIC_CONSTRAINTS
                     }
                 }
             })
@@ -1233,8 +1233,8 @@ class ConversationManager:
                 "microphone": {
                     "isEnabled": True,
                     "settings": {
-                        "deviceId": CallConfig.Daily.MIC_DEVICE_ID,
-                        "customConstraints": CallConfig.Daily.MIC_CONSTRAINTS
+                        "deviceId": ConversationConfig.Daily.MIC_DEVICE_ID,
+                        "customConstraints": ConversationConfig.Daily.MIC_CONSTRAINTS
                     }
                 }
             })

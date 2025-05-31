@@ -4,7 +4,7 @@ from managers.conversation_manager import ConversationManager
 from managers.memory_manager import MemoryManager
 from config import ASSISTANT_ID, ASSISTANT_CONFIG
 
-class ConversationService(BaseService):
+class ConversationActivity(BaseService):
     """Handles conversations with the AI assistant"""
     def __init__(self, service_manager):
         super().__init__(service_manager)

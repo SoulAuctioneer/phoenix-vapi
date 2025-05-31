@@ -19,12 +19,8 @@ import asyncio
 import logging
 import audioop
 # Import configuration from config module
-from config import (
-    TWILIO_ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN,
-    TWILIO_FROM_NUMBER,
-    HARDCODED_TO_NUMBER,
-    TWILIO_POLL_INTERVAL,
+from config import (    
+    CallConfig,
     NGROK_AUTH_TOKEN
 )
 
@@ -43,12 +39,12 @@ class CallActivity(BaseService):
         self.logger.info("Initializing Call Activity")
         
         # Check if imported credentials are valid
-        if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, HARDCODED_TO_NUMBER]):
+        if not all([CallConfig.TWILIO_ACCOUNT_SID, CallConfig.TWILIO_AUTH_TOKEN, CallConfig.TWILIO_FROM_NUMBER]):
             self.logger.error("Twilio credentials or target number missing in environment variables (loaded via config.py).")
             self.twilio_client = None
         else:
             try:
-                self.twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+                self.twilio_client = Client(CallConfig.TWILIO_ACCOUNT_SID, CallConfig.TWILIO_AUTH_TOKEN)
             except Exception as e:
                 self.logger.error(f"Failed to initialize Twilio client: {e}", exc_info=True)
                 self.twilio_client = None
@@ -78,7 +74,7 @@ class CallActivity(BaseService):
         self.websocket_loop = None
         self.twilio_pcm_buffer = np.array([], dtype=np.int16) # Buffer for incoming Twilio PCM audio
 
-    async def start(self):
+    async def start(self, contact: str):
         """Start the call activity by setting up servers and tunnels, then initiating the call."""
         await super().start()
         self.logger.info("Call Activity starting")
@@ -135,12 +131,18 @@ class CallActivity(BaseService):
             buffer_size=100
         )
         
+        # Get the contact number for the given contact name
+        to_number = CallConfig.CONTACT_NUMBERS.get(contact.lower())
+        if not to_number:
+            self.logger.error(f"No contact number found for contact: {contact}")
+            return
+
         # Initiate the call
-        await self._initiate_call()
+        await self._initiate_call(to_number=to_number)
         
         # Start polling only if call initiation seemed successful (got a SID)
         if self.call_sid and not self._polling_task:
-            self.logger.info(f"Starting call status polling for SID: {self.call_sid} every {TWILIO_POLL_INTERVAL}s")
+            self.logger.info(f"Starting call status polling for SID: {self.call_sid} every {CallConfig.TWILIO_POLL_INTERVAL}s")
             self._polling_task = asyncio.create_task(self._poll_call_status())
         
         self.logger.info("Call Activity started")
@@ -408,7 +410,7 @@ class CallActivity(BaseService):
         self.logger.debug(f"Polling task started for SID: {self.call_sid}")
         terminal_statuses = ['completed', 'canceled', 'failed', 'no-answer']
         while True:
-            await asyncio.sleep(TWILIO_POLL_INTERVAL)
+            await asyncio.sleep(CallConfig.TWILIO_POLL_INTERVAL)
             if not self.call_sid or not self.twilio_client:
                 self.logger.info("Polling task stopping: No active call SID or Twilio client.")
                 break # Exit loop if call ended or client invalid
@@ -463,7 +465,7 @@ class CallActivity(BaseService):
         except Exception as e:
             self.logger.error(f"Error checking call status: {e}")
 
-    async def _initiate_call(self):
+    async def _initiate_call(self, to_number: str):
         """Initiate the outbound call using Twilio REST API."""
         if not self.twilio_client:
             self.logger.error("Twilio client not initialized. Cannot initiate call.")
@@ -477,11 +479,11 @@ class CallActivity(BaseService):
         try:
             # --- REVERTED: Use original code ---
             # Ensure self.twiml_url (Flask ngrok URL) is correctly set in _setup_ngrok
-            self.logger.info(f"Initiating call from {TWILIO_FROM_NUMBER} to {HARDCODED_TO_NUMBER} using TwiML URL: {self.twiml_url}")
+            self.logger.info(f"Initiating call from {CallConfig.TWILIO_FROM_NUMBER} to {to_number} using TwiML URL: {self.twiml_url}")
             
             call = self.twilio_client.calls.create(
-                to=HARDCODED_TO_NUMBER,
-                from_=TWILIO_FROM_NUMBER,
+                to=to_number,
+                from_=CallConfig.TWILIO_FROM_NUMBER,
                 url=self.twiml_url # Use the app's Flask ngrok HTTP URL
             )
             # --- END REVERTED ---

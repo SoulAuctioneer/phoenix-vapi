@@ -1,15 +1,15 @@
 from typing import Dict, Any, Optional, Type, List, Tuple
 from enum import Enum
 from services.service import BaseService
-from services.conversation_service import ConversationService
 from services.location_service import LocationService
 from services.sensor_service import SensorService
 from services.haptic_service import HapticService
-from services.sleep_activity import SleepActivity
-from services.hide_seek_service import HideSeekService
 from services.accelerometer_service import AccelerometerService
-from services.move_activity import MoveActivity
-from services.call_activity import CallActivity
+from activities.conversation_activity import ConversationActivity
+from activities.sleep_activity import SleepActivity
+from activities.hide_seek_activity import HideSeekActivity
+from activities.move_activity import MoveActivity
+from activities.call_activity import CallActivity
 import asyncio
 
 class ActivityType(Enum):
@@ -24,9 +24,9 @@ class ActivityType(Enum):
 # Format: (list of supporting services, activity service name if any, start_sound, stop_sound, start_tts_text, stop_tts_text)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]] = {
     ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None, None, None),
+    ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
-    ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
     ActivityType.CALL: ([], 'call', "BRING_BRING", None, None, None)
 }
@@ -42,15 +42,15 @@ class ActivityService(BaseService):
         self.current_activity: Optional[ActivityType] = None
         # Define available activity services
         self.activity_services = {
-            'conversation': ConversationService,
             'location': LocationService,
             'sensor': SensorService,
             'haptic': HapticService,
             'accelerometer': AccelerometerService,
+            'conversation': ConversationActivity,
             'move': MoveActivity,
-            'sleep': SleepActivity,
-            'hide_seek': HideSeekService,
+            'hide_seek': HideSeekActivity,
             'call': CallActivity,
+            'sleep': SleepActivity,
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
@@ -83,11 +83,11 @@ class ActivityService(BaseService):
         while True:
             try:
                 # Wait for the next transition
-                activity = await self._transition_queue.get()
+                activity, kwargs = await self._transition_queue.get()
                 self.is_transitioning = True # Set flag before starting
                 
                 try:
-                    await self._start_activity(activity)
+                    await self._start_activity(activity, **kwargs)
                 except Exception as e:
                     self.logger.error(f"Error processing activity transition: {e}")
                 finally:
@@ -101,20 +101,20 @@ class ActivityService(BaseService):
                 self.logger.error(f"Error in transition processing loop: {e}")
                 await asyncio.sleep(0.1)  # Avoid tight loop on persistent errors
                 
-    async def _queue_transition(self, activity: ActivityType):
+    async def _queue_transition(self, activity: ActivityType, **kwargs):
         """Queue an activity transition
         
         Args:
             activity: The activity to transition to
         """
-        await self._transition_queue.put(activity)
+        await self._transition_queue.put((activity, kwargs))
         
-    async def _ensure_services(self, required_services: list[str]) -> bool:
+    async def _ensure_services(self, required_services: list[str], **kwargs) -> bool:
         """Ensure all required services are initialized and running
         
         Args:
             required_services: List of service names that need to be running
-            
+            **kwargs: Additional arguments to pass to the activity's start method
         Returns:
             bool: True if all services were successfully started
         """
@@ -139,7 +139,7 @@ class ActivityService(BaseService):
                 service = self.initialized_services[service_name]
                 self.logger.info(f"Starting service: {service_name}")
                 try:
-                    await self._service_manager.start_service(service_name, service)
+                    await self._service_manager.start_service(service_name, service, **kwargs)
                     self.active_services[service_name] = service
                     self.logger.info(f"Successfully started service: {service_name}")
                 except Exception as e:
@@ -169,11 +169,12 @@ class ActivityService(BaseService):
                 # Always remove from active services, even if stop failed
                 del self.active_services[service_name]
         
-    async def _start_activity(self, activity: ActivityType):
+    async def _start_activity(self, activity: ActivityType, **kwargs):
         """Start a new activity, stopping the current activity if one is running
         
         Args:
             activity: The activity to start
+            **kwargs: Additional arguments to pass to the activity's start method
         """
         if activity == self.current_activity:
             self.logger.debug(f"Activity {activity.name} already active")
@@ -213,14 +214,14 @@ class ActivityService(BaseService):
         
         # Start activity-specific service if needed
         if activity_service_name:
-            if not await self._ensure_services([activity_service_name]):
+            if not await self._ensure_services([activity_service_name], **kwargs):
                 self.logger.error(f"Failed to start {activity.name} - activity service could not be started")
                 return
             
         # Any additional setup for the activity
         if activity == ActivityType.CONVERSATION:
-            conversation_service = self.active_services.get('conversation')
-            await conversation_service.start_conversation()
+            conversation_activity = self.active_services.get('conversation')
+            await conversation_activity.start_conversation()
                 
         self.current_activity = activity
         
@@ -315,10 +316,12 @@ class ActivityService(BaseService):
                 await self._queue_transition(ActivityType.SLEEP)
                 
             elif intent == "call":
-                # Start call activity
-                await self._queue_transition(ActivityType.CALL)
-                # TODO: This seems to be breaking the conversation activity.
-                # pass
+                # Start call activity, passing the contact name
+                slots = event.get("slots")
+                if slots and "contact" in slots:
+                    await self._queue_transition(ActivityType.CALL, contact=slots["contact"])
+                else:
+                    self.logger.error("No contact name provided for call activity")
 
         elif event_type == "conversation_ended":
             # A conversation has finished. Stop the conversation activity.

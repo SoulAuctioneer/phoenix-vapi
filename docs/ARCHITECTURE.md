@@ -41,26 +41,26 @@ Below is a comprehensive list of events used throughout the system:
 | Event Type | Description | Producers | Consumers | Payload Fields |
 |------------|-------------|-----------|-----------|----------------|
 | `wake_word_detected` | Triggered when the wake word is detected | WakeWordService | IntentService | - |
-| `intent_detection_started` | Indicates that intent detection has started | IntentService | ConversationService | `timeout`: duration in seconds |
-| `intent_detection_timeout` | Triggered when intent detection times out | IntentService | ConversationService | - |
+| `intent_detection_started` | Indicates that intent detection has started | IntentService | ConversationActivity | `timeout`: duration in seconds |
+| `intent_detection_timeout` | Triggered when intent detection times out | IntentService | ConversationActivity | - |
 | `intent_detected` | Indicates that a user intent was detected | IntentService | ActivityService | `intent`: string, `slots`: dict |
 | `application_startup_completed` | Indicates app has finished initializing | Main | ActivityService | - |
-| `conversation_starting` | Indicates a conversation is about to begin | ConversationService | ServiceManager | - |
-| `conversation_started` | Indicates a conversation has started | ConversationManager | ConversationService | - |
-| `conversation_ended` | Indicates a conversation has ended | ConversationService | ActivityService | - |
-| `conversation_error` | Indicates an error in conversation | ConversationService | ServiceManager | `error`: string |
+| `conversation_starting` | Indicates a conversation is about to begin | ConversationActivity | ServiceManager | - |
+| `conversation_started` | Indicates a conversation has started | ConversationManager | ConversationActivity | - |
+| `conversation_ended` | Indicates a conversation has ended | ConversationActivity | ActivityService | - |
+| `conversation_error` | Indicates an error in conversation | ConversationActivity | ServiceManager | `error`: string |
 | `conversation_joining` | Indicates the system is joining a call | ConversationManager | - | - |
 | `speech-update` | Updates on speaking status | ConversationManager | ServiceManager | `role`: string, `status`: string |
-| `call_state` | Reports call state changes | ConversationManager | ConversationService | `state`: string |
+| `call_state` | Reports call state changes | ConversationManager | ConversationActivity | `state`: string |
 | `activity_started` | Indicates an activity has started | ActivityService | - | `activity`: string |
 | `activity_stopped` | Indicates an activity has ended | ActivityService | - | `activity`: string |
-| `location_changed` | Reports a change in location | LocationService | ConversationService | `data`: {`location`: string, `previous_location`: string} |
-| `proximity_changed` | Reports a change in proximity to a beacon | LocationService | ConversationService | `data`: {`location`: string, `distance`: enum, `previous_distance`: enum, `rssi`: number} |
-| `start_sensing_phoenix_distance` | Requests location service to start | HideSeekService | ActivityService | - |
-| `stop_sensing_phoenix_distance` | Requests location service to stop | HideSeekService | ActivityService | - |
-| `hide_seek_won` | Indicates the hide and seek game was won | HideSeekService | ActivityService | - |
-| `hide_seek_found` | Indicates the player was found during hide and seek | HideSeekService | - | - |
-| `hide_seek_hint` | Provides a hint during hide and seek | HideSeekService | - | - |
+| `location_changed` | Reports a change in location | LocationService | ConversationActivity | `data`: {`location`: string, `previous_location`: string} |
+| `proximity_changed` | Reports a change in proximity to a beacon | LocationService | ConversationActivity | `data`: {`location`: string, `distance`: enum, `previous_distance`: enum, `rssi`: number} |
+| `start_sensing_phoenix_distance` | Requests location service to start | HideSeekActivity | ActivityService | - |
+| `stop_sensing_phoenix_distance` | Requests location service to stop | HideSeekActivity | ActivityService | - |
+| `hide_seek_won` | Indicates the hide and seek game was won | HideSeekActivity | ActivityService | - |
+| `hide_seek_found` | Indicates the player was found during hide and seek | HideSeekActivity | - | - |
+| `hide_seek_hint` | Provides a hint during hide and seek | HideSeekActivity | - | - |
 | `touch_state` | Reports touch sensor state | SensorService | ServiceManager | `is_touching`: boolean |
 | `touch_position` | Reports touch position | SensorService | ServiceManager | `position`: float |
 | `touch_stroke_intensity` | Reports stroking intensity | SensorService | ActivityService | `intensity`: float |
@@ -99,7 +99,6 @@ The `src/services/` directory contains individual service implementations:
   - `audio_service.py` - Manages audio input and output
   - `wakeword_service.py` - Handles wake word detection (using Picovoice Porcupine)
   - `intent_service.py` - Processes voice commands to determine user intent
-  - `conversation_service.py` - Manages voice interactions with the AI assistant (via Vapi)
   - `activity_service.py` - Orchestrates different activity modes and their required services
 
 - **Hardware Integration**
@@ -111,8 +110,10 @@ The `src/services/` directory contains individual service implementations:
 
 - **Activity Services**
   - `sleep_activity.py` - Implements sleep mode behavior
-  - `hide_seek_service.py` - Implements hide and seek game behavior
+  - `hide_seek_activity.py` - Implements hide and seek game behavior
   - `move_activity.py` - Implements motion-based activities
+  - `conversation_activity.py` - Manages voice interactions with the AI assistant (via Vapi)
+  - `call_activity.py` - Makes phone calls
 
 ### Manager Layer
 

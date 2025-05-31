@@ -149,11 +149,11 @@ class ServiceManager:
             self.logger.error(f"Error in event handler {handler.__qualname__}: {e}", exc_info=True)
             raise
 
-    async def start_service(self, name: str, service: 'BaseService'):
+    async def start_service(self, name: str, service: 'BaseService', **kwargs):
         """Start a service and store it in the manager"""
         # Set the service's global state to our shared instance
         service.global_state = self.global_state
-        await service.start()
+        await service.start(**kwargs)
         self.services[name] = service
         
         # Auto-subscribe the service's handle_event method
@@ -240,8 +240,9 @@ class BaseService:
         # Initialize lock for thread-safe access to global_state
         self.global_state_lock = asyncio.Lock()
         
-    async def start(self):
+    async def start(self, **kwargs):
         """Start the service"""
+        self.logger.debug(f"Starting service: {self.__class__.__name__} with kwargs: {kwargs}")
         self._running = True
         
     async def stop(self):
