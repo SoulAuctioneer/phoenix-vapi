@@ -129,10 +129,11 @@ class CallActivity(BaseService):
         
         # Set up audio consumer to capture microphone input
         # This callback will be called with audio data from the microphone
-        self.mic_consumer = self.audio_manager.add_consumer(
-            callback=self._handle_mic_audio,
-            chunk_size=None  # Use default chunks from AudioManager
-        )
+        # NOTE: We delay this setup until WebSocket is connected to avoid warnings
+        # self.mic_consumer = self.audio_manager.add_consumer(
+        #     callback=self._handle_mic_audio,
+        #     chunk_size=None  # Use default chunks from AudioManager
+        # )
         
         # Create a producer for call audio output
         self.call_producer = self.audio_manager.add_producer(
@@ -266,12 +267,15 @@ class CallActivity(BaseService):
                         }), 
                         self.websocket_loop
                     )
-                    self.publish({
-                        "type": "play_sound",
-                        "effect_name": "BRING_BRING",
-                        "loop": True,
-                        "volume": 0.5
-                    })
+                    asyncio.run_coroutine_threadsafe(
+                        self.publish({
+                            "type": "play_sound",
+                            "effect_name": "BRING_BRING",
+                            "loop": True,
+                            "volume": 0.5
+                        }),
+                        self.websocket_loop
+                    )
                 elif call_status == 'in-progress':
                     asyncio.run_coroutine_threadsafe(
                         self.publish({
@@ -323,6 +327,14 @@ class CallActivity(BaseService):
                 stream_data = data.get("start", {})
                 self.logger.info(f"Stream metadata: {stream_data}")
                 self.stream_sid = stream_data.get("streamSid")
+                
+                # Now that WebSocket is connected, set up microphone consumer if not already done
+                if not self.mic_consumer and self.audio_manager:
+                    self.mic_consumer = self.audio_manager.add_consumer(
+                        callback=self._handle_mic_audio,
+                        chunk_size=None  # Use default chunks from AudioManager
+                    )
+                    self.logger.info("Microphone consumer added - WebSocket is ready for audio")
                 
             elif event == "media":
                 # Extract and decode audio payload
