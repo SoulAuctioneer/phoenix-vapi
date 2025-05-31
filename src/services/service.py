@@ -162,15 +162,25 @@ class ServiceManager:
         
     async def stop_service(self, name: str):
         """Stop a service and remove it from the manager"""
-        if name in self.services:
+        # Use the lock to prevent concurrent modifications
+        async with self._lock:
+            if name not in self.services:
+                self.logger.debug(f"Service {name} already stopped or not found")
+                return
+                
             service = self.services[name]
+            # Remove from services dict first to prevent duplicate stops
+            del self.services[name]
+            
+        # Perform the actual stop operations outside the lock to avoid deadlock
+        try:
             # Unsubscribe from all events
             await self.unsubscribe("*", service.handle_event)
-            await service.stop()                
-            del self.services[name]
+            await service.stop()
             self.logger.debug(f"Stopped service: {name}")
-        else:
-            self.logger.debug(f"Service {name} already stopped or not found")
+        except Exception as e:
+            self.logger.error(f"Error stopping service {name}: {e}", exc_info=True)
+            # Don't re-raise since we already removed it from services
             
     async def stop_all(self):
         """Stop all services"""

@@ -166,47 +166,52 @@ class CallActivity(BaseService):
             return
             
         self._stopping = True
-        self.logger.info("Call Activity stopping")
         
-        # First, remove audio resources to stop processing immediately
-        # This prevents the "No active WebSocket connections" warnings
-        if self.mic_consumer:
-            self.audio_manager.remove_consumer(self.mic_consumer)
-            self.mic_consumer = None
-            self.logger.info("Microphone consumer removed")
-            
-        if self.call_producer:
-            self.audio_manager.remove_producer("twilio_call")
-            self.call_producer = None
-            self.logger.info("Call audio producer removed")
-        
-        # Cancel polling task
-        # COMMENTED OUT: Not using polling, relying on status callbacks
-        # if self._polling_task:
-        #     if not self._polling_task.done():
-        #         self.logger.info("Cancelling call status polling task.")
-        #         self._polling_task.cancel()
-        #         try:
-        #             await self._polling_task
-        #         except asyncio.CancelledError:
-        #             pass
-        #     self._polling_task = None
-        
-        # End the call via API (this may take time)
-        await self._end_call()
-        
-        # Small delay to allow WebSocket to close gracefully after call ends
-        await asyncio.sleep(0.5)
-        
-        # Stop servers and clean up ngrok tunnels
-        # Use try-except to handle potential double-cleanup scenarios
         try:
-            await self.server_manager.cleanup()
-        except Exception as e:
-            self.logger.warning(f"Error during server cleanup (may be already cleaned up): {e}")
-        
-        await super().stop()
-        self.logger.info("Call Activity stopped")
+            self.logger.info("Call Activity stopping")
+            
+            # First, remove audio resources to stop processing immediately
+            # This prevents the "No active WebSocket connections" warnings
+            if self.mic_consumer:
+                self.audio_manager.remove_consumer(self.mic_consumer)
+                self.mic_consumer = None
+                self.logger.info("Microphone consumer removed")
+                
+            if self.call_producer:
+                self.audio_manager.remove_producer("twilio_call")
+                self.call_producer = None
+                self.logger.info("Call audio producer removed")
+            
+            # Cancel polling task
+            # COMMENTED OUT: Not using polling, relying on status callbacks
+            # if self._polling_task:
+            #     if not self._polling_task.done():
+            #         self.logger.info("Cancelling call status polling task.")
+            #         self._polling_task.cancel()
+            #         try:
+            #             await self._polling_task
+            #         except asyncio.CancelledError:
+            #             pass
+            #     self._polling_task = None
+            
+            # End the call via API (this may take time)
+            await self._end_call()
+            
+            # Small delay to allow WebSocket to close gracefully after call ends
+            await asyncio.sleep(0.5)
+            
+            # Stop servers and clean up ngrok tunnels
+            # Use try-except to handle potential double-cleanup scenarios
+            try:
+                await self.server_manager.cleanup()
+            except Exception as e:
+                self.logger.warning(f"Error during server cleanup (may be already cleaned up): {e}")
+            
+            await super().stop()
+            self.logger.info("Call Activity stopped")
+        finally:
+            # Always reset the stopping flag, even if an error occurred
+            self._stopping = False
 
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events relevant to the call activity."""
@@ -267,15 +272,26 @@ class CallActivity(BaseService):
                         }), 
                         self.websocket_loop
                     )
+                    # Play ringing sound effect
+                    self.logger.info("Playing ringing sound effect for outgoing call")
                     asyncio.run_coroutine_threadsafe(
                         self.publish({
                             "type": "play_sound",
                             "effect_name": "BRING_BRING",
-                            "loop": False
+                            "loop": True  # Loop the ringing sound until answered
                         }),
                         self.websocket_loop
                     )
                 elif call_status == 'in-progress':
+                    # Stop the ringing sound when call is answered
+                    self.logger.info("Call answered, stopping ringing sound")
+                    asyncio.run_coroutine_threadsafe(
+                        self.publish({
+                            "type": "stop_sound",
+                            "effect_name": "BRING_BRING"
+                        }),
+                        self.websocket_loop
+                    )
                     asyncio.run_coroutine_threadsafe(
                         self.publish({
                             "type": "pstn_call_answered",
@@ -285,6 +301,15 @@ class CallActivity(BaseService):
                         self.websocket_loop
                     )
                 elif call_status in ['completed', 'canceled', 'failed', 'no-answer', 'busy']:
+                    # Stop any playing sounds when call ends
+                    self.logger.info(f"Call ended with status: {call_status}, stopping any sounds")
+                    asyncio.run_coroutine_threadsafe(
+                        self.publish({
+                            "type": "stop_sound",
+                            "effect_name": "BRING_BRING"
+                        }),
+                        self.websocket_loop
+                    )
                     asyncio.run_coroutine_threadsafe(
                         self.publish({
                             "type": "pstn_call_completed_remotely",
