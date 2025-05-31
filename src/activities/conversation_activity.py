@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from .service import BaseService
+from services.service import BaseService
 from managers.conversation_manager import ConversationManager
 from managers.memory_manager import MemoryManager
 from config import ASSISTANT_ID, ASSISTANT_CONFIG
