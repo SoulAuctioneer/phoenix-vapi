@@ -36,6 +36,10 @@ OPENAI_API_KEY = clean_env_value(os.getenv('OPENAI_API_KEY'))  # Add OpenAI API 
 ELEVENLABS_API_KEY = clean_env_value(os.getenv('ELEVENLABS_API_KEY')) # ElevenLabs API Key
 NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 
+# Which voice to use for TTS
+TTS_VOICE = "ana" # Or "timmy"
+ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
+
 # Call Configuration
 class CallConfig:
     """Configuration for call-related settings"""        
@@ -407,12 +411,8 @@ class MoveActivityConfig:
 
 
 # AI Assistant Configuration
-# Which voice to use for TTS
-TTS_VOICE = "ana" # Or "timmy"
-ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
 # ASSISTANT_ID = "22526ed1-6961-4760-8d93-c3759d64557c" # "Fifi the Phoenix" VAPI agent
 ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # "Mister Wibble" VAPI agent (also used for Fifi now)
-
 
 ACTIVITIES_CONFIG = {
     "poem_with_effects": {
