@@ -1,21 +1,14 @@
 {
   "memories": [
     {
-      "content": "Your companion's name is Ash.",
+      "content": "The companion's favorite color is hot pink.",
       "topic": "preference",
       "importance": "medium",
       "timestamp": "2025-02-25T04:09:33.951128+00:00",
       "created_at": "February 24, 2025 at 08:09 PM PST"
     },
     {
-      "content": "Your companion's favorite color is hot pink.",
-      "topic": "preference",
-      "importance": "medium",
-      "timestamp": "2025-02-25T04:09:33.951128+00:00",
-      "created_at": "February 24, 2025 at 08:09 PM PST"
-    },
-    {
-      "content": "We went to the park and played with a dog named Max.",
+      "content": "The companion has travelled from San Francisco to stay in London.",
       "topic": "activity",
       "importance": "medium",
       "timestamp": "2025-05-04T04:41:45.904494+00:00",
@@ -26,7 +19,7 @@
       "topic": "activity",
       "importance": "medium",
       "timestamp": "2025-05-04T04:41:45.904494+00:00",
-      "created_at": "May 20, 2025 at 04:41 PM PST"
+      "created_at": "May 4, 2025 at 04:41 PM PST"
     }
   ]
 }
