@@ -271,8 +271,7 @@ class CallActivity(BaseService):
                         self.publish({
                             "type": "play_sound",
                             "effect_name": "BRING_BRING",
-                            "loop": True,
-                            "volume": 0.5
+                            "loop": False
                         }),
                         self.websocket_loop
                     )
