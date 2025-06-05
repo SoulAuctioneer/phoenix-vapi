@@ -1,7 +1,22 @@
 """
-ReSpeaker LED Bridge for LEDManager
-Allows LEDManager effects to be displayed on both NeoPixel and ReSpeaker LEDs.
-This version uses an efficient, event-driven "push" model to minimize CPU usage.
+ReSpeaker LED Bridge for LEDManager.
+
+This module provides a high-performance bridge to augment an existing `LEDManager`
+(which controls NeoPixel rings) with support for the ReSpeaker 4-Mic Array's
+onboard LEDs. It enables a unified, dual-LED system where both LED types work
+in concert.
+
+Architecture:
+The bridge uses an efficient, event-driven "push" model that is optimized for
+resource-constrained devices like the Raspberry Pi Zero 2 W.
+- It hooks into the `LEDManager`'s `pixels.show()` method.
+- It only consumes CPU and power when the NeoPixel LEDs are actually updated.
+- It has zero idle cost, which is critical for battery-powered devices.
+- Updates for both LED systems are perfectly synchronized.
+
+Primary Interface:
+The main entry point is the `augment_led_manager()` function, which takes an
+instance of `LEDManager` and seamlessly adds ReSpeaker support to it.
 """
 
 import usb.core
@@ -26,8 +41,16 @@ class MappingMode(Enum):
 
 class ReSpeakerLEDBridge:
     """
-    Bridge to send LEDManager effects to ReSpeaker 4-Mic Array LEDs.
-    This bridge is event-driven and is triggered by the LEDManager's `show()` method.
+    Manages the connection and command dispatch to the ReSpeaker USB device.
+
+    This class is the core worker of the bridge. It handles:
+    - Low-level USB communication in a dedicated, non-blocking thread.
+    - A command queue for sending frames and brightness updates.
+    - Sampling and mapping pixel data from the `LEDManager`.
+    - Graceful handling of USB connection errors and device presence.
+
+    This class is not typically instantiated directly. Instead, the
+    `augment_led_manager()` function should be used.
     """
     
     RESPEAKER_LEDS = 12
@@ -220,8 +243,45 @@ class ReSpeakerLEDBridge:
 
 def augment_led_manager(led_manager, mapping_mode: MappingMode = MappingMode.MIRROR_OUTER):
     """
-    Augments an existing LEDManager instance with ReSpeaker support using an
-    efficient, event-driven "push" model.
+    Augments an LEDManager instance with ReSpeaker support.
+
+    This is the main entry point for the bridge. It takes an existing,
+    initialized LEDManager and wraps its methods to automatically control the
+    ReSpeaker LEDs in sync with the NeoPixel rings.
+
+    This function modifies the `led_manager` object in-place.
+
+    Args:
+        led_manager: An instance of `LEDManager` or `LEDManagerRings`.
+        mapping_mode: The initial `MappingMode` to use for displaying effects
+                      on the ReSpeaker LEDs.
+
+    Returns:
+        An instance of `ReSpeakerLEDBridge` if the hardware is found,
+        otherwise `None`. The returned instance can be used to dynamically
+        change mapping modes or disable the bridge.
+
+    Example:
+        >>> from managers.led_manager import LEDManager
+        >>> from hardware.respeaker_led_bridge import augment_led_manager, MappingMode
+        >>>
+        >>> led_manager = LEDManager()
+        >>> bridge = augment_led_manager(led_manager)
+        >>>
+        >>> # Effects now appear on both NeoPixels and ReSpeaker LEDs
+        >>> led_manager.start_effect('RAINBOW')
+        >>>
+        >>> # Dynamically change how the ReSpeaker displays the effect
+        >>> if bridge:
+        ...     bridge.set_mapping_mode(MappingMode.HIGHLIGHT)
+
+    Mapping Modes (`MappingMode` enum):
+    - MIRROR_OUTER: Copies the outer ring's pattern (default).
+    - MIRROR_INNER: Copies the inner ring's pattern.
+    - SAMPLE_BOTH: Interleaves pixels from both rings.
+    - AVERAGE_BOTH: Blends the colors of both rings.
+    - COMPLEMENT: Shows opposite colors for high-contrast feedback.
+    - HIGHLIGHT: Emphasizes the brightest spots of the effect.
     """
     bridge = ReSpeakerLEDBridge(led_manager, mapping_mode)
     if not bridge.enabled:

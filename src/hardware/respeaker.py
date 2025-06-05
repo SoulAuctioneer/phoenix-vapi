@@ -1,3 +1,16 @@
+"""
+Low-level driver for the ReSpeaker 4-Mic Array LED ring.
+
+This module provides direct control over the ReSpeaker's onboard APA102 LEDs
+via its USB vendor-specific commands. It allows for setting individual pixels
+and running a small set of pre-programmed hardware effects (listen, speak, etc.).
+
+Note:
+This is a low-level driver. For integrating ReSpeaker LEDs with the project's
+main `LEDManager` (which controls NeoPixel rings), it is highly recommended to use
+the `hardware.respeaker_led_bridge.py` module instead. The bridge provides a
+more powerful, flexible, and efficient way to create unified dual-LED effects.
+"""
 import usb.core
 import usb.util
 
