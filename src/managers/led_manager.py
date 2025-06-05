@@ -50,6 +50,7 @@ class LEDManager:
         "PURRING": {'method': '_purring_effect', 'default_speed': 0.01},
         "ROTATING_COLOR": {'method': '_rotating_color_effect', 'default_speed': 0.05},
         "MAGICAL_SPELL": {'method': '_magical_spell_effect', 'default_speed': 0.03},
+        "SPARKLING_PINK_BLUE": {'method': '_sparkling_pink_blue_effect', 'default_speed': 0.04},
     }
 
     def __init__(self, initial_brightness=LEDConfig.LED_BRIGHTNESS):
@@ -398,19 +399,30 @@ class LEDManager:
                 for i in range(LEDConfig.LED_COUNT):
                     # Calculate position in the gradient cycle
                     position = (i / LEDConfig.LED_COUNT + j / 100.0) % 1.0
-                    # Interpolate between the two hues
-                    if position < 0.5:
-                        # Transition from color1 to color2
-                        hue = hue1 + (hue2 - hue1) * (position * 2)
+
+                    # Modified logic: A portion of the ring is off to save power.
+                    # We light 75% of the ring and fade it out at the edges for a smooth look.
+                    if position < 0.75:
+                        # Scale position to 0-1 for the lit portion of the ring
+                        gradient_position = position / 0.75
+                        
+                        # Interpolate hue across the lit portion
+                        if gradient_position < 0.5:
+                            hue = hue1 + (hue2 - hue1) * (gradient_position * 2)
+                        else:
+                            hue = hue2 + (hue1 - hue2) * ((gradient_position - 0.5) * 2)
+                        hue %= 1.0
+                        
+                        # Use a sine wave for a smooth fade-in/fade-out at the gradient ends.
+                        brightness_multiplier = math.sin(gradient_position * math.pi)
+                        current_value = value * brightness_multiplier
+                        
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, current_value)]
+                        self.pixels[i] = (r, g, b)
                     else:
-                        # Transition from color2 back to color1
-                        hue = hue2 + (hue1 - hue2) * ((position - 0.5) * 2)
+                        # The other 25% of the ring is off.
+                        self.pixels[i] = (0, 0, 0)
 
-                    # Ensure hue wraps around correctly if interpolation crosses 0/1 boundary
-                    hue %= 1.0
-
-                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, value)]
-                    self.pixels[i] = (r, g, b)
                 self.pixels.show()
                 time.sleep(wait)
 
@@ -821,6 +833,52 @@ class LEDManager:
             self.pixels.show()
             time.sleep(random.uniform(0.3, 0.8))
 
+    def _sparkling_pink_blue_effect(self, wait):
+        """A low-power twinkling effect using a pink and blue palette."""
+        pixel_states = [{'active': False, 'brightness': 0.0, 'hue': 0.0, 'direction': 1} for _ in range(LEDConfig.LED_COUNT)]
+        
+        # Pre-calculate pink and blue hues
+        pink_hue = colorsys.rgb_to_hsv(*[c/255.0 for c in COLORS["pink"]])[0]
+        blue_hue = colorsys.rgb_to_hsv(*[c/255.0 for c in COLORS["blue"]])[0]
+        palette = [pink_hue, blue_hue]
+
+        while not self._stop_event.is_set():
+            # Chance for inactive pixels to start twinkling
+            for pixel in pixel_states:
+                if not pixel['active'] and random.random() < 0.02: # Slightly higher activation chance
+                    pixel['active'] = True
+                    pixel['brightness'] = 0.0
+                    pixel['hue'] = random.choice(palette)
+                    pixel['direction'] = 1
+            
+            # Update active pixels
+            for i, pixel in enumerate(pixel_states):
+                if pixel['active']:
+                    speed_factor = 1.0 - (pixel['brightness'] ** 2)
+                    base_step = 0.03 # A bit faster twinkling
+                    step = base_step + (base_step * 2 * speed_factor)
+                    
+                    pixel['brightness'] += step * pixel['direction']
+                    
+                    if pixel['brightness'] >= 1.0:
+                        pixel['brightness'] = 1.0
+                        pixel['direction'] = -1
+                    elif pixel['brightness'] <= 0.0:
+                        if pixel['direction'] == -1:
+                            pixel['active'] = False
+                        pixel['brightness'] = 0.0
+                    
+                    if pixel['active']:
+                        # Use a fixed saturation for more vibrant colors
+                        saturation = 0.85 
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(pixel['hue'], saturation, pixel['brightness'])]
+                        self.pixels[i] = (r, g, b)
+                    else:
+                        self.pixels[i] = (0, 0, 0)
+            
+            self.pixels.show()
+            time.sleep(wait)
+
 class LEDManagerRings(LEDManager):
     """
     LED Manager specifically for setups with two concentric rings.
@@ -961,26 +1019,38 @@ class LEDManagerRings(LEDManager):
                 # Outer ring (Ring 1) - Normal rotation
                 for i in range(num_leds_ring1):
                     position = (i / num_leds_ring1 + j / 100.0) % 1.0
-                    if position < 0.5:
-                        hue = hue1 + (hue2 - hue1) * (position * 2)
+                    if position < 0.75:
+                        gradient_position = position / 0.75
+                        if gradient_position < 0.5:
+                            hue = hue1 + (hue2 - hue1) * (gradient_position * 2)
+                        else:
+                            hue = hue2 + (hue1 - hue2) * ((gradient_position - 0.5) * 2)
+                        hue %= 1.0
+                        brightness_multiplier = math.sin(gradient_position * math.pi)
+                        current_value = value * brightness_multiplier
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, current_value)]
+                        self.pixels[i] = (r, g, b)
                     else:
-                        hue = hue2 + (hue1 - hue2) * ((position - 0.5) * 2)
-                    hue %= 1.0
-                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, value)]
-                    self.pixels[i] = (r, g, b)
+                        self.pixels[i] = (0, 0, 0)
 
                 # Inner ring (Ring 2) - Counter-rotation
                 for i in range(num_leds_ring2):
                     # Use negative j for counter-rotation
                     position = (i / num_leds_ring2 - j / 100.0) % 1.0
-                    if position < 0.5:
-                        hue = hue1 + (hue2 - hue1) * (position * 2)
+                    if position < 0.75:
+                        gradient_position = position / 0.75
+                        if gradient_position < 0.5:
+                            hue = hue1 + (hue2 - hue1) * (gradient_position * 2)
+                        else:
+                            hue = hue2 + (hue1 - hue2) * ((gradient_position - 0.5) * 2)
+                        hue %= 1.0
+                        brightness_multiplier = math.sin(gradient_position * math.pi)
+                        current_value = value * brightness_multiplier
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, current_value)]
+                        # Apply to the correct slice of pixels
+                        self.pixels[num_leds_ring1 + i] = (r, g, b)
                     else:
-                        hue = hue2 + (hue1 - hue2) * ((position - 0.5) * 2)
-                    hue %= 1.0
-                    r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue, saturation, value)]
-                    # Apply to the correct slice of pixels
-                    self.pixels[num_leds_ring1 + i] = (r, g, b)
+                        self.pixels[num_leds_ring1 + i] = (0, 0, 0)
 
                 self.pixels.show()
                 time.sleep(wait)
@@ -1618,3 +1688,67 @@ class LEDManagerRings(LEDManager):
             self.pixels.fill((0, 0, 0))
             self.pixels.show()
             time.sleep(random.uniform(0.5, 1.0))
+
+    def _sparkling_pink_blue_effect(self, wait):
+        """Override: Pink and blue sparkles on outer ring, with a soft, slow blue/pink pulse on the inner ring."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Sparkling pink/blue effect requires both rings to have LEDs. Falling back to default.")
+            return super()._sparkling_pink_blue_effect(wait)
+
+        # --- Ring 1: Outer Ring Sparkles ---
+        pixel_states_ring1 = [{'active': False, 'brightness': 0.0, 'hue': 0.0, 'direction': 1} for _ in range(num_leds_ring1)]
+        pink_hue = colorsys.rgb_to_hsv(*[c/255.0 for c in COLORS["pink"]])[0]
+        blue_hue = colorsys.rgb_to_hsv(*[c/255.0 for c in COLORS["blue"]])[0]
+        palette = [pink_hue, blue_hue]
+        
+        # --- Ring 2: Inner Ring slow pulse ---
+        # Will interpolate between pink and a soft blue
+        inner_color1 = COLORS["pink"]
+        inner_color2 = (30, 80, 200) # A soft, darker blue to save power
+        
+        cycle_step = 0
+        while not self._stop_event.is_set():
+            # --- Update Ring 1 (Outer Ring) - Sparkles ---
+            for pixel in pixel_states_ring1:
+                if not pixel['active'] and random.random() < 0.03: # Activation chance
+                    pixel['active'] = True
+                    pixel['brightness'] = 0.0
+                    pixel['hue'] = random.choice(palette)
+                    pixel['direction'] = 1
+
+            for i, pixel in enumerate(pixel_states_ring1):
+                if pixel['active']:
+                    pixel['brightness'] += (0.03 + (0.03 * 2 * (1.0 - (pixel['brightness'] ** 2)))) * pixel['direction']
+
+                    if pixel['brightness'] >= 1.0: 
+                        pixel['brightness'], pixel['direction'] = 1.0, -1
+                    elif pixel['brightness'] <= 0.0 and pixel['direction'] == -1: 
+                        pixel['active'], pixel['brightness'] = False, 0.0
+                    
+                    if pixel['active']:
+                        r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(pixel['hue'], 0.9, pixel['brightness'])]
+                        self.pixels[i] = (r, g, b)
+                    else: 
+                        self.pixels[i] = (0, 0, 0)
+                else: 
+                    self.pixels[i] = (0, 0, 0)
+                
+            # --- Update Ring 2 (Inner Ring) - Slow Pulse ---
+            # Use a sine wave to smoothly transition between the two colors.
+            pulse_pos = (math.sin(cycle_step * math.pi / 100) + 1) / 2 # Normalized to 0-1
+            
+            # Linear interpolation between the two colors
+            r = int(inner_color1[0] * (1 - pulse_pos) + inner_color2[0] * pulse_pos)
+            g = int(inner_color1[1] * (1 - pulse_pos) + inner_color2[1] * pulse_pos)
+            b = int(inner_color1[2] * (1 - pulse_pos) + inner_color2[2] * pulse_pos)
+            
+            for i in range(num_leds_ring2):
+                self.pixels[num_leds_ring1 + i] = (r, g, b)
+
+            cycle_step = (cycle_step + 1) % 200
+            
+            self.pixels.show()
+            time.sleep(wait)
