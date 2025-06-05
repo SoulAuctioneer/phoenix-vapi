@@ -62,7 +62,7 @@ class IntentConfig:
     # Path to the Rhino context file for intent detection
     MODEL_PATH = clean_env_value(os.getenv('RHINO_MODEL_PATH'))    
     # How long to listen for an intent after wake word (in seconds)
-    DETECTION_TIMEOUT = 60.0
+    DETECTION_TIMEOUT = 7.0
 
 # Wake Word Configuration
 class WakeWordConfig:
@@ -75,15 +75,15 @@ class WakeWordConfig:
 # LED Configuration
 class LEDConfig:
     LED_PIN = 21  # GPIO10 for NeoPixel data - Using this to keep audio enabled on GPIO18
-    LED_BRIGHTNESS = 0.1  # LED brightness (0.0 to 1.0)
+    LED_BRIGHTNESS = 0.4  # LED brightness (0.0 to 1.0)
     LED_ORDER = "GRB"  # Color order of the LEDs (typically GRB or RGB)
     LED_COUNT = 32  # Number of NeoPixels in the ring / strip - 24 for ring, 160 for COB strip, 24+8 for large+small ring
     IS_DUAL_RINGS = True # Whether the LED strip is composed of two rings
     LED_COUNT_RING1 = 24 # Number of NeoPixels in the first ring
     LED_COUNT_RING2 = 8 # Number of NeoPixels in the second ring
     USE_RESPEAKER_LEDS = True # Whether to enable the ReSpeaker LED bridge
-    RESPEAKER_BRIGHTNESS_BOOST = 1.65 # Multiplier to adjust ReSpeaker brightness relative to NeoPixels (e.g., 1.25 = 25% brighter)
-    MAX_TOTAL_BRIGHTNESS = 10000 # Heuristic value to prevent power brownouts. This is the max sum of all RGB values across all pixels. A value of 10000 is a safe starting point.
+    RESPEAKER_BRIGHTNESS_BOOST = 1.6 # Multiplier to adjust ReSpeaker brightness relative to NeoPixels (e.g., 1.25 = 25% brighter)
+    MAX_TOTAL_BRIGHTNESS = 14000 # Heuristic value to prevent power brownouts. This is the max sum of all RGB values across all pixels. A value of 10000 is a safe starting point.
 
 # Base Audio Configuration (used by both ConversationConfig and AudioConfig)
 class AudioBaseConfig:
