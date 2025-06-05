@@ -166,8 +166,11 @@ class ReSpeakerLEDBridge:
         data = []
         brightness = self.led_manager.pixels.brightness if hasattr(self.led_manager.pixels, 'brightness') else 1.0
         for r, g, b in colors:
-            r, g, b = int(r * brightness), int(g * brightness), int(b * brightness)
-            data.extend([0xFF, b, g, r]) # APA102 format: [brightness, blue, green, red]
+            r_adj = int(r * brightness)
+            g_adj = int(g * brightness)
+            b_adj = int(b * brightness)
+            # The ReSpeaker v2 firmware expects a 4-byte package for each LED: [R, G, B, 0]
+            data.extend([r_adj, g_adj, b_adj, 0])
         self._command_queue.put((self.CMD_SHOW, data))
 
     def set_mapping_mode(self, mode: MappingMode):
