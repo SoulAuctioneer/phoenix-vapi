@@ -82,7 +82,7 @@ class LEDConfig:
     LED_COUNT_RING1 = 24 # Number of NeoPixels in the first ring
     LED_COUNT_RING2 = 8 # Number of NeoPixels in the second ring
     USE_RESPEAKER_LEDS = True # Whether to enable the ReSpeaker LED bridge
-    RESPEAKER_LED_BRIGHTNESS = 1.0 # Brightness for the ReSpeaker LEDs (0.0 to 1.0)
+    RESPEAKER_BRIGHTNESS_BOOST = 1.25 # Multiplier to adjust ReSpeaker brightness relative to NeoPixels (e.g., 1.25 = 25% brighter)
 
 # Base Audio Configuration (used by both ConversationConfig and AudioConfig)
 class AudioBaseConfig:

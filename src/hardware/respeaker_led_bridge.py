@@ -11,6 +11,7 @@ import queue
 import time
 from typing import List, Tuple
 from enum import Enum, auto
+from config import LEDConfig
 
 
 class MappingMode(Enum):
@@ -43,6 +44,7 @@ class ReSpeakerLEDBridge:
         self.mapping_mode = mapping_mode
         self.enabled = True
         self.dev = None
+        self._last_brightness = -1.0 # Initialize to an invalid value to force first update
         
         self._command_queue = queue.Queue()
         self._running = True
@@ -98,9 +100,27 @@ class ReSpeakerLEDBridge:
         if not self.enabled or not hasattr(self.led_manager, 'pixels'):
             return
             
+        # Set the hardware brightness on the ReSpeaker, if it has changed
+        self._set_hardware_brightness()
+            
         frame = self._sample_leds()
         self._send_frame(frame)
     
+    def _set_hardware_brightness(self):
+        """Checks for brightness changes and sends a hardware command if needed."""
+        # Get the effective brightness from the LEDManager
+        base_brightness = self.led_manager.pixels.brightness if hasattr(self.led_manager.pixels, 'brightness') else 1.0
+        
+        # Apply the boost and clamp the value between 0.0 and 1.0
+        boosted_brightness = min(1.0, max(0.0, base_brightness * LEDConfig.RESPEAKER_BRIGHTNESS_BOOST))
+        
+        # Use a small tolerance for float comparison to avoid unnecessary USB commands
+        if abs(boosted_brightness - self._last_brightness) > 0.01:
+            # The ReSpeaker v2 hardware brightness is controlled by a value from 0-255
+            brightness_val = int(boosted_brightness * 255)
+            self._command_queue.put((self.CMD_SET_BRIGHTNESS, [brightness_val]))
+            self._last_brightness = boosted_brightness
+
     def _sample_leds(self) -> List[Tuple[int, int, int]]:
         """Sample LEDManager pixels based on the current mapping mode."""
         pixels = self.led_manager.pixels
@@ -162,15 +182,13 @@ class ReSpeakerLEDBridge:
         return highlighted
 
     def _send_frame(self, colors: List[Tuple[int, int, int]]):
-        """Queue a frame to be sent to the ReSpeaker."""
+        """Queue a frame of raw colors to be sent to the ReSpeaker."""
         data = []
-        brightness = self.led_manager.pixels.brightness if hasattr(self.led_manager.pixels, 'brightness') else 1.0
+        # Brightness is now handled by the hardware via the _set_hardware_brightness method.
+        # We send raw, unscaled color values.
         for r, g, b in colors:
-            r_adj = int(r * brightness)
-            g_adj = int(g * brightness)
-            b_adj = int(b * brightness)
             # The ReSpeaker v2 firmware expects a 4-byte package for each LED: [R, G, B, 0]
-            data.extend([r_adj, g_adj, b_adj, 0])
+            data.extend([r, g, b, 0])
         self._command_queue.put((self.CMD_SHOW, data))
 
     def set_mapping_mode(self, mode: MappingMode):
