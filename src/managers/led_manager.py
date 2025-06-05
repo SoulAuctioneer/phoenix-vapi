@@ -109,7 +109,47 @@ class LEDManager:
             self.pixels.brightness = self._base_brightness # Set initial mock brightness
             logging.info(f"Mock NeoPixel initialized with {LEDConfig.LED_COUNT} LEDs at base brightness {self._base_brightness:.2f}")
         
+        # Wrap the show() method to implement power capping.
+        self._original_show = self.pixels.show
+        self.pixels.show = self._capped_show
+        
         self.clear()
+
+    def _capped_show(self):
+        """A wrapper for the real show() method that caps total brightness to prevent power issues."""
+        # This check is only meaningful if we have real LEDs that consume power.
+        if not LEDS_AVAILABLE:
+            self._original_show()
+            return
+
+        # Check if the power capping feature is configured.
+        if not hasattr(LEDConfig, 'MAX_TOTAL_BRIGHTNESS') or LEDConfig.MAX_TOTAL_BRIGHTNESS <= 0:
+            self._original_show()
+            return
+            
+        # Calculate the total brightness of the current frame buffer as a proxy for power consumption.
+        try:
+            # Reading the entire buffer into a list first is safer and avoids potential
+            # issues with modifying the buffer while iterating.
+            current_pixels = [self.pixels[i] for i in range(self.pixels.n)]
+            total_brightness = sum(sum(p) for p in current_pixels)
+        except Exception as e:
+            logging.error(f"Could not read pixel buffer for power capping: {e}")
+            self._original_show()
+            return
+
+        # If total brightness exceeds the configured maximum, scale all pixel values down.
+        if total_brightness > LEDConfig.MAX_TOTAL_BRIGHTNESS:
+            scale_factor = LEDConfig.MAX_TOTAL_BRIGHTNESS / total_brightness
+            # This logging can be spammy, so keep it at debug level.
+            logging.warning(f"Power capping triggered. Total brightness: {total_brightness}, scaling by: {scale_factor:.2f}")
+            
+            # Apply the scaled pixels back to the hardware buffer from our temporary list.
+            for i in range(self.pixels.n):
+                self.pixels[i] = tuple(int(c * scale_factor) for c in current_pixels[i])
+        
+        # Call the original, hardware-level show() method.
+        self._original_show()
 
     def _blend_colors(self, color1, color2):
         """Blend two colors by taking the maximum of each component"""
