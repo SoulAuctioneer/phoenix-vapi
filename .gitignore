@@ -170,5 +170,5 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# TTS cache directory
-data/tts_cache/
+# User-specific data
+data/
