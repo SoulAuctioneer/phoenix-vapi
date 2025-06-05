@@ -22,9 +22,9 @@ class LEDService(BaseService):
                 logging.info("Using single LED strip setup.")
                 self.led_controller = LEDManager(initial_brightness=LEDConfig.LED_BRIGHTNESS)
 
-            # Augment with ReSpeaker LED bridge if on the target platform
-            if self.platform == "raspberry-pi":
-                logging.info("Attempting to augment LED manager with ReSpeaker bridge.")
+            # Augment with ReSpeaker LED bridge
+            if LEDConfig.USE_RESPEAKER_LEDS:
+                logging.info("Augmenting LED manager with ReSpeaker bridge.")
                 # This function modifies the led_controller in place to add ReSpeaker support
                 self.respeaker_bridge = augment_led_manager(self.led_controller)
                 if self.respeaker_bridge:

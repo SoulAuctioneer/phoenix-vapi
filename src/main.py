@@ -47,13 +47,13 @@ for logger_name in [
 
 
 # Disable the LEDs on the Respeaker 4-mic array
-if PLATFORM == "raspberry-pi":
-    logging.info("Disabling LEDs on Respeaker 4-mic array")
-    try:
-        from hardware.respeaker import disable_leds
-        disable_leds()
-    except Exception as e:
-        logging.warning(f"Failed to disable Respeaker LEDs: {e}")
+# if PLATFORM == "raspberry-pi":
+#     logging.info("Disabling LEDs on Respeaker 4-mic array")
+#     try:
+#         from hardware.respeaker import disable_leds
+#         disable_leds()
+#     except Exception as e:
+#         logging.warning(f"Failed to disable Respeaker LEDs: {e}")
 
 
 class PhoenixApp:
