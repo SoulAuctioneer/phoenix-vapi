@@ -62,7 +62,7 @@ class IntentConfig:
     # Path to the Rhino context file for intent detection
     MODEL_PATH = clean_env_value(os.getenv('RHINO_MODEL_PATH'))    
     # How long to listen for an intent after wake word (in seconds)
-    DETECTION_TIMEOUT = 7.0
+    DETECTION_TIMEOUT = 60.0
 
 # Wake Word Configuration
 class WakeWordConfig:
