@@ -1,0 +1,231 @@
+"""
+ReSpeaker LED Bridge for LEDManager
+Allows LEDManager effects to be displayed on both NeoPixel and ReSpeaker LEDs.
+This version uses an efficient, event-driven "push" model to minimize CPU usage.
+"""
+
+import usb.core
+import usb.util
+import threading
+import queue
+import time
+from typing import List, Tuple
+from enum import Enum, auto
+
+
+class MappingMode(Enum):
+    """How to map LEDManager frames to ReSpeaker LEDs"""
+    MIRROR_OUTER = auto()      # Mirror the outer NeoPixel ring
+    MIRROR_INNER = auto()      # Mirror the inner NeoPixel ring
+    SAMPLE_BOTH = auto()       # Sample from both rings
+    AVERAGE_BOTH = auto()      # Average colors from both rings
+    COMPLEMENT = auto()        # Show complementary patterns
+    HIGHLIGHT = auto()         # Highlight/accent the main effect
+
+
+class ReSpeakerLEDBridge:
+    """
+    Bridge to send LEDManager effects to ReSpeaker 4-Mic Array LEDs.
+    This bridge is event-driven and is triggered by the LEDManager's `show()` method.
+    """
+    
+    RESPEAKER_LEDS = 12
+    USB_VID = 0x2886
+    USB_PID = 0x0018
+    TIMEOUT = 8000
+    
+    # USB Commands
+    CMD_SHOW = 6
+    CMD_SET_BRIGHTNESS = 0x20
+    
+    def __init__(self, led_manager, mapping_mode: MappingMode = MappingMode.MIRROR_OUTER):
+        self.led_manager = led_manager
+        self.mapping_mode = mapping_mode
+        self.enabled = True
+        self.dev = None
+        
+        self._command_queue = queue.Queue()
+        self._running = True
+        
+        self._connect()
+        
+        # Start a single worker thread for non-blocking USB communication
+        self._usb_thread = threading.Thread(target=self._usb_worker)
+        self._usb_thread.daemon = True
+        self._usb_thread.start()
+    
+    def _connect(self):
+        """Connect to ReSpeaker device, disabling if not found."""
+        if not self.enabled: return
+        try:
+            self.dev = usb.core.find(idVendor=self.USB_VID, idProduct=self.USB_PID)
+            if self.dev:
+                print("ReSpeaker LED Bridge: Connected to ReSpeaker 4-Mic Array.")
+            else:
+                print("ReSpeaker LED Bridge: ReSpeaker not found, bridge is disabled.")
+                self.enabled = False
+        except Exception as e:
+            print(f"ReSpeaker LED Bridge: USB connection error: {e}. Bridge is disabled.")
+            self.enabled = False
+            self.dev = None
+    
+    def _usb_worker(self):
+        """Worker thread for processing the USB command queue."""
+        while self._running:
+            try:
+                cmd, data = self._command_queue.get(timeout=1)
+                if self.dev and self.enabled:
+                    self.dev.ctrl_transfer(
+                        usb.util.CTRL_OUT | usb.util.CTRL_TYPE_VENDOR | usb.util.CTRL_RECIPIENT_DEVICE,
+                        0, cmd, 0x1C, data, self.TIMEOUT
+                    )
+            except queue.Empty:
+                continue
+            except usb.core.USBError as e:
+                print(f"ReSpeaker LED Bridge: USB error: {e}. Attempting to reconnect.")
+                self._connect()
+                # Give it a moment before continuing
+                time.sleep(5)
+            except Exception as e:
+                print(f"ReSpeaker LED Bridge: Unhandled error in USB worker: {e}")
+                self.enabled = False # Disable on unknown error
+                
+    def update(self):
+        """
+        Public method called to trigger a frame update on the ReSpeaker.
+        This should be called from the wrapped `show()` method in LEDManager.
+        """
+        if not self.enabled or not hasattr(self.led_manager, 'pixels'):
+            return
+            
+        frame = self._sample_leds()
+        self._send_frame(frame)
+    
+    def _sample_leds(self) -> List[Tuple[int, int, int]]:
+        """Sample LEDManager pixels based on the current mapping mode."""
+        pixels = self.led_manager.pixels
+        
+        if hasattr(self.led_manager, 'ring1_pixels'):
+            num_outer = len(self.led_manager.ring1_pixels)
+            num_inner = len(self.led_manager.ring2_pixels)
+            has_dual_rings = True
+        else:
+            num_outer = len(pixels.n) if hasattr(pixels, 'n') else 0
+            num_inner = 0
+            has_dual_rings = False
+        
+        # Select mapping function
+        mapping_functions = {
+            MappingMode.MIRROR_OUTER: lambda: self._mirror_ring(pixels, 0, num_outer),
+            MappingMode.MIRROR_INNER: lambda: self._mirror_ring(pixels, num_outer, num_inner) if has_dual_rings else [],
+            MappingMode.SAMPLE_BOTH: lambda: self._sample_both(pixels, num_outer, num_inner) if has_dual_rings else [],
+            MappingMode.AVERAGE_BOTH: lambda: self._average_both(pixels, num_outer, num_inner) if has_dual_rings else [],
+            MappingMode.COMPLEMENT: lambda: self._complement_ring(pixels, 0, num_outer),
+            MappingMode.HIGHLIGHT: lambda: self._highlight_ring(pixels, 0, num_outer),
+        }
+        
+        # Get frame from mapping function, fallback to mirroring outer ring
+        frame = mapping_functions.get(self.mapping_mode, mapping_functions[MappingMode.MIRROR_OUTER])()
+        return frame if frame else self._mirror_ring(pixels, 0, num_outer)
+
+    def _mirror_ring(self, pixels, start_idx, ring_size):
+        if ring_size == 0: return [(0,0,0)] * self.RESPEAKER_LEDS
+        return [pixels[start_idx + int(i * ring_size / self.RESPEAKER_LEDS)] for i in range(self.RESPEAKER_LEDS)]
+
+    def _sample_both(self, pixels, num_outer, num_inner):
+        outer = self._mirror_ring(pixels, 0, num_outer)
+        inner = self._mirror_ring(pixels, num_outer, num_inner)
+        return [outer[i] if i % 2 == 0 else inner[i] for i in range(self.RESPEAKER_LEDS)]
+
+    def _average_both(self, pixels, num_outer, num_inner):
+        outer = self._mirror_ring(pixels, 0, num_outer)
+        inner = self._mirror_ring(pixels, num_outer, num_inner)
+        return [tuple((o + i) // 2 for o, i in zip(c1, c2)) for c1, c2 in zip(outer, inner)]
+
+    def _complement_ring(self, pixels, start_idx, ring_size):
+        original = self._mirror_ring(pixels, start_idx, ring_size)
+        return [(255 - r, 255 - g, 255 - b) for r, g, b in original]
+
+    def _highlight_ring(self, pixels, start_idx, ring_size):
+        original = self._mirror_ring(pixels, start_idx, ring_size)
+        total_brightness = sum(sum(c) for c in original)
+        if total_brightness == 0: return original
+        
+        avg_brightness = total_brightness / (len(original) * 3)
+        highlighted = []
+        for r, g, b in original:
+            brightness = (r + g + b) / 3
+            if brightness > avg_brightness * 1.2:
+                highlighted.append((min(255, int(r*1.5)), min(255, int(g*1.5)), min(255, int(b*1.5))))
+            else:
+                highlighted.append((int(r*0.4), int(g*0.4), int(b*0.4)))
+        return highlighted
+
+    def _send_frame(self, colors: List[Tuple[int, int, int]]):
+        """Queue a frame to be sent to the ReSpeaker."""
+        data = []
+        brightness = self.led_manager.pixels.brightness if hasattr(self.led_manager.pixels, 'brightness') else 1.0
+        for r, g, b in colors:
+            r, g, b = int(r * brightness), int(g * brightness), int(b * brightness)
+            data.extend([0xFF, b, g, r]) # APA102 format: [brightness, blue, green, red]
+        self._command_queue.put((self.CMD_SHOW, data))
+
+    def set_mapping_mode(self, mode: MappingMode):
+        self.mapping_mode = mode
+
+    def enable(self):
+        if not self.enabled:
+            self.enabled = True
+            self._connect()
+
+    def disable(self):
+        if self.enabled:
+            self.enabled = False
+            self.clear()
+
+    def clear(self):
+        if self.dev:
+            self._send_frame([(0, 0, 0)] * self.RESPEAKER_LEDS)
+
+    def close(self):
+        if self._running:
+            self._running = False
+            self.clear()
+            self._command_queue.put((None, None)) # Sentinel to unblock worker
+            if self._usb_thread.is_alive():
+                self._usb_thread.join(timeout=1.0)
+            if self.dev:
+                usb.util.dispose_resources(self.dev)
+
+def augment_led_manager(led_manager, mapping_mode: MappingMode = MappingMode.MIRROR_OUTER):
+    """
+    Augments an existing LEDManager instance with ReSpeaker support using an
+    efficient, event-driven "push" model.
+    """
+    bridge = ReSpeakerLEDBridge(led_manager, mapping_mode)
+    if not bridge.enabled:
+        print("Could not initialize ReSpeaker bridge. Continuing without ReSpeaker LEDs.")
+        return None
+        
+    led_manager._respeaker_bridge = bridge
+
+    # Wrap the pixels.show() method to trigger the bridge update
+    if hasattr(led_manager.pixels, 'show'):
+        original_show = led_manager.pixels.show
+        def show_all():
+            original_show()
+            bridge.update()
+        led_manager.pixels.show = show_all
+    
+    # Wrap the clear() method to also clear the ReSpeaker
+    original_clear = led_manager.clear
+    def clear_all():
+        original_clear()
+        bridge.clear()
+    led_manager.clear = clear_all
+
+    # Ensure the bridge is closed when the app shuts down
+    import atexit
+    atexit.register(bridge.close)
+    
+    return bridge 

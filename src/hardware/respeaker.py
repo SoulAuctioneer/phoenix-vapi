@@ -54,6 +54,7 @@ class PixelRing:
     def set_color_palette(self, a, b):
         self.write(0x21, [(a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF, 0, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF, 0])
 
+    # Voice Activity Detection LED (VAD)
     def set_vad_led(self, state):
         self.write(0x22, [state])
 
@@ -62,7 +63,7 @@ class PixelRing:
         self.write(0x23, [volume])
 
     def change_pattern(self, pattern=None):
-        print('Not support to change pattern')
+        print('Changing pattern is not yet supported')
 
     def write(self, cmd, data=[0]):
         self.dev.ctrl_transfer(
