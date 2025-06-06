@@ -8,6 +8,7 @@ import asyncio
 import time
 import requests
 from enum import Enum
+import concurrent.futures
 from managers.audio_manager import AudioManager
 from config import ConversationConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT
 import queue
@@ -893,6 +894,17 @@ class ConversationManager:
             
             # Small delay to ensure client is fully released
             await asyncio.sleep(0.2)
+            
+            # Finally deinit Daily
+            try:
+                loop = asyncio.get_running_loop()
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    await loop.run_in_executor(pool, daily.Daily.deinit)
+                logging.info("Daily runtime deinitialized")
+                # Add delay after deinit to ensure cleanup
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                logging.error(f"Error deinitializing Daily runtime: {e}")
             
             # Reset to initialized state
             await self.state_manager.transition_to(CallState.INITIALIZED)

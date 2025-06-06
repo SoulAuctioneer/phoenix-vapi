@@ -280,12 +280,9 @@ class ActivityService(BaseService):
         })
         
         # Default behavior: If no other transition is queued or running, go to SLEEP
-        self.logger.info(f"Checking for default transition to SLEEP. is_transitioning: {self.is_transitioning}, queue empty: {self._transition_queue.empty()}")
         if not self.is_transitioning and self._transition_queue.empty():
             self.logger.info(f"Activity {activity.name} ended, transitioning to default SLEEP activity.")
             await self._queue_transition(ActivityType.SLEEP)
-        else:
-            self.logger.warning(f"Skipping default transition to SLEEP. is_transitioning={self.is_transitioning}, transition_queue_empty={self._transition_queue.empty()}")
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
@@ -334,7 +331,7 @@ class ActivityService(BaseService):
 
         elif event_type == "conversation_ended":
             # A conversation has finished. Stop the conversation activity.
-            if self.current_activity == ActivityType.CONVERSATION:
+            if self.current_activity == ActivityType.CONVERSATION and not self.is_transitioning:
                 await self._stop_activity(ActivityType.CONVERSATION)
                 
         elif event_type == "hide_seek_won":
