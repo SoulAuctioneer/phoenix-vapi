@@ -9,6 +9,7 @@ SHURLAND EVENT TO DO LIST:
   * Amplifiers
   * Neopixel ring 24 x 3 + 8 x 3
   * SD Cards x 4
+  * BLE Beacons x 4
   ADAFRUIT:  
   * Battery x 4 (ideally 50mm x 57mm x 7mm)
   * Power switch x 4
@@ -29,14 +30,10 @@ SHURLAND EVENT TO DO LIST:
 * Install OS on raspberry pi
 * Modify shell to incorporate usb-c charging port
 * Make bluetooth speaker pea
-* Contact wossname, see if she wanna help for a couple of weeks
-* Buy fur
-* Buy juggling balls
+* Contact Tess, see if she wanna help for a couple of weeks
 * Make fur coats
-* Make docks
-* Buy all the hardware bits
+* Design and make docks
 * Picovoice need license keys for all devices
-* Buy bluetooth thingies
 * Disable amplifier when audio is not playing (has a "enable" pin) 
 
 SOFTWARE:
