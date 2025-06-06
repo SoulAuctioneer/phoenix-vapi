@@ -2,9 +2,10 @@ import logging
 import random
 from typing import Dict, Any
 import asyncio
-from config import AudioBaseConfig, SoundEffect
+from config import AudioBaseConfig, SoundEffect, AudioAmplifierConfig
 from services.service import BaseService
 from managers.audio_manager import AudioManager, AudioConfig
+from hardware.amp_pam8302a import Amplifier
 
 class AudioService(BaseService):
     """Service to manage the AudioManager lifecycle"""
@@ -13,17 +14,29 @@ class AudioService(BaseService):
         self.audio_manager = None
         self._purring_active = False  # Track if purring sound is currently active
         self.volume_before_mute = None  # Store volume level before muting
+        self.amplifier = None
         
     async def start(self):
         """Start the audio service"""
         await super().start()
         
         try:
+            # Initialize the amplifier if enabled for the current platform
+            if AudioAmplifierConfig.IS_AMPLIFIER_ENABLED:
+                self.amplifier = Amplifier(shutdown_pin=AudioAmplifierConfig.ENABLE_PIN, initial_state='off')
+                self.logger.info(f"Amplifier initialized on GPIO {AudioAmplifierConfig.ENABLE_PIN}")
+
             # Initialize audio manager with default config
             config = AudioConfig()
             self.audio_manager = AudioManager.get_instance(config)
+            
+            # Pass amplifier to audio manager for power control
+            if self.amplifier:
+                self.audio_manager.set_amplifier(self.amplifier)
+
             self.audio_manager.start()
             self.logger.info("Audio service started successfully")
+            
             # Initialize AudioManager's master volume based on GlobalState
             if self.audio_manager and self.global_state:
                 self.audio_manager.set_master_volume(self.global_state.volume)
@@ -40,6 +53,9 @@ class AudioService(BaseService):
                 self.logger.info("Audio service stopped successfully")
             except Exception as e:
                 self.logger.error(f"Error stopping audio service: {e}")
+
+        if self.amplifier:
+            self.amplifier.cleanup()
                 
         await super().stop()
 

@@ -85,6 +85,14 @@ class LEDConfig:
     RESPEAKER_BRIGHTNESS_BOOST = 1.6 # Multiplier to adjust ReSpeaker brightness relative to NeoPixels (e.g., 1.25 = 25% brighter)
     MAX_TOTAL_BRIGHTNESS = 14000 # Heuristic value to prevent power brownouts. This is the max sum of all RGB values across all pixels. A value of 10000 is a safe starting point.
 
+# Audio Amplifier Configuration
+class AudioAmplifierConfig:
+    """Configuration for the audio amplifier"""
+    # Only enable amplifier on the physical device
+    IS_AMPLIFIER_ENABLED = (PLATFORM == "raspberry-pi")
+    ENABLE_PIN = 17  # GPIO pin to enable the amplifier
+    DISABLE_DELAY = 0.2  # Grace period in seconds before disabling amp
+
 # Base Audio Configuration (used by both ConversationConfig and AudioConfig)
 class AudioBaseConfig:
     """Base audio configuration that all audio components should use"""

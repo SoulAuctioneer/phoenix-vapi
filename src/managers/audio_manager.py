@@ -9,7 +9,7 @@ import os
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
-from config import SoundEffect, AudioBaseConfig
+from config import SoundEffect, AudioBaseConfig, AudioAmplifierConfig
 
 @dataclass
 class AudioConfig:
@@ -176,7 +176,18 @@ class AudioManager:
         self._requeue_thread = None
         self._requeue_stop = threading.Event()
         self.master_volume: float = AudioBaseConfig.DEFAULT_VOLUME # Initialize directly from AudioBaseConfig
+        self.amplifier = None
+        self._amp_enabled = False
+        self._last_audio_activity_time = 0
         
+    def set_amplifier(self, amplifier):
+        """Sets the amplifier instance for power management."""
+        self.amplifier = amplifier
+        # Ensure amp is off initially if we are just setting it
+        if self.amplifier and self._amp_enabled:
+            self.amplifier.disable()
+            self._amp_enabled = False
+
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
         consumer = AudioConsumer(callback, chunk_size)
@@ -441,6 +452,16 @@ class AudioManager:
                     # Convert back to int16 and clip to prevent overflow
                     mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
                         
+                if active_producers > 0:
+                    self._last_audio_activity_time = time.time()
+                    if self.amplifier and not self._amp_enabled:
+                        self.amplifier.enable()
+                        self._amp_enabled = True
+                elif self.amplifier and self._amp_enabled:
+                    if time.time() - self._last_audio_activity_time > AudioAmplifierConfig.DISABLE_DELAY:
+                        self.amplifier.disable()
+                        self._amp_enabled = False
+
                 # Write to output stream
                 if active_producers > 0 or np.any(mixed_audio):
                     logging.debug(f"Writing {len(mixed_audio)} samples to output stream with master_volume {self.master_volume:.2f}")
@@ -670,3 +691,25 @@ class AudioManager:
         """Set the master volume for all audio output, clamping between 0.0 and 1.0."""
         self.master_volume = max(0.0, min(1.0, volume))
         logging.info(f"Master volume set to {self.master_volume}")
+
+    def get_sound_duration(self, effect_name: str) -> Optional[float]:
+        """
+        Get the duration of a sound effect in seconds.
+        Args:
+            effect_name: Name of the sound effect (case-insensitive)
+        Returns:
+            float: Duration in seconds, or None if not found
+        """
+        wav_path = SoundEffect.get_file_path(effect_name)
+        if not wav_path or not os.path.exists(wav_path):
+            logging.error(f"Sound effect not found for duration check: {effect_name}")
+            return None
+        try:
+            with wave.open(wav_path, "rb") as wf:
+                frames = wf.getnframes()
+                rate = wf.getframerate()
+                duration = frames / float(rate)
+                return duration
+        except Exception as e:
+            logging.error(f"Could not read duration from WAV file {wav_path}: {e}")
+            return None

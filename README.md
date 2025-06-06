@@ -42,6 +42,7 @@ Raspberry Pi
 - I2C Qwiic: bottom left: red, blue, yellow, skip, black
 - Power: top left: skip, red, black
 - LED data: top right
+- Amplifier shutdown pin: GPIO 17 (bottom, 6th from left, right after the I2C Qwiic)
 Powerboost From Right:
 - Rightmost: 5V
 - 2nd rightmost: GND

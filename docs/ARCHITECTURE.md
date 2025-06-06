@@ -78,6 +78,7 @@ Below is a comprehensive list of events used throughout the system:
 
 The application integrates with various sensors to enable interaction:
 - Audio input/output for voice detection and responses
+- Class-D audio amplifier PAM8302A
 - BLE beacons for location tracking
 - Accelerometer for motion detection
 - Touch sensors for physical interaction
