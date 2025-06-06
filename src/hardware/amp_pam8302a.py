@@ -69,14 +69,14 @@ class Amplifier:
     def enable(self):
         """Enables the amplifier."""
         if not self.is_enabled:
-            GPIO.output(self.shutdown_pin, GPIO.LOW) # Swapping just to test
+            GPIO.output(self.shutdown_pin, GPIO.HIGH)
             self.is_enabled = True
             print("Amplifier enabled.")
 
     def disable(self):
         """Disables the amplifier to save power."""
         if self.is_enabled:
-            GPIO.output(self.shutdown_pin, GPIO.HIGH) # Swapping just to test
+            GPIO.output(self.shutdown_pin, GPIO.LOW)
             self.is_enabled = False
             print("Amplifier disabled.")
 
