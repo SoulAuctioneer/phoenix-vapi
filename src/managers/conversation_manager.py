@@ -894,15 +894,6 @@ class ConversationManager:
             # Small delay to ensure client is fully released
             await asyncio.sleep(0.2)
             
-            # Finally deinit Daily
-            try:
-                daily.Daily.deinit()
-                logging.info("Daily runtime deinitialized")
-                # Add delay after deinit to ensure cleanup
-                await asyncio.sleep(0.2)
-            except Exception as e:
-                logging.error(f"Error deinitializing Daily runtime: {e}")
-            
             # Reset to initialized state
             await self.state_manager.transition_to(CallState.INITIALIZED)
             
