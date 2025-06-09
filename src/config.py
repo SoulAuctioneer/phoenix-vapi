@@ -612,6 +612,77 @@ ACTIVITIES_CONFIG = {
                 * Why do leaves change color in autumn?
                 * How do bees make honey?
             """)
+    },
+    "would_you_rather": {
+        "metadata": {
+            "title": "Would You Rather?",
+            "synopsis": "Choose between two silly and magical scenarios."
+        },
+        "instructions": dedent("""
+            Present two funny, imaginative scenarios and ask your companion which they would rather choose. 
+            After they choose, ask them why they picked that option. Then respond playfully with your own thoughts.
+            """).strip(),
+        "content": dedent("""
+            Examples:
+                * Would you rather have spaghetti hair or broccoli feet?
+                * Would you rather talk like a robot or sing everything you say?
+                * Would you rather ride a flying elephant or a giant hamster?
+                * Would you rather explore the deep sea or travel to outer space?
+                * Would you rather speak every language in the world or talk to animals?
+                * Would you rather live in a treehouse or a submarine?
+                * Would you rather be the hero in every story or the villain with a cool backstory?
+                * Would you rather read a book that never ends or write one that becomes famous?
+            """).strip()
+    },
+
+    "story_chain": {
+        "metadata": {
+            "title": "Story Chain",
+            "synopsis": "Create a silly story together, one sentence at a time."
+        },
+        "instructions": dedent("""
+            You and your companion take turns adding one sentence at a time to create a funny and magical story.
+            Keep the story whimsical and silly, and encourage imaginative additions. Respond enthusiastically and add playful twists!
+            """).strip(),
+        "content": dedent("""
+            Start by suggesting a fun story idea, such as:
+            * "Once upon a time, there was a talking pancake named Flippy who wanted to explore the syrup sea..."
+            * "In a magical kingdom, a tiny dragon named Puffball dreamed of becoming the biggest dragon ever..."
+            * "A pair of socks named Lefty and Righty woke up one morning and decided they would no longer be socks..."
+            """).strip()
+    },
+
+    "math_riddle": {
+        "metadata": {
+            "title": "Math Riddle",
+            "synopsis": "Solve fun number puzzles together!"
+        },
+        "instructions": dedent("""
+            Present a simple math riddle. Wait for your companion's answer and encourage them with hints if they're struggling.
+            Celebrate correct answers enthusiastically. If they get stuck, gently guide them to the solution.
+            """).strip(),
+        "content": dedent("""
+            Examples of riddles:
+            * "I'm a number between 10 and 20. If you double me, I become 30. What am I? (Answer: 15)"
+            * "I have two digits. The sum of my digits is 9. If you reverse my digits, I become 36. What am I? (Answer: 63)"
+            * "I am an even number. If you add 4 to me, you get 10. What number am I? (Answer: 6)"
+            """).strip()
+    },
+
+    "animal_alphabet": {
+        "metadata": {
+            "title": "Animal Alphabet",
+            "synopsis": "Take turns naming animals from A to Z!"
+        },
+        "instructions": dedent("""
+            You and your companion take turns naming animals starting with the next letter of the alphabet. 
+            Start with "A" and continue until someone can't think of an animal. That player loses!
+            Respond playfully after each answer, adding interesting or silly animal facts when possible.
+            """).strip(),
+        "content": dedent("""
+            Start the game enthusiastically by saying:
+            "Let's play Animal Alphabet! I'll start with A—Aardvark! Now it's your turn with B!"
+            """).strip()
     }
 }
 
