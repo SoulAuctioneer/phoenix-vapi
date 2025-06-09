@@ -164,6 +164,7 @@ class ActivityService(BaseService):
                 self.logger.info(f"Stopping service: {service_name}")
                 try:
                     await self._service_manager.stop_service(service_name)
+                    self.logger.info(f"Successfully stopped service: {service_name}")
                 except Exception as e:
                      self.logger.error(f"Failed to stop service {service_name}: {e}", exc_info=True)
                 # Always remove from active services, even if stop failed, but check if it still exists

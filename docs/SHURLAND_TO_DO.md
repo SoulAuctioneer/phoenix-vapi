@@ -1,3 +1,16 @@
+* IMPORTANT: SWAP BATTERY POLARITY
+
+Expenses:
+- Nad work hours
+- Purchases
+- Per diem
+- Flight May
+
+Nad work hours:
+* 6th 1.45 - 6:15 4.5 hrs PAID $225
+* 7th: 3.00 - 8.30 5.5 hrs PAID $275
+* 8th: 3.00 - 4.45 and 
+
 https://docs.google.com/presentation/d/10CB5ldhfgQDrg7EVcocxdp6LFyqzWWMMBgkNeTOzm0Q/edit?slide=id.g35a9257e399_0_5#slide=id.g35a9257e399_0_5
 
 SHURLAND EVENT TO DO LIST:
@@ -23,23 +36,41 @@ SHURLAND EVENT TO DO LIST:
   * Protoboards
   * Capacitors
 
+CAD:
+* Move hole for amp volume if I didn't already
+* Different battery size???
+* More width for top LED ring cable
+* Modify shell to incorporate usb-c charging port
+* Design and make docks
 
+3D Print:
+* 4 x top shell
+* 4 x bottom shell
 
+Shipping:
+* Respeaker: https://www.ups.com/track?track=yes&trackNums=1Z71EY050196956005&loc=en_us&requester=ST/trackdetails
+* Adafruit: https://www.ups.com/track?tracknum=1Z71EY050196956005
+* Speakers: https://tools.usps.com/go/TrackConfirmAction_input?qtc_tLabels1=9405536106058275047221
+
+* Configure Bluetooth beacons, get IDs
+* Set up Pis for Shurland WiFi and ensure it supports 2.4Ghz.
 * Make 4 more peas
 * Desolder AUX jack on respeakers
 * Install OS on raspberry pi
-* Modify shell to incorporate usb-c charging port
+* Solder 4 x USB cables + 1 spare
 * Make bluetooth speaker pea
-* Contact Tess, see if she wanna help for a couple of weeks
 * Make fur coats
-* Design and make docks
 * Picovoice need license keys for all devices
-* Disable amplifier when audio is not playing (has a "enable" pin) 
+* Gather sufficient USB cables
 
 SOFTWARE:
 * Squealing activity
 * Reacting-to-sound-getting-brighter activity
-* 
+* Scavenger hunt activity
+* ?
+* Try to figure out reduced power draw 
+* Try dynamically adjusting volume based on ambient noise levels
+
 
 Squealing peas in crater (2 fake peas that just glow, and 1 real).
 Take them to the lab.
@@ -60,9 +91,11 @@ Need:
 3 backup real peas.
 6 Bluetooth beacons (plus a couple of backups).
 6 docks - or just enough docks for peas that will be visible, put the rest on charging cables.
+
 To do:
 Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, chop shorter and cute, and add some giggles.
 Create docks - pea-pod shaped?
+
 To Confirm:
 We will have solid WiFi in the Lab.
 For the music: Add 20 seconds of discovery figuring out how the pea responds, effects on beat, responding a bit harder each time. Lil bit of trumpet, lil bit of beats, mostly giggles and chuckles. Then we do the full initial verse while kids play with the pea, then go into the lull.

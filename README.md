@@ -53,6 +53,21 @@ Powerboost From Right:
 ## Setting up Raspberry Pi
 
 1. Install Raspberry Pi OS: Bookworm Lite 64 bit image
+  Device name: pizero[some integer]
+  Other settings you'll need: 
+  Device: Raspberry Pi Zero 2 W
+  OS: "Other" > Lite 64 bit (first one)
+  ...Click next... 
+  Settings: 
+  Device name is pizero3 etc.
+  Wifi is NuHaus Unified.
+  WiFi region is US
+  Username is "ash"
+  Password is "xdara"
+  Next tab: Use SSH enabled
+  Click SAVE
+  Apply OS customization settings: YES, continue, yes, etc etc
+
 2. SSH into the Pi
 3. Install Git: `sudo apt install git`
 4. Install the sound card driver if necessary (for Respeaker Lite, not needed for Respeaker Mic Array)
@@ -115,3 +130,5 @@ You can customize the Vapi AI behavior by modifying the configuration in `src/co
 - [Picovoice](https://picovoice.ai) for their excellent Porcupine wake word engine
 - [Vapi](https://vapi.ai) for their advanced voice AI platform
 - The open-source community for various audio processing tools and libraries
+
+

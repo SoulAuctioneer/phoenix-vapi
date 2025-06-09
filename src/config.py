@@ -238,7 +238,27 @@ class Distance(Enum):
 
 # BLE and Location Configuration
 class BLEConfig:
-    """Configuration for BLE scanning and beacons"""
+    """Configuration for BLE scanning and beacons
+    The beacons are Blue Charm BC011 iBeacons. 
+    First, check the MAC number on the back of the beacon. 
+    - If it starts with DD33 or DD34, it's a BC011. 
+        - Quick start guide: https://bluecharmbeacons.com/bc011-ibeacon-multibeacon-quick-start-guide/
+        - You MUST use the standard "kbeacon" app, NOT the "kbeaconpro" app.
+            - iOS: https://apps.apple.com/us/app/kbeacon/id1483313365
+            - Android: https://play.google.com/store/apps/details?id=com.beacon.kbeaconset&hl=en_US
+    - If it starts with DD88, it's a BC011 Pro. 
+        - Quick start guide: https://bluecharmbeacons.com/quick-start-guide-bc011-pro-version-ibeacon/
+        - You MUST use the "kbeaconpro" app, NOT the "kbeacon" app.
+            - iOS: https://apps.apple.com/us/app/kbeaconpro/id1573205819
+            - Android: https://play.google.com/store/apps/details?id=com.beacon.kbeaconsetpro&hl=en_US
+    To configure the beacons:
+      1. Turn on the beacon by pressing and holding down the button for 3 seconds until the LED light begins to flash green, then release. The green LED will flash slowly 15 times.
+      2. In the kbeacon app, find the beacon. It will have UUID "426C7565-4368-6172-6D42-6561636F6E73" and name either "BCPro_xxxxxx" or "BlueCharm_xxxxxx".
+      4. Set the "major" to 1.
+      5. Set the "minor" to a unique number for each beacon. WRITE THIS ON THE BEACON!
+      6. TODO: Do I need to set the power? 
+      7. TODO: Do I need to set the advertising interval?
+    """
 
     # NOTE: For reference, the beacons are broadcasting every 200ms.
 
@@ -252,8 +272,14 @@ class BLEConfig:
 
     # Known beacon locations using (major, minor) tuples as keys
     BEACON_LOCATIONS = {
-        (1, 1): "magical_sun_pendant", # Label: Phoenix_Library
-        (1, 2): "blue_phoenix" # Label: Phoenix_Bedroom
+        (1, 1): "magical_sun_pendant",  # Label: Phoenix_Library
+        (1, 2): "blue_phoenix",         # Label: Phoenix_Bedroom
+        (1, 3): "phoenix_3",            # Label: phoenix3 WHERE IS IT??? 
+        (1, 4): "phoenix_4",            # Label: phoenix4 ID: 188916 Type: BC011 regular
+        (1, 5): "phoenix_5",            # Label: phoenix5 ID: 189245 Type: BC011 regular
+        (1, 6): "phoenix_6",            # Label: phoenix6 ID: 200474 Type: BC011 PRO
+        (1, 7): "phoenix_7",            # Label: phoenix7 ID: 199757 Type: BC011 PRO
+        (1, 8): "phoenix_8",            # Label: phoenix8 ID: 199753 Type: BC011 PRO
     }
 
     # RSSI thresholds for distance estimation (in dB)
