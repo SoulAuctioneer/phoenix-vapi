@@ -94,6 +94,8 @@ scripts/install.sh
 
 10. To install as a service to run on device boot, run `scripts/install_service.sh`
 
+11. IMPORTANT! If the device is meant to be a production device, change the git branch to "demo": `git checkout demo`.
+
 ## Usage
 
 1. Run the main application:

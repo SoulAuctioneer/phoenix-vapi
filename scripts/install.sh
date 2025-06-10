@@ -221,6 +221,21 @@ if is_raspberry_pi; then
     fi
     echo ""
 
+    # Ask about switching to the 'demo' branch for production devices
+    read -p "Is this a production device? If so, we recommend switching to the 'demo' branch for stability. Switch now? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Switching to 'demo' branch..."
+        if git checkout demo; then
+            echo "Successfully switched to 'demo' branch."
+        else
+            echo "Failed to switch to 'demo' branch. Please check your git status and try again manually."
+        fi
+    else
+        echo "Staying on the current branch. You can switch to the 'demo' branch later with: git checkout demo"
+    fi
+    echo ""
+
     # Handle reboot if hardware settings were changed
     if [[ "$REBOOT_REQUIRED" == "1" ]]; then
         echo "A reboot is REQUIRED to apply hardware configuration changes (I2C, SPI, audio, etc.)."
