@@ -186,16 +186,58 @@ echo ""
 # Add Raspberry Pi specific instructions if applicable
 if is_raspberry_pi; then
     echo "----------------------------------------"
-    echo "RASPBERRY PI NOTES"
+    echo "RASPBERRY PI POST-INSTALL"
     echo "----------------------------------------"
-    echo "- A REBOOT IS RECOMMENDED to apply system changes (I2C, SPI, Bluetooth)."
-    echo "- Run `sudo reboot now` to apply system changes."
-    echo "- For detailed hardware assembly, see the 'Wiring' section in README.md"
+    
+    # Ask to install as a service
+    read -p "Do you want to install Phoenix to run automatically on boot? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installing service..."
+        if scripts/install-service.sh; then
+            echo "Service installed successfully."
+        else
+            echo "Service installation failed. You can try again by running: scripts/install-service.sh"
+        fi
+    else
+        echo "You can install the service later by running: scripts/install-service.sh"
+    fi
     echo ""
-    echo "To install as a service to run on device boot, run `scripts/install-service.sh`"
+
+    # Ask about Respeaker setup
+    read -p "Are you using a Respeaker sound card? We can optimize your audio setup for it. Run setup now? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Running Respeaker setup... (This may take a moment)"
+        if sudo scripts/setup_respeaker_only.sh; then
+            echo "Respeaker setup complete."
+            REBOOT_REQUIRED=1 # Respeaker setup requires a reboot.
+        else
+            echo "Respeaker setup failed. You can try again by running: sudo scripts/setup_respeaker_only.sh"
+        fi
+    else
+        echo "To optimize for a Respeaker card later, run: sudo scripts/setup_respeaker_only.sh"
+        echo "(This can eliminate ALSA errors and speed up app startup)"
+    fi
     echo ""
-    echo "If using Respeaker sound card:"
-    echo "- Run 'sudo scripts/setup_respeaker_only.sh' to disable other audio devices"
-    echo "- This will eliminate ALSA errors and significantly speed up app startup"
+
+    # Handle reboot if hardware settings were changed
+    if [[ "$REBOOT_REQUIRED" == "1" ]]; then
+        echo "A reboot is REQUIRED to apply hardware configuration changes (I2C, SPI, audio, etc.)."
+        read -p "Reboot now? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Rebooting..."
+            sudo reboot now
+            exit 0 # exit script after starting reboot
+        else
+            echo "Please reboot your Raspberry Pi soon to apply the changes."
+            echo "You can reboot by running: sudo reboot now"
+        fi
+    else
+        echo "NOTE: Some permission changes may require you to log out and log back in, or reboot for them to take effect."
+    fi
+    echo ""
+    echo "For detailed hardware assembly, see the 'Wiring' section in README.md"
     echo ""
 fi
