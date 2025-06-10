@@ -1,10 +1,26 @@
+import time
 import logging
-import numpy as np
-from elevenlabs.client import ElevenLabs, AsyncElevenLabs
-from config import ElevenLabsConfig, AudioBaseConfig
 
+# Set up logging early to track imports
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+start_time = time.time()
+logger.info("Starting voice_manager imports...")
+
+import_start = time.time()
+import numpy as np
+logger.info(f"numpy import took {time.time() - import_start:.3f} seconds")
+
+import_start = time.time()
+from elevenlabs.client import ElevenLabs, AsyncElevenLabs
+logger.info(f"elevenlabs.client import took {time.time() - import_start:.3f} seconds")
+
+import_start = time.time()
+from config import ElevenLabsConfig, AudioBaseConfig
+logger.info(f"config import took {time.time() - import_start:.3f} seconds")
+
+logger.info(f"Total voice_manager import time: {time.time() - start_time:.3f} seconds")
 
 class VoiceManager:
     """Manages interactions with the ElevenLabs API for TTS"""
