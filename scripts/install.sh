@@ -12,47 +12,6 @@ is_raspberry_pi() {
     return 1
 }
 
-# Create virtual environment if it doesn't exist
-if [ ! -d ".venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv .venv
-fi
-
-# Activate virtual environment
-source .venv/bin/activate
-
-# Install requirements
-echo "Installing Python dependencies..."
-pip install -r requirements.txt
-
-# Check if .env file exists
-if [ ! -f ".env" ]; then
-    echo "Creating .env file..."
-    echo "# Add your environment variables here" > .env
-    echo "" >> .env
-    echo "# Picovoice access key" >> .env
-    echo "PICOVOICE_ACCESS_KEY=your_key_here" >> .env
-    echo "" >> .env
-    echo "# Picovoice wake word file path" >> .env
-    echo "PORCUPINE_MODEL_PATH=assets/models/wake-word-mac.ppn" >> .env
-    echo "" >> .env
-    echo "# PicoVoice Rhino context file path" >> .env
-    echo "RHINO_MODEL_PATH=assets/models/text-to-intent-mac.rhn" >> .env
-    echo "" >> .env
-    echo "# Vapi private key" >> .env
-    echo "VAPI_API_KEY=your_vapi_api_key_here" >> .env
-    echo "" >> .env
-    echo "# Vapi public key" >> .env
-    echo "VAPI_CLIENT_KEY=your_vapi_client_key_here" >> .env
-    echo "" >> .env
-    echo "# OpenAI API key (optional, only needed for speech-to-intent if unable to use Picovoice Rhino)" >> .env
-    echo "OPENAI_API_KEY=your_openai_api_key_here" >> .env
-    echo "" >> .env
-    echo "Please update .env with your API keys:"
-    echo "1. Picovoice access key from console.picovoice.ai"
-    echo "2. Vapi API key from dashboard.vapi.ai"
-fi
-
 # Install system dependencies for audio
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
@@ -66,7 +25,9 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         libglib2.0-dev \
         dbus \
         libdbus-1-dev \
-        pkg-config
+        pkg-config \
+        python3-dev \
+        python3-pip
     
     # Add user to bluetooth group
     if ! groups $USER | grep -q "bluetooth"; then
@@ -147,11 +108,51 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
             sudo udevadm trigger
         fi
 
-        sudo python3 -m pip install --force-reinstall adafruit-blinka        
         echo ""
         echo "NeoPixel setup complete!"
         echo "NOTE: You may need to reboot for all changes to take effect"
     fi
+fi
+
+# Create virtual environment if it doesn't exist
+if [ ! -d ".venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv .venv
+fi
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install requirements
+echo "Installing Python dependencies..."
+pip install -r requirements.txt
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo "Creating .env file..."
+    echo "# Add your environment variables here" > .env
+    echo "" >> .env
+    echo "# Picovoice access key" >> .env
+    echo "PICOVOICE_ACCESS_KEY=your_key_here" >> .env
+    echo "" >> .env
+    echo "# Picovoice wake word file path" >> .env
+    echo "PORCUPINE_MODEL_PATH=assets/models/wake-word-mac.ppn" >> .env
+    echo "" >> .env
+    echo "# PicoVoice Rhino context file path" >> .env
+    echo "RHINO_MODEL_PATH=assets/models/text-to-intent-mac.rhn" >> .env
+    echo "" >> .env
+    echo "# Vapi private key" >> .env
+    echo "VAPI_API_KEY=your_vapi_api_key_here" >> .env
+    echo "" >> .env
+    echo "# Vapi public key" >> .env
+    echo "VAPI_CLIENT_KEY=your_vapi_client_key_here" >> .env
+    echo "" >> .env
+    echo "# OpenAI API key (optional, only needed for speech-to-intent if unable to use Picovoice Rhino)" >> .env
+    echo "OPENAI_API_KEY=your_openai_api_key_here" >> .env
+    echo "" >> .env
+    echo "Please update .env with your API keys:"
+    echo "1. Picovoice access key from console.picovoice.ai"
+    echo "2. Vapi API key from dashboard.vapi.ai"
 fi
 
 echo ""
@@ -179,4 +180,4 @@ if is_raspberry_pi; then
     echo "Audio optimization (if using Respeaker USB microphone):"
     echo "- Run 'sudo bash scripts/setup_respeaker_only.sh' to disable other audio devices"
     echo "- This will eliminate ALSA errors and significantly speed up app startup"
-   
+fi

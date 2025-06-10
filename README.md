@@ -52,7 +52,8 @@ Powerboost From Right:
 
 ## Setting up Raspberry Pi
 
-1. Install Raspberry Pi OS: Bookworm Lite 64 bit image
+1. Install the Raspberry Pi Imager on your computer: https://www.raspberrypi.com/software/
+2. Install Raspberry Pi OS: Bookworm Lite 64 bit image onto an SD card
   Device name: pizero[some integer]
   Other settings you'll need: 
   Device: Raspberry Pi Zero 2 W
@@ -68,19 +69,19 @@ Powerboost From Right:
   Click SAVE
   Apply OS customization settings: YES, continue, yes, etc etc
 
-2. SSH into the Pi
-3. Install Git: `sudo apt install git`
-4. Install the sound card driver if necessary (for Respeaker Lite, not needed for Respeaker Mic Array)
+3. SSH into the Pi
+4. Install Git: `sudo apt install git`
+5. Install the sound card driver if necessary (for Respeaker Lite, not needed for Respeaker Mic Array)
 
 ## Installation
 
-1. Clone the repository:
+6. Clone the repository:
 ```bash
 git clone https://github.com/SoulAuctioneer/phoenix-vapi.git
 cd phoenix-vapi
 ```
 
-2. Run the install script:
+7. Run the install script:
 ```bash
 # On macOS/Linux/Rasperry Pi OS:
 scripts/install.sh
@@ -90,9 +91,9 @@ scripts/install.sh
 scripts/install.sh
 ```
 
-3. Reboot the device (maybe?)
+8. Reboot the device (maybe?)
 
-4. Get your API keys:
+9. Get your API keys:
    - Picovoice access key:
      - Go to [console.picovoice.ai](https://console.picovoice.ai)
      - Sign up for a free account
@@ -101,8 +102,10 @@ scripts/install.sh
    - Vapi API key:
      - Go to [vapi.ai](https://vapi.ai)
      - Sign up and get your API key
+   - OpenAI API key:
+   
 
-5. Configure your API keys:
+10. Configure your API keys:
    - Open the `.env` file in the project root
    - Add your keys:
      ```
