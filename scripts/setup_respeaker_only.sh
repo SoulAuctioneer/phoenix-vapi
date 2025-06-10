@@ -26,7 +26,10 @@ fi
 
 # Step 1: Disable HDMI audio in config.txt
 echo "Disabling HDMI audio..."
-if ! grep -q "dtoverlay=vc4-kms-v3d,nohdmi0,nohdmi1" "$CONFIG_FILE"; then
+# Modify existing vc4-kms-v3d overlay or add a new one to disable HDMI audio
+if grep -q "^dtoverlay=vc4-kms-v3d" "$CONFIG_FILE"; then
+    sed -i 's/^dtoverlay=vc4-kms-v3d.*/dtoverlay=vc4-kms-v3d,nohdmi0,nohdmi1/' "$CONFIG_FILE"
+else
     echo "" >> "$CONFIG_FILE"
     echo "# Disable HDMI audio" >> "$CONFIG_FILE"
     echo "dtoverlay=vc4-kms-v3d,nohdmi0,nohdmi1" >> "$CONFIG_FILE"

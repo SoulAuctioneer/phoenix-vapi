@@ -318,8 +318,31 @@ class AudioManager:
             logging.info(f"Available input devices: {input_devices}")
             logging.info(f"Available output devices: {output_devices}")
             
+            # Find and set the ReSpeaker device index automatically if not already set
+            if self.config.input_device_index is None:
+                respeaker_input_found = False
+                for i, name in input_devices.items():
+                    if "ReSpeaker" in name:
+                        self.config.input_device_index = i
+                        logging.info(f"Automatically selected ReSpeaker input device at index {i}: '{name}'")
+                        respeaker_input_found = True
+                        break
+                if not respeaker_input_found:
+                    logging.info("No ReSpeaker input device found. Using system default.")
+
+            if self.config.output_device_index is None:
+                respeaker_output_found = False
+                for i, name in output_devices.items():
+                    if "ReSpeaker" in name:
+                        self.config.output_device_index = i
+                        logging.info(f"Automatically selected ReSpeaker output device at index {i}: '{name}'")
+                        respeaker_output_found = True
+                        break
+                if not respeaker_output_found:
+                    logging.info("No ReSpeaker output device found. Using system default.")
+
             # Setup input stream
-            logging.info("Opening input stream...")
+            logging.info(f"Opening input stream (Device Index: {self.config.input_device_index})...")
             self._input_stream = self._py_audio.open(
                 format=self.config.format,
                 channels=self.config.channels,
@@ -330,7 +353,7 @@ class AudioManager:
             )
             
             # Setup output stream
-            logging.info("Opening output stream...")
+            logging.info(f"Opening output stream (Device Index: {self.config.output_device_index})...")
             self._output_stream = self._py_audio.open(
                 format=self.config.format,
                 channels=self.config.channels,
