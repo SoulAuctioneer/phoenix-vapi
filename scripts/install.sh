@@ -127,57 +127,40 @@ source .venv/bin/activate
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
-# Check if .env file exists
+# Create .env file from example if it doesn't exist
 if [ ! -f ".env" ]; then
-    echo "Creating .env file..."
-    echo "# Add your environment variables here" > .env
-    echo "" >> .env
-    echo "# Picovoice access key" >> .env
-    echo "PICOVOICE_ACCESS_KEY=your_key_here" >> .env
-    echo "" >> .env
-    echo "# Picovoice wake word file path" >> .env
-    echo "PORCUPINE_MODEL_PATH=assets/models/wake-word-mac.ppn" >> .env
-    echo "" >> .env
-    echo "# PicoVoice Rhino context file path" >> .env
-    echo "RHINO_MODEL_PATH=assets/models/text-to-intent-mac.rhn" >> .env
-    echo "" >> .env
-    echo "# Vapi private key" >> .env
-    echo "VAPI_API_KEY=your_vapi_api_key_here" >> .env
-    echo "" >> .env
-    echo "# Vapi public key" >> .env
-    echo "VAPI_CLIENT_KEY=your_vapi_client_key_here" >> .env
-    echo "" >> .env
-    echo "# OpenAI API key (optional, only needed for speech-to-intent if unable to use Picovoice Rhino)" >> .env
-    echo "OPENAI_API_KEY=your_openai_api_key_here" >> .env
-    echo "" >> .env
-    echo "Please update .env with your API keys:"
-    echo "1. Picovoice access key from console.picovoice.ai"
-    echo "2. Vapi API key from dashboard.vapi.ai"
+    echo "Creating .env file from .env.example..."
+    cp .env.example .env
 fi
 
 echo ""
 echo "Installation complete!"
-echo "Next steps:"
-echo "1. Get your Picovoice access key from console.picovoice.ai and download Porcupine and Rhino models"
-echo "2. Get your Vapi API key from vapi.ai"
-echo "3. Get your OpenAI API key from openai.com"
-echo "4. Add service keys to .env file"
-echo "5. Run the app: ./run.sh"
+echo ""
+echo "----------------------------------------"
+echo "NEXT STEPS"
+echo "----------------------------------------"
+echo "1. Edit the .env file with your API keys and model paths:"
+echo ""
+echo "  - PICOVOICE_ACCESS_KEY: Get from https://console.picovoice.ai"
+echo "  - VAPI_API_KEY & VAPI_CLIENT_KEY: Get from https://dashboard.vapi.ai"
+echo "  - OPENAI_API_KEY: Get from https://platform.openai.com/api-keys"
+echo "  - ELEVENLABS_API_KEY: Get from https://elevenlabs.io/api-keys"
+echo "  - TWILIO_ACCOUNT_SID & TWILIO_AUTH_TOKEN: Get from https://www.twilio.com/console"
+echo "  - NGROK_AUTH_TOKEN: Get from https://dashboard.ngrok.com/get-started/your-authtoken"
+echo ""
+echo "2. To run the application, use the command:"
+echo "   ./run.sh"
+echo ""
 
 # Add Raspberry Pi specific instructions if applicable
 if is_raspberry_pi; then
+    echo "----------------------------------------"
+    echo "RASPBERRY PI NOTES"
+    echo "----------------------------------------"
+    echo "- A REBOOT IS RECOMMENDED to apply system changes (I2C, SPI, Bluetooth)."
+    echo "- Run `sudo reboot now` to apply system changes."
+    echo "- For detailed hardware assembly, see the 'Wiring' section in README.md"
     echo ""
-    echo "Raspberry Pi specific notes:"
-    echo "- If this is your first install, please REBOOT to enable I2C, SPI and Bluetooth"
-    echo "- Log out and back in for GPIO, I2C and Bluetooth group changes to take effect"
-    echo "- Connect BNO085 sensor to I2C pins: SDA (GPIO2/Pin3), SCL (GPIO3/Pin5), 3.3V, GND"
-    echo "- Connect NeoPixel data line to GPIO21 (pin 40 on the board) - we use this pin instead of GPIO18 to avoid conflicts with audio"
-    echo "- To test I2C devices: sudo i2cdetect -y 1 (BNO085 should appear at address 0x4a or 0x4b)"
-    echo "- To diagnose BNO085 sensor: python3 src/diagnostics/i2c_test.py"
-    echo "- To test LED ring: python src/led_control.py"
-    echo "- To verify Bluetooth is working: sudo hciconfig"
+    echo "To install as a service to run on device boot, run `scripts/install-service.sh`"
     echo ""
-    echo "Audio optimization (if using Respeaker USB microphone):"
-    echo "- Run 'sudo bash scripts/setup_respeaker_only.sh' to disable other audio devices"
-    echo "- This will eliminate ALSA errors and significantly speed up app startup"
 fi

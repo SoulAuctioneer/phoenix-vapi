@@ -4,12 +4,14 @@ The Phoenix is an interactive, smart, beautiful, and screen-free AI-powered comp
 
 It is run on a Raspberry Pi that is embedded in a bouncy ball toy.
 
-Physical Design
+
+# Physical Design
 - A soft, tennis-ball-sized plush ball with a glowing exterior featuring vibrant, detailed LED patterns.
 - Highly context-aware via motion, sound, and touch sensors.
 - Haptic feedback.
 
-Key Functionality
+
+# Key Functionality
 - AI voice chat.
 - Stroking and purring.
 - Intelligent: Highly context-aware, interactive, and smart.
@@ -20,15 +22,6 @@ Key Functionality
 - Emotional Regulation.
 - Private and Secure.
 
-
-## Features
-
-- Efficient wake word detection using Picovoice Porcupine
-- Advanced voice interaction powered by Vapi AI
-- Low CPU and memory usage
-- Support for multiple wake words
-- Cross-platform compatibility (macOS, Linux, Windows)
-- Easy integration with other voice processing systems
 
 ## Prerequisites
 
@@ -73,6 +66,7 @@ Powerboost From Right:
 4. Install Git: `sudo apt install git`
 5. Install the sound card driver if necessary (for Respeaker Lite, not needed for Respeaker Mic Array)
 
+
 ## Installation
 
 6. Clone the repository:
@@ -93,25 +87,12 @@ scripts/install.sh
 
 8. Reboot the device (maybe?)
 
-9. Get your API keys:
-   - Picovoice access key:
-     - Go to [console.picovoice.ai](https://console.picovoice.ai)
-     - Sign up for a free account
-     - Create a new access key
-     - Copy the access key
-   - Vapi API key:
-     - Go to [vapi.ai](https://vapi.ai)
-     - Sign up and get your API key
-   - OpenAI API key:
-   
+9. Get and configure your API keys. 
+  - Open the `.env` file in the project root to see what you need.
+  - Get the keys.
+  - Add your keys.
 
-10. Configure your API keys:
-   - Open the `.env` file in the project root
-   - Add your keys:
-     ```
-     PICOVOICE_ACCESS_KEY=your_key_here
-     VAPI_API_KEY=your_vapi_api_key_here
-     ```
+10. To install as a service to run on device boot, run `scripts/install-service.sh`
 
 ## Usage
 
@@ -127,11 +108,3 @@ python src/main.py
 ### Customizing Voice Interaction
 
 You can customize the Vapi AI behavior by modifying the configuration in `src/config.py`.
-
-## Acknowledgments
-
-- [Picovoice](https://picovoice.ai) for their excellent Porcupine wake word engine
-- [Vapi](https://vapi.ai) for their advanced voice AI platform
-- The open-source community for various audio processing tools and libraries
-
-
