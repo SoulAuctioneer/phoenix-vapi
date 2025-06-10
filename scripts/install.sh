@@ -133,6 +133,37 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
 fi
 
+# Recreate memories.json with an initial memory
+echo "Recreating memories.json with initial memory..."
+python3 -c '
+import json
+import datetime
+import os
+
+os.makedirs("data", exist_ok=True)
+
+now_utc = datetime.datetime.now(datetime.timezone.utc)
+now_local = now_utc.astimezone()
+
+created_at = f"{now_local.strftime(''%B'')} {now_local.day}, {now_local.strftime(''%Y at %I:%M %p %Z'')}"
+
+memory_data = {
+    "memories": [
+        {
+            "content": "You first woke up on Earth.",
+            "topic": "event",
+            "importance": "medium",
+            "timestamp": now_utc.isoformat(),
+            "created_at": created_at,
+        }
+    ]
+}
+
+with open("data/memories.json", "w") as f:
+    json.dump(memory_data, f, indent=2)
+    f.write("\n")
+'
+
 echo ""
 echo "PHOENIX INSTALLATION COMPLETE!"
 echo ""
