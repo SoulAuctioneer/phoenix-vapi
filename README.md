@@ -92,7 +92,7 @@ scripts/install.sh
   - Get the keys.
   - Add your keys.
 
-10. To install as a service to run on device boot, run `scripts/install-service.sh`
+10. To install as a service to run on device boot, run `scripts/install_service.sh`
 
 ## Usage
 

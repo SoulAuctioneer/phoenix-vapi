@@ -194,13 +194,13 @@ if is_raspberry_pi; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "Installing service..."
-        if scripts/install-service.sh; then
+        if scripts/install_service.sh; then
             echo "Service installed successfully."
         else
-            echo "Service installation failed. You can try again by running: scripts/install-service.sh"
+            echo "Service installation failed. You can try again by running: scripts/install_service.sh"
         fi
     else
-        echo "You can install the service later by running: scripts/install-service.sh"
+        echo "You can install the service later by running: scripts/install_service.sh"
     fi
     echo ""
 
