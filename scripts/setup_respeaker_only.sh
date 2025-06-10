@@ -70,12 +70,30 @@ ctl.!default {
 }
 
 # Nullify phantom devices that cause errors on startup
-pcm.rear { type null }
-pcm.center_lfe { type null }
-pcm.side { type null }
-pcm.hdmi { type null }
-pcm.modem { type null }
-pcm.phoneline { type null }
+pcm.rear {
+    type plug
+    slave.pcm "null"
+}
+pcm.center_lfe {
+    type plug
+    slave.pcm "null"
+}
+pcm.side {
+    type plug
+    slave.pcm "null"
+}
+pcm.hdmi {
+    type plug
+    slave.pcm "null"
+}
+pcm.modem {
+    type plug
+    slave.pcm "null"
+}
+pcm.phoneline {
+    type plug
+    slave.pcm "null"
+}
 EOF
 
 # Step 4: Configure module loading order
