@@ -134,7 +134,7 @@ if [ ! -f ".env" ]; then
 fi
 
 echo ""
-echo "Installation complete!"
+echo "PHOENIX INSTALLATION COMPLETE!"
 echo ""
 echo "----------------------------------------"
 echo "NEXT STEPS"
@@ -162,5 +162,9 @@ if is_raspberry_pi; then
     echo "- For detailed hardware assembly, see the 'Wiring' section in README.md"
     echo ""
     echo "To install as a service to run on device boot, run `scripts/install-service.sh`"
+    echo ""
+    echo "If using Respeaker sound card:"
+    echo "- Run 'sudo bash scripts/setup_respeaker_only.sh' to disable other audio devices"
+    echo "- This will eliminate ALSA errors and significantly speed up app startup"
     echo ""
 fi
