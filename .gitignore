@@ -172,3 +172,6 @@ cython_debug/
 
 # User-specific data
 data/
+
+# Private .env example file
+.env.private
