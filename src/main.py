@@ -1,6 +1,18 @@
 import asyncio
 import logging
 import signal
+from config import PLATFORM
+from services.service import ServiceManager
+from services.audio_service import AudioService
+from services.special_effect_service import SpecialEffectService
+from services.wakeword_service import WakeWordService
+from services.activity_service import ActivityService
+from services.intent_service import IntentService
+from services.voice_service import VoiceService
+
+if PLATFORM == "raspberry-pi":
+    from services.led_service import LEDService
+    from services.battery_service import BatteryService
 
 # Configure logging with more detail
 logging.basicConfig(

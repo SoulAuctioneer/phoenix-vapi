@@ -1,15 +1,36 @@
 from typing import Dict, Any, Optional, Type, List, Tuple
 from enum import Enum
 from services.service import BaseService
+import logging
+logger = logging.getLogger(__name__)
+
+logger.info("Importing LocationService...")
 from services.location_service import LocationService
+logger.info("Imported LocationService.")
+logger.info("Importing SensorService...")
 from services.sensor_service import SensorService
+logger.info("Imported SensorService.")
+logger.info("Importing HapticService...")
 from services.haptic_service import HapticService
+logger.info("Imported HapticService.")
+logger.info("Importing AccelerometerService...")
 from services.accelerometer_service import AccelerometerService
+logger.info("Imported AccelerometerService.")
+logger.info("Importing ConversationActivity...")
 from activities.conversation_activity import ConversationActivity
+logger.info("Imported ConversationActivity.")
+logger.info("Importing SleepActivity...")
 from activities.sleep_activity import SleepActivity
+logger.info("Imported SleepActivity.")
+logger.info("Importing HideSeekActivity...")
 from activities.hide_seek_activity import HideSeekActivity
+logger.info("Imported HideSeekActivity.")
+logger.info("Importing MoveActivity...")
 from activities.move_activity import MoveActivity
+logger.info("Imported MoveActivity.")
+logger.info("Importing CallActivity...")
 from activities.call_activity import CallActivity
+logger.info("Imported CallActivity.")
 import asyncio
 
 class ActivityType(Enum):

@@ -7,12 +7,15 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 from services.service import BaseService
-from managers.voice_manager import VoiceManager
 from managers.audio_manager import AudioManager, AudioConfig
 from config import AudioBaseConfig
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+logger.info("Importing VoiceManager...")
+from managers.voice_manager import VoiceManager
+logger.info("Imported VoiceManager.")
 
 class VoiceService(BaseService):
     """Service to manage Text-to-Speech using VoiceManager and AudioManager."""
