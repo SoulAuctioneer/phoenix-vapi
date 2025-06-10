@@ -88,11 +88,6 @@ if lsmod | grep -q snd_bcm2835; then
     rmmod snd_bcm2835 2>/dev/null || true
 fi
 
-if lsmod | grep -q vc4; then
-    echo "Removing vc4 module..."
-    rmmod vc4 2>/dev/null || true
-fi
-
 echo ""
 echo "=== Configuration complete! ==="
 echo ""
