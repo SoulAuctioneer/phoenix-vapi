@@ -30,18 +30,8 @@ class ScavengerHuntActivity(BaseService):
             "type": "stop_led_effect"
         })
         
-        # Announce game start
-        if ScavengerHuntConfig.START_AUDIO:
-            await self.publish({
-                "type": "speak_audio",
-                "text": ScavengerHuntConfig.START_AUDIO
-            })
         # Start the first task (maybe abstract this?)
-        self._current_step = self._remaining_steps.pop(0)
-        await self.publish({
-            "type": "speak_audio",
-            "text": self._current_step.START_VOICE_LINE
-        })
+        self._start_next_step()
         # Start sound task that periodically emits chirps
         self._sound_task = asyncio.create_task(self._sound_loop())
         self.logger.info(f"scavenger hunt service started; on step: {self._current_step_name}")
@@ -59,53 +49,43 @@ class ScavengerHuntActivity(BaseService):
         await super().stop()
         self.logger.info("scavenger hunt service stopped")
         
+    async def _start_next_step(self):
+        assert len(self._remaining_steps) > 0, "Trying to start next step when none remain!"
+        self._current_step = self._remaining_steps.pop(0)
+        self._current_location_detected = False
+        await self.publish({
+            "type": "speak_audio",
+            "text": self._current_step.START_VOICE_LINE
+        })
+        
     @property
-    def _current_step_name(self):
+    def _current_step_name(self) -> str:
         return self._current_step.NAME
         
-    def _calculate_volume(self, distance: Distance) -> float:
-        """Calculate volume based on distance category
+    def _calculate_chirp_interval(self, distance: Distance) -> float:
+        """Calculate interval based on distance category.
+        The closer the scavenger is, the more often P will chirp.
         
         Args:
             distance: The distance category from the pendant
             
         Returns:
-            float: Volume level between 0.1 and 1.0
+            float: Chirp interval in seconds between 0.1 and 1.0
         """
-        # Add type checking and logging
         if not isinstance(distance, Distance):
             self.logger.error(f"Invalid distance type: {type(distance)}, value: {distance}")
             return 1.0
-
-        self.logger.info(f"Calculating volume for distance: {distance}, type: {type(distance)}")
-            
-        # Map distances to volume levels
-        # Further = louder to help guide the player
-        if distance == Distance.UNKNOWN:
-            self.logger.info("Distance is UNKNOWN, using max volume")
-            return 1.0  # Max volume when unknown/lost
-        elif distance == Distance.VERY_FAR:
-            vol = 0.8
-            self.logger.info(f"Distance is VERY_FAR, volume: {vol:.2f}")
-            return vol
-        elif distance == Distance.FAR:
-            vol = 0.5
-            self.logger.info(f"Distance is FAR, volume: {vol:.2f}")
-            return vol
-        elif distance == Distance.NEAR:
-            vol = 0.25
-            self.logger.info(f"Distance is NEAR, volume: {vol:.2f}")
-            return vol
-        elif distance == Distance.VERY_NEAR:
-            vol = 0.05
-            self.logger.info(f"Distance is VERY_NEAR, volume: {vol:.2f}")
-            return vol
-        elif distance == Distance.IMMEDIATE:
-            self.logger.info("Distance is IMMEDIATE, using min volume")
-            return 0.01  # Minimum volume when very close
-        else:
-            self.logger.error(f"Unhandled distance value: {distance}")
-            return 1.0  # Fallback to max volume
+        
+        distances_to_intervals: dict[Distance, float] = {
+            Distance.UNKNOWN: 1.0,
+            Distance.VERY_FAR: 0.8,
+            Distance.FAR: 0.6,
+            Distance.NEAR: 0.4,
+            Distance.VERY_NEAR: 0.2,
+            Distance.IMMEDIATE: 0.1,
+        }
+        interval = distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
+        self.logger.info(f"Distance is {distance}, using chirp interval ({interval})")
         
     async def _sound_loop(self):
         """Main loop that periodically emits chirp sounds based on pendant distance"""
@@ -125,14 +105,14 @@ class ScavengerHuntActivity(BaseService):
                 
                 if not current_step_location_info:
                     # No step detected, use max volume
-                    volume = 1.0
-                    self.logger.info("No step info, using max volume")
+                    chirp_interval = 1.0
+                    self.logger.info("No step info, using max chirp interval")
                 else:
-                    # Calculate volume based on distance category
+                    # Calculate chirp interval based on distance category
                     distance = current_step_location_info.get("distance", Distance.UNKNOWN)
                     self.logger.info(f"Raw distance value from state: {distance}, type: {type(distance)}")
-                    volume = self._calculate_volume(distance)
-                    self.logger.info(f"Final calculated volume: {volume:.2f}")
+                    chirp_interval = self._calculate_chirp_interval(distance)
+                    self.logger.info(f"Final calculated chirp interval: {chirp_interval:.2f}")
                 
                 # Emit a random chirp sound
                 chirp = random.choice([
@@ -149,31 +129,23 @@ class ScavengerHuntActivity(BaseService):
                 await self.publish({
                     "type": "play_sound",
                     "effect_name": chirp,
-                    "volume": volume
+                    "volume": ScavengerHuntConfig.CHIRP_VOLUME
                 })
                 
                 # Wait for next interval
-                await asyncio.sleep(ScavengerHuntConfig.AUDIO_CUE_INTERVAL)
+                await asyncio.sleep(chirp_interval)
                 
             except Exception as e:
                 self.logger.error(f"Error in sound loop: {e}")
                 await asyncio.sleep(1.0)  # Wait a bit before retrying
                 
     async def _transition_to_next_step(self):
-        assert len(self._remaining_steps > 0), "Tried to go to next scavenger hunt step but none remaining!"
-        # Play current step end noise.
         await self.publish({
             "type": "speak_audio",
             "text": self._current_step.END_VOICE_LINE
         })
-        # Transition to next step.
         await asyncio.sleep(ScavengerHuntConfig.INTER_STEP_SLEEP_TIME)
-        self._current_location_detected = False
-        self._current_step = self._remaining_steps.pop(0)
-        await self.publish({
-            "type": "speak_audio",
-            "text": self._current_step.START_VOICE_LINE
-        })
+        self._start_next_step()
     
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
@@ -200,7 +172,7 @@ class ScavengerHuntActivity(BaseService):
                     self.logger.info("Scavenger hunt step {self._current_step_name} completed!")
 
                     if self._remaining_steps:
-                        self.transition_to_next_step()
+                        self._transition_to_next_step()
                     else:
                         await self.publish({
                             "type": "scavenger_hunt_won"

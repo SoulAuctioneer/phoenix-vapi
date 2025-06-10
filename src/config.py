@@ -388,12 +388,8 @@ class ScavengerHuntConfig:
     # Number of seconds we wait before starting the next step
     INTER_STEP_SLEEP_TIME: float = 10.0
     
-    # TODO: From HideSeekConfig; determine if we still need these
-    # How much to ramp audio cue volume the further away the beacon is
-    AUDIO_CUE_DISTANCE_SCALING = 1.0
-
-    # How frequently to emit an audio cue
-    AUDIO_CUE_INTERVAL = 10.0
+    # How load the 
+    CHIRP_VOLUME = 0.5
 
 # Touch Sensor Configuration
 class TouchConfig:
