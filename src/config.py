@@ -394,10 +394,6 @@ class ScavengerHuntConfig:
 
     # How frequently to emit an audio cue
     AUDIO_CUE_INTERVAL = 10.0
-    
-    # Voice lines to output at start / end of game. 
-    START_AUDIO: str | None = None
-    END_AUDIO: str | None = None
 
 # Touch Sensor Configuration
 class TouchConfig:
