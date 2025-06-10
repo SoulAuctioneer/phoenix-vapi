@@ -9,7 +9,8 @@ Expenses:
 Nad work hours:
 * 6th 1.45 - 6:15 4.5 hrs PAID $225
 * 7th: 3.00 - 8.30 5.5 hrs PAID $275
-* 8th: 3.00 - 4.45 and 
+* 8th: 3.00 - 4.45 and 5.15 - 6pm 2.5 hrs PAID $150
+* 9th: 3.30 - 8.00 less 30 break 4 hours PAID $200
 
 https://docs.google.com/presentation/d/10CB5ldhfgQDrg7EVcocxdp6LFyqzWWMMBgkNeTOzm0Q/edit?slide=id.g35a9257e399_0_5#slide=id.g35a9257e399_0_5
 
