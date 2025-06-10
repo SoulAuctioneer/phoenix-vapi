@@ -248,7 +248,7 @@ class BaseService:
         self._running = False
         # Create a logger with the full module path and class name
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
-        self.global_state = None  # Will be set by ServiceManager
+        self.global_state: GlobalState | None = None  # Will be set by ServiceManager
         # Initialize lock for thread-safe access to global_state
         self.global_state_lock = asyncio.Lock()
         

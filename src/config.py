@@ -2,11 +2,11 @@ import time
 import os
 import platform
 from textwrap import dedent
-from enum import Enum
 from typing import Union
 from dotenv import load_dotenv
-from enum import Enum, auto
+from enum import Enum, auto, StrEnum
 from typing import Union
+from dataclasses import dataclass
 
 load_dotenv()
 
@@ -275,11 +275,21 @@ class BLEConfig:
         (1, 1): "magical_sun_pendant",  # Label: Phoenix_Library
         (1, 2): "blue_phoenix",         # Label: Phoenix_Bedroom
         (1, 3): "phoenix_3",            # Label: phoenix3 WHERE IS IT??? 
+        # TODO: Maybe remove these since they're only for scavenger hunt?
         (1, 4): "phoenix_4",            # Label: phoenix4 ID: 188916 Type: BC011 regular
         (1, 5): "phoenix_5",            # Label: phoenix5 ID: 189245 Type: BC011 regular
         (1, 6): "phoenix_6",            # Label: phoenix6 ID: 200474 Type: BC011 PRO
         (1, 7): "phoenix_7",            # Label: phoenix7 ID: 199757 Type: BC011 PRO
         (1, 8): "phoenix_8",            # Label: phoenix8 ID: 199753 Type: BC011 PRO
+    }
+    
+    SCAVENGER_HUNT_BEACON_LOCATIONS = {
+        (1, 4): "phoenix_4",            # Label: phoenix4 ID: 188916 Type: BC011 regular
+        (1, 5): "phoenix_5",            # Label: phoenix5 ID: 189245 Type: BC011 regular
+        (1, 6): "phoenix_6",            # Label: phoenix6 ID: 200474 Type: BC011 PRO
+        (1, 7): "phoenix_7",            # Label: phoenix7 ID: 199757 Type: BC011 PRO
+        (1, 8): "phoenix_8",            # Label: phoenix8 ID: 199753 Type: BC011 PRO        
+        (1, 9): "phoenix_9",            # Label: phoenix9 ID: ??? Type: BC011 regular
     }
 
     # RSSI thresholds for distance estimation (in dB)
@@ -336,6 +346,58 @@ class HideSeekConfig:
     # How frequently to emit an audio cue
     AUDIO_CUE_INTERVAL = 10.0
 
+class ScavengerHuntLocation(StrEnum):
+    LOCATION1 = "step1_location"
+    LOCATION2 = "step2_location"
+    LOCATION3 = "step3_location"
+    LOCATION4 = "step4_location"
+
+@dataclass
+class ScavengerHuntStep:
+    NAME: str
+    # TODO: This should be something else, likely a ScavengerHuntLocation. 
+    LOCATION: ScavengerHuntLocation
+    # Maybe start / end voice lines?
+    START_VOICE_LINE: str
+    END_VOICE_LINE: str
+
+# Add new scavenger config
+@dataclass
+class ScavengerHuntConfig:
+    SCAVENGER_HUNT_STEPS: list[ScavengerHuntStep] = [
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step1", 
+            LOCATION=ScavengerHuntLocation.LOCATION1,
+            START_VOICE_LINE="Let's find step 1",
+            END_VOICE_LINE="Yay, we found step 1",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step2", 
+            LOCATION=ScavengerHuntLocation.LOCATION2,
+            START_VOICE_LINE="Let's find step 2",
+            END_VOICE_LINE="Yay, we found step 2",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step3", 
+            LOCATION=ScavengerHuntLocation.LOCATION3,
+            START_VOICE_LINE="Let's find step 3",
+            END_VOICE_LINE="Yay, we found step 3",
+        ),
+    ]
+    
+    # Number of seconds we wait before starting the next step
+    INTER_STEP_SLEEP_TIME: float = 10.0
+    
+    # TODO: From HideSeekConfig; determine if we still need these
+    # How much to ramp audio cue volume the further away the beacon is
+    AUDIO_CUE_DISTANCE_SCALING = 1.0
+
+    # How frequently to emit an audio cue
+    AUDIO_CUE_INTERVAL = 10.0
+    
+    # Voice lines to output at start / end of game. 
+    START_AUDIO: str | None = None
+    END_AUDIO: str | None = None
 
 # Touch Sensor Configuration
 class TouchConfig:
