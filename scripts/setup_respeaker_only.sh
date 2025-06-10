@@ -24,19 +24,23 @@ else
     CONFIG_FILE="/boot/config.txt"
 fi
 
-# Step 1: Disable HDMI audio in config.txt
-echo "Disabling HDMI audio..."
-# Modify existing vc4-kms-v3d overlay or add a new one to disable HDMI audio
-if grep -q "^dtoverlay=vc4-kms-v3d" "$CONFIG_FILE"; then
-    sed -i 's/^dtoverlay=vc4-kms-v3d.*/dtoverlay=vc4-kms-v3d,nohdmi0,nohdmi1/' "$CONFIG_FILE"
-else
+# Step 1: Disable HDMI and onboard audio in config.txt
+echo "Disabling HDMI and onboard audio..."
+
+# Comment out conflicting entries to prevent issues.
+# This comments out 'dtparam=audio=on'.
+sed -i -E 's/^[[:space:]]*(dtparam=audio=on)/#\1/' "$CONFIG_FILE"
+# This comments out 'dtoverlay=vc4-kms-v3d' unless it already disables HDMI.
+sed -i -E '/^[[:space:]]*dtoverlay=vc4-kms-v3d/ { /nohdmi/! s/^/#&/ }' "$CONFIG_FILE"
+
+# Add our desired settings if they are not already active
+if ! grep -qE "^[[:space:]]*dtoverlay=vc4-kms-v3d,nohdmi0,nohdmi1" "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
-    echo "# Disable HDMI audio" >> "$CONFIG_FILE"
+    echo "# Disable HDMI audio (set by Phoenix install)" >> "$CONFIG_FILE"
     echo "dtoverlay=vc4-kms-v3d,nohdmi0,nohdmi1" >> "$CONFIG_FILE"
 fi
-
-# Also ensure onboard audio is disabled
-if ! grep -q "dtparam=audio=off" "$CONFIG_FILE"; then
+if ! grep -qE "^[[:space:]]*dtparam=audio=off" "$CONFIG_FILE"; then
+    echo "# Disable onboard audio (set by Phoenix install)" >> "$CONFIG_FILE"
     echo "dtparam=audio=off" >> "$CONFIG_FILE"
 fi
 
