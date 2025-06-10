@@ -195,7 +195,7 @@ if is_raspberry_pi; then
     echo "To install as a service to run on device boot, run `scripts/install-service.sh`"
     echo ""
     echo "If using Respeaker sound card:"
-    echo "- Run 'sudo bash scripts/setup_respeaker_only.sh' to disable other audio devices"
+    echo "- Run 'sudo scripts/setup_respeaker_only.sh' to disable other audio devices"
     echo "- This will eliminate ALSA errors and significantly speed up app startup"
     echo ""
 fi
