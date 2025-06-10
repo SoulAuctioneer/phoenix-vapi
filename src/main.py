@@ -1,18 +1,6 @@
 import asyncio
 import logging
 import signal
-from config import PLATFORM
-from services.service import ServiceManager
-from services.audio_service import AudioService
-from services.special_effect_service import SpecialEffectService
-from services.wakeword_service import WakeWordService
-from services.activity_service import ActivityService
-from services.intent_service import IntentService
-from services.voice_service import VoiceService
-
-if PLATFORM == "raspberry-pi":
-    from services.led_service import LEDService
-    from services.battery_service import BatteryService
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -20,6 +8,35 @@ logging.basicConfig(
     format='%(asctime)s - [%(filename)s.%(funcName)s:%(lineno)d] - %(levelname)s - %(message)s',
     force=True  # Override any existing logging configuration
 )
+
+logging.info("--- Starting Application ---")
+logging.info("Importing modules...")
+
+from config import PLATFORM
+logging.info("Imported 'config'")
+from services.service import ServiceManager
+logging.info("Imported 'ServiceManager'")
+from services.audio_service import AudioService
+logging.info("Imported 'AudioService'")
+from services.special_effect_service import SpecialEffectService
+logging.info("Imported 'SpecialEffectService'")
+from services.wakeword_service import WakeWordService
+logging.info("Imported 'WakeWordService'")
+from services.activity_service import ActivityService
+logging.info("Imported 'ActivityService'")
+from services.intent_service import IntentService
+logging.info("Imported 'IntentService'")
+from services.voice_service import VoiceService
+logging.info("Imported 'VoiceService'")
+
+if PLATFORM == "raspberry-pi":
+    logging.info("Platform is raspberry-pi, importing GPIO services...")
+    from services.led_service import LEDService
+    logging.info("Imported 'LEDService'")
+    from services.battery_service import BatteryService
+    logging.info("Imported 'BatteryService'")
+
+logging.info("All modules imported.")
 
 # Enable debug logging for our services
 for logger_name in [
