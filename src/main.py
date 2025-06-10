@@ -1,3 +1,4 @@
+print ("Importing modules...")
 import asyncio
 import logging
 import signal
@@ -13,6 +14,8 @@ from services.voice_service import VoiceService
 if PLATFORM == "raspberry-pi":
     from services.led_service import LEDService
     from services.battery_service import BatteryService
+
+print ("Finished imported modules.")
 
 # Configure logging with more detail
 logging.basicConfig(
