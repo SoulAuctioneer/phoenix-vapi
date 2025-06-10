@@ -68,32 +68,6 @@ ctl.!default {
     type hw
     card 0
 }
-
-# Nullify phantom devices that cause errors on startup
-pcm.rear {
-    type plug
-    slave.pcm "null"
-}
-pcm.center_lfe {
-    type plug
-    slave.pcm "null"
-}
-pcm.side {
-    type plug
-    slave.pcm "null"
-}
-pcm.hdmi {
-    type plug
-    slave.pcm "null"
-}
-pcm.modem {
-    type plug
-    slave.pcm "null"
-}
-pcm.phoneline {
-    type plug
-    slave.pcm "null"
-}
 EOF
 
 # Step 4: Configure module loading order
