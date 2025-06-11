@@ -1,3 +1,12 @@
+Questions for Lucy:
+* What's the names of the 6 pieces of the antenna?
+* Which parts need dialogue? What's the dialogue? Need to know what the magic pea says.
+* 30-second tune intro.
+
+* Buy shorter zippers for small peas
+* Find and buy smaller bluetooth speaker
+
+
 * IMPORTANT: SWAP BATTERY POLARITY
 
 Expenses:
@@ -6,11 +15,17 @@ Expenses:
 - Per diem
 - Flight May
 
-Nad work hours:
+WORK HOURS:
+NAD:
 * 6th 1.45 - 6:15 4.5 hrs PAID $225
 * 7th: 3.00 - 8.30 5.5 hrs PAID $275
 * 8th: 3.00 - 4.45 and 5.15 - 6pm 2.5 hrs PAID $150
 * 9th: 3.30 - 8.00 less 30 break 4 hours PAID $200
+* 10th: 4.00 - 7.00 3 hours TO PAY $150
+MEGAN:
+* 10th: 2.30 - ?
+ROHIT:
+* 10th: 2.00 - ?
 
 https://docs.google.com/presentation/d/10CB5ldhfgQDrg7EVcocxdp6LFyqzWWMMBgkNeTOzm0Q/edit?slide=id.g35a9257e399_0_5#slide=id.g35a9257e399_0_5
 
@@ -64,11 +79,30 @@ Shipping:
 * Picovoice need license keys for all devices
 * Gather sufficient USB cables
 
+
 SOFTWARE:
-* Squealing activity
-* Reacting-to-sound-getting-brighter activity
+* Squealing activity:
+  - Custom intent to start activity
+  - Rotate audio samples: "Where are we?" "Sqeal", "Is this Earth?", "Waaaah", "Are we there yet?"
+  - Detect when it's picked up. Says something like "ooh thank mother pea, we're gonna be okay. I'm so exhausted", and goes to sleep.
+
+* Add the snoring back in when it's sleeping.
+
+* Reacting-to-sound-getting-brighter activity:
+  - 
+* Waking up:
+  - Open-ended conversation, kids have some specific questions 
+
+* Botany Room:
+  - Create humming
+  - Can dock light up when I control it remotely?
+
 * Scavenger hunt activity
-* ?
+  - Oooh I sense something (first time it detects it), oh no we're getting further away, ooh I can feel it, we're getting closer, 
+  - Handle multiple in the same area, say I can sense two perhaps. 
+
+Other:
+* Add a system shutdown command - intent custom command 9. 
 * Try to figure out reduced power draw 
 * Try dynamically adjusting volume based on ambient noise levels
 
@@ -80,7 +114,7 @@ Put it in dock in lab (or see below, there’s already a pea in there)
 It’s asleep. At some point actor will say “magic pea, can you hear us?”, triggering the waking-up-energy activity.  Pea will get brighter with more and more sound, until it’s fully energized and wakes up, starting a conversation with some scripted words. 
 PEA #1 - (conversational pea) - In the lab room. This Pea is lying in the dock (so it can keep charged). Its relaxing after its long journey from space. We ask everyone to be very quiet. And the pea says a couple of scripted things. We then find a way to turn off the pea so the actor can continue speaking with the people in the room.
 Magic pea needs is told to go to sleep, then it stops chatting. 
-Then dance with bluetooth pea in botany lab.
+Then dance with bluetooth pea in botany lab. First, in dock. Responds to humming by humming back. Then tune when dancing. 
 Then scavenger hunt, groups of 10.
 Then finale: Mother pea voice recording says “Hey magic peas, don’t be afraid” or something, that’s the trigger phrase for an activity where they respond: “Hello mummy!” and they light up. (ensure no need for internet).
 
@@ -91,10 +125,10 @@ Need:
 2 real peas - for scavenger hunt - no LEDs.
 3 backup real peas.
 6 Bluetooth beacons (plus a couple of backups).
-6 docks - or just enough docks for peas that will be visible, put the rest on charging cables.
+2 docks (put the rest on charging cables).
 
 To do:
-Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, chop shorter and cute, and add some giggles.
+Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, chop shorter and cute, and add some giggles, add some wooshes, maybe every four beats. Starts a bit random, scattered, but rhythmic, on the beat, combine and become more coherent until we hit the drop. Then it's the regular tune until we get to the break, then finished.
 Create docks - pea-pod shaped?
 
 To Confirm:
