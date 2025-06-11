@@ -8,7 +8,7 @@ import asyncio
 import random
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from config import ScavengerHuntConfig, ScavengerHuntStep, Distance, SoundEffect
+from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect
 
 class ScavengerHuntActivity(BaseService):
     """Service that manages the scavenger hunt game activity"""
@@ -163,7 +163,7 @@ class ScavengerHuntActivity(BaseService):
             self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION}")
             
             # Only care about the current step's location
-            if location == self._current_step.LOCATION:
+            if location in ScavengerHuntLocation and ScavengerHuntLocation(location) == self._current_step.LOCATION:
                 self.logger.debug(f"GOT DISTANCE FOR CURRENT LOCATION: {self._current_step.LOCATION}")
                 distance = data.get("distance")
                 
