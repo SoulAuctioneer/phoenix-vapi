@@ -29,7 +29,7 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None, None, None),
     ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
-    ActivityType.SCAVENGER_HUNT: (['location', 'voice'], 'scavenger_hunt', None, None, "Let's start the scavenger hunt", "We finished the scavenger hunt"),
+    ActivityType.SCAVENGER_HUNT: (['location'], 'scavenger_hunt', None, None, "Let's start the scavenger hunt", "We finished the scavenger hunt"),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
     ActivityType.CALL: ([], 'call', None, None, None, None)
