@@ -2,11 +2,11 @@ import time
 import os
 import platform
 from textwrap import dedent
-from enum import Enum
 from typing import Union
 from dotenv import load_dotenv
 from enum import Enum, auto
 from typing import Union
+from dataclasses import dataclass
 
 load_dotenv()
 
@@ -271,17 +271,20 @@ class BLEConfig:
     BEACON_UUID = "426C7565-4368-6172-6D42-6561636F6E73"
 
     # Known beacon locations using (major, minor) tuples as keys
+    # TODO: Should we make a BeaconLocation StrEnum with these values? 
     BEACON_LOCATIONS = {
         (1, 1): "magical_sun_pendant",  # Label: Phoenix_Library
         (1, 2): "blue_phoenix",         # Label: Phoenix_Bedroom
         (1, 3): "phoenix_3",            # Label: phoenix3 WHERE IS IT??? 
+        # Scavenger hunt beacons.
         (1, 4): "phoenix_4",            # Label: phoenix4 ID: 188916 Type: BC011 regular
         (1, 5): "phoenix_5",            # Label: phoenix5 ID: 189245 Type: BC011 regular
         (1, 6): "phoenix_6",            # Label: phoenix6 ID: 200474 Type: BC011 PRO
         (1, 7): "phoenix_7",            # Label: phoenix7 ID: 199757 Type: BC011 PRO
         (1, 8): "phoenix_8",            # Label: phoenix8 ID: 199753 Type: BC011 PRO
+        (1, 9): "phoenix_9",            # Label: phoenix9 ID: ??? Type: BC011 regular
     }
-
+    
     # RSSI thresholds for distance estimation (in dB)
     RSSI_IMMEDIATE = -55  # Stronger than -55 dB = IMMEDIATE
     RSSI_VERY_NEAR = -65  # Between -65 and -55 dB = VERY_NEAR
@@ -336,6 +339,69 @@ class HideSeekConfig:
     # How frequently to emit an audio cue
     AUDIO_CUE_INTERVAL = 10.0
 
+class ScavengerHuntLocation(Enum):
+    # TODO: Should we do away with this enum and use BeaconLocation?
+    LOCATION1 = "phoenix_4"
+    LOCATION2 = "phoenix_5"
+    LOCATION3 = "phoenix_6"
+    LOCATION4 = "phoenix_7"
+    LOCATION5 = "phoenix_8"
+    LOCATION6 = "phoenix_9"
+
+@dataclass
+class ScavengerHuntStep:
+    NAME: str
+    LOCATION: ScavengerHuntLocation
+    START_VOICE_LINE: str
+    END_VOICE_LINE: str
+
+# Add new scavenger config
+# @dataclass
+class ScavengerHuntConfig:
+    SCAVENGER_HUNT_STEPS = [
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step1", 
+            LOCATION=ScavengerHuntLocation.LOCATION1,
+            START_VOICE_LINE="Let's find step 1",
+            END_VOICE_LINE="Yay, we found step 1",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step2", 
+            LOCATION=ScavengerHuntLocation.LOCATION2,
+            START_VOICE_LINE="Let's find step 2",
+            END_VOICE_LINE="Yay, we found step 2",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step3", 
+            LOCATION=ScavengerHuntLocation.LOCATION3,
+            START_VOICE_LINE="Let's find step 3",
+            END_VOICE_LINE="Yay, we found step 3",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step4", 
+            LOCATION=ScavengerHuntLocation.LOCATION4,
+            START_VOICE_LINE="Let's find step 4",
+            END_VOICE_LINE="Yay, we found step 4",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step5", 
+            LOCATION=ScavengerHuntLocation.LOCATION5,
+            START_VOICE_LINE="Let's find step 5",
+            END_VOICE_LINE="Yay, we found step 5",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step6", 
+            LOCATION=ScavengerHuntLocation.LOCATION6,
+            START_VOICE_LINE="Let's find step 6",
+            END_VOICE_LINE="Yay, we found step 6",
+        ),
+    ]
+    
+    # Number of seconds we wait before starting the next step
+    INTER_STEP_SLEEP_TIME: float = 10.0
+    
+    # How loud the chirps are.
+    CHIRP_VOLUME = 0.5
 
 # Touch Sensor Configuration
 class TouchConfig:
