@@ -87,7 +87,7 @@ class ScavengerHuntActivity(BaseService):
             Distance.VERY_NEAR: 0.2,
             Distance.IMMEDIATE: 0.1,
         }
-        interval = distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
+        interval = 3.0 * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
         self.logger.info(f"Distance is {distance}, using chirp interval ({interval})")
         
     async def _sound_loop(self):
@@ -182,7 +182,7 @@ class ScavengerHuntActivity(BaseService):
                     self.logger.info("Scavenger hunt step {self._current_step_name} completed!")
 
                     if self._remaining_steps:
-                        self._transition_to_next_step()
+                        await self._transition_to_next_step()
                     else:
                         await self.publish({
                             "type": "scavenger_hunt_won"
