@@ -51,11 +51,18 @@ class PatternFilter(logging.Filter):
         # Filter based on the logger name (which often includes filename)
         return bool(self.pattern.search(record.name))
 
-def get_filter_logger(logger_name: str):
+def get_filter_logger(logger_name: str, patterns: list = None):
+    if patterns is None:
+        patterns = ['scavenger_hunt_activity', 'proximity_changed', 'location_changed']
+    
     logger = logging.getLogger(logger_name)
+    if logger.handlers:
+        return logger
+        
+    logger.setLevel(logging.DEBUG)
     handler = logging.StreamHandler()
-    # TODO: Pass this in from main?
-    handler.addFilter(PatternFilter(r'scavenger_hunt_activity.py|proximity_changed|location_changed'))
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    handler.addFilter(PatternFilter('|'.join(patterns)))
     logger.addHandler(handler)
     return logger
 
