@@ -234,6 +234,26 @@ class Distance(Enum):
     FAR = auto()       # 4-6m
     VERY_FAR = auto()  # 6-8m
     UNKNOWN = auto()   # No signal or too weak
+    
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            if self == Distance.UNKNOWN or other == Distance.UNKNOWN:
+                return NotImplemented
+            return self.value < other.value
+        return NotImplemented
+    
+    def __le__(self, other):
+        return self < other or self == other
+    
+    def __gt__(self, other):
+        if self.__class__ is other.__class__:
+            if self == Distance.UNKNOWN or other == Distance.UNKNOWN:
+                return NotImplemented
+            return self.value > other.value
+        return NotImplemented
+        
+    def __ge__(self, other):
+        return self > other or self == other
 
 
 # BLE and Location Configuration

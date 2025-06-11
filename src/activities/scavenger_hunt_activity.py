@@ -164,7 +164,8 @@ class ScavengerHuntActivity(BaseService):
             # TODO: This doesn't work in python 3.7; update later.
             # if location in ScavengerHuntLocation and ScavengerHuntLocation(location) == self._current_step.LOCATION:
             if location == self._current_step.LOCATION.value:
-                distance = data.get("distance")
+                distance: Distance = data.get("distance")
+                prev_distance: Distance = data.get("previous_distance")
                 self.logger.debug(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
                 
                 # Mark that we've detected the next step's location at least once
@@ -172,7 +173,10 @@ class ScavengerHuntActivity(BaseService):
                     self._current_location_detected = True
                     self.logger.info(f"Location {self._current_step.LOCATION.value} detected for the first time!")
                 
-                # If found current location, either transition to next step or declare victory.
+                if distance == Distance.UNKNOWN:
+                    return
+                
+                # If we've found current location, either transition to next step or declare victory.
                 if distance == Distance.IMMEDIATE:
                     await self.publish({
                         "type": "scavenger_hunt_step_completed"
@@ -187,3 +191,19 @@ class ScavengerHuntActivity(BaseService):
                         })
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
+                elif prev_distance and not prev_distance == Distance.UNKNOWN:
+                    if prev_distance < distance:
+                        # Say we're getting closer
+                        await self.publish({
+                            "type": "speak_audio",
+                            "text": "Ooh, I think we're getting closer. Keep going!"
+                        })
+                    elif prev_distance > distance:
+                        # Say we're getting farther
+                        await self.publish({
+                            "type": "speak_audio",
+                            "text": "Uh oh, I thikn we're getting farther. Try another direction!"
+                        })
+                    else:
+                        # TODO: Perhaps increment some tracker to say we're standing still?
+                        pass

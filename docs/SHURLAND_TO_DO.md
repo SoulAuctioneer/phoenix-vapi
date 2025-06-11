@@ -99,7 +99,8 @@ SOFTWARE:
 
 * Scavenger hunt activity
   - Oooh I sense something (first time it detects it), oh no we're getting further away, ooh I can feel it, we're getting closer, 
-  - Handle multiple in the same area, say I can sense two perhaps. 
+  - Handle multiple in the same area, say I can sense two perhaps.
+    - Currently we have a linear flow, so this may not make sense.
 
 Other:
 * Add a system shutdown command - intent custom command 9. 
