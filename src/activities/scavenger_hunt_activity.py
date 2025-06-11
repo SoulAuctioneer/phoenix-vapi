@@ -163,7 +163,9 @@ class ScavengerHuntActivity(BaseService):
             self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION}")
             
             # Only care about the current step's location
-            if location in ScavengerHuntLocation and ScavengerHuntLocation(location) == self._current_step.LOCATION:
+            # Doesn't work in python 3.7
+            # if location in ScavengerHuntLocation and ScavengerHuntLocation(location) == self._current_step.LOCATION:
+            if location == self._current_step.LOCATION.value:
                 self.logger.debug(f"GOT DISTANCE FOR CURRENT LOCATION: {self._current_step.LOCATION}")
                 distance = data.get("distance")
                 
