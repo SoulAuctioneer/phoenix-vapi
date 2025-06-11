@@ -271,27 +271,20 @@ class BLEConfig:
     BEACON_UUID = "426C7565-4368-6172-6D42-6561636F6E73"
 
     # Known beacon locations using (major, minor) tuples as keys
+    # TODO: Should we make a BeaconLocation StrEnum with these values? 
     BEACON_LOCATIONS = {
         (1, 1): "magical_sun_pendant",  # Label: Phoenix_Library
         (1, 2): "blue_phoenix",         # Label: Phoenix_Bedroom
         (1, 3): "phoenix_3",            # Label: phoenix3 WHERE IS IT??? 
-        # TODO: Maybe remove these since they're only for scavenger hunt?
+        # Scavenger hunt beacons.
         (1, 4): "phoenix_4",            # Label: phoenix4 ID: 188916 Type: BC011 regular
         (1, 5): "phoenix_5",            # Label: phoenix5 ID: 189245 Type: BC011 regular
         (1, 6): "phoenix_6",            # Label: phoenix6 ID: 200474 Type: BC011 PRO
         (1, 7): "phoenix_7",            # Label: phoenix7 ID: 199757 Type: BC011 PRO
         (1, 8): "phoenix_8",            # Label: phoenix8 ID: 199753 Type: BC011 PRO
-    }
-    
-    SCAVENGER_HUNT_BEACON_LOCATIONS = {
-        (1, 4): "phoenix_4",            # Label: phoenix4 ID: 188916 Type: BC011 regular
-        (1, 5): "phoenix_5",            # Label: phoenix5 ID: 189245 Type: BC011 regular
-        (1, 6): "phoenix_6",            # Label: phoenix6 ID: 200474 Type: BC011 PRO
-        (1, 7): "phoenix_7",            # Label: phoenix7 ID: 199757 Type: BC011 PRO
-        (1, 8): "phoenix_8",            # Label: phoenix8 ID: 199753 Type: BC011 PRO        
         (1, 9): "phoenix_9",            # Label: phoenix9 ID: ??? Type: BC011 regular
     }
-
+    
     # RSSI thresholds for distance estimation (in dB)
     RSSI_IMMEDIATE = -55  # Stronger than -55 dB = IMMEDIATE
     RSSI_VERY_NEAR = -65  # Between -65 and -55 dB = VERY_NEAR
@@ -347,17 +340,16 @@ class HideSeekConfig:
     AUDIO_CUE_INTERVAL = 10.0
 
 class ScavengerHuntLocation(StrEnum):
-    LOCATION1 = "step1_location"
-    LOCATION2 = "step2_location"
-    LOCATION3 = "step3_location"
-    LOCATION4 = "step4_location"
+    # TODO: Should we do away with this enum and use BeaconLocation?
+    LOCATION1 = "phoenix_4"
+    LOCATION2 = "phoenix_5"
+    LOCATION3 = "phoenix_6"
+    LOCATION4 = "phoenix_7"
 
 @dataclass
 class ScavengerHuntStep:
     NAME: str
-    # TODO: This should be something else, likely a ScavengerHuntLocation. 
     LOCATION: ScavengerHuntLocation
-    # Maybe start / end voice lines?
     START_VOICE_LINE: str
     END_VOICE_LINE: str
 
