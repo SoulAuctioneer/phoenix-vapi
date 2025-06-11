@@ -56,9 +56,7 @@ Powerboost From Right:
   Device name is pizero3 etc.
   Wifi is NuHaus Unified.
   WiFi region is US
-  Username is "ash"
-  Password is "xdara"
-  Next tab: Use SSH enabled
+  Username and Password: ***
   Click SAVE
   Apply OS customization settings: YES, continue, yes, etc etc
 
