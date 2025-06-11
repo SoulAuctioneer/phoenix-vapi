@@ -8,14 +8,17 @@ from services.accelerometer_service import AccelerometerService
 from activities.conversation_activity import ConversationActivity
 from activities.sleep_activity import SleepActivity
 from activities.hide_seek_activity import HideSeekActivity
+from activities.scavenger_hunt_activity import ScavengerHuntActivity
 from activities.move_activity import MoveActivity
 from activities.call_activity import CallActivity
 import asyncio
 
+# TODO: Should this be StrEnum?
 class ActivityType(Enum):
     """Types of activities the device can be in"""
     CONVERSATION = "conversation"
     HIDE_SEEK = "hide_seek"
+    SCAVENGER_HUNT = "scavenger_hunt"
     CUDDLE = "cuddle"
     SLEEP = "sleep"
     MOVE = "move"
@@ -26,6 +29,7 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None, None, None),
     ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
+    ActivityType.SCAVENGER_HUNT: (['location'], 'scavenger_hunt', None, None, "Let's start the scavenger hunt", "We finished the scavenger hunt"),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
     ActivityType.CALL: ([], 'call', None, None, None, None)
@@ -41,6 +45,7 @@ class ActivityService(BaseService):
         super().__init__(service_manager)
         self.current_activity: Optional[ActivityType] = None
         # Define available activity services
+        # TODO: Should we switch to the ActivityType enum for the keys here?
         self.activity_services = {
             'location': LocationService,
             'sensor': SensorService,
@@ -49,6 +54,7 @@ class ActivityService(BaseService):
             'conversation': ConversationActivity,
             'move': MoveActivity,
             'hide_seek': HideSeekActivity,
+            'scavenger_hunt': ScavengerHuntActivity,
             'call': CallActivity,
             'sleep': SleepActivity,
         }
@@ -192,7 +198,8 @@ class ActivityService(BaseService):
             await self.publish({
                 "type": "play_sound",
                 "effect_name": start_sound,
-#                "volume": 1.0 # TODO: Change back when not in public!
+                # TODO: Change back when not in public!
+                # "volume": 1.0 
             })
             
         # Speak start text if defined
@@ -296,15 +303,28 @@ class ActivityService(BaseService):
         elif event_type == "intent_detected":
             intent = event.get("intent")
             
+            # TODO: Should we check that this intent is an ActivityType?
+            # Then we can simplify to:
+            # await self._queue_transition(intent)
+            # ...special handling for 'call'
+            
             # Handle activity-related intents
             if intent == "conversation":
                 # Start conversation activity
                 await self._queue_transition(ActivityType.CONVERSATION)
                 
             elif intent == "hide_and_seek":
+                # TODO: We're temporarily repurposing "hide_and_seek" -> scavenger hunt.
+                # Start scavenger hunt activity
+                await self._queue_transition(ActivityType.SCAVENGER_HUNT)
                 # Start hide and seek activity
-                await self._queue_transition(ActivityType.HIDE_SEEK)
-                
+                # await self._queue_transition(ActivityType.HIDE_SEEK)
+
+            # TODO: This needs to be added to the Pico model.
+            elif intent == "scavenger_hunt":
+                # Start scavenger hunt activity
+                await self._queue_transition(ActivityType.SCAVENGER_HUNT)
+
             elif intent == "cuddle":
                 # Start cuddle activity
                 await self._queue_transition(ActivityType.CUDDLE)
@@ -329,6 +349,8 @@ class ActivityService(BaseService):
                     await self._queue_transition(ActivityType.CALL, contact=contact)
                 else:
                     self.logger.error("No contact name provided for call activity")
+            else:
+                self.logger.error(f"Can't handle 'intent_detected' intent with value: {intent}.")
 
         elif event_type == "conversation_ended":
             # A conversation has finished. Stop the conversation activity.
@@ -380,3 +402,6 @@ class ActivityService(BaseService):
                 await self._stop_activity(ActivityType.CALL)
             else:
                 self.logger.debug(f"Received pstn_call_completed_remotely but current activity is {self.current_activity}. Ignoring.")
+        
+        else:
+            self.logger.debug(f"Unknown event type: {event_type}")

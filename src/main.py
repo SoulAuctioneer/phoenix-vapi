@@ -45,6 +45,7 @@ for logger_name in [
 
 for logger_name in [
     'services.hide_seek_activity'
+    'services.scavenger_hunt_activity'
 ]:
     logging.getLogger(logger_name).setLevel(logging.WARNING)
 
