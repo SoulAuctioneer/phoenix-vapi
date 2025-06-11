@@ -155,8 +155,10 @@ class ScavengerHuntActivity(BaseService):
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
         event_type = event.get("type")
+        self.logger.info(f"IN HANDLE EVENT FOR SCAVENGER HUNT")
         
         if event_type == "proximity_changed":
+            self.logger.info(f"LOOKING AT PROXIMITY CHANGE IN SCAVENGER HUNT")
             data = event.get("data", {})
             location = data.get("location")
             
