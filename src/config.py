@@ -400,7 +400,7 @@ class ScavengerHuntConfig:
     # Number of seconds we wait before starting the next step
     INTER_STEP_SLEEP_TIME: float = 10.0
     
-    # How load the 
+    # How loud the chirps are.
     CHIRP_VOLUME = 0.5
 
 # Touch Sensor Configuration

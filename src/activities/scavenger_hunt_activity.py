@@ -109,7 +109,7 @@ class ScavengerHuntActivity(BaseService):
                     self.logger.info(f"All beacons in global state: {self.global_state.location_beacons}")
                 
                 if not current_step_location_info:
-                    # No step detected, use max volume
+                    # No step detected, use max interval.
                     chirp_interval = 1.0
                     self.logger.info("No step info, using max chirp interval")
                 else:
@@ -130,7 +130,7 @@ class ScavengerHuntActivity(BaseService):
                     SoundEffect.CHIRP7,
                     SoundEffect.CHIRP8,
                 ])
-                self.logger.info(f"Playing chirp {chirp} with volume {volume:.2f}")
+                self.logger.info(f"Playing chirp {chirp} with chirp_interval {chirp_interval:.2f}")
                 await self.publish({
                     "type": "play_sound",
                     "effect_name": chirp,
