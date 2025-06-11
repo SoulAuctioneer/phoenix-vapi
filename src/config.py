@@ -1,6 +1,8 @@
 import time
 import os
 import platform
+import re
+import logging
 from textwrap import dedent
 from typing import Union
 from dotenv import load_dotenv
@@ -40,6 +42,24 @@ NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 TTS_VOICE = "ana" # Or "timmy"
 ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
 
+class PatternFilter(logging.Filter):
+    def __init__(self, pattern):
+        super().__init__()
+        self.pattern = re.compile(pattern)
+    
+    def filter(self, record):
+        # Filter based on the logger name (which often includes filename)
+        return bool(self.pattern.search(record.name))
+
+def get_filter_logger(logger_name: str):
+    logger = logging.getLogger(logger_name)
+    handler = logging.StreamHandler()
+    # TODO: Pass this in from main?
+    handler.addFilter(PatternFilter(r'scavenger_hunt_activity.py|proximity_changed|location_changed'))
+    logger.addHandler(handler)
+    return logger
+
+    
 # Call Configuration
 class CallConfig:
     """Configuration for call-related settings"""        

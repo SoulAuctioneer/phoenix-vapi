@@ -2,10 +2,7 @@ import logging
 import asyncio
 from typing import Dict, Any, Set, Callable, Awaitable, Optional
 from collections import defaultdict
-from dataclasses import dataclass, field
-from enum import Enum
-import re
-from config import Distance, AudioBaseConfig
+from config import Distance, AudioBaseConfig, get_filter_logger
 
 
 EventHandler = Callable[[Dict[str, Any]], Awaitable[None]]
@@ -43,7 +40,7 @@ class ServiceManager:
         self._subscribers: Dict[str, Set[EventHandler]] = defaultdict(set)
         self._should_run = True
         self._lock = asyncio.Lock()
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_filter_logger(__name__)
         self.global_state = GlobalState()  # Shared global state
         self.global_state_lock = asyncio.Lock()  # Lock for global state access
         
@@ -240,16 +237,6 @@ class ServiceManager:
             for result in results:
                 if isinstance(result, Exception):
                     self.logger.error(f"Error in event handler: {result}", exc_info=True)
-                    
-class PatternFilter(logging.Filter):
-    def __init__(self, pattern):
-        super().__init__()
-        self.pattern = re.compile(pattern)
-    
-    def filter(self, record):
-        # Filter based on the logger name (which often includes filename)
-        return bool(self.pattern.search(record.name))
-
 
 class BaseService:
     """Base class for all services"""
@@ -257,11 +244,7 @@ class BaseService:
         self._service_manager = service_manager
         self._running = False
         # Create a logger with the full module path and class name
-        self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
-        handler = logging.StreamHandler()
-        # TODO: Pass this in from main?
-        handler.addFilter(PatternFilter(r'scavenger_hunt_activity.py|proximity_changed|location_changed'))  # Only logs from mymodule or database
-        self.logger.addHandler(handler)
+        self.logger = get_filter_logger(f"{self.__class__.__module__}.{self.__class__.__name__}")
         self.global_state: GlobalState | None = None  # Will be set by ServiceManager
         # Initialize lock for thread-safe access to global_state
         self.global_state_lock = asyncio.Lock()
