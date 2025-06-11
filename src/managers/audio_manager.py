@@ -126,11 +126,16 @@ class AudioProducer:
         
         return chunks
 
+    def clear(self):
+        """Clear the buffer and reset the remainder."""
+        self.buffer.clear()
+        self._remainder = np.array([], dtype=np.int16)
+        logging.info(f"Producer '{self.name}' buffer cleared")
+
     def stop(self):
         """Stop this producer and clean up its resources"""
         self.active = False
-        self.buffer.clear()
-        self._remainder = np.array([], dtype=np.int16)
+        self.clear()
         self._original_audio = None  # Clear original audio data
         self.loop = False  # Reset loop flag
         logging.info(f"Producer '{self.name}' stopped and cleaned up")

@@ -28,6 +28,7 @@ class VoiceService(BaseService):
         self.audio_manager = None
         self._tts_producer = None
         self._cache_dir = None
+        self._current_tts_task: Optional[asyncio.Task] = None
 
     async def start(self):
         """Start the voice service."""
@@ -69,6 +70,11 @@ class VoiceService(BaseService):
                 logger.info(f"Removed audio producer: {self.TTS_PRODUCER_NAME}")
             except Exception as e:
                 logger.error(f"Error removing TTS audio producer: {e}")
+        
+        if self._current_tts_task and not self._current_tts_task.done():
+            self._current_tts_task.cancel()
+            logger.info("Cancelled active TTS task on stop.")
+
         self._tts_producer = None
         self.voice_manager = None # Release VoiceManager instance
         await super().stop()
@@ -121,6 +127,44 @@ class VoiceService(BaseService):
         except Exception as e:
             logger.error(f"Error saving audio to cache {cache_path}: {e}")
 
+    def _process_and_buffer_audio_chunk(self, audio_chunk_bytes: bytes) -> bool:
+        """
+        Process audio chunk bytes and buffer them for playback.
+        
+        Args:
+            audio_chunk_bytes: Raw PCM audio bytes
+            
+        Returns:
+            bool: True if processing was successful, False otherwise
+        """
+        if not audio_chunk_bytes:
+            logger.warning("Received empty audio chunk bytes.")
+            return False
+            
+        # Convert PCM bytes to numpy array
+        audio_np_array = self.voice_manager.pcm_bytes_to_numpy(audio_chunk_bytes)
+        
+        if audio_np_array.size > 0:
+            # Resize the chunk using the producer's own resizer method
+            resized_chunks = self._tts_producer.resize_chunk(audio_np_array)
+            for chunk_to_put in resized_chunks:
+                success = self._tts_producer.buffer.put(chunk_to_put)
+                if not success:
+                    logger.warning(f"TTS audio producer buffer full for '{self.TTS_PRODUCER_NAME}'. Audio chunk dropped.")
+            return True
+        else:
+            logger.warning("Received empty audio array after conversion.")
+            return False
+
+    def _tts_task_done_callback(self, task: asyncio.Task):
+        try:
+            # This will re-raise any exception caught during the task's execution
+            task.result()
+        except asyncio.CancelledError:
+            logger.info("TTS task was successfully cancelled.")
+        except Exception as e:
+            logger.error(f"TTS playback task failed: {e}", exc_info=True)
+
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events, specifically 'speak_audio' for TTS."""
         event_type = event.get("type")
@@ -138,52 +182,82 @@ class VoiceService(BaseService):
                 logger.error("VoiceManager not initialized. Cannot speak audio.")
                 return
             
-            if not self._tts_producer or not self._tts_producer.active:
-                logger.error(f"TTS audio producer '{self.TTS_PRODUCER_NAME}' is not active. Recreating.")
-                # Attempt to recreate the producer if it's gone missing or inactive
-                try:
-                    self._tts_producer = self.audio_manager.add_producer(
-                        name=self.TTS_PRODUCER_NAME,
-                        chunk_size=AudioBaseConfig.CHUNK_SIZE,
-                        buffer_size=AudioBaseConfig.BUFFER_SIZE * 10 # Increased buffer size here too
-                    )
-                    self.audio_manager.set_producer_volume(self.TTS_PRODUCER_NAME, AudioBaseConfig.DEFAULT_VOLUME)
-                except Exception as e:
-                    logger.error(f"Failed to recreate TTS audio producer: {e}")
-                    return
+            # Fire-and-forget the speak method to handle the full lifecycle
+            asyncio.create_task(self.speak(text_to_speak, voice_id, model_id))
 
-            logger.info(f"Received speak_audio event for text: '{text_to_speak[:30]}...'")
-            
-            # Check cache first
-            cached_audio = await self._check_cache(text_to_speak, voice_id, model_id)
-            
-            if cached_audio:
-                # Play from cache
-                asyncio.create_task(self._play_cached_audio(cached_audio))
-            else:
-                # Generate new audio and cache it
-                asyncio.create_task(self._stream_and_play_tts(text_to_speak, voice_id, model_id))
+    async def speak(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None):
+        """
+        Manages the lifecycle of a TTS request, including interrupting previous speech.
+        """
+        # 1. Cancel previous task and wait for it to finish cancelling
+        if self._current_tts_task and not self._current_tts_task.done():
+            logger.info("Interrupting previous TTS task.")
+            self._current_tts_task.cancel()
+            try:
+                await self._current_tts_task
+            except asyncio.CancelledError:
+                logger.info("Previous TTS task successfully cancelled.")
+            except Exception as e:
+                # Logged in the done callback
+                pass
+
+        # 2. Ensure producer is ready and clear any lingering audio
+        if not self._tts_producer or not self._tts_producer.active:
+            logger.error(f"TTS audio producer '{self.TTS_PRODUCER_NAME}' is not active. Recreating.")
+            try:
+                self._tts_producer = self.audio_manager.add_producer(
+                    name=self.TTS_PRODUCER_NAME,
+                    chunk_size=AudioBaseConfig.CHUNK_SIZE,
+                    buffer_size=AudioBaseConfig.BUFFER_SIZE * 10
+                )
+                self.audio_manager.set_producer_volume(self.TTS_PRODUCER_NAME, AudioBaseConfig.DEFAULT_VOLUME)
+            except Exception as e:
+                logger.error(f"Failed to recreate TTS audio producer: {e}")
+                return
+        else:
+            # Clear producer buffer to ensure immediate interruption
+            self._tts_producer.clear()
+
+        logger.info(f"Received speak_audio event for text: '{text[:30]}...'")
+        
+        # 3. Create and run new task
+        cached_audio = await self._check_cache(text, voice_id, model_id)
+        
+        if cached_audio:
+            play_coro = self._play_cached_audio(cached_audio)
+        else:
+            play_coro = self._stream_and_play_tts(text, voice_id, model_id)
+
+        self._current_tts_task = asyncio.create_task(play_coro)
+        self._current_tts_task.add_done_callback(self._tts_task_done_callback)
 
     async def _play_cached_audio(self, audio_data: bytes):
-        """Play cached audio data."""
+        """Play cached audio data chunk by chunk to allow for cancellation."""
         try:
             logger.info("Playing cached TTS audio...")
-            
-            # Convert PCM bytes to numpy array
             audio_np_array = self.voice_manager.pcm_bytes_to_numpy(audio_data)
             
-            if audio_np_array.size > 0:
-                # Resize the chunk using the producer's own resizer method
-                resized_chunks = self._tts_producer.resize_chunk(audio_np_array)
-                for chunk_to_put in resized_chunks:
-                    success = self._tts_producer.buffer.put(chunk_to_put)
-                    if not success:
-                        logger.warning(f"TTS audio producer buffer full for '{self.TTS_PRODUCER_NAME}'. Audio chunk dropped.")
-            else:
-                logger.warning("Cached audio data is empty.")
+            # Use a processing chunk size that's a multiple of the audio output chunk size
+            # This is for efficiency, to avoid calling the processing function for every tiny audio chunk
+            processing_chunk_size = AudioBaseConfig.CHUNK_SIZE * 10  # Process 10 audio chunks worth of data at a time
+
+            for i in range(0, len(audio_np_array), processing_chunk_size):
+                # Allow cancellation between chunks by yielding control to the event loop
+                await asyncio.sleep(0)
                 
-            logger.info("Finished playing cached TTS audio.")
+                chunk_np = audio_np_array[i:i + processing_chunk_size]
+                
+                # The underlying `_process_and_buffer_audio_chunk` handles resizing and buffering
+                if not self._process_and_buffer_audio_chunk(chunk_np.tobytes()):
+                    logger.warning("Failed to process a chunk of cached audio data.")
+                    # Stop trying to play this audio if a chunk fails
+                    break
             
+            logger.info("Finished queuing cached TTS audio.")
+
+        except asyncio.CancelledError:
+            logger.info("Cached audio playback was cancelled.")
+            raise  # Re-raise to be handled by the done_callback
         except Exception as e:
             logger.error(f"Error playing cached audio: {e}", exc_info=True)
 
@@ -210,20 +284,8 @@ class VoiceService(BaseService):
                     # Store chunk for caching
                     all_audio_chunks.append(audio_chunk_bytes)
                     
-                    # Convert PCM bytes to numpy array
-                    audio_np_array = self.voice_manager.pcm_bytes_to_numpy(audio_chunk_bytes)
-                    
-                    if audio_np_array.size > 0:
-                        # Resize the chunk using the producer's own resizer method
-                        # This will handle remainders and ensure chunks are of the correct size
-                        # for the AudioManager's output loop.
-                        resized_chunks = self._tts_producer.resize_chunk(audio_np_array)
-                        for chunk_to_put in resized_chunks:
-                            success = self._tts_producer.buffer.put(chunk_to_put)
-                            if not success:
-                                logger.warning(f"TTS audio producer buffer full for '{self.TTS_PRODUCER_NAME}'. Audio chunk dropped.")
-                    else:
-                        logger.warning("Received empty audio array after conversion.")
+                    # Process and buffer the audio chunk
+                    self._process_and_buffer_audio_chunk(audio_chunk_bytes)
                         
             logger.info("Finished streaming TTS audio.")
             
@@ -232,5 +294,8 @@ class VoiceService(BaseService):
                 combined_audio = b''.join(all_audio_chunks)
                 await self._save_to_cache(combined_audio, text, voice_id, model_id)
 
+        except asyncio.CancelledError:
+            logger.info("TTS streaming was cancelled.")
+            raise  # Re-raise to be handled by the done_callback
         except Exception as e:
             logger.error(f"Error during TTS streaming and playback: {e}", exc_info=True) 
