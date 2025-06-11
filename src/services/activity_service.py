@@ -303,7 +303,7 @@ class ActivityService(BaseService):
         elif event_type == "intent_detected":
             intent = event.get("intent")
             
-            # TODO: Should we assert that this intent is an ActivityType?
+            # TODO: Should we check that this intent is an ActivityType?
             # Then we can simplify to:
             # await self._queue_transition(intent)
             # ...special handling for 'call'
@@ -313,11 +313,14 @@ class ActivityService(BaseService):
                 # Start conversation activity
                 await self._queue_transition(ActivityType.CONVERSATION)
                 
-            # TODO: Should this be hide_seek?
             elif intent == "hide_and_seek":
+                # TODO: We're temporarily repurposing "hide_and_seek" -> scavenger hunt.
+                # Start scavenger hunt activity
+                await self._queue_transition(ActivityType.SCAVENGER_HUNT)
                 # Start hide and seek activity
-                await self._queue_transition(ActivityType.HIDE_SEEK)
+                # await self._queue_transition(ActivityType.HIDE_SEEK)
 
+            # TODO: This needs to be added to the Pico model.
             elif intent == "scavenger_hunt":
                 # Start scavenger hunt activity
                 await self._queue_transition(ActivityType.SCAVENGER_HUNT)
