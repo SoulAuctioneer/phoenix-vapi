@@ -160,7 +160,7 @@ class ScavengerHuntActivity(BaseService):
         if event_type == "proximity_changed":
             data = event.get("data", {})
             location = data.get("location")
-            self.logger.info(f"LOOKING AT PROXIMITY CHANGE {location} IN SCAVENGER HUNT")
+            self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION}")
             
             # Only care about the current step's location
             if location == self._current_step.LOCATION:
