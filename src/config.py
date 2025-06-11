@@ -345,6 +345,8 @@ class ScavengerHuntLocation(StrEnum):
     LOCATION2 = "phoenix_5"
     LOCATION3 = "phoenix_6"
     LOCATION4 = "phoenix_7"
+    LOCATION5 = "phoenix_8"
+    LOCATION6 = "phoenix_9"
 
 @dataclass
 class ScavengerHuntStep:
@@ -374,6 +376,24 @@ class ScavengerHuntConfig:
             LOCATION=ScavengerHuntLocation.LOCATION3,
             START_VOICE_LINE="Let's find step 3",
             END_VOICE_LINE="Yay, we found step 3",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step4", 
+            LOCATION=ScavengerHuntLocation.LOCATION4,
+            START_VOICE_LINE="Let's find step 4",
+            END_VOICE_LINE="Yay, we found step 4",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step5", 
+            LOCATION=ScavengerHuntLocation.LOCATION5,
+            START_VOICE_LINE="Let's find step 5",
+            END_VOICE_LINE="Yay, we found step 5",
+        ),
+        ScavengerHuntStep(
+            NAME="scavenger_hunt_step6", 
+            LOCATION=ScavengerHuntLocation.LOCATION6,
+            START_VOICE_LINE="Let's find step 6",
+            END_VOICE_LINE="Yay, we found step 6",
         ),
     ]
     
