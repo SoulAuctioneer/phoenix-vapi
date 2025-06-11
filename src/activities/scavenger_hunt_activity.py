@@ -20,6 +20,8 @@ class ScavengerHuntActivity(BaseService):
         self._current_step: ScavengerHuntStep | None = None
         self._current_location_detected: bool = False  # Track if we've ever seen the next desired location.
         self._remaining_steps: list[ScavengerHuntStep] = ScavengerHuntConfig.SCAVENGER_HUNT_STEPS
+        if not self._remaining_steps:
+            self.logger.error("Created a scavenger hunt with no steps!")
         
     async def start(self):
         """Start the scavenger hunt service"""
@@ -30,7 +32,7 @@ class ScavengerHuntActivity(BaseService):
             "type": "stop_led_effect"
         })
         
-        # Start the first task (maybe abstract this?)
+        # Start the first step in our hunt.
         self._start_next_step()
         # Start sound task that periodically emits chirps
         self._sound_task = asyncio.create_task(self._sound_loop())
@@ -50,7 +52,8 @@ class ScavengerHuntActivity(BaseService):
         self.logger.info("scavenger hunt service stopped")
         
     async def _start_next_step(self):
-        assert len(self._remaining_steps) > 0, "Trying to start next step when none remain!"
+        if not self._remaining_steps:
+            self.logger.error("Trying to start next step when none remain!")
         self._current_step = self._remaining_steps.pop(0)
         self._current_location_detected = False
         await self.publish({
