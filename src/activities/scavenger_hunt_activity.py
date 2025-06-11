@@ -185,3 +185,5 @@ class ScavengerHuntActivity(BaseService):
                         })
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
+        else:
+            self.logger.debug(f"WAITING FOR CURRENT LOCATION: {self._current_step.LOCATION}")
