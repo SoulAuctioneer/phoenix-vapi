@@ -240,6 +240,15 @@ class ServiceManager:
                 if isinstance(result, Exception):
                     self.logger.error(f"Error in event handler: {result}", exc_info=True)
                     
+class PatternFilter(logging.Filter):
+    def __init__(self, pattern):
+        super().__init__()
+        self.pattern = re.compile(pattern)
+    
+    def filter(self, record):
+        # Filter based on the logger name (which often includes filename)
+        return bool(self.pattern.search(record.name))
+
 
 class BaseService:
     """Base class for all services"""
@@ -248,6 +257,10 @@ class BaseService:
         self._running = False
         # Create a logger with the full module path and class name
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
+        handler = logging.StreamHandler()
+        # TODO: Pass this in from main?
+        handler.addFilter(PatternFilter(r'scavenger_hunt_activity.py|proximity_changed|location_changed'))  # Only logs from mymodule or database
+        self.logger.addHandler(handler)
         self.global_state: GlobalState | None = None  # Will be set by ServiceManager
         # Initialize lock for thread-safe access to global_state
         self.global_state_lock = asyncio.Lock()

@@ -98,7 +98,7 @@ class ScavengerHuntActivity(BaseService):
                 # Only emit sounds if we've detected the next step's at least once
                 if not self._current_location_detected:
                     # Check less frequently when waiting to find the distance to current step location.
-                    self.logger.debug(f"Can't find next location: {self._current_step.LOCATION}")
+                    self.logger.info(f"Can't find next location: {self._current_step.LOCATION}")
                     await asyncio.sleep(1.0)
                     continue
                     
@@ -194,7 +194,7 @@ class ScavengerHuntActivity(BaseService):
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
                 elif prev_distance and not prev_distance == Distance.UNKNOWN:
-                    self.logger.debug(f"Changed on current step: {prev_distance} -> {distance}; closer: {distance < prev_distance}!")
+                    self.logger.info(f"Changed on current step: {prev_distance} -> {distance}; closer: {distance < prev_distance}!")
                     if distance < prev_distance:
                         # Say we're getting closer
                         await self.publish({
