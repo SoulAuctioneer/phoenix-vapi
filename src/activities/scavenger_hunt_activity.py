@@ -155,15 +155,13 @@ class ScavengerHuntActivity(BaseService):
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
         event_type = event.get("type")
-        self.logger.info(f"IN HANDLE EVENT FOR SCAVENGER HUNT")
-        
         if event_type == "proximity_changed":
             data = event.get("data", {})
             location = data.get("location")
             self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION.value}")
             
             # Only care about the current step's location
-            # Doesn't work in python 3.7
+            # TODO: This doesn't work in python 3.7; update later.
             # if location in ScavengerHuntLocation and ScavengerHuntLocation(location) == self._current_step.LOCATION:
             if location == self._current_step.LOCATION.value:
                 distance = data.get("distance")
@@ -189,5 +187,3 @@ class ScavengerHuntActivity(BaseService):
                         })
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
-            else:
-                self.logger.debug(f"WAITING FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
