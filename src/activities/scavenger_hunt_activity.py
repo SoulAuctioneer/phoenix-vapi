@@ -160,19 +160,19 @@ class ScavengerHuntActivity(BaseService):
         if event_type == "proximity_changed":
             data = event.get("data", {})
             location = data.get("location")
-            self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION}")
+            self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION.value}")
             
             # Only care about the current step's location
             # Doesn't work in python 3.7
             # if location in ScavengerHuntLocation and ScavengerHuntLocation(location) == self._current_step.LOCATION:
             if location == self._current_step.LOCATION.value:
-                self.logger.debug(f"GOT DISTANCE FOR CURRENT LOCATION: {self._current_step.LOCATION}")
                 distance = data.get("distance")
+                self.logger.debug(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
                 
                 # Mark that we've detected the next step's location at least once
                 if not self._current_location_detected and distance != Distance.UNKNOWN:
                     self._current_location_detected = True
-                    self.logger.info(f"Location {self._current_step.LOCATION} detected for the first time!")
+                    self.logger.info(f"Location {self._current_step.LOCATION.value} detected for the first time!")
                 
                 # If found current location, either transition to next step or declare victory.
                 if distance == Distance.IMMEDIATE:
@@ -190,4 +190,4 @@ class ScavengerHuntActivity(BaseService):
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
             else:
-                self.logger.debug(f"WAITING FOR CURRENT LOCATION: {self._current_step.LOCATION}")
+                self.logger.debug(f"WAITING FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
