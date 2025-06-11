@@ -194,13 +194,13 @@ class ScavengerHuntActivity(BaseService):
                         self._game_active = False
                 elif prev_distance and not prev_distance == Distance.UNKNOWN:
                     self.logger.debug(f"Changed on current step: {prev_distance} -> {distance}; closer: {distance < prev_distance}!")
-                    if prev_distance < distance:
+                    if distance < prev_distance:
                         # Say we're getting closer
                         await self.publish({
                             "type": "speak_audio",
                             "text": "Ooh, I think we're getting closer. Keep going!"
                         })
-                    elif prev_distance > distance:
+                    elif distance > prev_distance:
                         # Say we're getting farther
                         await self.publish({
                             "type": "speak_audio",
