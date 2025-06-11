@@ -35,7 +35,8 @@ class ScavengerHuntActivity(BaseService):
         # Start the first step in our hunt.
         await self._start_next_step()
         # Start sound task that periodically emits chirps
-        self._sound_task = asyncio.create_task(self._sound_loop())
+        # TODO: Uncomment after debugging.
+        # self._sound_task = asyncio.create_task(self._sound_loop())
         self.logger.info(f"scavenger hunt service started; on step: {self._current_step_name}")
         
     async def stop(self):
@@ -87,7 +88,7 @@ class ScavengerHuntActivity(BaseService):
             Distance.VERY_NEAR: 0.2,
             Distance.IMMEDIATE: 0.1,
         }
-        interval = 3.0 * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
+        interval = 10.0 * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
         self.logger.info(f"Distance is {distance}, using chirp interval ({interval})")
         
     async def _sound_loop(self):
@@ -166,8 +167,8 @@ class ScavengerHuntActivity(BaseService):
             if location == self._current_step.LOCATION.value:
                 distance: Distance = data.get("distance")
                 prev_distance: Distance = data.get("previous_distance")
-                self.logger.debug(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
-                self.logger.debug(f"Went from {prev_distance} -> {distance}!")
+                self.logger.info(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
+                self.logger.info(f"WENT FROM {prev_distance} -> {distance}!")
                 
                 # Mark that we've detected the next step's location at least once
                 if not self._current_location_detected and distance != Distance.UNKNOWN:
