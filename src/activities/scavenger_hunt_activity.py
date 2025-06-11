@@ -158,9 +158,9 @@ class ScavengerHuntActivity(BaseService):
         self.logger.info(f"IN HANDLE EVENT FOR SCAVENGER HUNT")
         
         if event_type == "proximity_changed":
-            self.logger.info(f"LOOKING AT PROXIMITY CHANGE IN SCAVENGER HUNT")
             data = event.get("data", {})
             location = data.get("location")
+            self.logger.info(f"LOOKING AT PROXIMITY CHANGE {location} IN SCAVENGER HUNT")
             
             # Only care about the current step's location
             if location == self._current_step.LOCATION:
@@ -187,5 +187,5 @@ class ScavengerHuntActivity(BaseService):
                         })
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
-        else:
-            self.logger.debug(f"WAITING FOR CURRENT LOCATION: {self._current_step.LOCATION}")
+            else:
+                self.logger.debug(f"WAITING FOR CURRENT LOCATION: {self._current_step.LOCATION}")
