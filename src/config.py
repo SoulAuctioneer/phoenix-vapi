@@ -4,7 +4,7 @@ import platform
 from textwrap import dedent
 from typing import Union
 from dotenv import load_dotenv
-from enum import Enum, auto, StrEnum
+from enum import Enum, auto
 from typing import Union
 from dataclasses import dataclass
 
@@ -339,7 +339,7 @@ class HideSeekConfig:
     # How frequently to emit an audio cue
     AUDIO_CUE_INTERVAL = 10.0
 
-class ScavengerHuntLocation(StrEnum):
+class ScavengerHuntLocation(Enum):
     # TODO: Should we do away with this enum and use BeaconLocation?
     LOCATION1 = "phoenix_4"
     LOCATION2 = "phoenix_5"
