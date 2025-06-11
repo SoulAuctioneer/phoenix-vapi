@@ -167,6 +167,7 @@ class ScavengerHuntActivity(BaseService):
                 distance: Distance = data.get("distance")
                 prev_distance: Distance = data.get("previous_distance")
                 self.logger.debug(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
+                self.logger.debug(f"Went from {prev_distance} -> {distance}!")
                 
                 # Mark that we've detected the next step's location at least once
                 if not self._current_location_detected and distance != Distance.UNKNOWN:
@@ -192,6 +193,7 @@ class ScavengerHuntActivity(BaseService):
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
                 elif prev_distance and not prev_distance == Distance.UNKNOWN:
+                    self.logger.debug(f"Changed on current step: {prev_distance} -> {distance}; closer: {distance < prev_distance}!")
                     if prev_distance < distance:
                         # Say we're getting closer
                         await self.publish({
