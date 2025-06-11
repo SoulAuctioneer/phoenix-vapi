@@ -33,7 +33,7 @@ class ScavengerHuntActivity(BaseService):
         })
         
         # Start the first step in our hunt.
-        self._start_next_step()
+        await self._start_next_step()
         # Start sound task that periodically emits chirps
         self._sound_task = asyncio.create_task(self._sound_loop())
         self.logger.info(f"scavenger hunt service started; on step: {self._current_step_name}")
@@ -149,7 +149,7 @@ class ScavengerHuntActivity(BaseService):
             "text": self._current_step.END_VOICE_LINE
         })
         await asyncio.sleep(ScavengerHuntConfig.INTER_STEP_SLEEP_TIME)
-        self._start_next_step()
+        await self._start_next_step()
     
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
