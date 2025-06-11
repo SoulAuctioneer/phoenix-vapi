@@ -67,7 +67,7 @@ class ScavengerHuntActivity(BaseService):
         The closer the scavenger is, the more often P will chirp.
         
         Args:
-            distance: The distance category from the pendant
+            distance: The distance category from the current step location.
             
         Returns:
             float: Chirp interval in seconds between 0.1 and 1.0
@@ -88,12 +88,13 @@ class ScavengerHuntActivity(BaseService):
         self.logger.info(f"Distance is {distance}, using chirp interval ({interval})")
         
     async def _sound_loop(self):
-        """Main loop that periodically emits chirp sounds based on pendant distance"""
+        """Main loop that periodically emits chirp sounds based on current step location distance"""
         while self._game_active:
             try:
                 # Only emit sounds if we've detected the next step's at least once
                 if not self._current_location_detected:
-                    await asyncio.sleep(1.0)  # Check less frequently when waiting for pendant
+                    # Check less frequently when waiting to find the distance to current step location.
+                    await asyncio.sleep(1.0) 
                     continue
                     
                 # Get current step location info from global state
