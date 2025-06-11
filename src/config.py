@@ -356,9 +356,9 @@ class ScavengerHuntStep:
     END_VOICE_LINE: str
 
 # Add new scavenger config
-@dataclass
+# @dataclass
 class ScavengerHuntConfig:
-    SCAVENGER_HUNT_STEPS: list[ScavengerHuntStep] = [
+    SCAVENGER_HUNT_STEPS = [
         ScavengerHuntStep(
             NAME="scavenger_hunt_step1", 
             LOCATION=ScavengerHuntLocation.LOCATION1,
