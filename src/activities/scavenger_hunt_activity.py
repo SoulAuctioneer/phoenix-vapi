@@ -97,7 +97,8 @@ class ScavengerHuntActivity(BaseService):
                 # Only emit sounds if we've detected the next step's at least once
                 if not self._current_location_detected:
                     # Check less frequently when waiting to find the distance to current step location.
-                    await asyncio.sleep(1.0) 
+                    self.logger.debug(f"Can't find next location: {self._current_step.LOCATION}")
+                    await asyncio.sleep(1.0)
                     continue
                     
                 # Get current step location info from global state
@@ -161,6 +162,7 @@ class ScavengerHuntActivity(BaseService):
             
             # Only care about the current step's location
             if location == self._current_step.LOCATION:
+                self.logger.debug(f"GOT DISTANCE FOR CURRENT LOCATION: {self._current_step.LOCATION}")
                 distance = data.get("distance")
                 
                 # Mark that we've detected the next step's location at least once
