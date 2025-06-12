@@ -42,29 +42,31 @@ NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 TTS_VOICE = "ana" # Or "timmy"
 ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
 
-class PatternFilter(logging.Filter):
-    def __init__(self, pattern):
-        super().__init__()
-        self.pattern = re.compile(pattern)
-    
-    def filter(self, record):
-        # Filter based on the logger name (which often includes filename)
-        return (self.pattern.search(record.name) or 
-                self.pattern.search(record.getMessage()))
+LOG_FILTERS = None
 
-def get_filter_logger(logger_name: str, patterns: list = None):
-    if patterns is None:
-        patterns = ['scavenger_hunt_activity', 'proximity_changed', 'location_changed']
-    
+def get_filter_logger(logger_name: str):        
     logger = logging.getLogger(logger_name)
     if logger.handlers:
         return logger
+    
+    if LOG_FILTERS:
+        class PatternFilter(logging.Filter):
+            def __init__(self, pattern):
+                super().__init__()
+                self.pattern = re.compile(pattern)
+            
+            def filter(self, record):
+                # Filter based on the logger name (which often includes filename)
+                return (self.pattern.search(record.name) or 
+                        self.pattern.search(record.getMessage()))
+
+        logging.info(f"GOT LOG PATTERNS: {LOG_FILTERS}")
+        handler = logging.StreamHandler()
+        handler.addFilter(PatternFilter('|'.join(LOG_FILTERS)))
+        logger.addHandler(handler)
+    else:
+        logging.info("NO LOGGING PATTERNS")
         
-    logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-    handler.addFilter(PatternFilter('|'.join(patterns)))
-    logger.addHandler(handler)
     logger.propagate = False
     return logger
 

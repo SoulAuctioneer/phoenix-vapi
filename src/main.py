@@ -3,6 +3,7 @@ import asyncio
 import logging
 import signal
 import argparse
+import config
 from config import PLATFORM, get_filter_logger
 from services.service import ServiceManager
 from services.audio_service import AudioService
@@ -66,7 +67,6 @@ class PhoenixApp:
         self.service_manager = ServiceManager()
         self._should_run = True
         self.initialized_services = {}
-        logging.info("THIS IS A TEST")
 
     async def initialize_services(self):
         """Initialize and start core services in the correct order"""
@@ -142,9 +142,7 @@ async def main():
 
     if args.log_filter:
         logging.info(f"Log filters: {args.log_filter}")
-    else:
-        logging.info("No args??")
-        logging.info(args)
+        config.LOG_PATTERNS = args.log_filter
     
     app = PhoenixApp()
     
