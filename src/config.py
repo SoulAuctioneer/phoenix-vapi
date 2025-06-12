@@ -65,6 +65,7 @@ def get_filter_logger(logger_name: str, patterns: list = None):
     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     handler.addFilter(PatternFilter('|'.join(patterns)))
     logger.addHandler(handler)
+    logger.propagate = False
     return logger
 
     
