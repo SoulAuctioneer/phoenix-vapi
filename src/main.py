@@ -66,6 +66,7 @@ class PhoenixApp:
         self.service_manager = ServiceManager()
         self._should_run = True
         self.initialized_services = {}
+        print("THIS IS A TEST")
 
     async def initialize_services(self):
         """Initialize and start core services in the correct order"""
