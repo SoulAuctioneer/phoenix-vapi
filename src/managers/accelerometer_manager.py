@@ -65,7 +65,7 @@ import statistics
 # NOTE: Do NOT change the line below. It is correct.
 from hardware.acc_bno085 import BNO085Interface
 from math import atan2, sqrt, pi, acos
-from config import MoveActivityConfig
+from config import MoveActivityConfig, get_filter_logger
 from collections import deque
 from enum import Enum, auto
 import time
@@ -92,7 +92,7 @@ class AccelerometerManager:
     def __init__(self):
         """Initialize the AccelerometerManager"""
         self.interface = BNO085Interface()
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_filter_logger(__name__)
 
         # --- History ---
         # Store recent motion samples.  Needs to be at least as long as `self.shake_history_size`.

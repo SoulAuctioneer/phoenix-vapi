@@ -64,11 +64,11 @@ class SpecialEffectService(BaseService):
     
     async def start(self):
         """Initialize the special effect service"""
-        logging.info("Special effect service started")
+        self.logger.info("Special effect service started")
     
     async def stop(self):
         """Stop the special effect service"""
-        logging.info("Special effect service stopped")
+        self.logger.info("Special effect service stopped")
     
     async def play_effect(self, effect_name: str):
         """Play a special effect by name"""
@@ -89,7 +89,7 @@ class SpecialEffectService(BaseService):
                     "type": "play_sound",
                     "effect_name": sound_effect
                 })
-                logging.info(f"Published sound effect: {sound_effect}")
+                self.logger.info(f"Published sound effect: {sound_effect}")
             
             # Publish LED effect event if applicable
             if led_effect:
@@ -99,7 +99,7 @@ class SpecialEffectService(BaseService):
                         "effect_name": led_effect
                     }
                 })
-                logging.info(f"Published LED effect: {led_effect}")
+                self.logger.info(f"Published LED effect: {led_effect}")
                 
         except ValueError:
             logging.error(f"Invalid effect name: {effect_name}")

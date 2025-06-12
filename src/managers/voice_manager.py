@@ -4,9 +4,9 @@ import numpy as np
 print("Importing elevenlabs.client. This is very slow...")
 from elevenlabs.client import ElevenLabs, AsyncElevenLabs
 print("Imported elevenlabs.client.")
-from config import ElevenLabsConfig, AudioBaseConfig
+from config import ElevenLabsConfig, AudioBaseConfig, get_filter_logger
 
-logger = logging.getLogger(__name__)
+logger = get_filter_logger(__name__)
 logger.setLevel(logging.DEBUG)
 
 class VoiceManager:

@@ -65,6 +65,7 @@ from adafruit_bno08x.i2c import BNO08X_I2C
 from typing import Dict, Any, Tuple, Optional
 import asyncio
 from struct import pack_into # Re-add pack_into
+from config import get_filter_logger
 # import time # No longer directly used for sleep
 
 # Define a timeout for feature enabling (in seconds)
@@ -90,7 +91,7 @@ class BNO085Interface:
         self.i2c = None
         self.imu = None
         self._calibration_good = False
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_filter_logger(__name__)
         self.use_software_i2c = use_software_i2c
         self.software_i2c_bus = software_i2c_bus
         

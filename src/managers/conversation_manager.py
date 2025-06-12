@@ -10,10 +10,10 @@ import requests
 from enum import Enum
 import concurrent.futures
 from managers.audio_manager import AudioManager
-from config import ConversationConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT
+from config import ConversationConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT, get_filter_logger
 import queue
 
-logger = logging.getLogger('conversation_manager')
+logger = get_filter_logger('conversation_manager')
 logger.setLevel(logging.DEBUG)
 
 class CallState(Enum):
@@ -97,7 +97,7 @@ class CallStateManager:
     async def transition_to(self, new_state: CallState):
         """Transition to a new state and notify listeners"""
         if not self._can_transition_to(new_state):
-            logging.warning(f"Invalid state transition from {self._state} to {new_state}")
+            logger.warning(f"Invalid state transition from {self._state} to {new_state}")
             return
             
         async with self._state_lock:
@@ -105,7 +105,7 @@ class CallStateManager:
             self._state = new_state
             
             # Log the transition
-            logging.info(f"Call state transition: {old_state.value} -> {new_state.value}")
+            logger.info(f"Call state transition: {old_state.value} -> {new_state.value}")
             
             # Publish event
             await self._conversation_manager.publish_event_callback({
@@ -120,7 +120,7 @@ class CallStateManager:
                 try:
                     await self._state_handlers[new_state]()
                 except Exception as e:
-                    logging.error(f"Error in state handler for {new_state.value}: {e}")
+                    logger.error(f"Error in state handler for {new_state.value}: {e}")
                     if new_state != CallState.ERROR:  # Prevent infinite loop
                         await self.transition_to(CallState.ERROR)
     
@@ -145,7 +145,7 @@ class CallStateManager:
         
         valid_states = valid_transitions.get(self._state, [])
         if new_state not in valid_states:
-            logging.warning(
+            logger.warning(
                 f"Invalid state transition attempted: {self._state.value} -> {new_state.value}. "
                 f"Valid transitions are: {[s.value for s in valid_states]}"
             )
@@ -159,7 +159,7 @@ class CallStateManager:
         self._volume = ConversationConfig.Audio.DEFAULT_VOLUME
         self._is_muted = False  # Reset mute state
         self._state = CallState.INITIALIZED  # Reset to initialized state
-        logging.info(f"Reset state from {old_state} to {self._state}")
+        logger.info(f"Reset state from {old_state} to {self._state}")
     
     def is_in_state(self, *states: CallState) -> bool:
         """Check if current state is one of the given states"""
@@ -342,7 +342,7 @@ class ConversationManager:
             
             self._initialized = True
         except Exception as e:
-            logging.error(f"Failed to initialize ConversationManager: {e}")
+            logger.error(f"Failed to initialize ConversationManager: {e}")
             await self.cleanup()
             raise
 
@@ -368,7 +368,7 @@ class ConversationManager:
             # Small delay after device creation
             await asyncio.sleep(0.1)
         except Exception as e:
-            logging.error(f"Failed to initialize Daily devices: {e}")
+            logger.error(f"Failed to initialize Daily devices: {e}")
             raise
 
     async def _initialize_call_audio(self):
@@ -407,7 +407,7 @@ class ConversationManager:
             self._input_thread.start()
             
         except Exception as e:
-            logging.error(f"Failed to initialize call audio: {e}")
+            logger.error(f"Failed to initialize call audio: {e}")
             raise
 
     async def _initialize_daily_runtime(self):
@@ -423,9 +423,9 @@ class ConversationManager:
             # Then initialize
             daily.Daily.init()
             await asyncio.sleep(0.1)  # Small delay after init
-            logging.info("Daily runtime initialized")
+            logger.info("Daily runtime initialized")
         except Exception as e:
-            logging.error(f"Failed to initialize Daily runtime: {e}")
+            logger.error(f"Failed to initialize Daily runtime: {e}")
             raise
 
     async def _initialize_call_client(self):
@@ -481,16 +481,16 @@ class ConversationManager:
             
             # Extract and store memories from the conversation if available
             if self.memory_manager and self.conversation:
-                logging.info("Extracting and storing memories from conversation")
+                logger.info("Extracting and storing memories from conversation")
                 success = await self.memory_manager.extract_and_store_conversation_memories(self.conversation)
                 if success:
-                    logging.info("Successfully stored conversation memories")
+                    logger.info("Successfully stored conversation memories")
                 else:
-                    logging.warning("No memories were stored")
+                    logger.warning("No memories were stored")
             
-            logging.info("Call cleanup complete, ready for new call")
+            logger.info("Call cleanup complete, ready for new call")
         except Exception as e:
-            logging.error(f"Error in left state handler: {e}")
+            logger.error(f"Error in left state handler: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
 
     async def _handle_joining_state(self):
@@ -518,7 +518,7 @@ class ConversationManager:
                 try:
                     await asyncio.sleep(10.0)  # 10 second timeout
                     if self.state_manager.state == CallState.JOINING:
-                        logging.error("Timeout while waiting to join call")
+                        logger.error("Timeout while waiting to join call")
                         await self.state_manager.transition_to(CallState.ERROR)
                 except asyncio.CancelledError:
                     pass  # Task was cancelled because we joined successfully
@@ -527,7 +527,7 @@ class ConversationManager:
             self._joining_timeout_task = asyncio.create_task(timeout_task())
                 
         except Exception as e:
-            logging.error(f"Error in joining state handler: {e}")
+            logger.error(f"Error in joining state handler: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
 
     async def _handle_joined_state(self):
@@ -543,12 +543,12 @@ class ConversationManager:
             self.state_manager.start_event.set()
             await self.publish_event_callback({"type": "conversation_started"})
         except Exception as e:
-            logging.error(f"Error in joined state handler: {e}")
+            logger.error(f"Error in joined state handler: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
 
     async def handle_call_state_updated(self, state):
         """Handle call state changes and publish events"""
-        logging.info(f"Daily event: Call state updated: {state}")
+        logger.info(f"Daily event: Call state updated: {state}")
         state_map = {
             "initialized": CallState.INITIALIZED,
             "joining": CallState.JOINING,
@@ -576,7 +576,7 @@ class ConversationManager:
 
     async def handle_participant_left(self, participant, reason):
         """Handle participant leaving and publish event"""
-        logging.info(f"Participant left: {participant}, reason: {reason}")
+        logger.info(f"Participant left: {participant}, reason: {reason}")
         if participant["id"] in self.state_manager.get_participants():
             self.state_manager.remove_participant(participant["id"])
             
@@ -588,7 +588,7 @@ class ConversationManager:
 
     async def handle_participant_joined(self, participant):
         """Handle participant joining"""
-        logging.info(f"Participant joined: {participant}")
+        logger.info(f"Participant joined: {participant}")
         self.state_manager.update_participant(participant["id"], participant)
 
     async def handle_participant_updated(self, participant):
@@ -607,7 +607,7 @@ class ConversationManager:
     async def handle_joined(self, data, error):
         """Handle call join result"""
         if error:
-            logging.error(f"Unable to join call: {error}")
+            logger.error(f"Unable to join call: {error}")
             await self.state_manager.transition_to(CallState.ERROR)
             return
             
@@ -620,7 +620,7 @@ class ConversationManager:
         """Handle tool calls from the assistant"""
         for tool_call in tool_calls:
             if tool_call.get('type') != 'function':
-                logging.warning(f"Unknown tool call type: {tool_call.get('type')}")
+                logger.warning(f"Unknown tool call type: {tool_call.get('type')}")
                 continue
                 
             function = tool_call.get('function', {})
@@ -628,7 +628,7 @@ class ConversationManager:
             arguments = function.get('arguments', {})
             tool_call_id = tool_call.get('toolCallId', None)
             
-            logging.info(f"Handling tool call: {name} with arguments {arguments}")
+            logger.info(f"Handling tool call: {name} with arguments {arguments}")
             
             if name == 'play_special_effect':
                 effect_name = arguments.get('effect_name', None)
@@ -705,25 +705,25 @@ class ConversationManager:
 
                 activity_config_str = parse_activity_config(activity_config)
                 if activity_config:
-                    logging.info(f"Sending activity {activity_key} config: {activity_config_str}")
+                    logger.info(f"Sending activity {activity_key} config: {activity_config_str}")
                     self.add_message("system", activity_config_str)
                 else:
-                    logging.warning(f"Unknown activity: {activity_key}")
+                    logger.warning(f"Unknown activity: {activity_key}")
             else:
-                logging.warning(f"Unknown tool call: {name}")
+                logger.warning(f"Unknown tool call: {name}")
 
     async def handle_app_message(self, message, sender):
         """Handle app messages"""
 
         # Log the raw message
-        # logging.info(f"Received app message: {message}")
+        # logger.info(f"Received app message: {message}")
 
         # Convert string messages to dict if needed
         if isinstance(message, str):
             try:
                 message = json.loads(message)
             except json.JSONDecodeError:
-                logging.warn(f"Failed to parse message as JSON: {message}")
+                logger.warning(f"Failed to parse message as JSON: {message}")
                 return
                 
         # Extract message type
@@ -732,14 +732,14 @@ class ConversationManager:
         # Handle different message types
         if msg_type == "status-update":
             status = message.get("status", "")
-            logging.info(f"Status update: {status}")
+            logger.info(f"Status update: {status}")
         elif msg_type == "speech-update":
             status = message.get("status", "")
             role = message.get("role", "")
             # Update speaking state based on status
             is_speaking = status == "started"
             await self.state_manager.set_speaking_state(role, is_speaking)
-            logging.info(f"Speech update - Status: {status}, Role: {role}")
+            logger.info(f"Speech update - Status: {status}, Role: {role}")
         elif msg_type == "transcript":
             pass
             # role = message.get("role", "")
@@ -747,55 +747,55 @@ class ConversationManager:
             # transcript = message.get("transcript", "")
             # # Only log final transcripts
             # if transcript_type == "final":
-            #     logging.info(f"Transcript | {role.title()}: {transcript}")
+            #     logger.info(f"Transcript | {role.title()}: {transcript}")
         elif msg_type == "conversation-update":
             self.conversation = message.get("conversation", [])
             last_message = self.conversation[-1]
             role = last_message.get('role')
             content = last_message.get('content', '')
-            logging.info(f"Message: {role}: {content}")
+            logger.info(f"Message: {role}: {content}")
         elif msg_type == "user-interrupted":
-            logging.info("User interrupted the assistant")
+            logger.info("User interrupted the assistant")
         elif msg_type == "model-output":
             # Too noisy
-            # logging.info("Model output: " + message.get("output", ""))
+            # logger.info("Model output: " + message.get("output", ""))
             pass
         elif msg_type == "voice-input":
             # Too noisy
-            # logging.info("Voice input: " + message.get("input", ""))
+            # logger.info("Voice input: " + message.get("input", ""))
             pass
         elif msg_type == "call_state":
             old_state = message.get("old_state", "")
             new_state = message.get("new_state", "")
-            logging.info(f"Call state changed: {old_state} -> {new_state}")
+            logger.info(f"Call state changed: {old_state} -> {new_state}")
         elif msg_type == "participant-left":
             info = message.get("info", {})
             username = info.get("userName", "Unknown")
             reason = message.get("reason", "")
-            logging.info(f"Participant left: {username} ({reason})")
+            logger.info(f"Participant left: {username} ({reason})")
         elif msg_type == "tool-calls":
             await self._handle_tool_calls(message.get('toolCalls', []))
         elif msg_type == "ERROR":
             error_message = message.get("message", "")
             target = message.get("target", "")
-            logging.error(f"WebSocket/Signaling Error - Message: {error_message}, Target: {target}")
+            logger.error(f"WebSocket/Signaling Error - Message: {error_message}, Target: {target}")
         else:
-            logging.warning(f"Unknown message type received: {msg_type}, full message: {message}")
+            logger.warning(f"Unknown message type received: {msg_type}, full message: {message}")
 
     async def join(self, meeting_url):
         """Join a call with the given URL"""
         if not self.state_manager.state.can_start_new_call:
-            logging.warning(f"Cannot join call - current state: {self.state_manager.state}")
+            logger.warning(f"Cannot join call - current state: {self.state_manager.state}")
             return
             
-        logging.info(f"Joining call with URL: {meeting_url} (current state: {self.state_manager.state})")
+        logger.info(f"Joining call with URL: {meeting_url} (current state: {self.state_manager.state})")
         
         # Initialize Daily runtime before joining
         try:
             await self._initialize_daily_runtime()
             await self._initialize_devices()
         except Exception as e:
-            logging.error(f"Failed to initialize Daily for call: {e}")
+            logger.error(f"Failed to initialize Daily for call: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
             return
         
@@ -807,14 +807,14 @@ class ConversationManager:
         await self._initialize_call_client()
         
         # Now transition to JOINING
-        logging.info("Transitioning to JOINING state...")
+        logger.info("Transitioning to JOINING state...")
         await self.state_manager.transition_to(CallState.JOINING)
         
         # Only join if we successfully transitioned to JOINING
         if self.state_manager.state == CallState.JOINING:
             self._call_client.join(meeting_url, completion=self._event_handler.on_joined)
         else:
-            logging.error(f"Failed to transition to JOINING state, current state: {self.state_manager.state}")
+            logger.error(f"Failed to transition to JOINING state, current state: {self.state_manager.state}")
             await self.state_manager.transition_to(CallState.ERROR)
 
     async def leave(self):
@@ -842,13 +842,13 @@ class ConversationManager:
                 # Then release the client
                 try:
                     client.release()
-                    logging.info("Call client released")
+                    logger.info("Call client released")
                 except Exception as e:
-                    logging.warning(f"Error releasing call client: {e}")
+                    logger.warning(f"Error releasing call client: {e}")
                 # Wait a bit after release
                 await asyncio.sleep(0.2)
             except Exception as e:
-                logging.warning(f"Error during client cleanup: {e}")
+                logger.warning(f"Error during client cleanup: {e}")
         
         # Wait for the left state update from Daily
         # If we don't receive it within a timeout, force the transition
@@ -859,7 +859,7 @@ class ConversationManager:
                     
             await asyncio.wait_for(wait_for_left_state(), timeout=2.0)  # 2 second timeout
         except asyncio.TimeoutError:
-            logging.warning("Timeout waiting for LEFT state from Daily, forcing transition")
+            logger.warning("Timeout waiting for LEFT state from Daily, forcing transition")
             await self.state_manager.transition_to(CallState.LEFT)
         
         # Small delay to ensure cleanup is complete
@@ -889,7 +889,7 @@ class ConversationManager:
                 try:
                     self._call_client.release()
                 except Exception as e:
-                    logging.warning(f"Error releasing call client: {e}")
+                    logger.warning(f"Error releasing call client: {e}")
                 self._call_client = None
             
             # Small delay to ensure client is fully released
@@ -902,7 +902,7 @@ class ConversationManager:
             self._event_handler = None
             
         except Exception as e:
-            logging.error(f"Error during ConversationManager cleanup: {e}")
+            logger.error(f"Error during ConversationManager cleanup: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
             
         # Final delay to ensure all resources are cleaned up
@@ -997,7 +997,7 @@ class ConversationManager:
         squad=None,
     ):
         """Start a new call with specified assistant or squad"""
-        logging.info("Starting call...")
+        logger.info("Starting call...")
 
         # Fetch memories and add to assistant context
         memories = self.memory_manager.get_memories_formatted()
@@ -1016,13 +1016,13 @@ class ConversationManager:
         else:
             raise Exception("Error: No assistant specified.")
 
-        logging.info("Creating web call with payload: " + str(payload))
+        logger.info("Creating web call with payload: " + str(payload))
         call_id, web_call_url = self._create_vapi_call(payload)
 
         if not web_call_url:
             raise Exception("Error: Unable to create call.")
 
-        logging.info('Joining call... ' + call_id)
+        logger.info('Joining call... ' + call_id)
         await self.join(web_call_url)
 
     def send_message(self, message):
@@ -1037,7 +1037,7 @@ class ConversationManager:
         try:
             self._call_client.send_app_message(message)
         except Exception as e:
-            logging.error(f"Failed to send message: {e}")
+            logger.error(f"Failed to send message: {e}")
 
     # TODO: Just found this ability in the docs. Use the trigger_response parameter. 
     def add_message(self, role, content, trigger_response=True):
@@ -1111,10 +1111,10 @@ class ConversationManager:
         try:
             await self.state_manager.start_event.wait()
             if self.state_manager.state == CallState.ERROR:
-                logging.error("Unable to receive bot audio due to error state")
+                logger.error("Unable to receive bot audio due to error state")
                 return
                 
-            logging.info("Started receiving bot audio")
+            logger.info("Started receiving bot audio")
             # Calculate sleep time based on chunk size
             chunk_duration = ConversationConfig.Audio.CHUNK_SIZE / ConversationConfig.Audio.SAMPLE_RATE
             sleep_duration = chunk_duration / 2  # Sleep for half chunk duration
@@ -1133,10 +1133,10 @@ class ConversationManager:
                     await asyncio.sleep(0.001)
                 except Exception as e:
                     if self.state_manager.state != CallState.ERROR:
-                        logging.error(f"Error in receive audio task: {e}")
+                        logger.error(f"Error in receive audio task: {e}")
                     await asyncio.sleep(0.001)
         except asyncio.CancelledError:
-            logging.info("Receive bot audio task cancelled")
+            logger.info("Receive bot audio task cancelled")
             raise
 
     async def _send_user_audio(self):
@@ -1144,14 +1144,14 @@ class ConversationManager:
         try:
             await self.state_manager.start_event.wait()
             if self.state_manager.state == CallState.ERROR:
-                logging.error("Unable to send user audio due to error state")
+                logger.error("Unable to send user audio due to error state")
                 return
                 
-            logging.info("Started sending user audio")
+            logger.info("Started sending user audio")
             while self.state_manager.state.can_receive_audio:
                 await asyncio.sleep(0.1)  # Match original implementation's timing
         except asyncio.CancelledError:
-            logging.info("Send user audio task cancelled")
+            logger.info("Send user audio task cancelled")
             raise
 
     def _input_audio_thread(self):
@@ -1170,10 +1170,10 @@ class ConversationManager:
                     continue
                 except Exception as e:
                     if self.state_manager.state.can_receive_audio:
-                        logging.error(f"Error in input audio thread: {e}")
+                        logger.error(f"Error in input audio thread: {e}")
                     time.sleep(0.001)
         except Exception as e:
-            logging.error(f"Input audio thread error: {e}")
+            logger.error(f"Input audio thread error: {e}")
 
     def _handle_input_audio(self, audio_data: np.ndarray):
         """Queue audio data from audio manager"""
@@ -1189,12 +1189,12 @@ class ConversationManager:
                     except (queue.Empty, queue.Full):
                         pass  # If still can't add, drop the frame
         except Exception as e:
-            logging.error(f"Error queuing input audio: {e}")
+            logger.error(f"Error queuing input audio: {e}")
 
     async def mute(self):
         """Mute the local participant's microphone"""
         if not self._call_client or not self.state_manager.state.can_receive_audio:
-            logging.warning("Cannot mute - call not active")
+            logger.warning("Cannot mute - call not active")
             return False
             
         try:
@@ -1208,16 +1208,16 @@ class ConversationManager:
                 }
             })
             self.state_manager.set_muted(True)
-            logging.info("Microphone muted")
+            logger.info("Microphone muted")
             return True
         except Exception as e:
-            logging.error(f"Failed to mute microphone: {e}")
+            logger.error(f"Failed to mute microphone: {e}")
             return False
 
     async def unmute(self):
         """Unmute the local participant's microphone"""
         if not self._call_client or not self.state_manager.state.can_receive_audio:
-            logging.warning("Cannot unmute - call not active")
+            logger.warning("Cannot unmute - call not active")
             return False
             
         try:
@@ -1231,10 +1231,10 @@ class ConversationManager:
                 }
             })
             self.state_manager.set_muted(False)
-            logging.info("Microphone unmuted")
+            logger.info("Microphone unmuted")
             return True
         except Exception as e:
-            logging.error(f"Failed to unmute microphone: {e}")
+            logger.error(f"Failed to unmute microphone: {e}")
             return False
 
     async def toggle_mute(self):
@@ -1270,6 +1270,6 @@ class ConversationManager:
                 # Clean exit on cancellation
                 break
             except Exception as e:
-                logging.error(f"Error processing queued message: {e}")
+                logger.error(f"Error processing queued message: {e}")
                 await asyncio.sleep(0.1)
 

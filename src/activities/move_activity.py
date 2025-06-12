@@ -9,7 +9,7 @@ import random
 import time # Import time module
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from config import MoveActivityConfig, SoundEffect
+from config import MoveActivityConfig, SoundEffect, get_filter_logger
 from managers.accelerometer_manager import SimplifiedState
 
 # Store giggle sounds for easy cycling
@@ -41,7 +41,7 @@ class MoveActivity(BaseService):
         self.current_energy = 0.0
         self.previous_state = SimplifiedState.UNKNOWN
         # Use logger from BaseService
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_filter_logger(self.__class__.__name__)
         # Track the energy level for the last sent LED update for the default effect
         self.last_sent_energy = -1.0 # Initialize to ensure first update
         # --- State Flags ---

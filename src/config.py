@@ -1,6 +1,8 @@
 import time
 import os
 import platform
+import re
+import logging
 from textwrap import dedent
 from typing import Union
 from dotenv import load_dotenv
@@ -40,6 +42,34 @@ NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 TTS_VOICE = "ana" # Or "timmy"
 ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
 
+# Set in main.py during arg parsing (if applicable).
+LOG_FILTERS = None
+
+def get_filter_logger(logger_name: str):        
+    logger = logging.getLogger(logger_name)
+    if logger.handlers:
+        return logger
+    
+    if LOG_FILTERS:
+        class PatternFilter(logging.Filter):
+            def __init__(self, pattern):
+                super().__init__()
+                self.pattern = re.compile(pattern)
+            
+            def filter(self, record):
+                # Filter based on the logger name (which often includes filename)
+                return (self.pattern.search(record.name) or 
+                        self.pattern.search(record.getMessage()))
+
+        logging.info(f"logger {logger_name} will only output logs matching one of: {LOG_FILTERS}")
+        handler = logging.StreamHandler()
+        handler.addFilter(PatternFilter('|'.join(LOG_FILTERS)))
+        logger.addHandler(handler)
+        
+    logger.propagate = False
+    return logger
+
+    
 # Call Configuration
 class CallConfig:
     """Configuration for call-related settings"""        
@@ -234,6 +264,26 @@ class Distance(Enum):
     FAR = auto()       # 4-6m
     VERY_FAR = auto()  # 6-8m
     UNKNOWN = auto()   # No signal or too weak
+    
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            if self == Distance.UNKNOWN or other == Distance.UNKNOWN:
+                return NotImplemented
+            return self.value < other.value
+        return NotImplemented
+    
+    def __le__(self, other):
+        return self < other or self == other
+    
+    def __gt__(self, other):
+        if self.__class__ is other.__class__:
+            if self == Distance.UNKNOWN or other == Distance.UNKNOWN:
+                return NotImplemented
+            return self.value > other.value
+        return NotImplemented
+        
+    def __ge__(self, other):
+        return self > other or self == other
 
 
 # BLE and Location Configuration
@@ -402,6 +452,9 @@ class ScavengerHuntConfig:
     
     # How loud the chirps are.
     CHIRP_VOLUME = 0.5
+    
+    # Scales the interval between chirps (which decreases with proximity to goal)
+    CHIRP_INTERVAL_SCALING_FACTOR = 10.0
 
 # Touch Sensor Configuration
 class TouchConfig:

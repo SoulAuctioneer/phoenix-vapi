@@ -4,13 +4,13 @@ import asyncio
 from typing import Dict, Any, Optional, Union
 from services.service import BaseService
 from managers.location_manager import LocationManager
-from config import BLEConfig, PLATFORM, Distance
+from config import BLEConfig, PLATFORM, Distance, get_filter_logger
 
 class LocationService(BaseService):
     """Service for managing location tracking and updates"""
     def __init__(self, service_manager):
         super().__init__(service_manager)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_filter_logger(__name__)
         self._location_manager = LocationManager()
         self._scanning_task: Optional[asyncio.Task] = None
         self._is_running = False

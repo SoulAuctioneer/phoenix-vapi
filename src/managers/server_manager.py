@@ -6,12 +6,13 @@ import os
 import asyncio
 import threading
 import logging
+from config import get_filter_logger
 from typing import Optional, Dict, Any, Callable, Set
 from flask import Flask
 import websockets
 from pyngrok import ngrok, conf
 
-logger = logging.getLogger(__name__)
+logger = get_filter_logger(__name__)
 
 
 class NgrokTunnel:
@@ -156,7 +157,7 @@ class ServerManager:
             ngrok_auth_token: Optional ngrok authentication token. If not provided,
                             will try to use NGROK_AUTH_TOKEN from environment.
         """
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_filter_logger(f"{__name__}.{self.__class__.__name__}")
         
         # Configure ngrok
         auth_token = ngrok_auth_token or os.environ.get("NGROK_AUTH_TOKEN", "")

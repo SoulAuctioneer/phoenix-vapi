@@ -2,4 +2,4 @@
 
 clear
 git pull
-./run.sh
+./run.sh "$@"

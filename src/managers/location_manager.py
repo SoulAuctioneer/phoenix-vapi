@@ -6,13 +6,13 @@ import asyncio
 import subprocess
 from typing import Dict, Optional, List, Tuple, Any
 from collections import defaultdict
-from config import BLEConfig, PLATFORM, Distance
+from config import BLEConfig, PLATFORM, Distance, get_filter_logger
 from bleak import BleakScanner
 
 class LocationManager:
     """Manages BLE scanning and location tracking"""
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_filter_logger(__name__)
         self._scanner = None
         self._last_location = {
             "location": "unknown",

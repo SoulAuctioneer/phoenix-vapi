@@ -8,7 +8,7 @@ import asyncio
 import random
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect
+from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect, CHIRP_INTERVAL_SCALING_FACTOR
 
 class ScavengerHuntActivity(BaseService):
     """Service that manages the scavenger hunt game activity"""
@@ -87,7 +87,7 @@ class ScavengerHuntActivity(BaseService):
             Distance.VERY_NEAR: 0.2,
             Distance.IMMEDIATE: 0.1,
         }
-        interval = 3.0 * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
+        interval = CHIRP_INTERVAL_SCALING_FACTOR * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
         self.logger.info(f"Distance is {distance}, using chirp interval ({interval})")
         
     async def _sound_loop(self):
@@ -97,7 +97,7 @@ class ScavengerHuntActivity(BaseService):
                 # Only emit sounds if we've detected the next step's at least once
                 if not self._current_location_detected:
                     # Check less frequently when waiting to find the distance to current step location.
-                    self.logger.debug(f"Can't find next location: {self._current_step.LOCATION}")
+                    self.logger.info(f"Can't find next location: {self._current_step.LOCATION}")
                     await asyncio.sleep(1.0)
                     continue
                     
@@ -164,15 +164,20 @@ class ScavengerHuntActivity(BaseService):
             # TODO: This doesn't work in python 3.7; update later.
             # if location in ScavengerHuntLocation and ScavengerHuntLocation(location) == self._current_step.LOCATION:
             if location == self._current_step.LOCATION.value:
-                distance = data.get("distance")
-                self.logger.debug(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
+                distance: Distance = data.get("distance")
+                prev_distance: Distance = data.get("previous_distance")
+                self.logger.info(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.value}")
+                self.logger.info(f"WENT FROM {prev_distance} -> {distance}!")
                 
                 # Mark that we've detected the next step's location at least once
                 if not self._current_location_detected and distance != Distance.UNKNOWN:
                     self._current_location_detected = True
                     self.logger.info(f"Location {self._current_step.LOCATION.value} detected for the first time!")
                 
-                # If found current location, either transition to next step or declare victory.
+                if distance == Distance.UNKNOWN:
+                    return
+                
+                # If we've found current location, either transition to next step or declare victory.
                 if distance == Distance.IMMEDIATE:
                     await self.publish({
                         "type": "scavenger_hunt_step_completed"
@@ -187,3 +192,18 @@ class ScavengerHuntActivity(BaseService):
                         })
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
+                elif prev_distance and not prev_distance == Distance.UNKNOWN:
+                    self.logger.info(f"Distance changed for current step: {prev_distance} -> {distance}; closer: {distance < prev_distance}!")
+                    if distance < prev_distance:
+                        await self.publish({
+                            "type": "speak_audio",
+                            "text": "Ooh, I think we're getting closer. Keep going!"
+                        })
+                    elif distance > prev_distance:
+                        await self.publish({
+                            "type": "speak_audio",
+                            "text": "Uh oh, I think we're getting farther. Try another direction!"
+                        })
+                    else:
+                        # TODO: Perhaps increment some tracker to say we're standing still?
+                        pass

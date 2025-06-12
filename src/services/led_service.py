@@ -16,23 +16,23 @@ class LEDService(BaseService):
         """Initialize and start the LED service and ReSpeaker bridge."""
         try:
             if LEDConfig.IS_DUAL_RINGS:
-                logging.info("Using dual-ring LED setup.")
+                self.logger.info("Using dual-ring LED setup.")
                 self.led_controller = LEDManagerRings(initial_brightness=LEDConfig.LED_BRIGHTNESS)
             else:
-                logging.info("Using single LED strip setup.")
+                self.logger.info("Using single LED strip setup.")
                 self.led_controller = LEDManager(initial_brightness=LEDConfig.LED_BRIGHTNESS)
 
             # Augment with ReSpeaker LED bridge
             if LEDConfig.USE_RESPEAKER_LEDS:
-                logging.info("Augmenting LED manager with ReSpeaker bridge.")
+                self.logger.info("Augmenting LED manager with ReSpeaker bridge.")
                 # This function modifies the led_controller in place to add ReSpeaker support
                 self.respeaker_bridge = augment_led_manager(self.led_controller)
                 if self.respeaker_bridge:
-                    logging.info("Successfully augmented LED manager with ReSpeaker support.")
+                    self.logger.info("Successfully augmented LED manager with ReSpeaker support.")
                 else:
-                    logging.info("ReSpeaker hardware not found or bridge failed to initialize. Continuing with NeoPixels only.")
+                    self.logger.info("ReSpeaker hardware not found or bridge failed to initialize. Continuing with NeoPixels only.")
             
-            logging.info("LED service started")
+            self.logger.info("LED service started")
 
         except Exception as e:
             logging.error(f"Failed to start LED service: {e}", exc_info=True)
@@ -49,7 +49,7 @@ class LEDService(BaseService):
         if self.led_controller:
             self.led_controller.stop_effect()
             self.led_controller.clear()
-            logging.info("LED service stopped")
+            self.logger.info("LED service stopped")
 
     async def handle_event(self, event):
         """Handle LED-related events"""
@@ -61,7 +61,7 @@ class LEDService(BaseService):
         event_type = event.get('type')
 
         # if event_type == "intent_detection_started":
-        #     logging.info("Intent detection started - switched to random twinkling effect")
+        #     self.logger.info("Intent detection started - switched to random twinkling effect")
         #     # TODO: This needs to be smarter in respect to what effect we revert to after finishing, need more state orchestration
         #     duration = event.get('timeout', 7)
         #     self.led_controller.start_effect("ROTATING_PINK_BLUE", speed=0.03)
@@ -83,17 +83,17 @@ class LEDService(BaseService):
             
             if effect_name == "stop":
                 self.led_controller.stop_effect()
-                logging.info("Stopped LED effect")
+                self.logger.info("Stopped LED effect")
             elif effect_name == "clear":
                 self.led_controller.clear()
-                logging.info("Cleared all LEDs")
+                self.logger.info("Cleared all LEDs")
             # Check if the effect_name is a known key in the manager's map
             elif effect_name in self.led_controller._EFFECT_MAP: 
                 # Pass the string name directly
                 # Call start_or_update_effect, which handles both starting and updating
                 self.led_controller.start_or_update_effect(effect_name, speed=speed, brightness=brightness, color=color)
                 # Logging for start/update is handled within the manager now
-                # logging.info(f"Started/Updated {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
+                # self.logger.info(f"Started/Updated {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
             else:
                 logging.warning(f"Received unknown effect name: '{effect_name}'")
 
@@ -102,7 +102,7 @@ class LEDService(BaseService):
             # TODO: Change to uppercase everywhere
             effect_name = effect_name.upper() if effect_name else None
             self.led_controller.stop_effect(effect_name)
-            logging.info(f"Stopped LED effect: {effect_name if effect_name else 'current'}")
+            self.logger.info(f"Stopped LED effect: {effect_name if effect_name else 'current'}")
 
 
         elif event_type == "battery_alert":
@@ -114,7 +114,7 @@ class LEDService(BaseService):
                     self.led_controller.set_base_brightness(new_base_brightness)
                     logging.warning(f"Low voltage detected! Reducing base LED brightness from {current_base_brightness:.2f} to {new_base_brightness:.2f}")
                 else:
-                    logging.info(f"Low voltage detected, but base brightness already at minimum (0.0)") 
+                    self.logger.info(f"Low voltage detected, but base brightness already at minimum (0.0)") 
 
         elif event_type == "touch_stroke_intensity":
             # Only trigger purring effect if we're not in a conversation

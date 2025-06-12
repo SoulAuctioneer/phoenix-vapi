@@ -2,7 +2,9 @@ print ("Importing modules...")
 import asyncio
 import logging
 import signal
-from config import PLATFORM
+import argparse
+import config
+from config import PLATFORM, get_filter_logger
 from services.service import ServiceManager
 from services.audio_service import AudioService
 from services.special_effect_service import SpecialEffectService
@@ -35,19 +37,19 @@ for logger_name in [
     'services.haptic',
     'services.intent',
     'services.activity',
+    'activities.scavenger_hunt_activity'
     'activities.sleep_activity',
     'activities.conversation',
     # 'activities.call', # Too noisy
     'services.location',
     'managers.location_manager'
 ]:
-    logging.getLogger(logger_name).setLevel(logging.DEBUG)
+    get_filter_logger(logger_name).setLevel(logging.DEBUG)
 
 for logger_name in [
     'services.hide_seek_activity'
-    'services.scavenger_hunt_activity'
 ]:
-    logging.getLogger(logger_name).setLevel(logging.WARNING)
+    get_filter_logger(logger_name).setLevel(logging.WARNING)
 
 
 # Disable the LEDs on the Respeaker 4-mic array
@@ -134,6 +136,14 @@ class PhoenixApp:
                 task.cancel()
 
 async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--log_filters", nargs='*', help="Filter patterns for logging")
+    args = parser.parse_args()
+
+    if args.log_filters:
+        logging.info(f"Log filters: {args.log_filters}")
+        config.LOG_FILTERS = args.log_filters
+    
     app = PhoenixApp()
     
     # Setup signal handlers for graceful shutdown
