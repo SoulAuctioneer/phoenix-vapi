@@ -42,6 +42,7 @@ NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 TTS_VOICE = "ana" # Or "timmy"
 ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
 
+# Set in main.py during arg parsing (if applicable).
 LOG_FILTERS = None
 
 def get_filter_logger(logger_name: str):        
@@ -60,12 +61,10 @@ def get_filter_logger(logger_name: str):
                 return (self.pattern.search(record.name) or 
                         self.pattern.search(record.getMessage()))
 
-        logging.info(f"GOT LOG PATTERNS: {LOG_FILTERS}")
+        logging.info(f"logger {logger_name} will only output logs matching one of: {LOG_FILTERS}")
         handler = logging.StreamHandler()
         handler.addFilter(PatternFilter('|'.join(LOG_FILTERS)))
         logger.addHandler(handler)
-    else:
-        logging.info("NO LOGGING PATTERNS")
         
     logger.propagate = False
     return logger
@@ -453,6 +452,9 @@ class ScavengerHuntConfig:
     
     # How loud the chirps are.
     CHIRP_VOLUME = 0.5
+    
+    # Scales the interval between chirps (which decreases with proximity to goal)
+    CHIRP_INTERVAL_SCALING_FACTOR = 10.0
 
 # Touch Sensor Configuration
 class TouchConfig:

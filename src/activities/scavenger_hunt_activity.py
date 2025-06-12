@@ -8,7 +8,7 @@ import asyncio
 import random
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect
+from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect, CHIRP_INTERVAL_SCALING_FACTOR
 
 class ScavengerHuntActivity(BaseService):
     """Service that manages the scavenger hunt game activity"""
@@ -35,8 +35,7 @@ class ScavengerHuntActivity(BaseService):
         # Start the first step in our hunt.
         await self._start_next_step()
         # Start sound task that periodically emits chirps
-        # TODO: Uncomment after debugging.
-        # self._sound_task = asyncio.create_task(self._sound_loop())
+        self._sound_task = asyncio.create_task(self._sound_loop())
         self.logger.info(f"scavenger hunt service started; on step: {self._current_step_name}")
         
     async def stop(self):
@@ -88,7 +87,7 @@ class ScavengerHuntActivity(BaseService):
             Distance.VERY_NEAR: 0.2,
             Distance.IMMEDIATE: 0.1,
         }
-        interval = 10.0 * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
+        interval = CHIRP_INTERVAL_SCALING_FACTOR * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
         self.logger.info(f"Distance is {distance}, using chirp interval ({interval})")
         
     async def _sound_loop(self):
@@ -194,18 +193,16 @@ class ScavengerHuntActivity(BaseService):
                         self.logger.info("Scavenger hunt won!")
                         self._game_active = False
                 elif prev_distance and not prev_distance == Distance.UNKNOWN:
-                    self.logger.info(f"Changed on current step: {prev_distance} -> {distance}; closer: {distance < prev_distance}!")
+                    self.logger.info(f"Distance changed for current step: {prev_distance} -> {distance}; closer: {distance < prev_distance}!")
                     if distance < prev_distance:
-                        # Say we're getting closer
                         await self.publish({
                             "type": "speak_audio",
                             "text": "Ooh, I think we're getting closer. Keep going!"
                         })
                     elif distance > prev_distance:
-                        # Say we're getting farther
                         await self.publish({
                             "type": "speak_audio",
-                            "text": "Uh oh, I thikn we're getting farther. Try another direction!"
+                            "text": "Uh oh, I think we're getting farther. Try another direction!"
                         })
                     else:
                         # TODO: Perhaps increment some tracker to say we're standing still?

@@ -137,12 +137,12 @@ class PhoenixApp:
 
 async def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log_filter", nargs='*', help="Filter patterns for logging")
+    parser.add_argument("--log_filters", nargs='*', help="Filter patterns for logging")
     args = parser.parse_args()
 
-    if args.log_filter:
-        logging.info(f"Log filters: {args.log_filter}")
-        config.LOG_FILTERS = args.log_filter
+    if args.log_filters:
+        logging.info(f"Log filters: {args.log_filters}")
+        config.LOG_FILTERS = args.log_filters
     
     app = PhoenixApp()
     
