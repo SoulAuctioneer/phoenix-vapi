@@ -12,7 +12,7 @@ from flask import Flask
 import websockets
 from pyngrok import ngrok, conf
 
-logger = logging.getLogger(__name__)
+logger = get_filter_logger(__name__)
 
 
 class NgrokTunnel:

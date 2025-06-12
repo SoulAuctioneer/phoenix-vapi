@@ -8,9 +8,9 @@ from typing import Dict, Any, Optional
 
 from services.service import BaseService
 from managers.audio_manager import AudioManager, AudioConfig
-from config import AudioBaseConfig
+from config import AudioBaseConfig, get_filter_logger
 
-logger = logging.getLogger(__name__)
+logger = get_filter_logger(__name__)
 logger.setLevel(logging.DEBUG)
 
 logger.info("Importing VoiceManager...")
