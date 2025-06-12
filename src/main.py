@@ -142,6 +142,7 @@ async def main():
     if args.log_filter:
         print(f"Log filters: {args.log_filter}")
     else:
+        print("No args??")
         print(args)
     
     app = PhoenixApp()
