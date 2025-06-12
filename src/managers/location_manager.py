@@ -418,18 +418,6 @@ class LocationManager:
                     "rssi": rssi,  # Keep raw RSSI for debugging
                     "smoothed_rssi": smoothed_rssi
                 }
-                self.logger.debug("/n/n/nTEST/n/n/n")
-                f = self.logger.handlers[0].filters[0]
-                test_record = logging.LogRecord(
-                    name='scavenger_hunt_activity',
-                    level=logging.INFO,
-                    pathname='',
-                    lineno=1,
-                    msg='proximity_changed detected',
-                    args=(),
-                    exc_info=None
-                )
-                self.logger.debug(f.filter(test_record))
                 self.logger.debug(f"Found beacon for {location}: RSSI={rssi}, Smoothed={smoothed_rssi}, Distance={distance}")
 
             # Only change location after minimum consecutive readings

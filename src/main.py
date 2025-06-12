@@ -2,6 +2,7 @@ print ("Importing modules...")
 import asyncio
 import logging
 import signal
+import argparse
 from config import PLATFORM, get_filter_logger
 from services.service import ServiceManager
 from services.audio_service import AudioService
@@ -134,6 +135,13 @@ class PhoenixApp:
                 task.cancel()
 
 async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--log_filter", nargs='*', help="Filter patterns for logging")
+    args = parser.parse_args()
+
+    if args.log_filter:
+        print(f"Log filters: {args.log_filter}")
+    
     app = PhoenixApp()
     
     # Setup signal handlers for graceful shutdown
