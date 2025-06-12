@@ -142,7 +142,7 @@ async def main():
 
     if args.log_filter:
         logging.info(f"Log filters: {args.log_filter}")
-        config.LOG_PATTERNS = args.log_filter
+        config.LOG_FILTERS = args.log_filter
     
     app = PhoenixApp()
     
