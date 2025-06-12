@@ -164,6 +164,7 @@ class AudioManager:
         self._output_stream: Optional[pyaudio.Stream] = None
         self._lock = threading.Lock()
         self._running = False
+        self.logger = get_filter_logger(__name__)
         self._input_thread: Optional[threading.Thread] = None
         self._output_thread: Optional[threading.Thread] = None
         
