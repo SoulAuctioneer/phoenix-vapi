@@ -63,9 +63,9 @@ class IntentService(BaseService):
                     on_intent=self._handle_intent_detected
                 )
                 
-                logging.info("Speech intent detector initialized successfully")
+                self.logger.info("Speech intent detector initialized successfully")
             else:
-                logging.info("Reusing existing speech intent detector")
+                self.logger.info("Reusing existing speech intent detector")
             
         except Exception as e:
             logging.error("Failed to initialize speech intent detector: %s", str(e), exc_info=True)
@@ -81,7 +81,7 @@ class IntentService(BaseService):
         """
         if self.detector:
             try:
-                logging.info("Stopping speech intent detector...")
+                self.logger.info("Stopping speech intent detector...")
                 if full_cleanup:
                     # Full cleanup - destroy the Rhino instance
                     await self.detector.cleanup(full_cleanup=True)
@@ -101,7 +101,7 @@ class IntentService(BaseService):
         try:
             # Start the detector
             await self.detector.start()
-            logging.info("Started intent detection with %s second timeout", IntentConfig.DETECTION_TIMEOUT)
+            self.logger.info("Started intent detection with %s second timeout", IntentConfig.DETECTION_TIMEOUT)
             
             # Publish event that intent detection has started
             await self.publish({
@@ -122,7 +122,7 @@ class IntentService(BaseService):
             try:
                 await asyncio.sleep(IntentConfig.DETECTION_TIMEOUT)
                 # If we reach here, timeout occurred
-                logging.info("Intent detection timed out")
+                self.logger.info("Intent detection timed out")
                 await self.publish({
                     "type": "intent_detection_timeout"
                 })
@@ -136,12 +136,12 @@ class IntentService(BaseService):
                 })
             except asyncio.CancelledError:
                 # Task was cancelled (either by timeout or intent detection)
-                logging.info("Intent detection cancelled")
+                self.logger.info("Intent detection cancelled")
                 raise  # Re-raise to trigger cleanup
                 
         except asyncio.CancelledError:
             # Handle cancellation cleanup
-            logging.info("Cleaning up cancelled detection")
+            self.logger.info("Cleaning up cancelled detection")
             raise  # Re-raise to ensure proper task cleanup
             
         finally:
@@ -159,7 +159,7 @@ class IntentService(BaseService):
         event_type = event.get("type")
         
         if event_type == "wake_word_detected":
-            logging.info("Wake word detected, starting intent detection")
+            self.logger.info("Wake word detected, starting intent detection")
             # Cancel any existing task
             if self.detection_task and not self.detection_task.done():
                 self.detection_task.cancel()
@@ -174,7 +174,7 @@ class IntentService(BaseService):
                 
     async def _handle_intent_detected(self, intent_data: Dict[str, Any]):
         """Callback handler for when an intent is detected by the manager"""
-        logging.info("Intent detected, stopping detection")
+        self.logger.info("Intent detected, stopping detection")
 
         # Stop LED effect
         await self.publish({

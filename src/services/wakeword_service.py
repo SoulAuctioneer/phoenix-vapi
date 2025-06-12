@@ -30,7 +30,7 @@ class WakeWordService(BaseService):
                 on_wake_word=self._handle_wake_word_detected
             )
             
-            logging.info("Wake word detector initialized successfully")
+            self.logger.info("Wake word detector initialized successfully")
             await self.detector.start()
             
         except Exception as e:
@@ -41,7 +41,7 @@ class WakeWordService(BaseService):
         """Clean up the wake word detector"""
         if self.detector:
             try:
-                logging.info("Stopping wake word detector...")
+                self.logger.info("Stopping wake word detector...")
                 await self.detector.stop()
                 await asyncio.sleep(0.5)  # Add small delay after stopping
                 
@@ -56,5 +56,5 @@ class WakeWordService(BaseService):
         
     async def _handle_wake_word_detected(self):
         """Callback handler for when a wake word is detected by the manager"""
-        logging.info("Wake word detected, publishing event")
+        self.logger.info("Wake word detected, publishing event")
         await self.publish({"type": "wake_word_detected"}) 

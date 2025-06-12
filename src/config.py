@@ -49,7 +49,8 @@ class PatternFilter(logging.Filter):
     
     def filter(self, record):
         # Filter based on the logger name (which often includes filename)
-        return bool(self.pattern.search(record.name))
+        return (self.pattern.search(record.name) or 
+                self.pattern.search(record.getMessage()))
 
 def get_filter_logger(logger_name: str, patterns: list = None):
     if patterns is None:

@@ -9,7 +9,7 @@ import os
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
-from config import SoundEffect, AudioBaseConfig, AudioAmplifierConfig
+from config import SoundEffect, AudioBaseConfig, AudioAmplifierConfig, get_filter_logger
 
 @dataclass
 class AudioConfig:
@@ -92,6 +92,7 @@ class AudioProducer:
         self.buffer = AudioBuffer(maxsize=buffer_size)
         self._volume = AudioBaseConfig.DEFAULT_VOLUME
         self.active = True
+        self.logger = get_filter_logger(__name__)
         self.chunk_size = chunk_size
         self._remainder = np.array([], dtype=np.int16)
         self.loop = False  # Whether to loop the audio
@@ -130,7 +131,7 @@ class AudioProducer:
         """Clear the buffer and reset the remainder."""
         self.buffer.clear()
         self._remainder = np.array([], dtype=np.int16)
-        logging.info(f"Producer '{self.name}' buffer cleared")
+        self.logger.info(f"Producer '{self.name}' buffer cleared")
 
     def stop(self):
         """Stop this producer and clean up its resources"""
@@ -138,7 +139,7 @@ class AudioProducer:
         self.clear()
         self._original_audio = None  # Clear original audio data
         self.loop = False  # Reset loop flag
-        logging.info(f"Producer '{self.name}' stopped and cleaned up")
+        self.logger.info(f"Producer '{self.name}' stopped and cleaned up")
 
 class AudioManager:
     """Manages audio resources and provides thread-safe access"""
@@ -210,7 +211,7 @@ class AudioManager:
     def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = 1.0) -> AudioProducer:
         """Create a new producer instance without adding it to the producers dictionary"""
         print(f"DEBUG: Creating producer '{name}' with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}", flush=True)
-        logging.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}")
+        self.logger.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}")
         
         producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size)
         producer.active = True
@@ -224,7 +225,7 @@ class AudioManager:
         
         with self._producers_lock:
             self._producers[name] = producer
-            logging.info(f"Producer '{name}' added and activated")
+            self.logger.info(f"Producer '{name}' added and activated")
             
         return producer
         
@@ -235,7 +236,7 @@ class AudioManager:
                 producer = self._producers[name]
                 producer.stop() # Call stop() for full cleanup
                 del self._producers[name]
-                logging.info(f"Producer '{name}' fully stopped and removed") # Updated log message
+                self.logger.info(f"Producer '{name}' fully stopped and removed") # Updated log message
             else:
                 logging.warning(f"Attempted to remove non-existent producer: {name}")
                 
@@ -253,19 +254,19 @@ class AudioManager:
         """Start audio processing"""
         with self._lock:
             if self._running:
-                logging.info("AudioManager already running")
+                self.logger.info("AudioManager already running")
                 return
                 
             try:
-                logging.info("Initializing PyAudio...")
+                self.logger.info("Initializing PyAudio...")
                 self._py_audio = pyaudio.PyAudio()
                 
-                logging.info("Setting up audio streams...")
+                self.logger.info("Setting up audio streams...")
                 self._setup_streams()
                 self._running = True
                 
                 # Start input and output threads
-                logging.info("Starting audio threads...")
+                self.logger.info("Starting audio threads...")
                 self._input_thread = threading.Thread(target=self._input_loop, name="AudioInputThread")
                 self._output_thread = threading.Thread(target=self._output_loop, name="AudioOutputThread")
                 self._requeue_thread = threading.Thread(target=self._requeue_loop, name="AudioRequeueThread")
@@ -275,7 +276,7 @@ class AudioManager:
                 self._input_thread.start()
                 self._output_thread.start()
                 self._requeue_thread.start()
-                logging.info("AudioManager started successfully")
+                self.logger.info("AudioManager started successfully")
                 
             except Exception as e:
                 logging.error(f"Failed to start audio: {e}", exc_info=True)
@@ -320,8 +321,8 @@ class AudioManager:
             # Log available devices
             input_devices = self.get_input_devices()
             output_devices = self.get_output_devices()
-            logging.info(f"Available input devices: {input_devices}")
-            logging.info(f"Available output devices: {output_devices}")
+            self.logger.info(f"Available input devices: {input_devices}")
+            self.logger.info(f"Available output devices: {output_devices}")
             
             # Find and set the ReSpeaker device index automatically if not already set
             if self.config.input_device_index is None:
@@ -329,25 +330,25 @@ class AudioManager:
                 for i, name in input_devices.items():
                     if "ReSpeaker" in name:
                         self.config.input_device_index = i
-                        logging.info(f"Automatically selected ReSpeaker input device at index {i}: '{name}'")
+                        self.logger.info(f"Automatically selected ReSpeaker input device at index {i}: '{name}'")
                         respeaker_input_found = True
                         break
                 if not respeaker_input_found:
-                    logging.info("No ReSpeaker input device found. Using system default.")
+                    self.logger.info("No ReSpeaker input device found. Using system default.")
 
             if self.config.output_device_index is None:
                 respeaker_output_found = False
                 for i, name in output_devices.items():
                     if "ReSpeaker" in name:
                         self.config.output_device_index = i
-                        logging.info(f"Automatically selected ReSpeaker output device at index {i}: '{name}'")
+                        self.logger.info(f"Automatically selected ReSpeaker output device at index {i}: '{name}'")
                         respeaker_output_found = True
                         break
                 if not respeaker_output_found:
-                    logging.info("No ReSpeaker output device found. Using system default.")
+                    self.logger.info("No ReSpeaker output device found. Using system default.")
 
             # Setup input stream
-            logging.info(f"Opening input stream (Device Index: {self.config.input_device_index})...")
+            self.logger.info(f"Opening input stream (Device Index: {self.config.input_device_index})...")
             self._input_stream = self._py_audio.open(
                 format=self.config.format,
                 channels=self.config.channels,
@@ -358,7 +359,7 @@ class AudioManager:
             )
             
             # Setup output stream
-            logging.info(f"Opening output stream (Device Index: {self.config.output_device_index})...")
+            self.logger.info(f"Opening output stream (Device Index: {self.config.output_device_index})...")
             self._output_stream = self._py_audio.open(
                 format=self.config.format,
                 channels=self.config.channels,
@@ -367,7 +368,7 @@ class AudioManager:
                 output_device_index=self.config.output_device_index,
                 frames_per_buffer=self.config.chunk
             )
-            logging.info("Audio streams setup successfully")
+            self.logger.info("Audio streams setup successfully")
             
         except Exception as e:
             logging.error(f"Error setting up audio streams: {e}", exc_info=True)
@@ -403,7 +404,7 @@ class AudioManager:
 
     def _input_loop(self):
         """Main input processing loop"""
-        logging.info("Input processing loop started")
+        self.logger.info("Input processing loop started")
         while self._running:
             try:
                 # Read from input stream
@@ -425,11 +426,11 @@ class AudioManager:
             except Exception as e:
                 if self._running:  # Only log if we haven't stopped intentionally
                     logging.error(f"Error in audio input loop: {e}", exc_info=True)
-        logging.info("Input processing loop stopped")
+        self.logger.info("Input processing loop stopped")
                 
     def _output_loop(self):
         """Main output processing loop"""
-        logging.info("Output processing loop started")
+        self.logger.info("Output processing loop started")
         last_producer_log = 0  # Track when we last logged producer states
         no_data_count = 0  # Track consecutive no-data iterations
         
@@ -502,7 +503,7 @@ class AudioManager:
                 if self._running:  # Only log if we haven't stopped intentionally
                     logging.error(f"Error in output loop: {e}", exc_info=True)
                     
-        logging.info("Output processing loop stopped")
+        self.logger.info("Output processing loop stopped")
                 
     def play_audio(self, audio_data: np.ndarray, producer_name: str = "default", loop: bool = False):
         """Play audio data through a specific producer
@@ -512,7 +513,7 @@ class AudioManager:
             loop: Whether to loop the audio (default: False)
         """
         print(f"DEBUG: Entering play_audio with {len(audio_data)} samples", flush=True)
-        logging.info(f"play_audio called for producer '{producer_name}' with {len(audio_data)} samples, loop={loop}")
+        self.logger.info(f"play_audio called for producer '{producer_name}' with {len(audio_data)} samples, loop={loop}")
         
         try:
             if not self._running:
@@ -522,7 +523,7 @@ class AudioManager:
             # Create producer if needed
             with self._producers_lock:
                 if producer_name not in self._producers:
-                    logging.info(f"Creating new producer '{producer_name}'")
+                    self.logger.info(f"Creating new producer '{producer_name}'")
                     producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000)
                     self._producers[producer_name] = producer
                 producer = self._producers[producer_name]
@@ -540,7 +541,7 @@ class AudioManager:
                     
             # Ensure audio data is int16
             if audio_data.dtype != np.int16:
-                logging.info(f"Converting audio data from {audio_data.dtype} to int16")
+                self.logger.info(f"Converting audio data from {audio_data.dtype} to int16")
                 audio_data = np.clip(audio_data * 32767, -32768, 32767).astype(np.int16)
             
             # Split audio data into chunks matching the configured chunk size
@@ -598,7 +599,7 @@ class AudioManager:
                 producer.buffer.clear()  # Clear any pending audio
                 producer.stop()  # Stop the producer
                 del self._producers["sound_effect"]  # Remove from active producers
-                logging.info("Sound effect stopped and cleaned up")
+                self.logger.info("Sound effect stopped and cleaned up")
         
     def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", loop: bool = False) -> bool:
         """Play a WAV file through the audio system"""
@@ -613,7 +614,7 @@ class AudioManager:
 
         def _play_in_thread():
             try:
-                logging.info(f"Opening WAV file: {wav_path}")
+                self.logger.info(f"Opening WAV file: {wav_path}")
                 with wave.open(wav_path, "rb") as wf:
                     # Log WAV file properties
                     channels = wf.getnchannels()
@@ -718,7 +719,7 @@ class AudioManager:
     def set_master_volume(self, volume: float):
         """Set the master volume for all audio output, clamping between 0.0 and 1.0."""
         self.master_volume = max(0.0, min(1.0, volume))
-        logging.info(f"Master volume set to {self.master_volume}")
+        self.logger.info(f"Master volume set to {self.master_volume}")
 
     def get_sound_duration(self, effect_name: str) -> Optional[float]:
         """
