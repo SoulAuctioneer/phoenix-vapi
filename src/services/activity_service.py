@@ -250,7 +250,6 @@ class ActivityService(BaseService):
         Args:
             activity: The activity to stop
         """
-        self.logger.info(f"THIS IS A TEST: stopping {activity.name}; current is {self.current_activity}")
         if activity != self.current_activity:
             return
             
