@@ -8,7 +8,7 @@ import asyncio
 import random
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect, CHIRP_INTERVAL_SCALING_FACTOR
+from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect
 
 class ScavengerHuntActivity(BaseService):
     """Service that manages the scavenger hunt game activity"""
