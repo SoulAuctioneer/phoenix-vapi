@@ -275,27 +275,27 @@ class ActivityService(BaseService):
                 "text": stop_tts
             })
             
-        # # Get current activity's services
-        # services_to_stop_list = supporting_services.copy()  # Make a copy to avoid modifying the original
-        # if activity_service_name:
-        #     services_to_stop_list.append(activity_service_name)
+        # Get current activity's services
+        services_to_stop_list = supporting_services.copy()  # Make a copy to avoid modifying the original
+        if activity_service_name:
+            services_to_stop_list.append(activity_service_name)
             
-        # # Stop all services for this activity
+        # Stop all services for this activity
         # await self._cleanup_services(services_to_stop_list)
             
-        # # Clear current activity before publishing event
-        # self.current_activity = None
+        # Clear current activity before publishing event
+        self.current_activity = None
         
-        # # Publish activity stopped event
-        # await self.publish({
-        #     "type": "activity_stopped",
-        #     "activity": activity.name
-        # })
+        # Publish activity stopped event
+        await self.publish({
+            "type": "activity_stopped",
+            "activity": activity.name
+        })
         
-        # # Default behavior: If no other transition is queued or running, go to SLEEP
-        # if not self.is_transitioning and self._transition_queue.empty():
-        #     self.logger.info(f"Activity {activity.name} ended, transitioning to default SLEEP activity.")
-        #     await self._queue_transition(ActivityType.SLEEP)
+        # Default behavior: If no other transition is queued or running, go to SLEEP
+        if not self.is_transitioning and self._transition_queue.empty():
+            self.logger.info(f"Activity {activity.name} ended, transitioning to default SLEEP activity.")
+            await self._queue_transition(ActivityType.SLEEP)
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
