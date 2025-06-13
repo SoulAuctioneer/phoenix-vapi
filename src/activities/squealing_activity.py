@@ -47,7 +47,7 @@ class SquealingActivity(BaseService):
             "type": "stop_led_effect"
         })
         
-        # # Start the LED effect
+        # Start the LED effect
         await self.publish({
             "type": "start_led_effect",
             "data": {
