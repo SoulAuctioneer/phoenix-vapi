@@ -83,7 +83,7 @@ class SquealingActivity(BaseService):
         event_type = event.get("type")
         
         if self._is_active:
-            if event.get("type") == "sensor_data" and event.get("sensor") == "accelerometer":
+            if event_type == "sensor_data" and event.get("sensor") == "accelerometer":
                 # Extract data from accelerometer event
                 data = event.get("data", {})
                 current_state_name = data.get("current_state", SimplifiedState.UNKNOWN.name)
