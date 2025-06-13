@@ -281,7 +281,7 @@ class ActivityService(BaseService):
             services_to_stop_list.append(activity_service_name)
             
         # Stop all services for this activity
-        # await self._cleanup_services(services_to_stop_list)
+        await self._cleanup_services(services_to_stop_list)
             
         # Clear current activity before publishing event
         self.current_activity = None
