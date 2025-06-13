@@ -42,7 +42,9 @@ for logger_name in [
     'activities.conversation',
     # 'activities.call', # Too noisy
     'services.location',
-    'managers.location_manager'
+    'managers.location_manager',
+    'managers.accelerometer_manager',
+    'services.accelerometer_service'
 ]:
     get_filter_logger(logger_name).setLevel(logging.DEBUG)
 
