@@ -104,10 +104,10 @@ class AccelerometerService(BaseService):
         """
         if self.read_task:
             self.read_task.cancel()
-            # try:
-            #     await self.read_task
-            # except asyncio.CancelledError:
-            #     pass
+            try:
+                await self.read_task
+            except asyncio.CancelledError:
+                pass
                 
         # Deinitialize the sensor
         self.manager.deinitialize()

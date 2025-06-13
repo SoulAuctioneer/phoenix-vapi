@@ -60,8 +60,8 @@ class SquealingActivity(BaseService):
         self.logger.info("squealing activity started")
         
     async def stop(self):
-        self.logger.info("squealing activity stopped")
         """Stop the squealing activity"""
+        self.logger.info("calling stop() on squealing activity")
         if self._is_active:
             self._is_active = False
             
@@ -75,8 +75,8 @@ class SquealingActivity(BaseService):
         await self.publish({
             "type": "stop_led_effect"
         })
-            
         await super().stop()
+        self.logger.info("squealing activity stopped")
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
