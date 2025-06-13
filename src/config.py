@@ -47,6 +47,7 @@ LOG_FILTERS = None
 
 def get_filter_logger(logger_name: str):        
     logger = logging.getLogger(logger_name)
+    return logger
     if logger.handlers:
         return logger
     

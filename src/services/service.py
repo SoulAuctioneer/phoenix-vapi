@@ -40,7 +40,7 @@ class ServiceManager:
         self._subscribers: Dict[str, Set[EventHandler]] = defaultdict(set)
         self._should_run = True
         self._lock = asyncio.Lock()
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_filter_logger(__name__)
         self.global_state = GlobalState()  # Shared global state
         self.global_state_lock = asyncio.Lock()  # Lock for global state access
         
