@@ -174,7 +174,7 @@ class ServiceManager:
         try:
             # Unsubscribe from all events
             await self.unsubscribe("*", service.handle_event)
-            await service.stop()
+            # await service.stop()
             self.logger.debug(f"Stopped service: {name}")
         except Exception as e:
             self.logger.error(f"Error stopping service {name}: {e}", exc_info=True)
