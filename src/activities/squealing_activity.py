@@ -60,21 +60,21 @@ class SquealingActivity(BaseService):
         self.logger.info("squealing activity started")
         
     async def stop(self):
-        self.logger.info("squealing activity stopped")
-        """Stop the squealing activity"""
-        if self._is_active:
-            self._is_active = False
+        # self.logger.info("squealing activity stopped")
+        # """Stop the squealing activity"""
+        # if self._is_active:
+        #     self._is_active = False
             
-        # Stop the breathing sound
-        await self.publish({
-            "type": "stop_sound",
-            "effect_name": SoundEffect.WEE1
-        })
+        # # Stop the breathing sound
+        # await self.publish({
+        #     "type": "stop_sound",
+        #     "effect_name": SoundEffect.WEE1
+        # })
         
-        # Stop the LED effect
-        await self.publish({
-            "type": "stop_led_effect"
-        })
+        # # Stop the LED effect
+        # await self.publish({
+        #     "type": "stop_led_effect"
+        # })
             
         await super().stop()
         
