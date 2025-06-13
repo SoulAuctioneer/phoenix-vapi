@@ -41,6 +41,7 @@ class MoveActivity(BaseService):
         self.current_energy = 0.0
         self.previous_state = SimplifiedState.UNKNOWN
         # Use logger from BaseService
+        # TODO: Is this necessary given the super() init?
         self.logger = get_filter_logger(self.__class__.__name__)
         # Track the energy level for the last sent LED update for the default effect
         self.last_sent_energy = -1.0 # Initialize to ensure first update

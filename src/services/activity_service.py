@@ -9,6 +9,7 @@ from activities.conversation_activity import ConversationActivity
 from activities.sleep_activity import SleepActivity
 from activities.hide_seek_activity import HideSeekActivity
 from activities.scavenger_hunt_activity import ScavengerHuntActivity
+from activities.squealing_activity import SquealingActivity
 from activities.move_activity import MoveActivity
 from activities.call_activity import CallActivity
 import asyncio
@@ -19,6 +20,7 @@ class ActivityType(Enum):
     CONVERSATION = "conversation"
     HIDE_SEEK = "hide_seek"
     SCAVENGER_HUNT = "scavenger_hunt"
+    SQUEALING = "squealing"
     CUDDLE = "cuddle"
     SLEEP = "sleep"
     MOVE = "move"
@@ -30,6 +32,7 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
     ActivityType.SCAVENGER_HUNT: (['location'], 'scavenger_hunt', None, None, "Let's start the scavenger hunt", "We finished the scavenger hunt"),
+    ActivityType.SQUEALING: (['accelerometer'], 'squealing', None, None, None, None),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
     ActivityType.CALL: ([], 'call', None, None, None, None)
@@ -55,6 +58,7 @@ class ActivityService(BaseService):
             'move': MoveActivity,
             'hide_seek': HideSeekActivity,
             'scavenger_hunt': ScavengerHuntActivity,
+            'squealing': SquealingActivity,
             'call': CallActivity,
             'sleep': SleepActivity,
         }
@@ -324,6 +328,10 @@ class ActivityService(BaseService):
             elif intent == "scavenger_hunt":
                 # Start scavenger hunt activity
                 await self._queue_transition(ActivityType.SCAVENGER_HUNT)
+            
+            elif intent == "squealing":
+                # Start squealing activity
+                await self._queue_transition(ActivityType.SQUEALING)
 
             elif intent == "cuddle":
                 # Start cuddle activity
@@ -349,13 +357,27 @@ class ActivityService(BaseService):
                     await self._queue_transition(ActivityType.CALL, contact=contact)
                 else:
                     self.logger.error("No contact name provided for call activity")
+            # TODO: Handle "shut_down" intent
             else:
                 self.logger.error(f"Can't handle 'intent_detected' intent with value: {intent}.")
 
+        # TODO: Generalize this with an activity_ended event type which passes (as a parameter) the activity to end
+        # Pass that parameter to _stop_activity. 
         elif event_type == "conversation_ended":
             # A conversation has finished. Stop the conversation activity.
             if self.current_activity == ActivityType.CONVERSATION and not self.is_transitioning:
                 await self._stop_activity(ActivityType.CONVERSATION)
+        
+        # TODO: Same as above.
+        elif event_type == "scavenger_hunt_won":
+            if self.current_activity == ActivityType.SCAVENGER_HUNT and not self.is_transitioning:
+                await self._stop_activity(ActivityType.SCAVENGER_HUNT)
+        
+        # TODO: Same as above.
+        elif event_type == "squealing_ended":
+            if self.current_activity == ActivityType.SQUEALING and not self.is_transitioning:
+                await self._stop_activity(ActivityType.SQUEALING)
+
                 
         elif event_type == "hide_seek_won":
             # TODO: When hide and seek is won, transition to special conversation

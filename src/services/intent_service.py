@@ -194,10 +194,16 @@ class IntentService(BaseService):
             slots = intent_data.get("slots", {})
             if slots and "index" in slots:
                 index_val = int(slots["index"])
-                if index_val == 1:
+                if index_val == 0:
+                    intent = "shut_down"
+                elif index_val == 1:
                     intent = "volume_down"
                 elif index_val == 2:
                     intent = "volume_up"
+                elif index_val == 3:
+                    intent = "squealing"
+                elif index_val == 4:
+                    intent = "first_contact"
         elif intent == "volume":
             slots = intent_data.get("slots", {})
             if slots:
@@ -214,6 +220,8 @@ class IntentService(BaseService):
                         intent = "volume_off"
                     elif command == "on":
                         intent = "volume_on"
+        elif intent == "hide_and_seek":
+            intent = "scavenger_hunt"
 
         # Publish the intent event first
         await self.publish({
