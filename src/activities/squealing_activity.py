@@ -100,6 +100,7 @@ class SquealingActivity(BaseService):
                     return
                 
                 if current_state_enum in moving_states:
+                    self._is_active = False
                     await self.publish({
                         "type": "speak_audio",
                         "text": "This will be much longer eventually but we've been picked up by the Earthlings!"

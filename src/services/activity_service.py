@@ -376,8 +376,8 @@ class ActivityService(BaseService):
         # TODO: Same as above.
         elif event_type == "squealing_ended":
             self.logger.info("Ending squealing activity")
-            # if self.current_activity == ActivityType.SQUEALING and not self.is_transitioning:
-            #     await self._stop_activity(ActivityType.SQUEALING)
+            if self.current_activity == ActivityType.SQUEALING and not self.is_transitioning:
+                await self._stop_activity(ActivityType.SQUEALING)
 
                 
         elif event_type == "hide_seek_won":
