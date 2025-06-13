@@ -102,7 +102,6 @@ class AccelerometerService(BaseService):
         
         This cancels the reading task and deinitializes the hardware.
         """
-        pass
         # if self.read_task:
         #     self.read_task.cancel()
         #     try:
@@ -110,9 +109,9 @@ class AccelerometerService(BaseService):
         #     except asyncio.CancelledError:
         #         pass
                 
-        # # Deinitialize the sensor
-        # self.manager.deinitialize()
-        # await super().stop()
+        # Deinitialize the sensor
+        self.manager.deinitialize()
+        await super().stop()
         
     async def _read_loop(self):
         """
