@@ -87,7 +87,7 @@ class ScavengerHuntActivity(BaseService):
             Distance.VERY_NEAR: 0.2,
             Distance.IMMEDIATE: 0.1,
         }
-        interval = CHIRP_INTERVAL_SCALING_FACTOR * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
+        interval = ScavengerHuntConfig.CHIRP_INTERVAL_SCALING_FACTOR * distances_to_intervals[distance] if distance in distances_to_intervals else 1.0
         self.logger.info(f"Distance is {distance}, using chirp interval ({interval})")
         
     async def _sound_loop(self):
