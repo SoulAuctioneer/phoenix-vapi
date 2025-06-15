@@ -1,13 +1,38 @@
+MOST IMPORTANT NOW:
+* IMPORTANT: SWAP BATTERY POLARITY ON NEW ONES THAT ARRIVED
+* Bluetooth speaker
+* Final assembly
+* Lab dock
+* Test battery life
+* Upgrade V1 pea
+
 Questions for Lucy:
 * What's the names of the 6 pieces of the antenna?
 * Which parts need dialogue? What's the dialogue? Need to know what the magic pea says.
 * 30-second tune intro.
 
-* Buy shorter zippers for small peas
+
+To bring:
+* Charging cables for peas
+* 9 x Peas and 2 x docks
+* Soldering iron
+* Superglue
+* Hot glue
+* Spare parts
+* Parts for upgrading Tom's pea
+* Screws
+* Screwdriver
+* Spare LED strip/ring and sparkle, just in case
+
+
+
+
+
+
 * Find and buy smaller bluetooth speaker
 
 
-* IMPORTANT: SWAP BATTERY POLARITY
+* IMPORTANT: SWAP BATTERY POLARITY ON NEW ONES THAT ARRIVED
 
 Expenses:
 - Nad work hours
@@ -21,11 +46,21 @@ NAD:
 * 7th: 3.00 - 8.30 5.5 hrs PAID $275
 * 8th: 3.00 - 4.45 and 5.15 - 6pm 2.5 hrs PAID $150
 * 9th: 3.30 - 8.00 less 30 break 4 hours PAID $200
-* 10th: 4.00 - 7.00 3 hours TO PAY $150
+* 10th: 4.00 - 7.00 3 hours PAID $150
+* 11th: 3.15 - 9.00 5.45 TO PAY $288
+* 13th: 4.45 - 9.45 5 hrs TO PAY $250
+* 14th: 3.30 - 
 MEGAN:
 * 10th: 2.30 - ?
 ROHIT:
-* 10th: 2.00 - ?
+* 10th: 2.00 - 7.00 5 hours TO PAY $250
+* 11th: 2.00 -  6.00 4 hours TO PAY $200
+* 13th: 8.30 - 1.18am
+CAROLINA:
+* 11th: 3.30 - 8.30 5 hours TO PAY @ $30 = 
+* 12th: 2.30 - 7.00 4.5 hours TO PAY @ $30 = 
+* 13th: 3.30 - 6.00 2.5 hours TO PAY @ $30 = 
+* 15th: ~noon - 
 
 https://docs.google.com/presentation/d/10CB5ldhfgQDrg7EVcocxdp6LFyqzWWMMBgkNeTOzm0Q/edit?slide=id.g35a9257e399_0_5#slide=id.g35a9257e399_0_5
 
