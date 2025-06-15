@@ -23,7 +23,7 @@ To bring:
 * Screws
 * Screwdriver
 * Spare LED strip/ring and sparkle, just in case
-
+* Defluffer
 
 
 
@@ -51,7 +51,7 @@ NAD:
 * 13th: 4.45 - 9.45 5 hrs TO PAY $250
 * 14th: 3.30 - 
 MEGAN:
-* 10th: 2.30 - ?
+* 10th: 2.30 - 4.10 1:40 hrs TO PAY $50
 ROHIT:
 * 10th: 2.00 - 7.00 5 hours TO PAY $250
 * 11th: 2.00 -  6.00 4 hours TO PAY $200

@@ -60,39 +60,34 @@ Powerboost From Right:
   Click SAVE
   Apply OS customization settings: YES, continue, yes, etc etc
 
-3. SSH into the Pi
+3. SSH into the Pi: ssh ash@pizero[x].local # NOTE: [x] is the number of the device.
 4. Install Git: `sudo apt install git`
-5. Install the sound card driver if necessary (for Respeaker Lite, not needed for Respeaker Mic Array)
 
 
 ## Installation
 
-6. Clone the repository:
+5. Clone the repository:
 ```bash
 git clone https://github.com/SoulAuctioneer/phoenix-vapi.git
 cd phoenix-vapi
 ```
 
-7. Run the install script:
+6. Run the install script:
 ```bash
-# On macOS/Linux/Rasperry Pi OS:
-scripts/install.sh
-
-# On Windows (UNTESTED!):
-# First ensure you have Python and Visual C++ Build Tools installed
 scripts/install.sh
 ```
 
-8. Reboot the device (maybe?)
-
-9. Get and configure your API keys. 
+7. Get and configure your API keys. 
   - Open the `.env` file in the project root to see what you need.
   - Get the keys.
   - Add your keys.
 
-10. To install as a service to run on device boot, run `scripts/install_service.sh`
+NOTE: The below are options during install:
 
-11. IMPORTANT! If the device is meant to be a production device, change the git branch to "demo": `git checkout demo`.
+8. To install as a service to run on device boot, run `scripts/install_service.sh`
+
+9. IMPORTANT! If the device is meant to be a production device, change the git branch to "demo": `git checkout demo`.
+
 
 ## Usage
 
