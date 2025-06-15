@@ -10,7 +10,7 @@ import requests
 from enum import Enum
 import concurrent.futures
 from managers.audio_manager import AudioManager
-from config import ConversationConfig, ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT, get_filter_logger
+from config import ConversationConfig, FULL_ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT, get_filter_logger
 import queue
 
 logger = get_filter_logger('conversation_manager')
@@ -666,14 +666,14 @@ class ConversationManager:
                 #     "results": [
                 #         {
                 #             "toolCallId": tool_call_id,
-                #             "result": ACTIVITIES_PROMPT
+                #             "result": FULL_ACTIVITIES_PROMPT
                 #         }
                 #     ]
                 # }
                 # TODO: Need to figure out how to send response back to assistant properly.
                 #self._call_client.send_app_message(message)
-                #self.send_message(ACTIVITIES_PROMPT)
-                self.add_message("system", ACTIVITIES_PROMPT)
+                #self.send_message(FULL_ACTIVITIES_PROMPT)
+                self.add_message("system", FULL_ACTIVITIES_PROMPT)
 
             elif name == 'start_activity':
                 # await self.publish_event_callback({
