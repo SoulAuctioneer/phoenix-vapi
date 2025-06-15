@@ -180,6 +180,7 @@ class ConversationConfig:
 # Sound Effects
 class SoundEffect(str, Enum):
     """Available sound effects and their corresponding filenames"""
+    TUNE_PLANTASIA = "plantasia.wav"
     RISING_TONE = "rising_tone.wav"
     MMHMM = "mmhmm.wav"
     YAWN = "yawn.wav"

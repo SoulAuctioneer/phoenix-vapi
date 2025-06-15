@@ -12,6 +12,7 @@ from activities.scavenger_hunt_activity import ScavengerHuntActivity
 from activities.squealing_activity import SquealingActivity
 from activities.move_activity import MoveActivity
 from activities.call_activity import CallActivity
+from activities.play_music_activity import PlayMusicActivity
 import asyncio
 
 # TODO: Should this be StrEnum?
@@ -25,6 +26,7 @@ class ActivityType(Enum):
     SLEEP = "sleep"
     MOVE = "move"
     CALL = "call"
+    PLAY_MUSIC = "play_music"
 # Map activities to their required supporting services, activity-specific service, and optional start/stop sounds/TTS
 # Format: (list of supporting services, activity service name if any, start_sound, stop_sound, start_tts_text, stop_tts_text)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]] = {
@@ -35,7 +37,8 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.SQUEALING: (['accelerometer'], 'squealing', None, None, None, None),
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
-    ActivityType.CALL: ([], 'call', None, None, None, None)
+    ActivityType.CALL: ([], 'call', None, None, None, None),
+    ActivityType.PLAY_MUSIC: ([], 'play_music', None, None, None, None)
 }
 
 class ActivityService(BaseService):
@@ -61,6 +64,7 @@ class ActivityService(BaseService):
             'squealing': SquealingActivity,
             'call': CallActivity,
             'sleep': SleepActivity,
+            'play_music': PlayMusicActivity,
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
@@ -357,23 +361,42 @@ class ActivityService(BaseService):
                     await self._queue_transition(ActivityType.CALL, contact=contact)
                 else:
                     self.logger.error("No contact name provided for call activity")
+
+            elif intent == "play_music":
+                await self._queue_transition(ActivityType.PLAY_MUSIC)
+            
             # TODO: Handle "shut_down" intent
             else:
                 self.logger.error(f"Can't handle 'intent_detected' intent with value: {intent}.")
 
-        # TODO: Generalize this with an activity_ended event type which passes (as a parameter) the activity to end
-        # Pass that parameter to _stop_activity. 
+        elif event_type == "activity_ended":
+            activity_name = event.get("activity")
+            if not activity_name:
+                self.logger.error("Received 'activity_ended' event without 'activity' name.")
+                return
+
+            try:
+                activity_to_stop = ActivityType(activity_name.lower())
+                # Check if the activity that ended is the current active one and no transition is running
+                if self.current_activity == activity_to_stop and not self.is_transitioning:
+                    self.logger.info(f"'{activity_name}' activity ended. Stopping it now.")
+                    await self._stop_activity(activity_to_stop)
+                elif self.current_activity != activity_to_stop:
+                    self.logger.warning(f"Received 'activity_ended' for '{activity_name}', but current activity is '{self.current_activity.name}'. Ignoring.")
+                else: # is_transitioning
+                    self.logger.info(f"Received 'activity_ended' for '{activity_name}' during a transition. Ignoring.")
+            except ValueError:
+                self.logger.error(f"Received 'activity_ended' for an unknown activity type: '{activity_name}'.")
+
         elif event_type == "conversation_ended":
             # A conversation has finished. Stop the conversation activity.
             if self.current_activity == ActivityType.CONVERSATION and not self.is_transitioning:
                 await self._stop_activity(ActivityType.CONVERSATION)
         
-        # TODO: Same as above.
         elif event_type == "scavenger_hunt_won":
             if self.current_activity == ActivityType.SCAVENGER_HUNT and not self.is_transitioning:
                 await self._stop_activity(ActivityType.SCAVENGER_HUNT)
         
-        # TODO: Same as above.
         elif event_type == "squealing_ended":
             self.logger.info("Ending squealing activity")
             if self.current_activity == ActivityType.SQUEALING and not self.is_transitioning:
