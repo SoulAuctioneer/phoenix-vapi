@@ -100,6 +100,13 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
             echo "I2C group permissions will take effect after logout/login"
         fi
         
+        # Ensure i2c-dev is loaded on boot for user-space I2C access
+        if ! grep -q -E "^i2c-dev" /etc/modules; then
+            echo "Ensuring i2c-dev module is configured to load on boot..."
+            echo "i2c-dev" | sudo tee -a /etc/modules > /dev/null
+            REBOOT_REQUIRED=1
+        fi
+        
         # Create udev rule for NeoPixel access if it doesn't exist
         if [ ! -f "/etc/udev/rules.d/99-neopixel.rules" ]; then
             echo "Setting up NeoPixel permissions..."
