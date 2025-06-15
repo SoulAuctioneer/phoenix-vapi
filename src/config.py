@@ -1014,7 +1014,7 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
     """).strip()
 
 ASSISTANT_CONTEXT_MEMORY_PROMPT = dedent("""
-    Here are some memories about your companion. Start the conversation by briefly and playfully referencing one recent memory, then briefly suggesting one or two possible activities to do together:
+    Here are some memories about your companion. Start the conversation by briefly and playfully referencing one recent memory, then briefly suggesting one or two possible activities to do together. BE BRIEF!:
     {memories}
     """).strip()
 
