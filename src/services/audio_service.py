@@ -223,13 +223,25 @@ class AudioService(BaseService):
             return False
             
         try:
+            event_loop = asyncio.get_running_loop()
+
+            def on_finish_sync_callback(effect_name_finished):
+                async def publish_finish_event():
+                    self.logger.info(f"Sound effect '{effect_name_finished}' finished playing.")
+                    await self.publish({
+                        "type": "sound_effect_finished",
+                        "data": {"effect_name": effect_name_finished}
+                    })
+                # Schedule the async function to run on the event loop from the background thread
+                event_loop.call_soon_threadsafe(asyncio.create_task, publish_finish_event())
+
             # Start playing the sound first
-            event_loop = asyncio.get_event_loop()
             success = await event_loop.run_in_executor(
                 None,
                 self.audio_manager.play_sound,
                 effect_name,
-                loop
+                loop,
+                on_finish_sync_callback if not loop else None # Only set callback if not looping
             )
             
             if not success:

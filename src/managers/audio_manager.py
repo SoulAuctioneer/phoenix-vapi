@@ -6,7 +6,7 @@ import queue
 import logging
 import time
 import os
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, Tuple
 from dataclasses import dataclass
 from contextlib import contextmanager
 from config import SoundEffect, AudioBaseConfig, AudioAmplifierConfig, get_filter_logger
@@ -97,6 +97,7 @@ class AudioProducer:
         self._remainder = np.array([], dtype=np.int16)
         self.loop = False  # Whether to loop the audio
         self._original_audio = None  # Store original audio data for looping
+        self.on_finish: Optional[Callable[[str], None]] = None
 
     @property
     def volume(self) -> float:
@@ -440,9 +441,10 @@ class AudioManager:
                 # Mix audio from all active producers
                 mixed_audio = np.zeros(self.config.chunk, dtype=np.float32)
                 active_producers = 0
-                
+                finished_producer_callbacks: List[Tuple[Callable[[str], None], str]] = []
+
                 with self._producers_lock:
-                    producer_states = []  # For logging
+                    producers_to_remove = []
                     for name, producer in self._producers.items():
                         state = {
                             'name': name,
@@ -451,7 +453,6 @@ class AudioManager:
                             'chunk_size': producer.chunk_size,
                             'buffer_size': producer.buffer.buffer.qsize()
                         }
-                        producer_states.append(state)
                         
                         if producer.active:
                             data = producer.buffer.get()  # Volume already applied here
@@ -471,16 +472,24 @@ class AudioManager:
                                     if producer.loop and producer._original_audio is not None and producer.active:
                                         logging.debug(f"Queueing audio data for requeuing producer '{name}' with loop={producer.loop}")
                                         self._requeue_queue.put((name, producer._original_audio, producer.loop))
-                                    else:
-                                        no_data_count += 1
-                                        if no_data_count % 100 == 0:  # Log every 100th no-data iteration
-                                            logging.debug(f"No data available from producer '{name}' for {no_data_count} iterations")
+                                    elif not producer.loop:
+                                        # Sound finished, mark for callback and removal
+                                        if producer.on_finish:
+                                            finished_producer_callbacks.append((producer.on_finish, name))
+                                        producers_to_remove.append(name)
                     
-                    # Apply master volume before final clipping and conversion
-                    mixed_audio *= self.master_volume
+                    # Clean up producers that have finished
+                    for name in producers_to_remove:
+                        if name in self._producers:
+                            self._producers[name].stop()
+                            del self._producers[name]
+                            self.logger.info(f"Producer '{name}' finished and was removed.")
 
-                    # Convert back to int16 and clip to prevent overflow
-                    mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
+                # Apply master volume before final clipping and conversion
+                mixed_audio *= self.master_volume
+
+                # Convert back to int16 and clip to prevent overflow
+                mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
                         
                 if active_producers > 0:
                     self._last_audio_activity_time = time.time()
@@ -499,7 +508,14 @@ class AudioManager:
                 else:
                     # Small sleep to prevent spinning too fast when no data
                     time.sleep(0.001)  # 1ms sleep
-                    
+                
+                # Call callbacks after releasing the lock to avoid deadlocks
+                for callback, name in finished_producer_callbacks:
+                    try:
+                        callback(name)
+                    except Exception as e:
+                        self.logger.error(f"Error in on_finish callback for producer '{name}': {e}", exc_info=True)
+
             except Exception as e:
                 if self._running:  # Only log if we haven't stopped intentionally
                     logging.error(f"Error in output loop: {e}", exc_info=True)
@@ -569,12 +585,13 @@ class AudioManager:
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
                 
-    def play_sound(self, effect_name: str, loop: bool = False) -> bool:
+    def play_sound(self, effect_name: str, loop: bool = False, on_finish: Optional[Callable[[str], None]] = None) -> bool:
         """
         Play a sound effect by name.
         Args:
             effect_name: Name of the sound effect (case-insensitive)
             loop: Whether to loop the sound effect (default: False)
+            on_finish: Callback to execute when the sound finishes
         Returns:
             bool: True if the sound effect was found and playback started, False otherwise
         """
@@ -587,22 +604,21 @@ class AudioManager:
             logging.error(f"Sound effect file not found: {wav_path}")
             return False
             
-        return self._play_wav_file(wav_path, producer_name="sound_effect", loop=loop)
+        return self._play_wav_file(wav_path, producer_name=effect_name, loop=loop, on_finish=on_finish)
 
     def stop_sound(self, effect_name: str):
         """Stop the currently playing sound effect and clean up resources"""
         with self._producers_lock:
-            # TODO: Change to use effect_name instead of "sound_effect" so we have a producer for each sound effect
-            if "sound_effect" in self._producers:
-                producer = self._producers["sound_effect"]
+            if effect_name in self._producers:
+                producer = self._producers[effect_name]
                 producer.loop = False  # Ensure loop flag is cleared
                 producer._original_audio = None  # Clear original audio data
                 producer.buffer.clear()  # Clear any pending audio
                 producer.stop()  # Stop the producer
-                del self._producers["sound_effect"]  # Remove from active producers
-                self.logger.info("Sound effect stopped and cleaned up")
+                del self._producers[effect_name]  # Remove from active producers
+                self.logger.info(f"Sound effect '{effect_name}' stopped and cleaned up")
         
-    def _play_wav_file(self, wav_path: str, producer_name: str = "sound_effect", loop: bool = False) -> bool:
+    def _play_wav_file(self, wav_path: str, producer_name: str, loop: bool = False, on_finish: Optional[Callable[[str], None]] = None) -> bool:
         """Play a WAV file through the audio system"""
         if not self._running:
             logging.error("Cannot play WAV file - AudioManager not running")
@@ -644,6 +660,7 @@ class AudioManager:
                             producer = self._create_producer(producer_name, chunk_size=self.config.chunk, buffer_size=1000, initial_volume=current_volume)
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
+                        producer.on_finish = on_finish
                     
                     audio_data = wf.readframes(frames)
                     audio_array = np.frombuffer(audio_data, dtype=np.int16)
