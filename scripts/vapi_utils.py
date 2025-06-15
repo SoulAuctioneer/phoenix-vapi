@@ -12,7 +12,7 @@ JSON Schema reference for tool parameters: https://ajv.js.org/json-schema.html#j
 
 from textwrap import dedent
 from vapi import AsyncVapi
-from config import VAPI_API_KEY
+from config import VAPI_API_KEY, ACTIVITIES_CONFIG
 import json
 from pprint import pprint
 
@@ -125,9 +125,9 @@ TOOL_CONFIGS = {
               "properties": {
                   "activity_key": {
                       "type": "string",
-                      "enum": ["poem", "story", "color_hunt", "obstacle_quest", "magic_spell", "discovery"],
-                      "description": dedent("""
-                        The name of the activity to start. One of: poem, story, color_hunt, obstacle_quest, magic_spell, discovery.
+                      "enum": list(ACTIVITIES_CONFIG.keys()),
+                      "description": dedent(f"""
+                        The name of the activity to start. One of: {', '.join(ACTIVITIES_CONFIG.keys())}.
                         """).strip()
                   }
               },
