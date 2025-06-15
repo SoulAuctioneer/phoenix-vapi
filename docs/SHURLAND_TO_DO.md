@@ -10,6 +10,12 @@ Questions for Lucy:
 * What's the names of the 6 pieces of the antenna?
 * Which parts need dialogue? What's the dialogue? Need to know what the magic pea says.
 * 30-second tune intro.
+  * Slow build up, some rhythmic stuff and giggles
+  Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, 
+  Chop shorter and cute, and add some giggles, add some wooshes, maybe every four beats. 
+  Starts a bit random, scattered, but rhythmic, on the beat, combine and become more coherent until we hit the drop. 
+  Then it's the regular tune until we get to the break, then finished.
+
 
 
 To bring:
@@ -49,7 +55,8 @@ NAD:
 * 10th: 4.00 - 7.00 3 hours PAID $150
 * 11th: 3.15 - 9.00 5.45 TO PAY $288
 * 13th: 4.45 - 9.45 5 hrs TO PAY $250
-* 14th: 3.30 - 
+* 14th: 3.30 - 8.00 4.5 hrs 
+* 15th: 
 MEGAN:
 * 10th: 2.30 - 4.10 1:40 hrs TO PAY $50
 ROHIT:
@@ -57,10 +64,11 @@ ROHIT:
 * 11th: 2.00 -  6.00 4 hours TO PAY $200
 * 13th: 8.30 - 1.18am
 CAROLINA:
-* 11th: 3.30 - 8.30 5 hours TO PAY @ $30 = 
-* 12th: 2.30 - 7.00 4.5 hours TO PAY @ $30 = 
-* 13th: 3.30 - 6.00 2.5 hours TO PAY @ $30 = 
-* 15th: ~noon - 
+* 11th: 3.30 - 8.30 5 hours PAID @ $30 = 
+* 12th: 2.30 - 7.00 4.5 hours PAID @ $30 = 
+* 13th: 3.30 - 6.00 2.5 hours PAID @ $30 = 
+* 15th: 1.30 - 3.00 1.5 hours PAID @ $30 = 
+TOTAL $405 + $12 CC fee = $417
 
 https://docs.google.com/presentation/d/10CB5ldhfgQDrg7EVcocxdp6LFyqzWWMMBgkNeTOzm0Q/edit?slide=id.g35a9257e399_0_5#slide=id.g35a9257e399_0_5
 
