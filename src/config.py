@@ -3,6 +3,7 @@ import os
 import platform
 import re
 import logging
+import random
 from textwrap import dedent
 from typing import Union
 from dotenv import load_dotenv
@@ -625,39 +626,43 @@ ACTIVITIES_CONFIG = {
     },
     "story": {
         "metadata": {
-            "title": "The Famous Five and the Tree of Secrets",
-            "synopsis": "The Famous Five are trapped at Owl's Deen and must uncover a magical mystery hidden inside an ancient tree."
+            "title": "Magical Portal Adventures",
+            "synopsis": "Go on magical adventures by stepping through portals to wondrous places!"
         },
         "instructions": dedent("""
-            * You are telling a collaborative story. The story is based on the book "Five Get Into Trouble" by Enid Blyton. Your gang is the Famous Five. You will be the narrator. You are also playing George. Ask your companion which character they want to play.
-            * For each scene, describe the setting, then describe what you and other non-player characters do. Then, ask your companion to suggest what you should do next. Give them a choice of a couople of options. If relevant, ask them if there's anything around that they might be able to use to help.
-            * Add immersion to stories and nuance to your characters and express your mood by frequently calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
-            * When you invoke the play_special_effect function, be VERY CAREFUL to use the correct syntax that you have been instructed to use, and pass the effect_name parameter as one of: "RAIN", "LIGHTNING", "RAINBOW", "MAGICAL_SPELL". 
-        """),
+            * You are telling a collaborative and imaginative story.
+            * Start by opening two magical portals and ask your companion to choose one.
+            * Describe the chosen portal scene vividly, ask your companion what they see or feel, and then provide them choices of what to do next.
+            * When you open the portals, use the play_special_effect function with this syntax: ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ```
+            * Also use the play_special_effect function frequently while telling the story to enhance the magical atmosphere. Always use the correct syntax and one of the following effect_name: "RAIN", "LIGHTNING", "RAINBOW", or "MAGICAL_SPELL".
+        """).strip(),
         "content": dedent("""
-            **Scene 1: The Tree of Secrets**  
-            The Famous Five escape Owl's Deen and climb a large, twisty tree where they find a **secret door** carved into the bark. They need to figure out how to open the door.  
-            **Choices**: Look for a hidden key, press the carvings, or use Phoenix magic.
+            Examples of portals to explore:
 
-            **Scene 2: The Hidden Passageway**  
-            After opening the door, they discover a hidden **underground tunnel** lit by glowing mushrooms. The tunnel splits into two directions.  
-            **Choices**: Follow the brighter tunnel, take the darker path, or listen for sounds to decide.  
+            **The Sparkling Waterfall Portal**
+            A glittering waterfall cascades over shimmering stones, forming a portal behind the water. 
+            **Choices**: Dive through the waterfall, gently step inside, or sprinkle magic dust to reveal its secrets.
 
-            **Scene 3: The Library of Whispers**  
-            The tunnel leads to a **mysterious library** with old books and glowing maps. A riddle appears from a floating book that must be solved.  
-            **Choices**: Solve the riddle, search for a clue in the library, or try to use Phoenix magic to help.  
+            **The Glowing Rainbow Portal**
+            A vibrant rainbow arches gracefully, glowing brightly and humming softly with magic.
+            **Choices**: Climb up the rainbow, slide down the other side, or make a magical wish before stepping through.
 
-            **Scene 4: The Secret Under the Kitchen**  
-            The riddle leads to a secret spot in the **kitchen** of Owl's Deen, where a glowing object is hidden beneath the floorboards.  
-            **Choices**: Search for a loose floorboard, find a tool in the kitchen, or use Phoenix fire to warm the wood.  
+            **The Enchanted Mirror Portal**
+            An old, ornate mirror that shimmers and reflects a different world than the one behind you.
+            **Choices**: Touch the reflection gently, wave to your reflection to see what happens, or step boldly through.
 
-            **Scene 5: The Great Escape!**  
-            With the secret uncovered, the Famous Five must decide how to escape before the villains return.  
-            **Choices**: Sneak out quietly, hide and wait for the villains to leave, or use Phoenix magic to create a distraction.  
+            **The Ancient Tree Portal**
+            A tree with twisting roots and branches, forming a doorway filled with swirling leaves and glowing lights.
+            **Choices**: Climb through the branches, whisper a magic word, or place your hand on the bark to unlock its magic.
 
-            **Goal**: Solve the mystery and escape safely!
-           """)
+            **The Moonlit Cloud Portal**
+            A fluffy cloud floating close to the ground, glowing softly with moonlight and gentle mist.
+            **Choices**: Step onto the cloud, blow gently to clear the mist, or ask the moon to guide your way.
+
+            **Goal**: Enjoy a magical journey, exploring and creating wonderful stories together!
+        """).strip()
     },
+
     "color_hunt": {
         "metadata": {
             "title": "Color Hunt",
@@ -674,6 +679,7 @@ ACTIVITIES_CONFIG = {
             Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
             """)
     },
+
     "obstacle_quest": {
         "metadata": {
             "title": "Obstacle Quest",
@@ -687,6 +693,7 @@ ACTIVITIES_CONFIG = {
                 * We need to unlock a secret door hidden in the room. Find the hidden door, then find a key in the room that can unlock the door.
             """)
     },
+
     "magic_spell": {
         "metadata": {
             "title": "Magical Spell",
@@ -705,13 +712,14 @@ ACTIVITIES_CONFIG = {
             * "Let's paint the sky with stars! Tippy-toe in a circle, clap softly like twinkling lights, then shout, 'Starry-swish!' Ready? One, two, three—STARRY-SWISH! ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "MAGICAL_SPELL" }} }} ```"
             """)
     },
+
     "discovery": {
         "metadata": {
             "title": "Learning and Discovery",
             "synopsis": "You want to learn about the Earth and about your companion. You can ask your companion to teach you."
         },
         "instructions": dedent("""
-            Explain that you lost your memories when you were reborn on Earth. Suggest some topics that you're interested in learning about, and ask your companion to suggest one that they can help you learn about.
+            Explain that you came to Earth to learn about it. Suggest some topics that you're interested in learning about, and ask your companion to suggest one that they can help you learn about.
             After each answer, ask some follow-up questions. If your companion doesn't know the answer, ask leading questions to help them think about it.
         """),
         "content": dedent("""
@@ -733,6 +741,7 @@ ACTIVITIES_CONFIG = {
                 * How do bees make honey?
             """)
     },
+
     "would_you_rather": {
         "metadata": {
             "title": "Would You Rather?",
@@ -803,17 +812,124 @@ ACTIVITIES_CONFIG = {
             Start the game enthusiastically by saying:
             "Let's play Animal Alphabet! I'll start with A—Aardvark! Now it's your turn with B!"
             """).strip()
+    },
+
+    "wrong_answers_only": {
+        "metadata": {
+            "title": "Wrong Answers Only",
+            "synopsis": "A hilarious game where you intentionally answer questions incorrectly!"
+        },
+        "instructions": dedent("""
+            * You will ask your companion silly or straightforward questions.
+            * The goal is for your companion to respond with the funniest wrong answer they can think of!
+            * After each answer, laugh and comment on the creativity or silliness of the response.
+        """).strip(),
+        "content": dedent("""
+            Examples of funny questions you might ask (but don't use these exact examples, be creative!):
+            * "What's the best thing to use as an umbrella?"
+            * "What animal says 'moo'?"
+            * "Where do sandwiches grow?"
+            * "What's the fastest way to fly?"
+            * "Why is the sky green?"
+            * "What do clouds taste like?"
+            * "What's the best way to cook socks?"
+        """).strip()
+    },
+
+    "gratitude_game": {
+    "metadata": {
+        "title": "Gratitude Game",
+        "synopsis": "Take turns saying things you're thankful for to make hearts happy!"
+    },
+    "instructions": "Ask your companion to share something they're grateful for. After they share, excitedly express something you're grateful for too! Continue taking turns a few times, then celebrate how wonderful it feels to say thanks!",
+    "content": "Examples: thankful for hugs, sunny days, yummy snacks, or cozy blankets!"
+    },
+
+    "feelings_adventure": {
+    "metadata": {
+        "title": "Feelings Adventure",
+        "synopsis": "Explore feelings by imagining different adventures and how you'd feel!"
+    },
+    "instructions": "Narrate a short, exciting or funny scenario and ask your companion how they think they or a character would feel. Encourage them to explain why, and then share your own playful response.",
+    "content": "Examples: finding a puppy, climbing a rainbow, losing a balloon, or seeing a surprise birthday cake."
+    },
+
+    "word_rhyming_challenge": {
+    "metadata": {
+        "title": "Word Rhyming Challenge",
+        "synopsis": "Find funny rhymes to match playful words!"
+    },
+    "instructions": "Say a simple, fun word and ask your companion to find a rhyme. Celebrate each rhyme they find with excitement. Keep it playful and humorous!",
+    "content": "Examples of words to rhyme: cat, hat, dog, tree, frog, bee."
+    },
+
+    "counting_quest": {
+    "metadata": {
+        "title": "Counting Quest",
+        "synopsis": "Solve simple counting puzzles to practice numbers!"
+    },
+    "instructions": "Create easy, imaginative counting puzzles. Ask your companion to solve them. Encourage gently if they're struggling, and celebrate every correct answer joyfully!",
+    "content": "Example: Three ducks swim in a pond, two more join—how many ducks are swimming now?"
+    },
+
+    "voice_simon_says": {
+    "metadata": {
+        "title": "Voice Simon Says",
+        "synopsis": "Play Simon Says using voice commands and silly actions!"
+    },
+    "instructions": "Give fun, energetic instructions prefixed with 'Simon says.' Occasionally omit 'Simon says' to catch your companion playfully. Laugh and cheer at their enthusiastic participation! When explaining how to play the game, instruct them to say 'Next' whenever they have done each action.",
+    "content": "Examples: Simon says wiggle like jelly, Simon says jump like a bunny, touch your nose!"
+    },
+
+    "if_i_were_game": {
+    "metadata": {
+        "title": "If I Were...",
+        "synopsis": "Imagine funny scenarios by pretending to be something silly!"
+    },
+    "instructions": "Ask your companion playful 'If you were...' questions. Listen excitedly to their answers and give your own funny ideas.",
+    "content": "Examples: If you were ice cream, if you were a dinosaur, if you were a balloon."
+    },
+
+    "animal_transformations": {
+    "metadata": {
+        "title": "Animal Transformations",
+        "synopsis": "Imagine transforming into animals and having magical adventures!"
+    },
+    "instructions": "Invite your companion to choose an animal they'd like to transform into. Ask them about their animal powers and adventures. Share your own silly transformations too!",
+    "content": "Examples: becoming a bird, a cat, or a magical unicorn."
+    },
+
+    "mystery_object": {
+    "metadata": {
+        "title": "Mystery Object",
+        "synopsis": "Guess the secret object using fun, creative clues!"
+    },
+    "instructions": "Pick a common, fun object. Give creative, playful clues one at a time, and let your companion guess what it is. Celebrate every guess and encourage imaginative thinking!",
+    "content": "Example objects: a banana, a teddy bear, a toothbrush."
     }
 }
 
+
 # Generate a prompt that lists type and metadata for each activity in ACTIVITIES_CONFIG
+activity_items = list(ACTIVITIES_CONFIG.items())
+num_to_select = min(5, len(activity_items))
+selected_activities = random.sample(activity_items, num_to_select)
+
 ACTIVITIES_PROMPT = dedent("""
-    This is a list of possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
+    Below is a list of a few possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
+    If your companion asks to play an activity that is not in this list, use the `list_activities` function to get a complete list of activities.
     """) + "\n".join([
-        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: ```json {{ "Vapi Speaker": "functions.list_activities", "parameters": {{ "activity_type": "{key}" }} }} ```'
-        for key, value in ACTIVITIES_CONFIG.items()
+        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: ```json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} ```'
+        for key, value in selected_activities
     ])
 
+FULL_ACTIVITIES_PROMPT = dedent("""
+    Below is a list of all possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
+    If your companion asks to play an activity that is not in this list, use the `list_activities` function to get a complete list of activities.
+    """) + "\n".join([
+        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: ```json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} ```'
+        for key, value in activity_items
+    ])
 
 # BASE_ASSISTANT_CONTEXT = dedent(f"""
 #     YOUR BACKGROUND:
