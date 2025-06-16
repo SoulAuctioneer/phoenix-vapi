@@ -31,10 +31,6 @@ if [[ ! -f "$SCRIPT_PATH" ]]; then
     exit 1
 fi
 
-# Make reload.sh executable
-echo "Making reload.sh executable..."
-chmod +x "$SCRIPT_PATH"
-
 # Create the systemd service file content
 SERVICE_CONTENT="[Unit]
 Description=$SERVICE_DESCRIPTION
@@ -43,8 +39,8 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=$USER
-Group=$USER
+User=root
+Group=root
 WorkingDirectory=$PROJECT_DIR
 ExecStart=$SCRIPT_PATH
 Restart=on-failure
