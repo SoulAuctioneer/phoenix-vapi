@@ -42,13 +42,9 @@ class AudioBuffer:
         self._lock = threading.Lock()
         self._volume = 1.0  # Default volume
         
-    def put(self, data: np.ndarray) -> bool:
-        """Put raw audio data into buffer, dropping if full"""
-        try:
-            self.buffer.put_nowait(data)
-            return True
-        except queue.Full:
-            return False
+    def put(self, data: np.ndarray):
+        """Put raw audio data into buffer, blocking if full"""
+        self.buffer.put(data)
             
     def get(self) -> Optional[np.ndarray]:
         """Get volume-adjusted audio data from buffer"""
@@ -98,6 +94,7 @@ class AudioProducer:
         self.loop = False  # Whether to loop the audio
         self._original_audio = None  # Store original audio data for looping
         self.on_finish: Optional[Callable[[str], None]] = None
+        self.loading = False
 
     @property
     def volume(self) -> float:
@@ -472,7 +469,7 @@ class AudioManager:
                                     if producer.loop and producer._original_audio is not None and producer.active:
                                         logging.debug(f"Queueing audio data for requeuing producer '{name}' with loop={producer.loop}")
                                         self._requeue_queue.put((name, producer._original_audio, producer.loop))
-                                    elif not producer.loop:
+                                    elif not producer.loop and not producer.loading:
                                         # Sound finished, mark for callback and removal
                                         if producer.on_finish:
                                             finished_producer_callbacks.append((producer.on_finish, name))
@@ -575,12 +572,11 @@ class AudioManager:
                 if len(chunk) < chunk_size:
                     chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
                 
-                success = producer.buffer.put(chunk)
-                if success:
-                    chunks_added += 1
-                else:
-                    logging.warning(f"Buffer full for producer '{producer_name}', chunk {i+1}/{num_chunks} dropped")
-                    break  # Stop if buffer is full
+                producer.buffer.put(chunk)
+                chunks_added += 1
+            
+            # All data has been queued, mark loading as complete
+            producer.loading = False
                     
         except Exception as e:
             logging.error(f"Error in play_audio: {str(e)}", exc_info=True)
@@ -661,6 +657,7 @@ class AudioManager:
                             self._producers[producer_name] = producer
                         producer = self._producers[producer_name]
                         producer.on_finish = on_finish
+                        producer.loading = True
                     
                     audio_data = wf.readframes(frames)
                     audio_array = np.frombuffer(audio_data, dtype=np.int16)
