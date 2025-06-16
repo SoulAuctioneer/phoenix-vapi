@@ -40,4 +40,8 @@ else
     exit 1
 fi
 
+echo
+echo "Current configured networks:"
+nmcli connection show
+
 exit 0 
