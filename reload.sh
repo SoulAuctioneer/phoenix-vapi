@@ -1,5 +1,5 @@
 #!/bin/bash
 
 clear
-git pull
+git pull || echo "Git pull failed, continuing..."
 ./run.sh "$@"
