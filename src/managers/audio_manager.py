@@ -279,7 +279,6 @@ class AudioManager:
                 
             except Exception as e:
                 logging.error(f"Failed to start audio: {e}", exc_info=True)
-                self.stop()
                 raise
                 
     def stop(self):

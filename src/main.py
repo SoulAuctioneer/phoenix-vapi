@@ -69,6 +69,7 @@ class PhoenixApp:
         self.service_manager = ServiceManager()
         self._should_run = True
         self.initialized_services = {}
+        self._is_cleaning_up = False
 
     async def initialize_services(self):
         """Initialize and start core services in the correct order"""
@@ -113,7 +114,6 @@ class PhoenixApp:
                 
         except asyncio.CancelledError:
             logging.info("Application task cancelled")
-            await self.cleanup()
         except Exception as e:
             logging.error(f"Fatal error in PhoenixApp.run: {e}", exc_info=True)
             self._should_run = False # Ensure we don't continue
@@ -124,6 +124,9 @@ class PhoenixApp:
 
     async def cleanup(self):
         """Cleanup all resources"""
+        if self._is_cleaning_up:
+            return
+        self._is_cleaning_up = True
         logging.info("Cleaning up resources...")
         await self.service_manager.stop_all()
 
@@ -132,9 +135,8 @@ class PhoenixApp:
         if sig:
             logging.info(f"Received signal {sig.name}")
         self._should_run = False
-        # Schedule the cleanup
-        asyncio.create_task(self.cleanup())
-        # Cancel all tasks except the current one
+        # Cancel all running tasks. This will interrupt the main `run` loop,
+        # leading to a call to `cleanup` in its `finally` block.
         for task in asyncio.all_tasks():
             if task is not asyncio.current_task():
                 task.cancel()
