@@ -111,15 +111,8 @@ Shipping:
 * Adafruit: https://www.ups.com/track?tracknum=1Z71EY050196956005
 * Speakers: https://tools.usps.com/go/TrackConfirmAction_input?qtc_tLabels1=9405536106058275047221
 
-* Configure Bluetooth beacons, get IDs
-* Set up Pis for Shurland WiFi and ensure it supports 2.4Ghz.
-* Make 4 more peas
+* Set up Pis for Shurland WiFi
 * Desolder AUX jack on respeakers
-* Install OS on raspberry pi
-* Solder 4 x USB cables + 1 spare
-* Make bluetooth speaker pea
-* Make fur coats
-* Picovoice need license keys for all devices
 * Gather sufficient USB cables
 
 
