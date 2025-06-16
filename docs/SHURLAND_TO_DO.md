@@ -56,7 +56,7 @@ NAD:
 * 11th: 3.15 - 9.00 5.45 TO PAY??? $288
 * 13th: 4.45 - 9.45 5 hrs TO PAY $250
 * 14th: 3.30 - 8.00 4.5 hrs TO PAY $225
-* 15th: 4.15 - 
+* 15th: 4.15 - 6.00 
 MEGAN:
 * 10th: 2.30 - 4.10 1:40 hrs TO PAY $50
 ROHIT:
