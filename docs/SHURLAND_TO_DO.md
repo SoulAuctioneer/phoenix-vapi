@@ -1,25 +1,38 @@
 MOST IMPORTANT NOW:
-* IMPORTANT: SWAP BATTERY POLARITY ON NEW ONES THAT ARRIVED
-* Bluetooth speaker
-* Final assembly
-* Lab dock
-* Test battery life
+* Laundry
+* Pack
+* Costume
+* Move basement stuff into bedroom
+* Fix respeaker on #5
 * Upgrade V1 pea
+* Do what I can here to make upgrading Tom's easier over there.
+* Test 4, 5, 6
+* Test battery life
+* Need another PicoVoice account, ash.eldritch was disabled.
+*	LEDs in Bluetooth speaker Pea (El wire?)
+* Switch branch to demo
+* Gather stuff to bring
+* Make plantasia tune
+* ALSO humming thing??? Ask Lucy about that
+* Add squeal effects etc to squealing activity
+* Update spoken strings for scavenger hunt (see script below)
+* Create new Rhino model with only stuff that we need for the event (add stuff from intentservice)
+  * Need a bunch of new strings if we're going to do the call/response in lab just from wake words
+* Create mother pea activity
+* Add a system shutdown command
+* Set up Pis for Shurland WiFi: Shurland-Appliance / 15321532
+*	Amazon returns
 
-Questions for Lucy:
-* What's the names of the 6 pieces of the antenna?
-* Which parts need dialogue? What's the dialogue? Need to know what the magic pea says.
-* 30-second tune intro.
-  * Slow build up, some rhythmic stuff and giggles
-  Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, 
-  Chop shorter and cute, and add some giggles, add some wooshes, maybe every four beats. 
-  Starts a bit random, scattered, but rhythmic, on the beat, combine and become more coherent until we hit the drop. 
-  Then it's the regular tune until we get to the break, then finished.
+
+GROW SONG:
+Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, chop shorter and cute, and add some giggles, add some wooshes, maybe every four beats. Starts a bit random, scattered, but rhythmic, on the beat, combine and become more coherent until we hit the drop. Then it's the regular tune until we get to the break, then finished.
+For the music: Add 20 seconds of discovery figuring out how the pea responds, effects on beat, responding a bit harder each time. Lil bit of trumpet, lil bit of beats, mostly giggles and chuckles. Then we do the full initial verse while kids play with the pea, then go into the lull.
+
 
 
 
 To bring:
-* Charging cables for peas
+* Charging cables for peas - 9 cables, extension cord
 * 9 x Peas and 2 x docks
 * Soldering iron
 * Superglue
@@ -31,14 +44,6 @@ To bring:
 * Spare LED strip/ring and sparkle, just in case
 * Defluffer
 
-
-
-
-
-* Find and buy smaller bluetooth speaker
-
-
-* IMPORTANT: SWAP BATTERY POLARITY ON NEW ONES THAT ARRIVED
 
 Expenses:
 - Nad work hours
@@ -70,50 +75,9 @@ CAROLINA:
 * 15th: 1.30 - 3.00 1.5 hours PAID @ $30 = 
 TOTAL $405 + $12 CC fee = $417
 
+EVENT SLIDES:
 https://docs.google.com/presentation/d/10CB5ldhfgQDrg7EVcocxdp6LFyqzWWMMBgkNeTOzm0Q/edit?slide=id.g35a9257e399_0_5#slide=id.g35a9257e399_0_5
 
-SHURLAND EVENT TO DO LIST:
-* Inventory errything to buy
-  * Speakers x 4 - DONE
-  * Respeaker 4-mic array x 4 - DONE
-  AMAZON:
-  * Raspberry Pi Zero 2 W x 3 - ?
-  * Amplifiers
-  * Neopixel ring 24 x 3 + 8 x 3
-  * SD Cards x 4
-  * BLE Beacons x 4
-  ADAFRUIT:  
-  * Battery x 4 (ideally 50mm x 57mm x 7mm)
-  * Power switch x 4
-  * Powerboost 1000C x 4
-  * Battery charge monitor x 4
-  * Battery cables x 4
-  * Accelerometer x 4
-  * JST cables x 4
-  HAVE:
-  * Qwiic cables
-  * Protoboards
-  * Capacitors
-
-CAD:
-* Move hole for amp volume if I didn't already
-* Different battery size???
-* More width for top LED ring cable
-* Modify shell to incorporate usb-c charging port
-* Design and make docks
-
-3D Print:
-* 4 x top shell
-* 4 x bottom shell
-
-Shipping:
-* Respeaker: https://www.ups.com/track?track=yes&trackNums=1Z71EY050196956005&loc=en_us&requester=ST/trackdetails
-* Adafruit: https://www.ups.com/track?tracknum=1Z71EY050196956005
-* Speakers: https://tools.usps.com/go/TrackConfirmAction_input?qtc_tLabels1=9405536106058275047221
-
-* Set up Pis for Shurland WiFi
-* Desolder AUX jack on respeakers
-* Gather sufficient USB cables
 
 
 SOFTWARE:
@@ -155,20 +119,93 @@ Then dance with bluetooth pea in botany lab. First, in dock. Responds to humming
 Then scavenger hunt, groups of 10.
 Then finale: Mother pea voice recording says “Hey magic peas, don’t be afraid” or something, that’s the trigger phrase for an activity where they respond: “Hello mummy!” and they light up. (ensure no need for internet).
 
-Need:
-3 fake peas - just lights (LED juggling balls with fur coat).
-1 bluetooth speaker pea - bluetooth speaker in a shell (maybe add some balloon lights).
-1 real conversational pea. Full functionality, will be docked.
-2 real peas - for scavenger hunt - no LEDs.
-3 backup real peas.
-6 Bluetooth beacons (plus a couple of backups).
-2 docks (put the rest on charging cables).
 
-To do:
-Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, chop shorter and cute, and add some giggles, add some wooshes, maybe every four beats. Starts a bit random, scattered, but rhythmic, on the beat, combine and become more coherent until we hit the drop. Then it's the regular tune until we get to the break, then finished.
-Create docks - pea-pod shaped?
 
-To Confirm:
-We will have solid WiFi in the Lab.
-For the music: Add 20 seconds of discovery figuring out how the pea responds, effects on beat, responding a bit harder each time. Lil bit of trumpet, lil bit of beats, mostly giggles and chuckles. Then we do the full initial verse while kids play with the pea, then go into the lull.
+
+SCRIPT:
+
+Entrance hall scene: 
+
+
+PETE The Scientist 
+“Welcome to the Pea HQ, now what I'm going to reveal to you is top secret. You’re the first humans we’ve invited here. (pick an adult) Wow you’re really tall for your age! We’ve been communicating with another planet - with the ‘Pea people’ and we’re…” 
+
+*CRASH EXPLOSION SOUND 
+
+(Petal & Pete take all the children outside and surround the crash site hole, everyone needs to be really quiet and Pete jumps down to pick up the peas x 4, Petal takes 2 peas and so does Pete)
+
+MAGIC PEA
+(We hear excited pea chatter from the hole as smoke pours out) 
+‘We made it/ Wow that was such a long journey/Are we there yet?/ I’m so tired now, maybe we should have a little nap’ 
+(sleeping pea sounds)
+
+PETE The Scientist 
+“Everyone gather round the edge, be very quiet, we don't want to scare the peas - they look, yes, like baby magic peas. This is incredible. I can't believe it, they’re here on earth. This is a momentous day. I never thought in a hundred thousand million squillion years the magic peas would land on earth! 
+Petal you carry two and I'll take these two. Wait, what's this?
+ (Pete picks up a tube with something inside)
+
+PETE The Scientist 
+(Whilst travelling with the Peas to the Lab)
+“I’ve been sending a message into space for some time now, hoping to discover other life and they must have heard it!”
+
+Lab Scene:
+Pete gets kids to ask questions to the pea’s. Prompts by whispering questions to them.
+PETE The Scientist 
+“Welcome to my lab (proud) this is the hub of our headquarters. 
+From here I monitor earth and beyond all in our pursuit of peas-ful power of peas in a pod to spread hap-pea-ness.
+Ah look perfect I can put the magic pea in this incubator. Let's see if we can wake it up. Can some of you assist me? Great. Can you ask it (whispers to 1st child)"
+
+Child
+“Hey Magic Pea, what are you?” 
+
+MAGIC PEA 
+“I’m a fluffy friend from space, and like you children we magic peas love to play! 
+You all have creative super-powers and we the magic peas are looking to help you create a peas-ful future!
+We are seeking to create a future more magical than adults could ever imagine!”
+
+PETE The Scientist 
+ “Wow, this sounds un-pea-leivable! Oh I have another question, ‘Hey Magic Pea, where have you come from?’”
+
+CHILD
+“Hey Magic Pea, where have you come from?”
+
+MAGIC PEA
+“We’ve come all the way through space, through a wormhole, from a galaxy called Pea-topia. (get excited) 
+
+PETE The Scientist 
+“Oh wow, (Pete moves over to the blackboard and draws a tunnel) A wormhole is like a giant tunnel in space, it’s a shortcut from one place to another.
+That must have taken a lot of energy. Ah, I have another question! (Whispers)Hey Magic pea, How did you power yourself?”
+CHILD
+“Hey Magic pea, How did you power yourself?” 
+MAGIC PEA
+“We powered ourselves through the power of positive energy. Ooo its the best, it's created by working together as a team. When we all work together we create a positive energy charge!!!” 
+PETE The Scientist 
+“That’s fantastic. I wonder if that's something we can do too? 
+Now another important question.. (Whispers)Why are you here?”
+CHILD
+“Why are you here?”
+
+
+MAGIC PEA
+“Grandmother Pea sent us. There’s been a solar storm in our galaxy, and everything has been thrown off-kilter. So we have been sent to learn all about earth and make friends with you, our neighbour. Will you help us?”
+PETE The Scientist 
+Yes of course we will, we’d love to help you, Wouldn’t we pea pals!
+(We hear sounds of peas snoring again)
+PETE The Scientist 
+“They must be so tired, but we’ve learnt lots from our little furry friends.” 
+
+
+
+
+
+Transmitter Hunt 
+
+We need to find the following pieces: 
+
+1.⁠ ⁠Junction Box
+2.⁠ ⁠⁠transmitter valve
+3.⁠ ⁠⁠signal processor
+4.⁠ ⁠⁠antenna
+5.⁠ ⁠system modulator
+6.⁠ ⁠⁠crystal oscillator  
 
