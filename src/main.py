@@ -115,7 +115,9 @@ class PhoenixApp:
             logging.info("Application task cancelled")
             await self.cleanup()
         except Exception as e:
-            logging.error(f"Fatal error: {e}", exc_info=True)
+            logging.error(f"Fatal error in PhoenixApp.run: {e}", exc_info=True)
+            self._should_run = False # Ensure we don't continue
+            # The 'finally' block will handle cleanup. Re-raising would be handled by the main entry point.
             raise
         finally:
             await self.cleanup()
@@ -156,7 +158,13 @@ async def main():
             lambda s=sig: app.handle_shutdown(s)
         )
     
-    await app.run()
+    try:
+        await app.run()
+    except Exception as e:
+        # This will catch the re-raised exception from app.run() and allow for a clean exit
+        logging.info(f"Phoenix App run failed with exception: {e}. Application will now exit.")
+        # The finally block in __main__ will still execute for final logging.
+
 
 if __name__ == "__main__":
     try:
@@ -166,6 +174,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logging.info("Application interrupted")
     except Exception as e:
-        logging.error(f"Fatal error: {e}", exc_info=True)
+        logging.error(f"Unhandled fatal error in main: {e}", exc_info=True)
     finally:
         logging.info("Application stopped") 

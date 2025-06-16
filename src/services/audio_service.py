@@ -34,7 +34,8 @@ class AudioService(BaseService):
             if self.amplifier:
                 self.audio_manager.set_amplifier(self.amplifier)
 
-            self.audio_manager.start()
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self.audio_manager.start)
             self.logger.info("Audio service started successfully")
             
             # Initialize AudioManager's master volume based on GlobalState
@@ -42,14 +43,15 @@ class AudioService(BaseService):
                 self.audio_manager.set_master_volume(self.global_state.volume)
             
         except Exception as e:
-            self.logger.error(f"Failed to start audio service: {e}")
+            self.logger.error(f"Failed to start audio service: {e}", exc_info=True)
             raise
             
     async def stop(self):
         """Stop the audio service"""
         if self.audio_manager:
             try:
-                self.audio_manager.stop()
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, self.audio_manager.stop)
                 self.logger.info("Audio service stopped successfully")
             except Exception as e:
                 self.logger.error(f"Error stopping audio service: {e}")
