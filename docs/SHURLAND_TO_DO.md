@@ -53,10 +53,10 @@ NAD:
 * 8th: 3.00 - 4.45 and 5.15 - 6pm 2.5 hrs PAID $150
 * 9th: 3.30 - 8.00 less 30 break 4 hours PAID $200
 * 10th: 4.00 - 7.00 3 hours PAID $150
-* 11th: 3.15 - 9.00 5.45 TO PAY $288
+* 11th: 3.15 - 9.00 5.45 TO PAY??? $288
 * 13th: 4.45 - 9.45 5 hrs TO PAY $250
-* 14th: 3.30 - 8.00 4.5 hrs 
-* 15th: 
+* 14th: 3.30 - 8.00 4.5 hrs TO PAY $225
+* 15th: 4.15 - 
 MEGAN:
 * 10th: 2.30 - 4.10 1:40 hrs TO PAY $50
 ROHIT:
