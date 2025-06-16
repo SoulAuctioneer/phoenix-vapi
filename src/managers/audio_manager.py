@@ -83,7 +83,7 @@ class AudioConsumer:
 
 class AudioProducer:
     """Represents a producer of audio output data"""
-    def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100):
+    def __init__(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, is_stream: bool = False):
         self.name = name
         self.buffer = AudioBuffer(maxsize=buffer_size)
         self._volume = AudioBaseConfig.DEFAULT_VOLUME
@@ -95,6 +95,7 @@ class AudioProducer:
         self._original_audio = None  # Store original audio data for looping
         self.on_finish: Optional[Callable[[str], None]] = None
         self.loading = False
+        self.is_stream = is_stream
 
     @property
     def volume(self) -> float:
@@ -207,20 +208,20 @@ class AudioManager:
                 consumer.active = False
                 self._consumers.remove(consumer)
                 
-    def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = 1.0) -> AudioProducer:
+    def _create_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = 1.0, is_stream: bool = False) -> AudioProducer:
         """Create a new producer instance without adding it to the producers dictionary"""
         print(f"DEBUG: Creating producer '{name}' with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}", flush=True)
-        self.logger.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}")
+        self.logger.info(f"Creating new producer: {name} with chunk_size={chunk_size}, buffer_size={buffer_size}, initial_volume={initial_volume}, is_stream={is_stream}")
         
-        producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size)
+        producer = AudioProducer(name, chunk_size=chunk_size, buffer_size=buffer_size, is_stream=is_stream)
         producer.active = True
         if initial_volume is not None:
             producer.volume = initial_volume
         return producer
         
-    def add_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = None) -> AudioProducer:
+    def add_producer(self, name: str, chunk_size: Optional[int] = None, buffer_size: int = 100, initial_volume: Optional[float] = None, is_stream: bool = False) -> AudioProducer:
         """Add a new audio producer"""
-        producer = self._create_producer(name, chunk_size, buffer_size, initial_volume)
+        producer = self._create_producer(name, chunk_size, buffer_size, initial_volume, is_stream)
         
         with self._producers_lock:
             self._producers[name] = producer
@@ -468,7 +469,7 @@ class AudioManager:
                                     if producer.loop and producer._original_audio is not None and producer.active:
                                         logging.debug(f"Queueing audio data for requeuing producer '{name}' with loop={producer.loop}")
                                         self._requeue_queue.put((name, producer._original_audio, producer.loop))
-                                    elif not producer.loop and not producer.loading:
+                                    elif not producer.loop and not producer.loading and not producer.is_stream:
                                         # Sound finished, mark for callback and removal
                                         if producer.on_finish:
                                             finished_producer_callbacks.append((producer.on_finish, name))

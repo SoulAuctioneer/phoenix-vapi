@@ -138,7 +138,8 @@ class CallActivity(BaseService):
         # Create a producer for call audio output
         self.call_producer = self.audio_manager.add_producer(
             name="twilio_call",
-            buffer_size=100
+            buffer_size=100,
+            is_stream=True
         )
         
         # Get the contact number for the given contact name

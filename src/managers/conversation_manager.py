@@ -395,7 +395,8 @@ class ConversationManager:
             self._audio_producer = self.audio_manager.add_producer(
                 "daily_call",
                 chunk_size=ConversationConfig.Audio.CHUNK_SIZE,
-                buffer_size=ConversationConfig.Audio.BUFFER_SIZE
+                buffer_size=ConversationConfig.Audio.BUFFER_SIZE,
+                is_stream=True
             )
             # Clear any existing data in the buffer
             self._audio_producer.buffer.clear()
