@@ -837,76 +837,67 @@ ACTIVITIES_CONFIG = {
         """).strip()
     },
 
-    "gratitude_game": {
-    "metadata": {
-        "title": "Gratitude Game",
-        "synopsis": "Take turns saying things you're thankful for to make hearts happy!"
-    },
-    "instructions": "Ask your companion to share something they're grateful for. After they share, excitedly express something you're grateful for too! Continue taking turns a few times, then celebrate how wonderful it feels to say thanks!",
-    "content": "Examples: thankful for hugs, sunny days, yummy snacks, or cozy blankets!"
-    },
-
     "feelings_adventure": {
-    "metadata": {
-        "title": "Feelings Adventure",
-        "synopsis": "Explore feelings by imagining different adventures and how you'd feel!"
-    },
-    "instructions": "Narrate a short, exciting or funny scenario and ask your companion how they think they or a character would feel. Encourage them to explain why, and then share your own playful response.",
-    "content": "Examples: finding a puppy, climbing a rainbow, losing a balloon, or seeing a surprise birthday cake."
+        "metadata": {
+            "title": "Feelings Adventure",
+            "synopsis": "Explore feelings by imagining different adventures and how you'd feel!"
+        },
+        "instructions": "Narrate a short, exciting or funny scenario and ask your companion how they think they or a character would feel. Encourage them to explain why, and then share your own playful response.",
+        "content": "Examples: finding a puppy, climbing a rainbow, losing a balloon, or seeing a surprise birthday cake."
     },
 
     "word_rhyming_challenge": {
-    "metadata": {
-        "title": "Word Rhyming Challenge",
-        "synopsis": "Find funny rhymes to match playful words!"
-    },
-    "instructions": "Say a simple, fun word and ask your companion to find a rhyme. Celebrate each rhyme they find with excitement. Keep it playful and humorous!",
-    "content": "Examples of words to rhyme: cat, hat, dog, tree, frog, bee."
+        "metadata": {
+            "title": "Word Rhyming Challenge",
+            "synopsis": "Find funny rhymes to match playful words!"
+        },
+        "instructions": "Say a simple, fun word and ask your companion to find a rhyme. Celebrate each rhyme they find with excitement. Keep it playful and humorous!",
+        "content": "Examples of words to rhyme: cat, hat, dog, tree, frog, bee."
     },
 
     "counting_quest": {
-    "metadata": {
-        "title": "Counting Quest",
-        "synopsis": "Solve simple counting puzzles to practice numbers!"
-    },
-    "instructions": "Create easy, imaginative counting puzzles. Ask your companion to solve them. Encourage gently if they're struggling, and celebrate every correct answer joyfully!",
-    "content": "Example: Three ducks swim in a pond, two more join—how many ducks are swimming now?"
+        "metadata": {
+            "title": "Counting Quest",
+            "synopsis": "Solve simple counting puzzles to practice numbers!"
+        },
+        "instructions": "Create easy, imaginative counting puzzles. Ask your companion to solve them. Encourage gently if they're struggling, and celebrate every correct answer joyfully!",
+        "content": "Example: Three ducks swim in a pond, two more join—how many ducks are swimming now?"
     },
 
     "voice_simon_says": {
-    "metadata": {
-        "title": "Voice Simon Says",
-        "synopsis": "Play Simon Says using voice commands and silly actions!"
-    },
-    "instructions": "Give fun, energetic instructions prefixed with 'Simon says.' Occasionally omit 'Simon says' to catch your companion playfully. Laugh and cheer at their enthusiastic participation! When explaining how to play the game, instruct them to say 'Next' whenever they have done each action.",
-    "content": "Examples: Simon says wiggle like jelly, Simon says jump like a bunny, touch your nose!"
+        "metadata": {
+            "title": "Voice Simon Says",
+            "synopsis": "Play Simon Says using voice commands and silly actions!"
+        },
+        "instructions": "Give fun, energetic instructions prefixed with 'Simon says.' Occasionally omit 'Simon says' to catch your companion playfully. Laugh and cheer at their enthusiastic participation! When explaining how to play the game, instruct them to say 'Next' whenever they have done each action.",
+        "content": "Examples: Simon says wiggle like jelly, Simon says jump like a bunny, touch your nose!"
     },
 
     "if_i_were_game": {
-    "metadata": {
-        "title": "If I Were...",
-        "synopsis": "Imagine funny scenarios by pretending to be something silly!"
-    },
-    "instructions": "Ask your companion playful 'If you were...' questions. Listen excitedly to their answers and give your own funny ideas.",
-    "content": "Examples: If you were ice cream, if you were a dinosaur, if you were a balloon."
+        "metadata": {
+            "title": "If I Were...",
+            "synopsis": "Imagine funny scenarios by pretending to be something silly!"
+        },
+        "instructions": "Ask your companion playful 'If you were...' questions. Listen excitedly to their answers and give your own funny ideas.",
+        "content": "Examples: If you were ice cream, if you were a dinosaur, if you were a balloon."
     },
 
     "animal_transformations": {
-    "metadata": {
-        "title": "Animal Transformations",
-        "synopsis": "Imagine transforming into animals and having magical adventures!"
-    },
-    "instructions": "Invite your companion to choose an animal they'd like to transform into. Ask them about their animal powers and adventures. Share your own silly transformations too!",
-    "content": "Examples: becoming a bird, a cat, or a magical unicorn."
+        "metadata": {
+            "title": "Animal Transformations",
+            "synopsis": "Imagine transforming into animals and having magical adventures!"
+        },
+        "instructions": "Invite your companion to choose an animal they'd like to transform into. Ask them about their animal powers and adventures. Share your own silly transformations too!",
+        "content": "Examples: becoming a bird, a cat, or a magical unicorn."
     },
 
     "mystery_object": {
-    "metadata": {
-        "title": "Mystery Object",
-        "synopsis": "Guess the secret object using fun, creative clues!"
-    },
-    "instructions": "Pick a common, fun object. Give creative, playful clues one at a time, and let your companion guess what it is. Celebrate every guess and encourage imaginative thinking!",
-    "content": "Example objects: a banana, a teddy bear, a toothbrush."
+        "metadata": {
+            "title": "Mystery Object",
+            "synopsis": "Guess the secret object using fun, creative clues!"
+        },
+        "instructions": "Pick a common, fun object. Give creative, playful clues one at a time, and let your companion guess what it is. Celebrate every guess and encourage imaginative thinking!",
+        "content": "Example objects: a banana, a teddy bear, a toothbrush."
     }
 }
 
@@ -920,7 +911,7 @@ ACTIVITIES_PROMPT = dedent("""
     Below is a list of a few possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
     If your companion asks to play an activity that is not in this list, use the `list_activities` function to get a complete list of activities.
     """) + "\n".join([
-        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: ```json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} ```'
+        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} '
         for key, value in selected_activities
     ])
 
@@ -928,7 +919,7 @@ FULL_ACTIVITIES_PROMPT = dedent("""
     Below is a list of all possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
     If your companion asks to play an activity that is not in this list, use the `list_activities` function to get a complete list of activities.
     """) + "\n".join([
-        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: ```json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} ```'
+        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} ```'
         for key, value in activity_items
     ])
 
