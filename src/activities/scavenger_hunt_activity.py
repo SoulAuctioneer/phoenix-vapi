@@ -93,23 +93,33 @@ class ScavengerHuntActivity(BaseService):
         self._inactivity_hint_phrases: Dict[Distance, list[str]] = {
             Distance.UNKNOWN: [
                 "I can't sense the {objective} at all. Let's try moving around a bit.",
-                "Where could the {objective} be? I'm not picking up any signal."
+                "Where could the {objective} be? I'm not picking up any signal.",
+                "Hmm, I don't feel any wiggles from the {objective}. Let's try a new spot.",
+                "The {objective} is hiding well! I can't feel it from here."
             ],
             Distance.VERY_FAR: [
                 "We're still very far away from the {objective}. Keep looking!",
-                "The {objective} is out there somewhere, but it feels like a long way off."
+                "The {objective} is out there somewhere, but it feels like a long way off.",
+                "My senses are just barely tingling. The {objective} is super far away.",
+                "It's a long journey to the {objective}, but I know we can find it!"
             ],
             Distance.FAR: [
                 "I can still sense the {objective}, but we're not very close. Let's keep exploring.",
-                "We're on the right track for the {objective}, but it's still a ways to go."
+                "We're on the right track for the {objective}, but it's still a ways to go.",
+                "The signal from the {objective} is steady, but we have more ground to cover.",
+                "Keep going! We're making progress toward the {objective}, but there's still a distance to go."
             ],
             Distance.NEAR: [
                 "We're getting so close to the {objective}! It must be just around here somewhere.",
-                "The feeling is stronger... the {objective} is nearby!"
+                "The feeling is stronger... the {objective} is nearby!",
+                "The {objective} is calling to us! I can feel its energy buzzing nearby.",
+                "I'm getting excited! The {objective} feels like it's just a hop, skip, and a jump away."
             ],
             Distance.VERY_NEAR: [
                 "It's right here! The {objective} is so close I can almost feel the fizzing!",
-                "My lights are tingling! We must be right on top of the {objective}!"
+                "My lights are tingling! We must be right on top of the {objective}!",
+                "I can almost taste the sparkly energy of the {objective}! It's right here!",
+                "Any second now! The {objective} is so close, my lights are going crazy!"
             ]
         }
 
