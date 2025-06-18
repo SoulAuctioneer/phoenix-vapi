@@ -206,7 +206,9 @@ class AccelerometerManager:
         """
         Deinitialize the accelerometer hardware.
         """
+        self.logger.info("Deinitializing accelerometer hardware...")
         self.interface.deinitialize()
+        self.logger.info("Accelerometer hardware deinitialized.")
 
     async def read_sensor_data(self) -> Dict[str, Any]:
         """

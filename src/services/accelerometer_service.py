@@ -110,8 +110,11 @@ class AccelerometerService(BaseService):
             #     pass
                 
         # Deinitialize the sensor
+        self.logger.info("Deinitializing accelerometer service...")
         self.manager.deinitialize()
+        self.logger.info("Accelerometer service deinitialized.")
         await super().stop()
+        self.logger.info("Accelerometer service stopped.")
         
     async def _read_loop(self):
         """

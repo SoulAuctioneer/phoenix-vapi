@@ -151,7 +151,9 @@ class BNO085Interface:
             try:
                 # This is a blocking call, but typically fast.
                 # If it causes issues, it could also be wrapped in to_thread.
+                self.logger.info("Deinitializing I2C...")
                 self.i2c.deinit()
+                self.logger.info("I2C deinitialized.")
             except Exception as e:
                 self.logger.error(f"Error deinitializing I2C: {e}")
     
