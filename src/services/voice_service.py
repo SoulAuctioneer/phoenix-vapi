@@ -28,12 +28,16 @@ class VoiceService(BaseService):
         self._cache_dir = None
         self._current_tts_tasks = {} # Track multiple TTS tasks
         self._on_finish_events: Dict[str, asyncio.Event] = {}
-        self.loop = None
+        try:
+            self.loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self.loop = None
 
     async def start(self):
         """Start the voice service."""
         await super().start()
-        self.loop = asyncio.get_running_loop()
+        if not self.loop:
+            self.loop = asyncio.get_running_loop()
         try:
             self.voice_manager = VoiceManager()
             self.audio_manager = AudioManager.get_instance()
