@@ -29,36 +29,40 @@ class ScavengerHuntActivity(BaseService):
         # Phrases for when the beacon is first detected
         self._initial_detection_phrases: Dict[Distance, list[str]] = {
             Distance.VERY_FAR: [
-                "Ooh, I think I sense something, but it's really, really far away.",
-                "I can feel a faint wiggle... I think we're on the right path, but it's a long way to go."
+                "Ooh, I've started sensing something, but it's really, really far away!",
+                "Ooh, I've started feeling a faint wiggle... I think we're on the right path, but it's a long way to go!"
             ],
             Distance.FAR: [
-                "We're heading in the right direction! I can feel it, but it's still pretty far.",
-                "Yes! A signal! It's not strong, but it's there. Let's keep going!"
+                "Okay! I can feel it now, but it's still pretty far.",
+                "Ooh I can feel it! It's far away, but it's definitely there. Let's keep looking!"
             ],
             Distance.NEAR: [
-                "Ooh, we're getting warmer! I can feel its energy now!",
-                "The wiggles are getting stronger! We must be getting close."
+                "Ooh, I can sense it and its energy is quite strong! We must be close.",
+                "Yay! I'm feeling the wiggles and it's quite strong, it must be nearby!"
             ],
             Distance.VERY_NEAR: [
-                "Wow, it's so close now! My lights are practically dancing!",
-                "I'm buzzing with excitement! It's just up ahead!"
+                "Wow, I can feel it and it's really really close! My lights are practically dancing!",
+                "Yay, I can sense it and it's super close! I'm buzzing with excitement! It's just up ahead!"
             ]
         }
 
         # Phrases for getting closer to the beacon
         self._getting_closer_phrases: Dict[Distance, list[str]] = {
+            Distance.VERY_FAR: [
+                "Ooh, we're getting closer! It's still far away, but we're getting there.",
+                "Ooh, I think we're on the right path! It's a long way to go, bur we're closer! Keep going!"
+            ],
             Distance.FAR: [
-                "Yes, that's it! We're getting closer. The wiggles are getting stronger!",
-                "We're getting warmer! Keep going this way."
+                "Yes, that's it! We're getting closer! The wiggles are getting stronger!",
+                "We're getting warmer! Keep going this way!"
             ],
             Distance.NEAR: [
                 "We're getting so warm! It must be just around the corner!",
                 "Oh, this is definitely the right way. I can feel it getting stronger!"
             ],
             Distance.VERY_NEAR: [
-                "It's right here! I can almost touch it! My whole body is buzzing!",
-                "We're so, so close! Don't stop now!"
+                "Yay we're really close now, it's right here! I can almost touch it! My whole body is buzzing!",
+                "Oh hurrah! We're so, so close now! Don't stop now!"
             ]
         }
 

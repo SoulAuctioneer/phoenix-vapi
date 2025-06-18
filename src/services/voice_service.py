@@ -157,6 +157,10 @@ class VoiceService(BaseService):
         event_type = event.get("type")
 
         if event_type == "speak_audio":
+            # Stop any currently playing audio before speaking new text
+            if self.voice_manager:
+                await self.voice_manager.stop_audio()
+                
             text_to_speak = event.get("text")
             voice_id = event.get("voice_id")
             model_id = event.get("model_id")

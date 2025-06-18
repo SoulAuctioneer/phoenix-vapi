@@ -379,7 +379,7 @@ class BLEConfig:
     MIN_EMPTY_SCANS_FOR_UNKNOWN = 20  # Require multiple empty scans (was 4)
     
     # Add preference for maintaining current location
-    CURRENT_LOCATION_RSSI_BONUS = 5  # Add virtual dB to current location (was 5)
+    CURRENT_LOCATION_RSSI_BONUS = 6  # Add virtual dB to current location (was 5)
     
     # Minimum time between location changes
     MIN_TIME_BETWEEN_CHANGES = 10.0  # Minimum seconds between location changes (was 15.0)
@@ -455,42 +455,42 @@ class ScavengerHuntConfig:
                 "Yes! The Signal Processor! Now the alien chatter sounds like songs instead of gobbledegook."
             ],
         ),
-        ScavengerHuntStep(
-            NAME="scavenger_hunt_step4", 
-            LOCATION=ScavengerHuntLocation.LOCATION4,
-            START_VOICE_LINES=[
-                "We need to find the Antenna! It's like a giant ear for listening to moonbeams.",
-                "Let's find the Antenna! It helps us catch stories from the comets as they fly by."
-            ],
-            END_VOICE_LINES=[
-                "Amazing! We found the Antenna! Now we can hear the stars twinkling. You're a super finder!",
-                "Look at that, the Antenna! It's pointing right at a laughing planet."
-            ],
-        ),
-        ScavengerHuntStep(
-            NAME="scavenger_hunt_step5", 
-            LOCATION=ScavengerHuntLocation.LOCATION5,
-            START_VOICE_LINES=[
-                "Time to find the System Modulator! It changes our ship's music from sleepy songs to dance party tunes.",
-                "Let's track down the System Modulator. It mixes up the space music to make it extra groovy."
-            ],
-            END_VOICE_LINES=[
-                "You found it! The System Modulator is ready to boogie!",
-                "Hooray! The System Modulator is working. I feel a dance party coming on!"
-            ],
-        ),
-        ScavengerHuntStep(
-            NAME="scavenger_hunt_step6", 
-            LOCATION=ScavengerHuntLocation.LOCATION6,
-            START_VOICE_LINES=[
-                "Last one! We need the Crystal Oscillator. It's the sparkly heart of our ship.",
-                "Let's find the Crystal Oscillator! It goes 'tick-tock' to keep the whole ship on time for adventures."
-            ],
-            END_VOICE_LINES=[
-                "We did it! We found the Crystal Oscillator! The whole ship is purring like a happy kitten. You're the best!",
-                "The Crystal Oscillator! It's glowing so brightly! Our ship is all fixed and ready to fly to candy-floss clouds!"
-            ],
-        ),
+        # ScavengerHuntStep(
+        #     NAME="scavenger_hunt_step4", 
+        #     LOCATION=ScavengerHuntLocation.LOCATION4,
+        #     START_VOICE_LINES=[
+        #         "We need to find the Antenna! It's like a giant ear for listening to moonbeams.",
+        #         "Let's find the Antenna! It helps us catch stories from the comets as they fly by."
+        #     ],
+        #     END_VOICE_LINES=[
+        #         "Amazing! We found the Antenna! Now we can hear the stars twinkling. You're a super finder!",
+        #         "Look at that, the Antenna! It's pointing right at a laughing planet."
+        #     ],
+        # ),
+        # ScavengerHuntStep(
+        #     NAME="scavenger_hunt_step5", 
+        #     LOCATION=ScavengerHuntLocation.LOCATION5,
+        #     START_VOICE_LINES=[
+        #         "Time to find the System Modulator! It changes our ship's music from sleepy songs to dance party tunes.",
+        #         "Let's track down the System Modulator. It mixes up the space music to make it extra groovy."
+        #     ],
+        #     END_VOICE_LINES=[
+        #         "You found it! The System Modulator is ready to boogie!",
+        #         "Hooray! The System Modulator is working. I feel a dance party coming on!"
+        #     ],
+        # ),
+        # ScavengerHuntStep(
+        #     NAME="scavenger_hunt_step6", 
+        #     LOCATION=ScavengerHuntLocation.LOCATION6,
+        #     START_VOICE_LINES=[
+        #         "Last one! We need the Crystal Oscillator. It's the sparkly heart of our ship.",
+        #         "Let's find the Crystal Oscillator! It goes 'tick-tock' to keep the whole ship on time for adventures."
+        #     ],
+        #     END_VOICE_LINES=[
+        #         "We did it! We found the Crystal Oscillator! The whole ship is purring like a happy kitten. You're the best!",
+        #         "The Crystal Oscillator! It's glowing so brightly! Our ship is all fixed and ready to fly to candy-floss clouds!"
+        #     ],
+        # ),
     ]
     
     # Number of seconds we wait before starting the next step
