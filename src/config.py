@@ -394,19 +394,19 @@ class HideSeekConfig:
 
 class ScavengerHuntLocation(Enum):
     # TODO: Should we do away with this enum and use BeaconLocation?
-    LOCATION1 = "phoenix_4"
-    LOCATION2 = "phoenix_5"
-    LOCATION3 = "phoenix_6"
-    LOCATION4 = "phoenix_7"
-    LOCATION5 = "phoenix_8"
-    LOCATION6 = "phoenix_9"
+    LOCATION1 = "phoenix_4" # Junction Box
+    LOCATION2 = "phoenix_5" # Transmitter Valve
+    LOCATION3 = "phoenix_6" # Signal Processor
+    LOCATION4 = "phoenix_7" # Antenna
+    LOCATION5 = "phoenix_8" # System Modulator
+    LOCATION6 = "phoenix_9" # Crystal Oscillator
 
 @dataclass
 class ScavengerHuntStep:
     NAME: str
     LOCATION: ScavengerHuntLocation
-    START_VOICE_LINE: str
-    END_VOICE_LINE: str
+    START_VOICE_LINES: list[str]
+    END_VOICE_LINES: list[str]
 
 # Add new scavenger config
 # @dataclass
@@ -415,38 +415,74 @@ class ScavengerHuntConfig:
         ScavengerHuntStep(
             NAME="scavenger_hunt_step1", 
             LOCATION=ScavengerHuntLocation.LOCATION1,
-            START_VOICE_LINE="Let's find step 1",
-            END_VOICE_LINE="Yay, we found step 1",
+            START_VOICE_LINES=[
+                "Okay, first, we need to find the Junction Box! It connects all the sparkly wires.",
+                "Let's find the Junction Box! It's where all the giggly wires meet up to tell secrets."
+            ],
+            END_VOICE_LINES=[
+                "We found the Junction Box! All the wires are wiggling with happiness. Great job!",
+                "Yay, the Junction Box! Now the ship's lights can twinkle properly."
+            ],
         ),
         ScavengerHuntStep(
             NAME="scavenger_hunt_step2", 
             LOCATION=ScavengerHuntLocation.LOCATION2,
-            START_VOICE_LINE="Let's find step 2",
-            END_VOICE_LINE="Yay, we found step 2",
+            START_VOICE_LINES=[
+                "Next up, the Transmitter Valve! It helps us send messages to the stars.",
+                "Let's hunt for the Transmitter Valve! It sends our 'hello's' out into space."
+            ],
+            END_VOICE_LINES=[
+                "There it is! The Transmitter Valve is humming a happy tune now.",
+                "We found it! The Transmitter Valve is open and ready to whoosh our messages out!"
+            ],
         ),
         ScavengerHuntStep(
             NAME="scavenger_hunt_step3", 
             LOCATION=ScavengerHuntLocation.LOCATION3,
-            START_VOICE_LINE="Let's find step 3",
-            END_VOICE_LINE="Yay, we found step 3",
+            START_VOICE_LINES=[
+                "Now for the Signal Processor! It helps us understand the whispers of the wind.",
+                "Where could the Signal Processor be hiding? It unscrambles all the funny space noises."
+            ],
+            END_VOICE_LINES=[
+                "Woohoo! We found the Signal Processor. Now we can hear all the secret messages from the butterflies!",
+                "Yes! The Signal Processor! Now the alien chatter sounds like songs instead of gobbledegook."
+            ],
         ),
         ScavengerHuntStep(
             NAME="scavenger_hunt_step4", 
             LOCATION=ScavengerHuntLocation.LOCATION4,
-            START_VOICE_LINE="Let's find step 4",
-            END_VOICE_LINE="Yay, we found step 4",
+            START_VOICE_LINES=[
+                "We need to find the Antenna! It's like a giant ear for listening to moonbeams.",
+                "Let's find the Antenna! It helps us catch stories from the comets as they fly by."
+            ],
+            END_VOICE_LINES=[
+                "Amazing! We found the Antenna! Now we can hear the stars twinkling. You're a super finder!",
+                "Look at that, the Antenna! It's pointing right at a laughing planet."
+            ],
         ),
         ScavengerHuntStep(
             NAME="scavenger_hunt_step5", 
             LOCATION=ScavengerHuntLocation.LOCATION5,
-            START_VOICE_LINE="Let's find step 5",
-            END_VOICE_LINE="Yay, we found step 5",
+            START_VOICE_LINES=[
+                "Time to find the System Modulator! It changes our ship's music from sleepy songs to dance party tunes.",
+                "Let's track down the System Modulator. It mixes up the space music to make it extra groovy."
+            ],
+            END_VOICE_LINES=[
+                "You found it! The System Modulator is ready to boogie!",
+                "Hooray! The System Modulator is working. I feel a dance party coming on!"
+            ],
         ),
         ScavengerHuntStep(
             NAME="scavenger_hunt_step6", 
             LOCATION=ScavengerHuntLocation.LOCATION6,
-            START_VOICE_LINE="Let's find step 6",
-            END_VOICE_LINE="Yay, we found step 6",
+            START_VOICE_LINES=[
+                "Last one! We need the Crystal Oscillator. It's the sparkly heart of our ship.",
+                "Let's find the Crystal Oscillator! It goes 'tick-tock' to keep the whole ship on time for adventures."
+            ],
+            END_VOICE_LINES=[
+                "We did it! We found the Crystal Oscillator! The whole ship is purring like a happy kitten. You're the best!",
+                "The Crystal Oscillator! It's glowing so brightly! Our ship is all fixed and ready to fly to candy-floss clouds!"
+            ],
         ),
     ]
     

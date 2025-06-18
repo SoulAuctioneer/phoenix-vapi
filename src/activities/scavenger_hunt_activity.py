@@ -23,6 +23,19 @@ class ScavengerHuntActivity(BaseService):
         if not self._remaining_steps:
             self.logger.error("Created a scavenger hunt with no steps!")
         
+        self._getting_closer_phrases = [
+            "Ooh, I think we're getting closer. Keep going!", 
+            "Yes, that's it! We're warmer!", 
+            "I can feel it! We're so close!", 
+            "This way! My wiggles are telling me we're on the right track!"
+        ]
+        self._getting_farther_phrases = [
+            "Uh oh, I think we're getting farther. Try another direction!", 
+            "Hmm, I think we're getting colder. Let's try turning around.", 
+            "Whoopsie! Wrong way. Let's backtrack a little.", 
+            "My lights are dimming a bit... I think we're going the wrong way."
+        ]
+        
     async def start(self):
         """Start the scavenger hunt service"""
         await super().start()
@@ -58,7 +71,7 @@ class ScavengerHuntActivity(BaseService):
         self._current_location_detected = False
         await self.publish({
             "type": "speak_audio",
-            "text": self._current_step.START_VOICE_LINE
+            "text": random.choice(self._current_step.START_VOICE_LINES)
         })
         
     @property
@@ -147,7 +160,7 @@ class ScavengerHuntActivity(BaseService):
     async def _transition_to_next_step(self):
         await self.publish({
             "type": "speak_audio",
-            "text": self._current_step.END_VOICE_LINE
+            "text": random.choice(self._current_step.END_VOICE_LINES)
         })
         await asyncio.sleep(ScavengerHuntConfig.INTER_STEP_SLEEP_TIME)
         await self._start_next_step()
@@ -197,12 +210,12 @@ class ScavengerHuntActivity(BaseService):
                     if distance < prev_distance:
                         await self.publish({
                             "type": "speak_audio",
-                            "text": "Ooh, I think we're getting closer. Keep going!"
+                            "text": random.choice(self._getting_closer_phrases)
                         })
                     elif distance > prev_distance:
                         await self.publish({
                             "type": "speak_audio",
-                            "text": "Uh oh, I think we're getting farther. Try another direction!"
+                            "text": random.choice(self._getting_farther_phrases)
                         })
                     else:
                         # TODO: Perhaps increment some tracker to say we're standing still?

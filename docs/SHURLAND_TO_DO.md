@@ -1,6 +1,7 @@
 MOST IMPORTANT NOW:
 * Fix respeaker on #5
 * Finish upgrading V1 pea
+* Tiny Bluetooth LED string light or something
 
 * Need another PicoVoice account? ash.eldritch was disabled, but it seems to still be working?
 *	LEDs in Bluetooth speaker Pea (El wire?)
@@ -25,6 +26,8 @@ MOST IMPORTANT NOW:
 
 
 GROW SONG:
+Start with a yawn right at the beginning
+ALSO giggles during the thing
 Add 30-second SFX/giggles intro to plant growy song, for actor to find responses, chop shorter and cute, and add some giggles, add some wooshes, maybe every four beats. Starts a bit random, scattered, but rhythmic, on the beat, combine and become more coherent until we hit the drop. Then it's the regular tune until we get to the break, then finished.
 For the music: Add 20 seconds of discovery figuring out how the pea responds, effects on beat, responding a bit harder each time. Lil bit of trumpet, lil bit of beats, mostly giggles and chuckles. Then we do the full initial verse while kids play with the pea, then go into the lull.
 
