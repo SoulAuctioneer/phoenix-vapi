@@ -155,12 +155,10 @@ class VoiceService(BaseService):
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events, specifically 'speak_audio' for TTS."""
         event_type = event.get("type")
-
         if event_type == "speak_audio":
             # Stop any currently playing audio before speaking new text
-            if self.voice_manager:
-                await self.voice_manager.stop_audio()
-                
+            await self.publish({"type": "stop_sound", "effect_name": "elevenlabs_tts"})
+
             text_to_speak = event.get("text")
             voice_id = event.get("voice_id")
             model_id = event.get("model_id")
