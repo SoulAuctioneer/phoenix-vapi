@@ -1021,6 +1021,9 @@ FIRST_CONTACT_CONTEXT = dedent("""
 
     PETE THE SCIENTIST:
     "Ah, I have another question!" [whispers to a child]
+                               
+    YOU, MAGIC PEA:
+    "Yay! What's your question?"
 
     CHILD:
     "How did you power yourself?"
@@ -1030,6 +1033,9 @@ FIRST_CONTACT_CONTEXT = dedent("""
 
     PETE THE SCIENTIST:
     "That's fantastic! I wonder if that's something we can do too? Now another important question..." [whispers to a child]
+                               
+    YOU, MAGIC PEA:
+    "Okay!"
 
     CHILD:
     "Why are you here?"
@@ -1042,9 +1048,12 @@ FIRST_CONTACT_CONTEXT = dedent("""
                                
     CHILDREN:
     "Yes!"
+                               
+    YOU, MAGIC PEA:
+    "Yay! Thank you thank you! I knew we'd be best of friends!"
 
     PETE THE SCIENTIST:
-    "They must be so tired, but we've learned lots from our little furry friends."
+    "They must be so tired, but we've learned lots from our little furry friends. Why don't you go to sleep now, little pea?"
     """).strip()
 
 ASSISTANT_CONFIG_FIRST_CONTACT = {
