@@ -424,7 +424,7 @@ class ScavengerHuntConfig:
             LOCATION=ScavengerHuntLocation.LOCATION1,
             START_VOICE_LINES=[
                 "Okay, first, we need to find the Junction Box! It connects all the sparkly wires!",
-                "Let's find the Junction Box! It's where all the giggly wires meet up to tell secrets!"
+                "Okay, first let's find the Junction Box! It's where all the giggly wires meet up to tell secrets!"
             ],
             END_VOICE_LINES=[
                 "Yay! We found the Junction Box! All the wires are wiggling with happiness. Great job!",

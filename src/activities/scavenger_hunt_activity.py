@@ -151,7 +151,7 @@ class ScavengerHuntActivity(BaseService):
 
         intro_text = (
             f"Oh, thank you so so much for helping us fix the transmitter! "
-            f"We need to find all the broken parts so we can call Grandmother Pea on the Mothership, and let her know you've found us and we're safe. "
+            f"We need to find all the broken parts so we can call Grandmother Pea on the Mothership and let her know you've found us and we're safe. "
             f"We need to find {objectives_list_str}. Are you ready? ... Let's go!"
         )
         await self._speak_and_update_timer(intro_text)
@@ -263,9 +263,11 @@ class ScavengerHuntActivity(BaseService):
         await asyncio.sleep(8)
         
         # Formally publish the win event to be handled by the activity service
-        await self.publish({
+        # We create a task here to avoid a deadlock where this service awaits
+        # its own destruction by the activity_service.
+        asyncio.create_task(self.publish({
             "type": "scavenger_hunt_won"
-        })
+        }))
 
     async def _transition_to_next_step(self):
         await self._speak_and_update_timer(random.choice(self._current_step.END_VOICE_LINES))
