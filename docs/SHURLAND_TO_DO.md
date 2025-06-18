@@ -2,6 +2,8 @@ MOST IMPORTANT NOW:
 * Clean up mic ports on #3.
 * Fix respeaker on #5
 * Finish upgrading V1 pea
+* Change spoken hints for some kinda whoopy bloop peanglish.
+# Split scavenger hunt into the two paths.
 * Tiny Bluetooth LED string light or something
 * The service isn't pulling latest
 * Have to be able to shut down with command

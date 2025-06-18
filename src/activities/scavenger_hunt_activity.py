@@ -158,9 +158,7 @@ class ScavengerHuntActivity(BaseService):
             objectives_list_str = "all the missing parts" # Fallback
 
         intro_text = (
-            f"Oh, thank you so so much for helping us fix the transmitter! "
-            f"We need to find all the broken parts so we can call Grandmother Pea on the Mothership and let her know you've found us and we're safe. "
-            f"We need to find {objectives_list_str}. Are you ready? ... Let's go!"
+            f"Oh! thank you so so much for helping us fix the transmitter! We need to find {objectives_list_str}. ... Let's go!"
         )
         await self._speak_and_update_timer(intro_text)
         await asyncio.sleep(22) # Give a moment for the long intro to finish.
@@ -168,7 +166,8 @@ class ScavengerHuntActivity(BaseService):
         # Start the first step in our hunt.
         await self._start_next_step()
         # Start hint task that periodically gives hints if there's no activity
-        self._sound_task = asyncio.create_task(self._hint_loop())
+        if ScavengerHuntConfig.PROVIDE_INTERMEDIATE_HINTS:
+            self._sound_task = asyncio.create_task(self._hint_loop())
         self.logger.info(f"scavenger hunt service started; on step: {self._current_step_name}")
         
     async def stop(self):

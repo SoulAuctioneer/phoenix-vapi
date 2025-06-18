@@ -382,7 +382,7 @@ class BLEConfig:
     CURRENT_LOCATION_RSSI_BONUS = 6  # Add virtual dB to current location (was 5)
     
     # Minimum time between location changes
-    MIN_TIME_BETWEEN_CHANGES = 10.0  # Minimum seconds between location changes (was 15.0)
+    MIN_TIME_BETWEEN_CHANGES = 7.0  # Minimum seconds between location changes (was 15.0)
 
 # Hide and Seek Activity Configuration
 class HideSeekConfig:
@@ -418,6 +418,7 @@ class ScavengerHuntStep:
 # Add new scavenger config
 # @dataclass
 class ScavengerHuntConfig:
+    PROVIDE_INTERMEDIATE_HINTS = False
     SCAVENGER_HUNT_STEPS = [
         ScavengerHuntStep(
             NAME="scavenger_hunt_step1", 
