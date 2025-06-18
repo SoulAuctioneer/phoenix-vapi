@@ -284,6 +284,7 @@ class ActivityService(BaseService):
             services_to_stop_list.append(activity_service_name)
             
         # Stop all services for this activity
+        self.logger.info(f"Cleaning up supporting services for activity {activity.name}. Services to stop: {services_to_stop_list}")
         await self._cleanup_services(services_to_stop_list)
             
         # Clear current activity before publishing event
@@ -299,6 +300,8 @@ class ActivityService(BaseService):
         if not self.is_transitioning and self._transition_queue.empty():
             self.logger.info(f"Activity {activity.name} ended, transitioning to default SLEEP activity.")
             await self._queue_transition(ActivityType.SLEEP)
+        else:
+            self.logger.info(f"Activity {activity.name} ended, but transition is running or queue is not empty. Not transitioning to SLEEP. Is transition running: {self.is_transitioning}, is queue empty: {self._transition_queue.empty()}")
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
