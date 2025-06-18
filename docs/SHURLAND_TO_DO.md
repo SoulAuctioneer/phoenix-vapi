@@ -2,6 +2,9 @@ MOST IMPORTANT NOW:
 * Fix respeaker on #5
 * Finish upgrading V1 pea
 * Tiny Bluetooth LED string light or something
+* The service isn't pulling latest
+* Have to be able to shut down with command
+* Create mother pea activity
 
 * Need another PicoVoice account? ash.eldritch was disabled, but it seems to still be working?
 *	LEDs in Bluetooth speaker Pea (El wire?)
@@ -17,8 +20,6 @@ MOST IMPORTANT NOW:
 * Create new Rhino model with only stuff that we need for the event (add stuff from intentservice)
   * Need a bunch of new strings if we're going to do the call/response in lab just from wake words
 
-* Create mother pea activity
-* Add a system shutdown command
 * Set up Pis for Shurland WiFi: scripts/add_wifi.sh "Shurland-Appliance" "15321532"
 * Bug: "go to sleep" inside conversation doesn't shut down LEDs, maybe doesn't stop service properly. Only works via the intent.
 *	Amazon returns
