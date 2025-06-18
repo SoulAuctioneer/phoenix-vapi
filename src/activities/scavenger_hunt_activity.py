@@ -24,6 +24,7 @@ class ScavengerHuntActivity(BaseService):
         self._remaining_steps: list[ScavengerHuntStep] = ScavengerHuntConfig.SCAVENGER_HUNT_STEPS
         self._last_spoken_time: float = time.time()
         self._speech_events: Dict[str, asyncio.Event] = {}
+        self._victory_in_progress: bool = False
         if not self._remaining_steps:
             self.logger.error("Created a scavenger hunt with no steps!")
         
@@ -151,7 +152,7 @@ class ScavengerHuntActivity(BaseService):
         intro_text = (
             f"Oh, thank you so so much for helping us fix the transmitter! "
             f"We need to find all the broken parts so we can call Grandmother Pea on the Mothership, and let her know you've found us and we're safe. "
-            f"We need to find {objectives_list_str}. Are you ready? Let's go!"
+            f"We need to find {objectives_list_str}. Are you ready? ... Let's go!"
         )
         await self._speak_and_update_timer(intro_text)
         await asyncio.sleep(22) # Give a moment for the long intro to finish.
@@ -226,6 +227,46 @@ class ScavengerHuntActivity(BaseService):
                 self.logger.error(f"Error in hint loop: {e}")
                 await asyncio.sleep(1.0)  # Wait a bit before retrying
                 
+    async def _handle_victory(self):
+        """Handle the victory sequence when the scavenger hunt is won."""
+        if self._victory_in_progress:
+            self.logger.debug("Victory sequence already in progress, ignoring.")
+            return
+        self._victory_in_progress = True
+        self.logger.info("Scavenger hunt won! Starting victory sequence.")
+        self._game_active = False # Stop hint loop and other background processes
+        
+        # Stop any ongoing hint speech
+        await self.publish({
+            "type": "stop_sound",
+            "effect_name": "elevenlabs_tts"
+        })
+
+        # Start a celebratory LED effect
+        await self.publish({
+            "type": "start_led_effect",
+            "data": {
+                "effect_name": "MAGICAL_SPELL",
+                "speed": 0.03
+            }
+        })
+        
+        # Victory speech
+        victory_text = (
+            "We did it! We found all the pieces! Hooray! "
+            "Now we can fix the transmitter and call Grandmother Pea on the Mothership! "
+            "You're the best! Thank you so much for helping us!"
+        )
+        await self._speak_and_update_timer(victory_text)
+        
+        # Let the effect and speech play out
+        await asyncio.sleep(8)
+        
+        # Formally publish the win event to be handled by the activity service
+        await self.publish({
+            "type": "scavenger_hunt_won"
+        })
+
     async def _transition_to_next_step(self):
         await self._speak_and_update_timer(random.choice(self._current_step.END_VOICE_LINES))
         await asyncio.sleep(ScavengerHuntConfig.INTER_STEP_SLEEP_TIME)
@@ -242,6 +283,9 @@ class ScavengerHuntActivity(BaseService):
                 del self._speech_events[key]
 
         if event_type == "proximity_changed":
+            if self._victory_in_progress:
+                self.logger.debug("Ignoring proximity event during victory sequence.")
+                return
             data = event.get("data", {})
             location = data.get("location")
             self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION.beacon_id}")
@@ -275,11 +319,7 @@ class ScavengerHuntActivity(BaseService):
                     if self._remaining_steps:
                         await self._transition_to_next_step()
                     else:
-                        await self.publish({
-                            "type": "scavenger_hunt_won"
-                        })
-                        self.logger.info("Scavenger hunt won!")
-                        self._game_active = False
+                        await self._handle_victory()
 
                 # Handle transitions between distances
                 elif prev_distance:
