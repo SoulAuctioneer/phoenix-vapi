@@ -28,10 +28,12 @@ class VoiceService(BaseService):
         self._cache_dir = None
         self._current_tts_tasks = {} # Track multiple TTS tasks
         self._on_finish_events: Dict[str, asyncio.Event] = {}
+        self.loop = None
 
     async def start(self):
         """Start the voice service."""
         await super().start()
+        self.loop = asyncio.get_running_loop()
         try:
             self.voice_manager = VoiceManager()
             self.audio_manager = AudioManager.get_instance()
@@ -198,8 +200,9 @@ class VoiceService(BaseService):
         def _on_finish(name_tuple: Tuple[str, str]):
             producer_name, finish_key = name_tuple
             logger.info(f"Audio producer '{producer_name}' finished playing.")
-            if finish_key:
-                asyncio.create_task(self.publish({"type": "speech_finished", "key": finish_key}))
+            if finish_key and self.loop:
+                coro = self.publish({"type": "speech_finished", "key": finish_key})
+                asyncio.run_coroutine_threadsafe(coro, self.loop)
         
         # 4. Create a new, temporary producer for this request
         try:
