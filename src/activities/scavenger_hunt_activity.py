@@ -161,7 +161,7 @@ class ScavengerHuntActivity(BaseService):
             f"Oh! thank you so so much for helping us fix the transmitter! We need to find {objectives_list_str}. ... Let's go!"
         )
         await self._speak_and_update_timer(intro_text)
-        await asyncio.sleep(22) # Give a moment for the long intro to finish.
+        await asyncio.sleep(17) # Give a moment for the long intro to finish.
         
         # Start the first step in our hunt.
         await self._start_next_step()
@@ -331,6 +331,39 @@ class ScavengerHuntActivity(BaseService):
                     self._current_location_detected = True
                     self.logger.info(f"Location {self._current_step.LOCATION.objective_name} detected for the first time!")
                 
+                # Update beacon speed on every valid signal update.
+                if smoothed_rssi is not None and distance != Distance.UNKNOWN:
+                    # Unpack config values for interpolation
+                    min_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_rssi"]
+                    max_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_rssi"]
+                    min_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_speed"]
+                    max_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_speed"]
+
+                    # Clamp the RSSI value to the defined range
+                    clamped_rssi = max(min_rssi, min(max_rssi, smoothed_rssi))
+
+                    # Perform linear interpolation
+                    rssi_range = max_rssi - min_rssi
+                    speed_range = max_speed - min_speed
+                    
+                    if rssi_range == 0:
+                        speed_to_set = min_speed
+                    else:
+                        # Invert the speed mapping because lower speed value means faster rotation
+                        percent = (clamped_rssi - min_rssi) / rssi_range
+                        speed_to_set = max_speed - (percent * speed_range)
+                    
+                    self.logger.debug(f"Updating beacon speed to {speed_to_set:.3f} based on smoothed RSSI {smoothed_rssi}")
+
+                    await self.publish({
+                        "type": "start_or_update_effect",
+                        "data": {
+                            "effect_name": "ROTATING_BEACON",
+                            "color": "yellow",
+                            "speed": speed_to_set
+                        }
+                    })
+
                 # If we've just lost the signal, say something and stop.
                 if distance == Distance.UNKNOWN:
                     if prev_distance and prev_distance != Distance.UNKNOWN:
@@ -357,9 +390,10 @@ class ScavengerHuntActivity(BaseService):
                         await self._transition_to_next_step()
                     else:
                         await self._handle_victory()
+                    return # Exit after handling immediate distance
 
-                # Handle transitions between distances
-                elif prev_distance:
+                # Handle speech cues based on discrete distance *transitions*.
+                if prev_distance and distance != prev_distance:
                     text_to_speak = None
                     # Case 1: First detection (transition from UNKNOWN)
                     if prev_distance == Distance.UNKNOWN:
@@ -376,44 +410,6 @@ class ScavengerHuntActivity(BaseService):
                         self.logger.info(f"Getting farther from current step: {prev_distance} -> {distance}")
                         if distance in self._getting_farther_phrases:
                             text_to_speak = random.choice(self._getting_farther_phrases[distance])
-                    # Case 4: Distance is the same (standing still)
-                    else:
-                        self.logger.info(f"Distance unchanged for current step: {distance}")
-                        pass  # TODO: Perhaps increment some tracker to say we're standing still?
-
-                    # Update beacon speed based on new distance
-                    if smoothed_rssi is not None:
-                        # Unpack config values for interpolation
-                        min_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_rssi"]
-                        max_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_rssi"]
-                        min_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_speed"]
-                        max_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_speed"]
-
-                        # Clamp the RSSI value to the defined range
-                        clamped_rssi = max(min_rssi, min(max_rssi, smoothed_rssi))
-
-                        # Perform linear interpolation
-                        rssi_range = max_rssi - min_rssi
-                        speed_range = max_speed - min_speed
-                        
-                        # Handle case where rssi_range is zero to avoid division by zero
-                        if rssi_range == 0:
-                            speed_to_set = min_speed
-                        else:
-                            # Invert the speed mapping because lower speed value means faster rotation
-                            percent = (clamped_rssi - min_rssi) / rssi_range
-                            speed_to_set = max_speed - (percent * speed_range)
-                        
-                        self.logger.debug(f"Updating beacon speed to {speed_to_set:.3f} based on smoothed RSSI {smoothed_rssi}")
-
-                        await self.publish({
-                            "type": "start_or_update_effect",
-                            "data": {
-                                "effect_name": "ROTATING_BEACON",
-                                "color": "yellow",
-                                "speed": speed_to_set
-                            }
-                        })
-
+                    
                     if text_to_speak:
                         await self._speak_and_update_timer(text_to_speak)
