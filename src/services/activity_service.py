@@ -290,11 +290,11 @@ class ActivityService(BaseService):
         # Clear current activity before publishing event
         self.current_activity = None
         
-        # Publish activity stopped event
-        await self.publish({
+        # Publish activity stopped event without waiting
+        asyncio.create_task(self.publish({
             "type": "activity_stopped",
             "activity": activity.name
-        })
+        }))
         
         # Default behavior: If no other transition is queued or running, go to SLEEP
         if not self.is_transitioning and self._transition_queue.empty():
