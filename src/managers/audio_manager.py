@@ -609,10 +609,14 @@ class AudioManager:
     def stop_sound(self, effect_name: str):
         """Stop the currently playing sound effect and clean up resources"""
         with self._producers_lock:
+            self.logger.debug(f"Attempting to stop sound for effect: {effect_name}")
             if effect_name in self._producers:
                 producer = self._producers[effect_name]
+                self.logger.debug(f"Found producer '{effect_name}'. State before stop: active={producer.active}, loop={producer.loop}")
                 producer.stop()  # This marks the producer as inactive and clears its loop flag.
-                self.logger.info(f"Sound effect '{effect_name}' stopped.")
+                self.logger.info(f"Sound effect '{effect_name}' stopped. State after stop: active={producer.active}, loop={producer.loop}")
+            else:
+                self.logger.warning(f"Could not stop sound. Producer '{effect_name}' not found. Active producers: {list(self._producers.keys())}")
         
     def _play_wav_file(self, wav_path: str, producer_name: str, loop: bool = False, on_finish: Optional[Callable[[str], None]] = None) -> bool:
         """Play a WAV file through the audio system"""
@@ -728,6 +732,8 @@ class AudioManager:
                         continue
                     
                     producer = self._producers[producer_name]
+                    # Log current state before checking
+                    self.logger.debug(f"Requeue check for '{producer_name}': active={producer.active}, loop={producer.loop}")
                     if not producer.loop or not producer.active:
                         self.logger.debug(f"Ignoring requeue for '{producer_name}': looping disabled.")
                         continue
