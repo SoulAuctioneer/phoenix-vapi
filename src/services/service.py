@@ -223,7 +223,7 @@ class ServiceManager:
             self.logger.debug(f"No handlers for event type: {event_type}")
             return
             
-        self.logger.debug(f"Found handlers for {event_type}: {[h.__qualname__ for h in handlers]}")
+        # self.logger.debug(f"Found handlers for {event_type}: {[h.__qualname__ for h in handlers]}")
         
         # Create tasks for all handlers
         tasks = []
