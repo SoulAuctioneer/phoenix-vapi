@@ -106,6 +106,8 @@ class SquealingActivity(BaseService):
         await self.publish({
             "type": "stop_led_effect"
         })
+
+        self.logger.info("Calling super().stop() on squealing activity")
         await super().stop()
         self.logger.info("squealing activity stopped")
         

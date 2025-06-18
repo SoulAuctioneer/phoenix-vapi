@@ -256,7 +256,9 @@ class BaseService:
         
     async def stop(self):
         """Stop the service"""
+        self.logger.info(f"Base service class stop() called for service: {self.__class__.__name__}")
         self._running = False
+        self.logger.info(f"Stop done, exiting stop() for service: {self.__class__.__name__}")
         
     async def publish(self, event: Dict[str, Any]):
         """Helper method to publish events"""
