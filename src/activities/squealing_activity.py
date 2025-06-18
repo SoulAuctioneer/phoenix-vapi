@@ -31,14 +31,14 @@ class SquealingActivity(BaseService):
         self._LED_BRIGHTNESS = 0.6
         # NOTE: Lower stability is more expressive. ElevenLabs default is likely 0.75.
         # We set it lower for more "panicked" speech.
-        self._TTS_STABILITY = 0.3
+        self._TTS_STABILITY = 0.5
         self._tts_delay_min_sec = 0.5
         self._tts_delay_max_sec = 2
         self._pickup_speech_delay_sec = 1
         self._squeal_phrases = [
-            "Where ARE weee???", "WHAT'S GOING ON?!", "Is THIS Earth??", "WAAAAAAAH!!!", 
+            "Where ARE we???", "WHAT'S GOING ON?!", "Is THIS Earth??", "WAAAAAAAH!!!", 
             "Are we THERE yet??", "I'm scared!!", "Did we MAKE it??", 
-            "Oh no! We've CRASHED!", "I want GRANDMA!!!"
+            "OH NO! We've CRASHED!", "The transmitter's broken!", "I want GRANDMA!!!"
         ]
         
     async def _squeal_loop(self):
