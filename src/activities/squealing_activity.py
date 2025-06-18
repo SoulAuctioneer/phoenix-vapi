@@ -1,6 +1,7 @@
 """Service for managing the squealing activity state."""
 
 import logging
+import asyncio
 from typing import Dict, Any
 from services.service import BaseService
 from config import SoundEffect
@@ -101,10 +102,21 @@ class SquealingActivity(BaseService):
                 
                 if current_state_enum in moving_states:
                     self._is_active = False
+                    
+                    # Create an event to wait for TTS completion
+                    tts_finished_event = asyncio.Event()
+                    
                     await self.publish({
                         "type": "speak_audio",
-                        "text": "This will be much longer eventually but we've been picked up by the Earthlings!"
+                        "text": "This will be much longer eventually but we've been picked up by the Earthlings!",
+                        "on_finish_event": tts_finished_event
                     })
+                    
+                    # Wait for the TTS to finish before ending the activity
+                    self.logger.info("Waiting for TTS to complete...")
+                    await tts_finished_event.wait()
+                    self.logger.info("TTS completed.")
+
                     await self.publish({
                         "type": "squealing_ended"
                     })
