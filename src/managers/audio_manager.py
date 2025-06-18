@@ -721,6 +721,19 @@ class AudioManager:
                 except queue.Empty:
                     continue
 
+                # Before re-playing, check if the producer still exists and is supposed to be looping.
+                # This prevents a "zombie" producer from being recreated after being stopped.
+                with self._producers_lock:
+                    if producer_name not in self._producers:
+                        self.logger.debug(f"Ignoring requeue for '{producer_name}': producer removed.")
+                        continue
+                    
+                    producer = self._producers[producer_name]
+                    # The producer exists, but check if its loop flag has been turned off.
+                    if not producer.loop or not producer.active:
+                        self.logger.debug(f"Ignoring requeue for '{producer_name}': looping disabled.")
+                        continue
+
                 # Process the requeue request
                 if self._running:
                     self.play_audio(audio_data, producer_name=producer_name, loop=should_loop)
