@@ -4,7 +4,7 @@ import os
 import hashlib
 import aiofiles
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 
 from services.service import BaseService
 from managers.audio_manager import AudioManager, AudioConfig
@@ -27,13 +27,10 @@ class VoiceService(BaseService):
         self.audio_manager = None
         self._cache_dir = None
         self._current_tts_tasks = {} # Track multiple TTS tasks
-        self._on_finish_events: Dict[str, asyncio.Event] = {}
-        self.loop = None
 
     async def start(self):
         """Start the voice service."""
         await super().start()
-        self.loop = asyncio.get_running_loop()
         try:
             self.voice_manager = VoiceManager()
             self.audio_manager = AudioManager.get_instance()
@@ -166,7 +163,6 @@ class VoiceService(BaseService):
             voice_id = event.get("voice_id")
             model_id = event.get("model_id")
             stability = event.get("stability")
-            on_finish_key = event.get("on_finish_key")
 
             if not text_to_speak:
                 logger.warning("'speak_audio' event received without 'text'.")
@@ -177,15 +173,9 @@ class VoiceService(BaseService):
                 return
             
             # Fire-and-forget the speak method to handle the full lifecycle
-            asyncio.create_task(self.speak(text_to_speak, voice_id, model_id, stability, on_finish_key))
-        
-        elif event_type == "speech_finished":
-            key = event.get("key")
-            if key in self._on_finish_events:
-                self._on_finish_events[key].set()
-                del self._on_finish_events[key]
+            asyncio.create_task(self.speak(text_to_speak, voice_id, model_id, stability))
 
-    async def speak(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, on_finish_key: Optional[str] = None):
+    async def speak(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None):
         """
         Manages the lifecycle of a TTS request using a temporary, per-request audio producer.
         """
@@ -197,12 +187,8 @@ class VoiceService(BaseService):
             self._current_tts_tasks[producer_name].cancel()
 
         # 3. Define the on_finish callback for the producer
-        def _on_finish(name_tuple: Tuple[str, str]):
-            producer_name, finish_key = name_tuple
-            logger.info(f"Audio producer '{producer_name}' finished playing.")
-            if finish_key and self.loop:
-                coro = self.publish({"type": "speech_finished", "key": finish_key})
-                asyncio.run_coroutine_threadsafe(coro, self.loop)
+        def _on_finish(name):
+            logger.info(f"Audio producer '{name}' finished playing.")
         
         # 4. Create a new, temporary producer for this request
         try:
@@ -213,13 +199,9 @@ class VoiceService(BaseService):
                 is_stream=True # Mark as stream so it's not removed prematurely
             )
             tts_producer.on_finish = _on_finish
-            # Pass a tuple of (producer_name, on_finish_key) to the callback
-            tts_producer.on_finish_data = (producer_name, on_finish_key)
             self.audio_manager.set_producer_volume(producer_name, AudioBaseConfig.DEFAULT_VOLUME)
         except Exception as e:
             logger.error(f"Failed to create temporary TTS audio producer '{producer_name}': {e}")
-            if on_finish_key and on_finish_key in self._on_finish_events:
-                self._on_finish_events[on_finish_key].set()
             return
 
         logger.info(f"Received speak_audio event for text: '{text[:30]}...' using producer '{producer_name}'")

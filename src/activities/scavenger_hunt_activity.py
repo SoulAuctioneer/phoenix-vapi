@@ -153,7 +153,8 @@ class ScavengerHuntActivity(BaseService):
             f"We need to find all the broken parts so we can call Grandmother Pea on the Mothership, and let her know you've found us and we're safe. "
             f"We need to find {objectives_list_str}. Are you ready? Let's go!"
         )
-        await self._speak_and_update_timer(intro_text, wait_for_completion=True)
+        await self._speak_and_update_timer(intro_text)
+        await asyncio.sleep(20) # Give a moment for the long intro to finish.
         
         # Start the first step in our hunt.
         await self._start_next_step()
@@ -174,24 +175,12 @@ class ScavengerHuntActivity(BaseService):
         await super().stop()
         self.logger.info("scavenger hunt service stopped")
         
-    async def _speak_and_update_timer(self, text: str, wait_for_completion: bool = False):
+    async def _speak_and_update_timer(self, text: str):
         """Helper to speak and reset the inactivity timer."""
-        event_payload = {
+        await self.publish({
             "type": "speak_audio",
             "text": text
-        }
-        
-        if wait_for_completion:
-            key = f"scavenger_hunt_{time.time()}"
-            speech_event = asyncio.Event()
-            self._speech_events[key] = speech_event
-            event_payload["on_finish_key"] = key
-            
-            await self.publish(event_payload)
-            await speech_event.wait() # Wait until the speech is confirmed to be finished
-        else:
-            await self.publish(event_payload)
-
+        })
         self._last_spoken_time = time.time()
 
     async def _start_next_step(self):

@@ -94,7 +94,6 @@ class AudioProducer:
         self.loop = False  # Whether to loop the audio
         self._original_audio = None  # Store original audio data for looping
         self.on_finish: Optional[Callable[[str], None]] = None
-        self.on_finish_data: Any = None
         self.loading = False
         self.is_stream = is_stream
 
@@ -473,8 +472,7 @@ class AudioManager:
                                     elif not producer.loop and not producer.loading and not producer.is_stream:
                                         # Sound finished, mark for callback and removal
                                         if producer.on_finish:
-                                            callback_data = producer.on_finish_data if producer.on_finish_data is not None else name
-                                            finished_producer_callbacks.append((producer.on_finish, callback_data))
+                                            finished_producer_callbacks.append((producer.on_finish, name))
                                         producers_to_remove.append(name)
                         else:
                             # Producer is inactive, mark for removal once its buffer is empty
@@ -513,11 +511,11 @@ class AudioManager:
                     time.sleep(0.001)  # 1ms sleep
                 
                 # Call callbacks after releasing the lock to avoid deadlocks
-                for callback, data in finished_producer_callbacks:
+                for callback, name in finished_producer_callbacks:
                     try:
-                        callback(data)
+                        callback(name)
                     except Exception as e:
-                        self.logger.error(f"Error in on_finish callback for producer: {e}", exc_info=True)
+                        self.logger.error(f"Error in on_finish callback for producer '{name}': {e}", exc_info=True)
 
             except Exception as e:
                 if self._running:  # Only log if we haven't stopped intentionally
