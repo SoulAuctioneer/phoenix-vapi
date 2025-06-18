@@ -3,6 +3,7 @@ MOST IMPORTANT NOW:
 * Fix respeaker on #5
 * Finish upgrading V1 pea
 * Change spoken hints for some kinda whoopy bloop peanglish.
+* Squealing activity also needs some lights
 # Split scavenger hunt into the two paths.
 * Tiny Bluetooth LED string light or something
 * The service isn't pulling latest
