@@ -137,6 +137,14 @@ class ScavengerHuntActivity(BaseService):
         await self.publish({
             "type": "stop_led_effect"
         })
+        await self.publish({
+            "type": "start_led_effect",
+            "data": {
+                "effect_name": "ROTATING_BEACON",
+                "color": "yellow",
+                "speed": ScavengerHuntConfig.BEACON_SEARCH_SPEED
+            }
+        })
         
         # Generate and speak the intro line
         all_objectives = [step.LOCATION.objective_name for step in ScavengerHuntConfig.SCAVENGER_HUNT_STEPS]
@@ -173,6 +181,12 @@ class ScavengerHuntActivity(BaseService):
             except asyncio.CancelledError:
                 pass
             self._sound_task = None
+        
+        await self.publish({
+            "type": "stop_led_effect",
+            "data": { "effect_name": "ROTATING_BEACON" }
+        })
+        
         await super().stop()
         self.logger.info("scavenger hunt service stopped")
         
@@ -241,6 +255,11 @@ class ScavengerHuntActivity(BaseService):
             "type": "stop_sound",
             "effect_name": "elevenlabs_tts"
         })
+        # Stop the beacon
+        await self.publish({
+            "type": "stop_led_effect",
+            "data": { "effect_name": "ROTATING_BEACON" }
+        })
 
         # Start a celebratory LED effect
         await self.publish({
@@ -271,6 +290,14 @@ class ScavengerHuntActivity(BaseService):
 
     async def _transition_to_next_step(self):
         await self._speak_and_update_timer(random.choice(self._current_step.END_VOICE_LINES))
+        await self.publish({
+            "type": "start_led_effect",
+            "data": {
+                "effect_name": "ROTATING_BEACON",
+                "color": "yellow",
+                "speed": ScavengerHuntConfig.BEACON_SEARCH_SPEED
+            }
+        })
         await asyncio.sleep(ScavengerHuntConfig.INTER_STEP_SLEEP_TIME)
         await self._start_next_step()
     
@@ -309,6 +336,14 @@ class ScavengerHuntActivity(BaseService):
                     if prev_distance and prev_distance != Distance.UNKNOWN:
                         self.logger.info("Signal lost for current step.")
                         await self._speak_and_update_timer(random.choice(self._lost_signal_phrases))
+                        await self.publish({
+                            "type": "start_or_update_effect",
+                            "data": {
+                                "effect_name": "ROTATING_BEACON",
+                                "color": "yellow",
+                                "speed": ScavengerHuntConfig.BEACON_LOST_SPEED
+                            }
+                        })
                     return
 
                 # If we've found current location, either transition to next step or declare victory.
@@ -326,6 +361,7 @@ class ScavengerHuntActivity(BaseService):
                 # Handle transitions between distances
                 elif prev_distance:
                     text_to_speak = None
+                    speed_to_set = None
                     # Case 1: First detection (transition from UNKNOWN)
                     if prev_distance == Distance.UNKNOWN:
                         self.logger.info(f"First detection for current step. Distance: {distance}")
@@ -345,6 +381,18 @@ class ScavengerHuntActivity(BaseService):
                     else:
                         self.logger.info(f"Distance unchanged for current step: {distance}")
                         pass  # TODO: Perhaps increment some tracker to say we're standing still?
+
+                    # Update beacon speed based on new distance
+                    if distance in ScavengerHuntConfig.BEACON_EFFECT_SPEEDS:
+                        speed_to_set = ScavengerHuntConfig.BEACON_EFFECT_SPEEDS[distance]
+                        await self.publish({
+                            "type": "start_or_update_effect",
+                            "data": {
+                                "effect_name": "ROTATING_BEACON",
+                                "color": "yellow",
+                                "speed": speed_to_set
+                            }
+                        })
 
                     if text_to_speak:
                         await self._speak_and_update_timer(text_to_speak)

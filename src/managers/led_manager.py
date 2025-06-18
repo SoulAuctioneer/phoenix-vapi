@@ -52,6 +52,7 @@ class LEDManager:
         "ROTATING_COLOR": {'method': '_rotating_color_effect', 'default_speed': 0.05},
         "MAGICAL_SPELL": {'method': '_magical_spell_effect', 'default_speed': 0.03},
         "SPARKLING_PINK_BLUE": {'method': '_sparkling_pink_blue_effect', 'default_speed': 0.04},
+        "ROTATING_BEACON": {'method': '_rotating_beacon_effect', 'default_speed': 0.1},
     }
 
     def __init__(self, initial_brightness=LEDConfig.LED_BRIGHTNESS):
@@ -263,11 +264,15 @@ class LEDManager:
 
         # --- Conditionally build thread arguments ---
         thread_args = ()
-        if effect == "ROTATING_COLOR": # Use string comparison
+        if effect in ("ROTATING_COLOR", "ROTATING_BEACON"):
             if color is None:
-                 logging.error(f"Color parameter is required for {effect} but was not provided. Stopping.")
-                 self.clear() # Or maybe fallback to a default? Stopping seems safer.
-                 return # Don't start the thread
+                if effect == "ROTATING_BEACON":
+                    logging.warning(f"Color parameter not provided for {effect}, defaulting to 'green'.")
+                    color = "green"
+                else:
+                    logging.error(f"Color parameter is required for {effect} but was not provided. Stopping.")
+                    self.clear()
+                    return
             thread_args = (color, effect_speed)
             logging.info(f"Starting {effect} with color '{color}' and speed {effect_speed}")
         else:
@@ -286,6 +291,7 @@ class LEDManager:
             self._setup_revert_thread(previous_effect, duration)
 
         self.pixels.show()
+        time.sleep(random.uniform(0.3, 0.8))
 
     def show_color(self, color):
         """Show a specific color on the LEDs"""
@@ -883,6 +889,42 @@ class LEDManager:
             
             self.pixels.show()
             time.sleep(wait)
+
+    def _rotating_beacon_effect(self, color_name, wait):
+        """A rotating light with a fading tail, in a specified color."""
+        if color_name not in COLORS:
+            logging.error(f"Invalid color name '{color_name}' for rotating_beacon. Defaulting to green.")
+            color_name = 'green'
+        
+        head_color = COLORS[color_name]
+        trail_length = 8
+        
+        # Create a color palette for the trail with exponential decay
+        trail_colors = [tuple(int(c * math.pow(0.65, i)) for c in head_color) for i in range(1, trail_length + 1)]
+
+        position = 0
+        while not self._stop_event.is_set():
+            if self._stop_event.is_set():
+                break
+
+            self.pixels.fill((0, 0, 0))
+
+            # Draw the head
+            head_pixel_index = int(position) % LEDConfig.LED_COUNT
+            self.pixels[head_pixel_index] = head_color
+
+            # Draw the trail
+            for i in range(trail_length):
+                pixel_index = (int(position) - 1 - i + LEDConfig.LED_COUNT) % LEDConfig.LED_COUNT
+                if i < len(trail_colors):
+                    self.pixels[pixel_index] = trail_colors[i]
+            
+            self.pixels.show()
+
+            # Using self._current_speed allows for dynamic updates from start_or_update_effect.
+            # A lower speed value (wait time) means a faster rotation.
+            time.sleep(self._current_speed)
+            position = (position + 1) % LEDConfig.LED_COUNT
 
 class LEDManagerRings(LEDManager):
     """
@@ -1757,3 +1799,56 @@ class LEDManagerRings(LEDManager):
             
             self.pixels.show()
             time.sleep(wait)
+
+    def _rotating_beacon_effect(self, color_name, wait):
+        """Override: Rotating beacon on outer ring, with inner ring pulsing based on speed."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            logging.warning("Rotating beacon effect requires both rings. Falling back to default.")
+            return super()._rotating_beacon_effect(color_name, wait)
+
+        if color_name not in COLORS:
+            logging.error(f"Invalid color name '{color_name}' for rotating_beacon. Defaulting to green.")
+            color_name = 'green'
+        head_color = COLORS[color_name]
+        
+        trail_length = 6
+        # Create trail colors based on head color
+        trail_colors = [tuple(int(c * math.pow(0.6, i)) for c in head_color) for i in range(1, trail_length + 1)]
+
+        position = 0
+        cycle_step = 0
+        while not self._stop_event.is_set():
+            # --- Outer Ring: Beacon ---
+            # Clear only the outer ring part of the pixel buffer
+            for i in range(num_leds_ring1):
+                self.pixels[i] = (0,0,0)
+
+            head_pos = int(position) % num_leds_ring1
+            self.pixels[head_pos] = head_color
+            for i in range(trail_length):
+                trail_pos = (head_pos - 1 - i + num_leds_ring1) % num_leds_ring1
+                # Make sure we don't try to access a negative index in trail_colors
+                if i < len(trail_colors):
+                    self.pixels[trail_pos] = trail_colors[i]
+            
+            # --- Inner Ring: Pulse ---
+            # Pulse speed is related to rotation speed. Faster rotation = faster pulse.
+            # self._current_speed is the delay, so smaller is faster.
+            # A smaller speed -> larger pulse_rate_factor -> faster pulse
+            pulse_rate_factor = 0.1 / self._current_speed if self._current_speed > 0.001 else 100
+            pulse_pos = (math.sin(cycle_step * math.pi * pulse_rate_factor / 50) + 1) / 2 # 0 to 1
+            brightness = 0.1 + (pulse_pos * 0.5) # Varies from 0.1 to 0.6
+            inner_color = tuple(int(c * brightness) for c in head_color)
+            
+            for i in range(num_leds_ring2):
+                self.pixels[num_leds_ring1 + i] = inner_color
+
+            self.pixels.show()
+            
+            time.sleep(self._current_speed)
+            
+            position = (position + 1) % num_leds_ring1
+            cycle_step += 1

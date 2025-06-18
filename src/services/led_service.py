@@ -66,7 +66,7 @@ class LEDService(BaseService):
         #     duration = event.get('timeout', 7)
         #     self.led_controller.start_effect("ROTATING_PINK_BLUE", speed=0.03)
 
-        if event_type == "start_led_effect":
+        if event_type == "start_led_effect" or event_type == "start_or_update_effect":
             # Handle manual LED commands
             # TODO: Change to uppercase everywhere
             effect_name = event.get('data', {}).get('effect_name').upper()

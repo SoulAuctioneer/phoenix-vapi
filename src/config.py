@@ -505,6 +505,16 @@ class ScavengerHuntConfig:
     # Scales the interval between chirps (which decreases with proximity to goal)
     CHIRP_INTERVAL_SCALING_FACTOR = 10.0
 
+    # Speeds for the rotating beacon effect. Lower value = faster rotation.
+    BEACON_EFFECT_SPEEDS = {
+        Distance.VERY_NEAR: 0.03,
+        Distance.NEAR: 0.06,
+        Distance.FAR: 0.1,
+        Distance.VERY_FAR: 0.2
+    }
+    BEACON_SEARCH_SPEED = 0.5  # Default speed when no signal
+    BEACON_LOST_SPEED = 0.8  # Speed when signal is lost
+
 # Touch Sensor Configuration
 class TouchConfig:
     # Softpot calibration values
