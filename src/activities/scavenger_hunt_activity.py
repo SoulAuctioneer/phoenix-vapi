@@ -136,6 +136,25 @@ class ScavengerHuntActivity(BaseService):
             "type": "stop_led_effect"
         })
         
+        # Generate and speak the intro line
+        all_objectives = [step.LOCATION.objective_name for step in ScavengerHuntConfig.SCAVENGER_HUNT_STEPS]
+        if len(all_objectives) > 1:
+            # Format as "the A, the B, and the C"
+            objectives_list_str = ", the ".join(all_objectives[:-1])
+            objectives_list_str = f"the {objectives_list_str}, and the {all_objectives[-1]}"
+        elif len(all_objectives) == 1:
+            objectives_list_str = f"the {all_objectives[0]}"
+        else:
+            objectives_list_str = "all the missing parts" # Fallback
+
+        intro_text = (
+            f"Oh, thank you so so much for helping us fix the transmitter! "
+            f"We need to find all the broken parts so we can call Grandmother Pea on the Mothership, and let her know you've found us and we're safe. "
+            f"We need to find {objectives_list_str}. Are you ready? Let's go!"
+        )
+        await self._speak_and_update_timer(intro_text)
+        await asyncio.sleep(3) # Give a moment before starting the first step.
+        
         # Start the first step in our hunt.
         await self._start_next_step()
         # Start hint task that periodically gives hints if there's no activity
