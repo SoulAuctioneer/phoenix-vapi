@@ -14,10 +14,12 @@ from activities.move_activity import MoveActivity
 from activities.call_activity import CallActivity
 from activities.play_music_activity import PlayMusicActivity
 import asyncio
+from config import ASSISTANT_CONFIG_FIRST_CONTACT
 
 # TODO: Should this be StrEnum?
 class ActivityType(Enum):
     """Types of activities the device can be in"""
+    FIRST_CONTACT = "first_contact"
     CONVERSATION = "conversation"
     HIDE_SEEK = "hide_seek"
     SCAVENGER_HUNT = "scavenger_hunt"
@@ -30,6 +32,7 @@ class ActivityType(Enum):
 # Map activities to their required supporting services, activity-specific service, and optional start/stop sounds/TTS
 # Format: (list of supporting services, activity service name if any, start_sound, stop_sound, start_tts_text, stop_tts_text)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]] = {
+    ActivityType.FIRST_CONTACT: ([], 'conversation', None, None, None, None),
     ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None, None, None),
     ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
@@ -236,9 +239,9 @@ class ActivityService(BaseService):
                 return
             
         # Any additional setup for the activity
-        if activity == ActivityType.CONVERSATION:
+        if activity in [ActivityType.CONVERSATION, ActivityType.FIRST_CONTACT]:
             conversation_activity = self.active_services.get('conversation')
-            await conversation_activity.start_conversation()
+            await conversation_activity.start_conversation(**kwargs)
                 
         self.current_activity = activity
         
@@ -339,6 +342,10 @@ class ActivityService(BaseService):
                 # Start scavenger hunt activity
                 await self._queue_transition(ActivityType.SCAVENGER_HUNT)
             
+            elif intent == "first_contact":
+                # Start first contact activity
+                await self._queue_transition(ActivityType.FIRST_CONTACT, assistant_config=ASSISTANT_CONFIG_FIRST_CONTACT)
+
             elif intent == "squealing":
                 # Start squealing activity
                 await self._queue_transition(ActivityType.SQUEALING)
