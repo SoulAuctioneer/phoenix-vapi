@@ -103,11 +103,9 @@ class SquealingActivity(BaseService):
             self._tts_task = None
             
         # Stop the LED effect
-        self.logger.info("Publishing stop_led_effect...")
-        await self.publish({
+        asyncio.create_task(self.publish({
             "type": "stop_led_effect"
-        })
-        self.logger.info("Finished publishing stop_led_effect.")
+        }))
 
         self.logger.info("Calling super().stop() on squealing activity")
         await super().stop()
