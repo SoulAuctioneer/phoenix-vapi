@@ -339,8 +339,8 @@ class BLEConfig:
     }
     
     # RSSI thresholds for distance estimation (in dB)
-    RSSI_IMMEDIATE = -55  # Stronger than -55 dB = IMMEDIATE
-    RSSI_VERY_NEAR = -65  # Between -65 and -55 dB = VERY_NEAR
+    RSSI_IMMEDIATE = -60  # Stronger than -60 dB = IMMEDIATE
+    RSSI_VERY_NEAR = -67  # Between -65 and -55 dB = VERY_NEAR
     RSSI_NEAR = -75      # Between -75 and -65 dB = NEAR
     RSSI_FAR = -85      # Between -85 and -75 dB = FAR
     RSSI_VERY_FAR = -100  # Between -100 and -85 dB = VERY_FAR
@@ -423,32 +423,32 @@ class ScavengerHuntConfig:
             NAME="scavenger_hunt_step1", 
             LOCATION=ScavengerHuntLocation.LOCATION1,
             START_VOICE_LINES=[
-                "Okay, first, we need to find the Junction Box! It connects all the sparkly wires.",
-                "Let's find the Junction Box! It's where all the giggly wires meet up to tell secrets."
+                "Okay, first, we need to find the Junction Box! It connects all the sparkly wires!",
+                "Let's find the Junction Box! It's where all the giggly wires meet up to tell secrets!"
             ],
             END_VOICE_LINES=[
-                "We found the Junction Box! All the wires are wiggling with happiness. Great job!",
-                "Yay, the Junction Box! Now the ship's lights can twinkle properly."
+                "Yay! We found the Junction Box! All the wires are wiggling with happiness. Great job!",
+                "Yay! the Junction Box! Now the ship's lights can twinkle properly!"
             ],
         ),
         ScavengerHuntStep(
             NAME="scavenger_hunt_step2", 
             LOCATION=ScavengerHuntLocation.LOCATION2,
             START_VOICE_LINES=[
-                "Next up, the Transmitter Valve! It helps us send messages to the stars.",
-                "Let's hunt for the Transmitter Valve! It sends our 'hello's' out into space."
+                "Next up, the Transmitter Valve! It helps us send messages to the stars!",
+                "Let's hunt for the Transmitter Valve! It sends our 'hello's' out into space!"
             ],
             END_VOICE_LINES=[
-                "There it is! The Transmitter Valve is humming a happy tune now.",
-                "We found it! The Transmitter Valve is open and ready to whoosh our messages out!"
+                "Yay! There it is! The Transmitter Valve is humming a happy tune now!",
+                "Yay! We found it! The Transmitter Valve is open and ready to whoosh our messages out!"
             ],
         ),
         ScavengerHuntStep(
             NAME="scavenger_hunt_step3", 
             LOCATION=ScavengerHuntLocation.LOCATION3,
             START_VOICE_LINES=[
-                "Now for the Signal Processor! It helps us understand the whispers of the wind.",
-                "Where could the Signal Processor be hiding? It unscrambles all the funny space noises."
+                "Now for the Signal Processor! It helps us understand the whispers of the wind!",
+                "Where could the Signal Processor be hiding? It unscrambles all the funny space noises!"
             ],
             END_VOICE_LINES=[
                 "Woohoo! We found the Signal Processor. Now we can hear all the secret messages from the butterflies!",

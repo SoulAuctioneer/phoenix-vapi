@@ -154,7 +154,7 @@ class ScavengerHuntActivity(BaseService):
             f"We need to find {objectives_list_str}. Are you ready? Let's go!"
         )
         await self._speak_and_update_timer(intro_text)
-        await asyncio.sleep(20) # Give a moment for the long intro to finish.
+        await asyncio.sleep(22) # Give a moment for the long intro to finish.
         
         # Start the first step in our hunt.
         await self._start_next_step()
