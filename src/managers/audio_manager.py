@@ -236,7 +236,7 @@ class AudioManager:
                 producer = self._producers[name]
                 producer.stop() # Call stop() for full cleanup
                 del self._producers[name]
-                self.logger.info(f"Producer '{name}' fully stopped and removed") # Updated log message
+                self.logger.info(f"Producer '{name}' fully stopped and removed")
             else:
                 logging.warning(f"Attempted to remove non-existent producer: {name}")
                 
@@ -442,7 +442,7 @@ class AudioManager:
 
                 with self._producers_lock:
                     producers_to_remove = []
-                    for name, producer in self._producers.items():
+                    for name, producer in list(self._producers.items()):
                         state = {
                             'name': name,
                             'active': producer.active,
@@ -474,13 +474,17 @@ class AudioManager:
                                         if producer.on_finish:
                                             finished_producer_callbacks.append((producer.on_finish, name))
                                         producers_to_remove.append(name)
+                        else:
+                            # Producer is inactive, mark for removal once its buffer is empty
+                            if producer.buffer.buffer.empty():
+                                producers_to_remove.append(name)
                     
                     # Clean up producers that have finished
                     for name in producers_to_remove:
                         if name in self._producers:
                             self._producers[name].stop()
                             del self._producers[name]
-                            self.logger.info(f"Producer '{name}' finished and was removed.")
+                            self.logger.info(f"Producer '{name}' finished/inactive and was removed.")
 
                 # Apply master volume before final clipping and conversion
                 mixed_audio *= self.master_volume
@@ -607,12 +611,8 @@ class AudioManager:
         with self._producers_lock:
             if effect_name in self._producers:
                 producer = self._producers[effect_name]
-                producer.loop = False  # Ensure loop flag is cleared
-                producer._original_audio = None  # Clear original audio data
-                producer.buffer.clear()  # Clear any pending audio
-                producer.stop()  # Stop the producer
-                del self._producers[effect_name]  # Remove from active producers
-                self.logger.info(f"Sound effect '{effect_name}' stopped and cleaned up")
+                producer.stop()  # This marks the producer as inactive and clears its loop flag.
+                self.logger.info(f"Sound effect '{effect_name}' stopped.")
         
     def _play_wav_file(self, wav_path: str, producer_name: str, loop: bool = False, on_finish: Optional[Callable[[str], None]] = None) -> bool:
         """Play a WAV file through the audio system"""
