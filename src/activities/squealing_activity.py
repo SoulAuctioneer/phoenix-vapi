@@ -2,7 +2,6 @@
 
 import logging
 import asyncio
-import random
 from typing import Dict, Any
 from services.service import BaseService
 from managers.accelerometer_manager import SimplifiedState
@@ -26,10 +25,11 @@ class SquealingActivity(BaseService):
         super().__init__(service_manager)
         self._is_active = False
         self._tts_task = None
+        self._squeal_phrase_index = 0
         # TODO: get from config.
         self._LED_BRIGHTNESS = 0.6
-        self._tts_delay_min_sec = 1
-        self._tts_delay_max_sec = 3
+        self._tts_delay_min_sec = 0.5
+        self._tts_delay_max_sec = 2
         self._pickup_speech_delay_sec = 1
         self._squeal_phrases = [
             "Where are weee???", "EEEEK!", "Is THIS Earth??", "Waaaah!!!", 
@@ -41,8 +41,10 @@ class SquealingActivity(BaseService):
         """The main loop for the squealing activity."""
         while self._is_active:
             try:
-                # Choose and speak a random phrase
-                phrase = random.choice(self._squeal_phrases)
+                # Get the next phrase in order
+                phrase = self._squeal_phrases[self._squeal_phrase_index]
+                self._squeal_phrase_index = (self._squeal_phrase_index + 1) % len(self._squeal_phrases)
+
                 tts_finished_event = asyncio.Event()
                 await self.publish({
                     "type": "speak_audio",
@@ -53,7 +55,8 @@ class SquealingActivity(BaseService):
                 
                 # Wait for a random delay
                 if self._is_active:
-                    delay = random.uniform(self._tts_delay_min_sec, self._tts_delay_max_sec)
+                    # TODO: Make this configurable
+                    delay = 2
                     self.logger.debug(f"Waiting for {delay:.2f} seconds.")
                     await asyncio.sleep(delay)
             except asyncio.CancelledError:
@@ -67,6 +70,7 @@ class SquealingActivity(BaseService):
         """Start the squealing activity"""
         await super().start()
         self._is_active = True
+        self._squeal_phrase_index = 0
         
         # Start the TTS squealing loop
         self._tts_task = asyncio.create_task(self._squeal_loop())
@@ -142,7 +146,7 @@ class SquealingActivity(BaseService):
                     
                     await self.publish({
                         "type": "speak_audio",
-                        "text": "Who's that? Are you a human? Oh yaay! We're gonna be okay! I'm so tired now, maybe we should have a little nap now that we're safe.",
+                        "text": "Ooh! Oooh! Who's that? ... Are you a human? ... Oh yaay! We're gonna be okay! ... Oof, I'm sooo so tired now, maybe we should have a little nap now that we're safe.",
                         "on_finish_event": tts_finished_event
                     })
                     
