@@ -7,6 +7,24 @@ import logging
 from hardware.respeaker_led_bridge import augment_led_manager, MappingMode
 
 class LEDService(BaseService):
+    """
+    Manages LED effects based on system events.
+
+    Available LED effects for `start_led_effect` or `start_or_update_effect` events:
+    - BLUE_BREATHING
+    - GREEN_BREATHING
+    - ROTATING_PINK_BLUE
+    - ROTATING_GREEN_YELLOW
+    - RAINBOW
+    - TWINKLING
+    - RAIN
+    - LIGHTNING
+    - PURRING
+    - ROTATING_COLOR (requires 'color' parameter in event data, e.g., 'red', 'green')
+    - MAGICAL_SPELL
+    - SPARKLING_PINK_BLUE
+    - ROTATING_BEACON (requires 'color' parameter in event data, e.g., 'red', 'green')
+    """
     def __init__(self, service_manager):
         super().__init__(service_manager)
         self.led_controller = None
@@ -72,13 +90,13 @@ class LEDService(BaseService):
             effect_name = event.get('data', {}).get('effect_name').upper()
             speed = event.get('data', {}).get('speed', 0.02)
             brightness = event.get('data', {}).get('brightness', 1.0)
-            # --- Extract color specifically for rotating_color ---
+            # --- Extract color for effects that require it ---
             # TODO: Hacky, need to refactor to handle effect-specific parameters generically, e.g. via kwargs
             color = None
-            if effect_name == "rotating_color":
+            if effect_name in ("ROTATING_COLOR", "ROTATING_BEACON"):
                 color = event.get('data', {}).get('color')
                 if not color:
-                    logging.warning("'rotating_color' effect requested but no color specified in event data. Effect may fail or use default.")
+                    logging.warning(f"'{effect_name}' effect requested but no color specified in event data. Effect may fail or use a default.")
             # --- End color extraction ---
             
             if effect_name == "stop":
