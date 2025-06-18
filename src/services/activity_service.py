@@ -234,7 +234,7 @@ class ActivityService(BaseService):
         
         # Start activity-specific service if needed
         if activity_service_name:
-            if not await self._ensure_services([activity_service_name], **kwargs):
+            if not await self._ensure_services([activity_service_name]):
                 self.logger.error(f"Failed to start {activity.name} - activity service could not be started")
                 return
             
