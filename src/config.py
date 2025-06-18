@@ -393,13 +393,20 @@ class HideSeekConfig:
     AUDIO_CUE_INTERVAL = 10.0
 
 class ScavengerHuntLocation(Enum):
-    # TODO: Should we do away with this enum and use BeaconLocation?
-    LOCATION1 = "phoenix_4" # Junction Box
-    LOCATION2 = "phoenix_5" # Transmitter Valve
-    LOCATION3 = "phoenix_6" # Signal Processor
-    LOCATION4 = "phoenix_7" # Antenna
-    LOCATION5 = "phoenix_8" # System Modulator
-    LOCATION6 = "phoenix_9" # Crystal Oscillator
+    LOCATION1 = ("phoenix_4", "Junction Box")
+    LOCATION2 = ("phoenix_5", "Transmitter Valve")
+    LOCATION3 = ("phoenix_6", "Signal Processor")
+    LOCATION4 = ("phoenix_7", "Antenna")
+    LOCATION5 = ("phoenix_8", "System Modulator")
+    LOCATION6 = ("phoenix_9", "Crystal Oscillator")
+
+    @property
+    def beacon_id(self) -> str:
+        return self.value[0]
+
+    @property
+    def objective_name(self) -> str:
+        return self.value[1]
 
 @dataclass
 class ScavengerHuntStep:
@@ -488,6 +495,9 @@ class ScavengerHuntConfig:
     
     # Number of seconds we wait before starting the next step
     INTER_STEP_SLEEP_TIME: float = 5.0
+
+    # How long to wait with no speech before giving a hint (in seconds)
+    INACTIVITY_HINT_INTERVAL: float = 10.0
     
     # How loud the chirps are.
     CHIRP_VOLUME = 0.5
