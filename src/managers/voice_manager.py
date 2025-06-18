@@ -25,7 +25,7 @@ class VoiceManager:
             logger.error(f"Failed to initialize ElevenLabs client: {e}")
             raise
 
-    async def generate_audio_stream(self, text: str, voice_id: str = None, model_id: str = None, stability: float = None):
+    async def generate_audio_stream(self, text: str, voice_id: str = None, model_id: str = None, stability: float = None, style: float = None, use_speaker_boost: bool = None):
         """Generates audio stream from text using ElevenLabs API.
 
         Args:
@@ -34,6 +34,8 @@ class VoiceManager:
             model_id: The specific model ID to use (defaults to config).
             stability: Voice stability. Higher values are more stable, lower are more expressive.
                        Value between 0.0 and 1.0. Defaults to None (api default).
+            style: The style of the voice. A value between 0.0 and 1.0.
+            use_speaker_boost: Whether to use speaker boost.
 
         Returns:
             An async iterator yielding audio chunks (bytes).
@@ -44,6 +46,10 @@ class VoiceManager:
         voice_settings = {}
         if stability is not None:
             voice_settings["stability"] = stability
+        if style is not None:
+            voice_settings["style"] = style
+        if use_speaker_boost is not None:
+            voice_settings["use_speaker_boost"] = use_speaker_boost
 
         if not self._async_client:
             logger.error("Async ElevenLabs client not initialized.")
