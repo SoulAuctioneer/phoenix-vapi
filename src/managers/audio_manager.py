@@ -717,27 +717,38 @@ class AudioManager:
             try:
                 # Get the next requeue request with a timeout
                 try:
-                    producer_name, audio_data, should_loop = self._requeue_queue.get(timeout=0.1)
+                    producer_name, audio_data, _ = self._requeue_queue.get(timeout=0.1)
                 except queue.Empty:
                     continue
 
                 # Before re-playing, check if the producer still exists and is supposed to be looping.
-                # This prevents a "zombie" producer from being recreated after being stopped.
                 with self._producers_lock:
                     if producer_name not in self._producers:
                         self.logger.debug(f"Ignoring requeue for '{producer_name}': producer removed.")
                         continue
                     
                     producer = self._producers[producer_name]
-                    # The producer exists, but check if its loop flag has been turned off.
                     if not producer.loop or not producer.active:
                         self.logger.debug(f"Ignoring requeue for '{producer_name}': looping disabled.")
                         continue
-
-                # Process the requeue request
-                if self._running:
-                    self.play_audio(audio_data, producer_name=producer_name, loop=should_loop)
                 
+                # If we're here, the producer should be refilled directly, not by calling play_audio.
+                # This prevents resetting the loop flag.
+                num_samples = len(audio_data)
+                chunk_size = self.config.chunk
+                num_chunks = (num_samples + chunk_size - 1) // chunk_size
+
+                for i in range(num_chunks):
+                    start = i * chunk_size
+                    end = min(start + chunk_size, num_samples)
+                    chunk = audio_data[start:end]
+                    # Pad the last chunk with zeros if needed
+                    if len(chunk) < chunk_size:
+                        chunk = np.pad(chunk, (0, chunk_size - len(chunk)), mode='constant')
+                    
+                    producer.buffer.put(chunk)
+                
+                self.logger.debug(f"Requeued audio for looping producer '{producer_name}'")
                 self._requeue_queue.task_done()
                 
             except Exception as e:
