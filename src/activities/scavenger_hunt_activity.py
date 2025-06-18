@@ -23,6 +23,7 @@ class ScavengerHuntActivity(BaseService):
         self._current_location_detected: bool = False  # Track if we've ever seen the next desired location.
         self._remaining_steps: list[ScavengerHuntStep] = ScavengerHuntConfig.SCAVENGER_HUNT_STEPS
         self._last_spoken_time: float = time.time()
+        self._speech_events: Dict[str, asyncio.Event] = {}
         if not self._remaining_steps:
             self.logger.error("Created a scavenger hunt with no steps!")
         
@@ -152,8 +153,7 @@ class ScavengerHuntActivity(BaseService):
             f"We need to find all the broken parts so we can call Grandmother Pea on the Mothership, and let her know you've found us and we're safe. "
             f"We need to find {objectives_list_str}. Are you ready? Let's go!"
         )
-        await self._speak_and_update_timer(intro_text)
-        await asyncio.sleep(5) # Give a moment before starting the first step.
+        await self._speak_and_update_timer(intro_text, wait_for_completion=True)
         
         # Start the first step in our hunt.
         await self._start_next_step()
@@ -174,12 +174,24 @@ class ScavengerHuntActivity(BaseService):
         await super().stop()
         self.logger.info("scavenger hunt service stopped")
         
-    async def _speak_and_update_timer(self, text: str):
+    async def _speak_and_update_timer(self, text: str, wait_for_completion: bool = False):
         """Helper to speak and reset the inactivity timer."""
-        await self.publish({
+        event_payload = {
             "type": "speak_audio",
             "text": text
-        })
+        }
+        
+        if wait_for_completion:
+            key = f"scavenger_hunt_{time.time()}"
+            speech_event = asyncio.Event()
+            self._speech_events[key] = speech_event
+            event_payload["on_finish_key"] = key
+            
+            await self.publish(event_payload)
+            await speech_event.wait() # Wait until the speech is confirmed to be finished
+        else:
+            await self.publish(event_payload)
+
         self._last_spoken_time = time.time()
 
     async def _start_next_step(self):
@@ -233,6 +245,13 @@ class ScavengerHuntActivity(BaseService):
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
         event_type = event.get("type")
+
+        if event_type == "speech_finished":
+            key = event.get("key")
+            if key and key in self._speech_events:
+                self._speech_events[key].set()
+                del self._speech_events[key]
+
         if event_type == "proximity_changed":
             data = event.get("data", {})
             location = data.get("location")
