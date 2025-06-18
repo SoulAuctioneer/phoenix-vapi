@@ -40,7 +40,7 @@ ELEVENLABS_API_KEY = clean_env_value(os.getenv('ELEVENLABS_API_KEY')) # ElevenLa
 NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 
 # Which voice to use for TTS
-TTS_VOICE = "ana" # Or "timmy"
+TTS_VOICE = clean_env_value(os.getenv('TTS_VOICE')) or "ana"  # Or "timmy"
 ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
 
 # Set in main.py during arg parsing (if applicable).

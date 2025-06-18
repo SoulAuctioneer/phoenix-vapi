@@ -300,16 +300,12 @@ class LEDManager:
     async def stop_effect(self, effect_name: Optional[str] = None):
         """Stop any running effect, or specific effect if provided and currently running"""
         if effect_name is None or effect_name == self._current_effect:
-            logging.debug(f"Stopping effect '{self._current_effect}'. Setting stop event.")
             self._stop_event.set()
             if self._effect_thread:
-                logging.debug(f"Waiting for effect thread '{self._current_effect}' to join...")
                 await asyncio.to_thread(self._effect_thread.join)
-                logging.debug(f"Effect thread '{self._current_effect}' joined.")
                 self._effect_thread = None
             self._current_effect = None
             self._current_speed = None
-            logging.debug(f"Clearing LEDs after stopping effect.")
             self.clear()
         else:
             logging.info(f"Skipping stop of '{effect_name}' as it is not currently running. Currently running '{self._current_effect}'")

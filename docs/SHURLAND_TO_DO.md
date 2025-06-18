@@ -21,6 +21,7 @@ MOST IMPORTANT NOW:
 * Set up Pis for Shurland WiFi: scripts/add_wifi.sh "Shurland-Appliance" "15321532"
 * Bug: "go to sleep" inside conversation doesn't shut down LEDs, maybe doesn't stop service properly. Only works via the intent.
 *	Amazon returns
+* Pay folks
 
 
 GROW SONG:
@@ -43,11 +44,11 @@ NAD:
 * 8th: 3.00 - 4.45 and 5.15 - 6pm 2.5 hrs PAID $150
 * 9th: 3.30 - 8.00 less 30 break 4 hours PAID $200
 * 10th: 4.00 - 7.00 3 hours PAID $150
-* 11th: 3.15 - 9.00 5.45 TO PAY??? $288
-* 13th: 4.45 - 9.45 5 hrs TO PAY $250
-* 14th: 3.30 - 8.00 4.5 hrs TO PAY $225
-* 15th: 4.15 - 6.00  1.75 hrs TO PAY
-* 16th: 12.30 - 5.30 5 hrs TO PAY
+* 11th: 3.15 - 9.00 5.45 PAID $288
+* 13th: 4.45 - 9.45 5 hrs PAID $250
+* 14th: 3.30 - 8.00 4.5 hrs PAID $225
+* 15th: 4.15 - 6.00  1.75 hrs PAID $ $87.50
+* 16th: 12.30 - 5.30 5 hrs PAID $250
 MEGAN:
 * 10th: 2.30 - 4.10 1:40 hrs TO PAY $50
 ROHIT:

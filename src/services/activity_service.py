@@ -290,7 +290,10 @@ class ActivityService(BaseService):
         # Clear current activity before publishing event
         self.current_activity = None
         
-        # Publish activity stopped event without waiting
+        # Publish activity stopped event without waiting to prevent deadlocks.
+        # An event handler should not block waiting for another event to be fully
+        # processed, as this can cause the entire event loop to hang if other
+        # services are also waiting.
         asyncio.create_task(self.publish({
             "type": "activity_stopped",
             "activity": activity.name

@@ -25,13 +25,15 @@ class VoiceManager:
             logger.error(f"Failed to initialize ElevenLabs client: {e}")
             raise
 
-    async def generate_audio_stream(self, text: str, voice_id: str = None, model_id: str = None):
+    async def generate_audio_stream(self, text: str, voice_id: str = None, model_id: str = None, stability: float = None):
         """Generates audio stream from text using ElevenLabs API.
 
         Args:
             text: The text to convert to speech.
             voice_id: The specific voice ID to use (defaults to config).
             model_id: The specific model ID to use (defaults to config).
+            stability: Voice stability. Higher values are more stable, lower are more expressive.
+                       Value between 0.0 and 1.0. Defaults to None (api default).
 
         Returns:
             An async iterator yielding audio chunks (bytes).
@@ -39,6 +41,9 @@ class VoiceManager:
         """
         voice_id = voice_id or ElevenLabsConfig.DEFAULT_VOICE_ID
         model_id = model_id or ElevenLabsConfig.DEFAULT_MODEL_ID
+        voice_settings = {}
+        if stability is not None:
+            voice_settings["stability"] = stability
 
         if not self._async_client:
             logger.error("Async ElevenLabs client not initialized.")
@@ -46,12 +51,17 @@ class VoiceManager:
 
         try:
             logger.info(f"Generating audio stream for text: '{text[:30]}...' using voice {voice_id}")
-            audio_stream_generator = self._async_client.text_to_speech.stream(
-                text=text,
-                voice_id=voice_id,
-                model_id=model_id,
-                output_format=ElevenLabsConfig.OUTPUT_FORMAT
-            )
+            
+            stream_params = {
+                "text": text,
+                "voice_id": voice_id,
+                "model_id": model_id,
+                "output_format": ElevenLabsConfig.OUTPUT_FORMAT,
+            }
+            if voice_settings:
+                stream_params["voice_settings"] = voice_settings
+
+            audio_stream_generator = self._async_client.text_to_speech.stream(**stream_params)
             logger.info("Audio stream generation started.")
             return audio_stream_generator
         except Exception as e:

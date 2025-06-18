@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import random
 from typing import Dict, Any
 from services.service import BaseService
 from managers.accelerometer_manager import SimplifiedState
@@ -28,6 +29,9 @@ class SquealingActivity(BaseService):
         self._squeal_phrase_index = 0
         # TODO: get from config.
         self._LED_BRIGHTNESS = 0.6
+        # NOTE: Lower stability is more expressive. ElevenLabs default is likely 0.75.
+        # We set it lower for more "panicked" speech.
+        self._TTS_STABILITY = 0.3
         self._tts_delay_min_sec = 0.5
         self._tts_delay_max_sec = 2
         self._pickup_speech_delay_sec = 1
@@ -49,7 +53,8 @@ class SquealingActivity(BaseService):
                 await self.publish({
                     "type": "speak_audio",
                     "text": phrase,
-                    "on_finish_event": tts_finished_event
+                    "on_finish_event": tts_finished_event,
+                    "stability": self._TTS_STABILITY
                 })
                 await tts_finished_event.wait()
                 
@@ -70,7 +75,7 @@ class SquealingActivity(BaseService):
         """Start the squealing activity"""
         await super().start()
         self._is_active = True
-        self._squeal_phrase_index = 0
+        self._squeal_phrase_index = random.randint(0, len(self._squeal_phrases) - 1)
         
         # Start the TTS squealing loop
         self._tts_task = asyncio.create_task(self._squeal_loop())
@@ -102,7 +107,8 @@ class SquealingActivity(BaseService):
             self._tts_task.cancel()
             self._tts_task = None
             
-        # Stop the LED effect
+        # Stop the LED effect without waiting to prevent deadlocks.
+        # This is a 'fire-and-forget' task.
         asyncio.create_task(self.publish({
             "type": "stop_led_effect"
         }))
@@ -149,7 +155,8 @@ class SquealingActivity(BaseService):
                     await self.publish({
                         "type": "speak_audio",
                         "text": "Ooh! Oooh! Who's that? ... Are you a human? ... Oh yaay! We're gonna be okay! ... Oof, I'm sooo so tired now, maybe we should have a little nap now that we're safe.",
-                        "on_finish_event": tts_finished_event
+                        "on_finish_event": tts_finished_event,
+                        "stability": self._TTS_STABILITY
                     })
                     
                     # Wait for the TTS to finish before ending the activity
