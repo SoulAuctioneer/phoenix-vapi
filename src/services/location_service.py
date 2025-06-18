@@ -51,7 +51,8 @@ class LocationService(BaseService):
                 "location": location,
                 "distance": new_info["distance"],
                 "previous_distance": previous.get("distance"),
-                "rssi": new_info["rssi"]
+                "rssi": new_info["rssi"],
+                "smoothed_rssi": new_info.get("smoothed_rssi", new_info["rssi"])
             },
             "producer_name": "location_service"
         })

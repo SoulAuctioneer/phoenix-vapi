@@ -1,4 +1,5 @@
 MOST IMPORTANT NOW:
+* Clean up mic ports on #3.
 * Fix respeaker on #5
 * Finish upgrading V1 pea
 * Tiny Bluetooth LED string light or something

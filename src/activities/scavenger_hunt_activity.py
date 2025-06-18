@@ -274,12 +274,12 @@ class ScavengerHuntActivity(BaseService):
         victory_text = (
             "We did it! We found all the pieces! Hooray! "
             "Now we can fix the transmitter and call Grandmother Pea on the Mothership! "
-            "You're the best! Thank you so much for helping us!"
+            "You're the best! Thank you so much for helping us! Now I can have a nice relaxing nap!"
         )
         await self._speak_and_update_timer(victory_text)
         
         # Let the effect and speech play out
-        await asyncio.sleep(12)
+        await asyncio.sleep(18)
         
         # Formally publish the win event to be handled by the activity service
         # We create a task here to avoid a deadlock where this service awaits
@@ -323,6 +323,7 @@ class ScavengerHuntActivity(BaseService):
             if location == self._current_step.LOCATION.beacon_id:
                 distance: Distance = data.get("distance")
                 prev_distance: Distance = data.get("previous_distance")
+                smoothed_rssi = data.get("smoothed_rssi")
                 self.logger.info(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.objective_name}")
                 self.logger.info(f"WENT FROM {prev_distance} -> {distance}!")
                 
@@ -361,7 +362,6 @@ class ScavengerHuntActivity(BaseService):
                 # Handle transitions between distances
                 elif prev_distance:
                     text_to_speak = None
-                    speed_to_set = None
                     # Case 1: First detection (transition from UNKNOWN)
                     if prev_distance == Distance.UNKNOWN:
                         self.logger.info(f"First detection for current step. Distance: {distance}")
@@ -383,8 +383,30 @@ class ScavengerHuntActivity(BaseService):
                         pass  # TODO: Perhaps increment some tracker to say we're standing still?
 
                     # Update beacon speed based on new distance
-                    if distance in ScavengerHuntConfig.BEACON_EFFECT_SPEEDS:
-                        speed_to_set = ScavengerHuntConfig.BEACON_EFFECT_SPEEDS[distance]
+                    if smoothed_rssi is not None:
+                        # Unpack config values for interpolation
+                        min_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_rssi"]
+                        max_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_rssi"]
+                        min_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_speed"]
+                        max_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_speed"]
+
+                        # Clamp the RSSI value to the defined range
+                        clamped_rssi = max(min_rssi, min(max_rssi, smoothed_rssi))
+
+                        # Perform linear interpolation
+                        rssi_range = max_rssi - min_rssi
+                        speed_range = max_speed - min_speed
+                        
+                        # Handle case where rssi_range is zero to avoid division by zero
+                        if rssi_range == 0:
+                            speed_to_set = min_speed
+                        else:
+                            # Invert the speed mapping because lower speed value means faster rotation
+                            percent = (clamped_rssi - min_rssi) / rssi_range
+                            speed_to_set = max_speed - (percent * speed_range)
+                        
+                        self.logger.debug(f"Updating beacon speed to {speed_to_set:.3f} based on smoothed RSSI {smoothed_rssi}")
+
                         await self.publish({
                             "type": "start_or_update_effect",
                             "data": {
