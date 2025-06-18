@@ -47,7 +47,7 @@ class LEDService(BaseService):
     async def stop(self):
         """Stop the LED service and clean up"""
         if self.led_controller:
-            self.led_controller.stop_effect()
+            await self.led_controller.stop_effect()
             self.led_controller.clear()
             self.logger.info("LED service stopped")
 
@@ -82,7 +82,7 @@ class LEDService(BaseService):
             # --- End color extraction ---
             
             if effect_name == "stop":
-                self.led_controller.stop_effect()
+                await self.led_controller.stop_effect()
                 self.logger.info("Stopped LED effect")
             elif effect_name == "clear":
                 self.led_controller.clear()
@@ -91,7 +91,7 @@ class LEDService(BaseService):
             elif effect_name in self.led_controller._EFFECT_MAP: 
                 # Pass the string name directly
                 # Call start_or_update_effect, which handles both starting and updating
-                self.led_controller.start_or_update_effect(effect_name, speed=speed, brightness=brightness, color=color)
+                await self.led_controller.start_or_update_effect(effect_name, speed=speed, brightness=brightness, color=color)
                 # Logging for start/update is handled within the manager now
                 # self.logger.info(f"Started/Updated {effect_name} effect with speed {speed}, brightness {brightness}" + (f" and color {color}" if color else ""))
             else:
@@ -101,7 +101,7 @@ class LEDService(BaseService):
             effect_name = event.get('data', {}).get('effect_name', None)
             # TODO: Change to uppercase everywhere
             effect_name = effect_name.upper() if effect_name else None
-            self.led_controller.stop_effect(effect_name)
+            await self.led_controller.stop_effect(effect_name)
             self.logger.info(f"Stopped LED effect: {effect_name if effect_name else 'current'}")
 
 
@@ -145,8 +145,8 @@ class LEDService(BaseService):
                 # Higher frequency = faster purring
                 frequency = 1.0 / speed if speed > 0 else 0
                 logging.debug(f"Starting or updating purring effect with frequency {frequency:.2f}Hz (speed={speed:.4f}) and brightness {brightness:.2f} based on intensity {intensity:.2f}")
-                self.led_controller.start_or_update_effect("PURRING", speed=speed, brightness=brightness)
+                await self.led_controller.start_or_update_effect("PURRING", speed=speed, brightness=brightness)
             else:
                 # When intensity drops to 0, return to default effect
                 logging.debug("Touch intensity ended, returning to default effect")
-                self.led_controller.start_effect("ROTATING_PINK_BLUE")
+                await self.led_controller.start_effect("ROTATING_PINK_BLUE")

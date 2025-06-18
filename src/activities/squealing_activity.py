@@ -94,7 +94,7 @@ class SquealingActivity(BaseService):
         
     async def stop(self):
         """Stop the squealing activity"""
-        self.logger.info("calling stop() on squealing activity")
+        self.logger.info("We're in the stop() method on squealing activity")
         if self._is_active:
             self._is_active = False
             

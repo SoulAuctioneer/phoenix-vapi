@@ -7,6 +7,7 @@ import logging
 import random
 from enum import Enum, auto
 from typing import Union, Optional
+import asyncio
 
 # Try to import board and neopixel, but don't fail if they're not available, e.g. not on Raspberry Pi
 try:
@@ -61,6 +62,7 @@ class LEDManager:
         self._current_effect: Optional[str] = None
         self._base_brightness = max(0.0, min(1.0, initial_brightness)) # Store and clamp base brightness
         self._current_relative_brightness = 1.0 # Track the relative brightness set by effects (defaults to 1.0)
+        self._loop = asyncio.get_event_loop()
         
         # Initialize the NeoPixel object only on Raspberry Pi
         if LEDS_AVAILABLE:
@@ -170,17 +172,20 @@ class LEDManager:
         def revert_after_duration():
             time.sleep(duration / 1000)  # Convert ms to seconds
             if previous_effect and not self._stop_event.is_set():
-                self.start_effect(
-                    previous_effect['effect'],
-                    previous_effect['speed'],
-                    previous_effect['brightness'] # This is the relative brightness
+                asyncio.run_coroutine_threadsafe(
+                    self.start_effect(
+                        previous_effect['effect'],
+                        previous_effect['speed'],
+                        previous_effect['brightness'] # This is the relative brightness
+                    ),
+                    self._loop
                 )
                 
         revert_thread = Thread(target=revert_after_duration)
         revert_thread.daemon = True
         revert_thread.start()
 
-    def start_or_update_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: Optional[str] = None):
+    async def start_or_update_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: Optional[str] = None):
         """Start an LED effect if it's not already running, or update its parameters if it is.
         
         This function allows for smooth transitions in effect parameters without restarting the effect
@@ -221,9 +226,9 @@ class LEDManager:
                 self._setup_revert_thread(previous_effect, duration)
         else:
             # Different effect or no effect running, start new effect
-            self.start_effect(effect, speed, brightness, duration, color)
+            await self.start_effect(effect, speed, brightness, duration, color)
 
-    def start_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: Optional[str] = None):
+    async def start_effect(self, effect: str, speed=None, brightness=1.0, duration=None, color: Optional[str] = None):
         """Start an LED effect
         
         Args:
@@ -248,7 +253,7 @@ class LEDManager:
                 'speed': self._current_speed,
                 'brightness': self._current_relative_brightness # Store relative brightness
             }
-            self.stop_effect()
+            await self.stop_effect()
             
         self._stop_event.clear()
         self._current_speed = effect_speed
@@ -292,12 +297,12 @@ class LEDManager:
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
 
-    def stop_effect(self, effect_name: Optional[str] = None):
+    async def stop_effect(self, effect_name: Optional[str] = None):
         """Stop any running effect, or specific effect if provided and currently running"""
         if effect_name is None or effect_name == self._current_effect:
             self._stop_event.set()
             if self._effect_thread:
-                self._effect_thread.join()
+                await asyncio.to_thread(self._effect_thread.join)
                 self._effect_thread = None
             self._current_effect = None
             self._current_speed = None
