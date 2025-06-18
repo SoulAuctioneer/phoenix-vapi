@@ -48,7 +48,7 @@ class ScavengerHuntActivity(BaseService):
         # Start the first step in our hunt.
         await self._start_next_step()
         # Start sound task that periodically emits chirps
-        self._sound_task = asyncio.create_task(self._sound_loop())
+        # self._sound_task = asyncio.create_task(self._sound_loop())
         self.logger.info(f"scavenger hunt service started; on step: {self._current_step_name}")
         
     async def stop(self):
