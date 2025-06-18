@@ -138,6 +138,7 @@ class ServiceManager:
             
     async def _safe_handle_event(self, handler: EventHandler, event: Dict[str, Any]):
         """Safely execute an event handler and update global state"""
+        self.logger.debug(f"Executing handler {handler.__qualname__} for event {event.get('type')}")
         try:
             # First update the global state
             await self._handle_state_change(event)
@@ -146,6 +147,8 @@ class ServiceManager:
         except Exception as e:
             self.logger.error(f"Error in event handler {handler.__qualname__}: {e}", exc_info=True)
             raise
+        finally:
+            self.logger.debug(f"Finished handler {handler.__qualname__} for event {event.get('type')}")
 
     async def start_service(self, name: str, service: 'BaseService', **kwargs):
         """Start a service and store it in the manager"""
