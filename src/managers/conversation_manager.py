@@ -996,20 +996,22 @@ class ConversationManager:
         assistant_config=None,
         squad_id=None,
         squad=None,
+        include_memories: bool = True
     ):
         """Start a new call with specified assistant or squad"""
         logger.info("Starting call...")
 
+        assistant_config_to_use = assistant_config.copy()
         # Fetch memories and add to assistant context
-        memories = self.memory_manager.get_memories_formatted()
-        assistant_config_with_memories = assistant_config.copy()
-        assistant_config_with_memories["context"] += ASSISTANT_CONTEXT_MEMORY_PROMPT.format(memories=memories)
+        if include_memories:
+            memories = self.memory_manager.get_memories_formatted()
+            assistant_config_to_use["context"] += ASSISTANT_CONTEXT_MEMORY_PROMPT.format(memories=memories)
 
         # Start a new call
         if assistant_id:
-            payload = {'assistantId': assistant_id, 'assistantOverrides': assistant_config_with_memories}
+            payload = {'assistantId': assistant_id, 'assistantOverrides': assistant_config_to_use}
         elif assistant:
-            payload = {'assistant': assistant, 'assistantOverrides': assistant_config_with_memories}
+            payload = {'assistant': assistant, 'assistantOverrides': assistant_config_to_use}
         elif squad_id:
             payload = {'squadId': squad_id}
         elif squad:

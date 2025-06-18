@@ -344,7 +344,7 @@ class ActivityService(BaseService):
             
             elif intent == "first_contact":
                 # Start first contact activity
-                await self._queue_transition(ActivityType.FIRST_CONTACT, assistant_config=ASSISTANT_CONFIG_FIRST_CONTACT)
+                await self._queue_transition(ActivityType.FIRST_CONTACT, assistant_config=ASSISTANT_CONFIG_FIRST_CONTACT, include_memories=False)
 
             elif intent == "squealing":
                 # Start squealing activity
