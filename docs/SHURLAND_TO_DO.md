@@ -1,26 +1,25 @@
 MOST IMPORTANT NOW:
-* Laundry
-* Pack
-* Costume
-* Move basement stuff into bedroom
 * Fix respeaker on #5
-* Upgrade V1 pea
+* Finish upgrading V1 pea
+
+* Need another PicoVoice account? ash.eldritch was disabled, but it seems to still be working?
+*	LEDs in Bluetooth speaker Pea (El wire?)
 * Do what I can here to make upgrading Tom's easier over there.
 * Test 4, 5, 6
 * Test battery life
-* Need another PicoVoice account, ash.eldritch was disabled.
-*	LEDs in Bluetooth speaker Pea (El wire?)
 * Switch branch to demo
-* Gather stuff to bring
+
 * Make plantasia tune
 * ALSO humming thing??? Ask Lucy about that
 * Add squeal effects etc to squealing activity
 * Update spoken strings for scavenger hunt (see script below)
 * Create new Rhino model with only stuff that we need for the event (add stuff from intentservice)
   * Need a bunch of new strings if we're going to do the call/response in lab just from wake words
+
 * Create mother pea activity
 * Add a system shutdown command
-* Set up Pis for Shurland WiFi: Shurland-Appliance / 15321532
+* Set up Pis for Shurland WiFi: scripts/add_wifi.sh "Shurland-Appliance" "15321532"
+* Bug: "go to sleep" inside conversation doesn't shut down LEDs, maybe doesn't stop service properly. Only works via the intent.
 *	Amazon returns
 
 
@@ -29,20 +28,6 @@ Add 30-second SFX/giggles intro to plant growy song, for actor to find responses
 For the music: Add 20 seconds of discovery figuring out how the pea responds, effects on beat, responding a bit harder each time. Lil bit of trumpet, lil bit of beats, mostly giggles and chuckles. Then we do the full initial verse while kids play with the pea, then go into the lull.
 
 
-
-
-To bring:
-* Charging cables for peas - 9 cables, extension cord
-* 9 x Peas and 2 x docks
-* Soldering iron
-* Superglue
-* Hot glue
-* Spare parts
-* Parts for upgrading Tom's pea
-* Screws
-* Screwdriver
-* Spare LED strip/ring and sparkle, just in case
-* Defluffer
 
 
 Expenses:
@@ -61,7 +46,8 @@ NAD:
 * 11th: 3.15 - 9.00 5.45 TO PAY??? $288
 * 13th: 4.45 - 9.45 5 hrs TO PAY $250
 * 14th: 3.30 - 8.00 4.5 hrs TO PAY $225
-* 15th: 4.15 - 6.00 
+* 15th: 4.15 - 6.00  1.75 hrs TO PAY
+* 16th: 12.30 - 5.30 5 hrs TO PAY
 MEGAN:
 * 10th: 2.30 - 4.10 1:40 hrs TO PAY $50
 ROHIT:
