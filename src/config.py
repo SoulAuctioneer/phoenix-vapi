@@ -487,7 +487,7 @@ class ScavengerHuntConfig:
     ]
     
     # Number of seconds we wait before starting the next step
-    INTER_STEP_SLEEP_TIME: float = 10.0
+    INTER_STEP_SLEEP_TIME: float = 5.0
     
     # How loud the chirps are.
     CHIRP_VOLUME = 0.5
