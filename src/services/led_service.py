@@ -101,6 +101,7 @@ class LEDService(BaseService):
             effect_name = event.get('data', {}).get('effect_name', None)
             # TODO: Change to uppercase everywhere
             effect_name = effect_name.upper() if effect_name else None
+            self.logger.info(f"Attempting to stop LED effect '{effect_name}' now...")
             await self.led_controller.stop_effect(effect_name)
             self.logger.info(f"Stopped LED effect: {effect_name if effect_name else 'current'}")
 

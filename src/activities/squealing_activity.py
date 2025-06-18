@@ -32,7 +32,7 @@ class SquealingActivity(BaseService):
         self._tts_delay_max_sec = 2
         self._pickup_speech_delay_sec = 1
         self._squeal_phrases = [
-            "Where are weee???", "EEEEK!", "Is THIS Earth??", "Waaaah!!!", 
+            "Where are weee???", "WHAT'S GOING ON?!", "Is THIS Earth??", "Waaaah!!!", 
             "Are we there yet?", "I'm scared!", "Did we make it?", 
             "Oh no! We've crashed!", "I want grandma!"
         ]

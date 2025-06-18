@@ -44,6 +44,7 @@ for logger_name in [
     'services.location',
     'managers.location_manager',
     'managers.accelerometer_manager',
+    'managers.led_manager',
     'services.accelerometer_service'
 ]:
     get_filter_logger(logger_name).setLevel(logging.DEBUG)
