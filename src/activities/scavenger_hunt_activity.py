@@ -158,10 +158,10 @@ class ScavengerHuntActivity(BaseService):
             objectives_list_str = "all the missing parts" # Fallback
 
         intro_text = (
-            f"Oh! thank you so so much for helping us fix the transmitter! We need to find {objectives_list_str}. ... Let's go!"
+            f"Thank you so so much for helping us fix the transmitter! We need to find {objectives_list_str}. ... Let's go!"
         )
         await self._speak_and_update_timer(intro_text)
-        await asyncio.sleep(17) # Give a moment for the long intro to finish.
+        await asyncio.sleep(15) # Give a moment for the long intro to finish.
         
         # Start the first step in our hunt.
         await self._start_next_step()
