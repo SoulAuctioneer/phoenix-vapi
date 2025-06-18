@@ -260,7 +260,7 @@ class ScavengerHuntActivity(BaseService):
         await self._speak_and_update_timer(victory_text)
         
         # Let the effect and speech play out
-        await asyncio.sleep(8)
+        await asyncio.sleep(12)
         
         # Formally publish the win event to be handled by the activity service
         # We create a task here to avoid a deadlock where this service awaits
