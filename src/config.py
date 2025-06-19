@@ -40,8 +40,8 @@ ELEVENLABS_API_KEY = clean_env_value(os.getenv('ELEVENLABS_API_KEY')) # ElevenLa
 NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 
 # Which voice to use for TTS
-TTS_VOICE = clean_env_value(os.getenv('TTS_VOICE')) or "ana"  # Or "timmy"
-ASSISTANT_NAME = "Mister Wibble" if TTS_VOICE == "timmy" else "Fifi"
+TTS_VOICE = clean_env_value(os.getenv('TTS_VOICE')) or "ana"
+ASSISTANT_NAME = "Fifi" if TTS_VOICE == "ana" else "Wibble Woop"
 
 # Set in main.py during arg parsing (if applicable).
 LOG_FILTERS = None
@@ -258,7 +258,7 @@ class ElevenLabsConfig:
         "lucy": "lcMyyd2HUfFzxdCaC4Ta",
     }
     # Find voice IDs using: https://api.elevenlabs.io/v1/voices
-    DEFAULT_VOICE_ID = VOICE_IDS[TTS_VOICE]
+    DEFAULT_VOICE_ID = VOICE_IDS.get(TTS_VOICE, VOICE_IDS["ana"])
 
     API_KEY = ELEVENLABS_API_KEY
     DEFAULT_MODEL_ID = "eleven_turbo_v2_5" # Or "eleven_turbo_v2_5" for lower latency
