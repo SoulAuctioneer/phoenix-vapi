@@ -269,33 +269,17 @@ class ElevenLabsConfig:
 
 # BLE and Location Configuration
 class Distance(Enum):
-    """Enum for distance categories"""
-    IMMEDIATE = auto()  # < 1m
-    VERY_NEAR = auto() # 1-2m
-    NEAR = auto()      # 2-4m
-    FAR = auto()       # 4-6m
-    VERY_FAR = auto()  # 6-8m
-    UNKNOWN = auto()   # No signal or too weak
+    IMMEDIATE = 0
+    VERY_NEAR = 1
+    NEAR = 2
+    FAR = 3
+    VERY_FAR = 4
+    UNKNOWN = 5
     
     def __lt__(self, other):
         if self.__class__ is other.__class__:
-            if self == Distance.UNKNOWN or other == Distance.UNKNOWN:
-                return NotImplemented
             return self.value < other.value
         return NotImplemented
-    
-    def __le__(self, other):
-        return self < other or self == other
-    
-    def __gt__(self, other):
-        if self.__class__ is other.__class__:
-            if self == Distance.UNKNOWN or other == Distance.UNKNOWN:
-                return NotImplemented
-            return self.value > other.value
-        return NotImplemented
-        
-    def __ge__(self, other):
-        return self > other or self == other
 
 
 # BLE and Location Configuration
@@ -418,106 +402,178 @@ class ScavengerHuntLocation(Enum):
         return self.value[1]
 
 @dataclass
-class ScavengerHuntStep:
-    NAME: str
-    LOCATION: ScavengerHuntLocation
-    START_VOICE_LINES: list[str]
-    END_VOICE_LINES: list[str]
+class ScavengerHuntLocationData:
+    start_voice_lines: list[str]
+    end_voice_lines: list[str]
 
-# Add new scavenger config
-# @dataclass
+# Configuration for the Scavenger Hunt activity
 class ScavengerHuntConfig:
     PROVIDE_INTERMEDIATE_HINTS = False
-    SCAVENGER_HUNT_STEPS = [
-        ScavengerHuntStep(
-            NAME="scavenger_hunt_step1", 
-            LOCATION=ScavengerHuntLocation.LOCATION1,
-            START_VOICE_LINES=[
-                "The Junction Box is where all the giggly wires meet up to tell secrets!"
-            ],
-            END_VOICE_LINES=[
-                "Yay! We found the Junction Box! All the wires are wiggling with happiness. Great job!",
-            ],
-        ),
-        ScavengerHuntStep(
-            NAME="scavenger_hunt_step2", 
-            LOCATION=ScavengerHuntLocation.LOCATION2,
-            START_VOICE_LINES=[
-                "The Transmitter Valve helps us send messages to the stars!",
-            ],
-            END_VOICE_LINES=[
-                "Yay! We found it! The Transmitter Valve is open and ready to whoosh our messages out!"
-            ],
-        ),
-        ScavengerHuntStep(
-            NAME="scavenger_hunt_step3", 
-            LOCATION=ScavengerHuntLocation.LOCATION3,
-            START_VOICE_LINES=[
-                "The Signal Processor unscrambles all the funny space noises!"
-            ],
-            END_VOICE_LINES=[
-                "Yes! The Signal Processor! Now the alien chatter sounds like songs instead of gobbledegook."
-            ],
-        ),
-        # ScavengerHuntStep(
-        #     NAME="scavenger_hunt_step4", 
-        #     LOCATION=ScavengerHuntLocation.LOCATION4,
-        #     START_VOICE_LINES=[
-        #         "We need to find the Antenna! It's like a giant ear for listening to moonbeams.",
-        #         "Let's find the Antenna! It helps us catch stories from the comets as they fly by."
-        #     ],
-        #     END_VOICE_LINES=[
-        #         "Amazing! We found the Antenna! Now we can hear the stars twinkling. You're a super finder!",
-        #         "Look at that, the Antenna! It's pointing right at a laughing planet."
-        #     ],
-        # ),
-        # ScavengerHuntStep(
-        #     NAME="scavenger_hunt_step5", 
-        #     LOCATION=ScavengerHuntLocation.LOCATION5,
-        #     START_VOICE_LINES=[
-        #         "Time to find the System Modulator! It changes our ship's music from sleepy songs to dance party tunes.",
-        #         "Let's track down the System Modulator. It mixes up the space music to make it extra groovy."
-        #     ],
-        #     END_VOICE_LINES=[
-        #         "You found it! The System Modulator is ready to boogie!",
-        #         "Hooray! The System Modulator is working. I feel a dance party coming on!"
-        #     ],
-        # ),
-        # ScavengerHuntStep(
-        #     NAME="scavenger_hunt_step6", 
-        #     LOCATION=ScavengerHuntLocation.LOCATION6,
-        #     START_VOICE_LINES=[
-        #         "Last one! We need the Crystal Oscillator. It's the sparkly heart of our ship.",
-        #         "Let's find the Crystal Oscillator! It goes 'tick-tock' to keep the whole ship on time for adventures."
-        #     ],
-        #     END_VOICE_LINES=[
-        #         "We did it! We found the Crystal Oscillator! The whole ship is purring like a happy kitten. You're the best!",
-        #         "The Crystal Oscillator! It's glowing so brightly! Our ship is all fixed and ready to fly to candy-floss clouds!"
-        #     ],
-        # ),
-    ]
-    
-    # Number of seconds we wait before starting the next step
     INTER_STEP_SLEEP_TIME: float = 5.0
-
-    # How long to wait with no speech before giving a hint (in seconds)
     INACTIVITY_HINT_INTERVAL: float = 10.0
-    
-    # How loud the chirps are.
     CHIRP_VOLUME = 0.5
-    
-    # Scales the interval between chirps (which decreases with proximity to goal)
     CHIRP_INTERVAL_SCALING_FACTOR = 10.0
 
-    # Min/max speeds for the rotating beacon effect. Lower value = faster rotation.
     BEACON_RSSI_SPEED_MAPPING = {
-        "max_rssi": -60,  # RSSI at which speed is max (i.e., min_speed)
-        "min_rssi": -95,  # RSSI at which speed is min (i.e., max_speed)
-        "min_speed": 0.03, # Fastest speed
-        "max_speed": 0.2   # Slowest speed
+        "max_rssi": -60,
+        "min_rssi": -95,
+        "min_speed": 0.03,
+        "max_speed": 0.2
     }
-    BEACON_SEARCH_SPEED = 0.5  # Default speed when no signal
-    BEACON_LOST_SPEED = 0.8  # Speed when signal is lost
+    BEACON_SEARCH_SPEED = 0.5
+    BEACON_LOST_SPEED = 0.8
+
+    LOCATION_DATA: dict[ScavengerHuntLocation, ScavengerHuntLocationData] = {
+        ScavengerHuntLocation.LOCATION1: ScavengerHuntLocationData(
+            start_voice_lines=["The Junction Box is where all the giggly wires meet up to tell secrets!"],
+            end_voice_lines=["Yay! We found the Junction Box! All the wires are wiggling with happiness. Great job!"]
+        ),
+        ScavengerHuntLocation.LOCATION2: ScavengerHuntLocationData(
+            start_voice_lines=["The Transmitter Valve helps us send messages to the stars!"],
+            end_voice_lines=["Yay! We found it! The Transmitter Valve is open and ready to whoosh our messages out!"]
+        ),
+        ScavengerHuntLocation.LOCATION3: ScavengerHuntLocationData(
+            start_voice_lines=["The Signal Processor unscrambles all the funny space noises!"],
+            end_voice_lines=["Yes! The Signal Processor! Now the alien chatter sounds like songs instead of gobbledegook."]
+        ),
+        ScavengerHuntLocation.LOCATION4: ScavengerHuntLocationData(
+            start_voice_lines=[
+                "We need to find the Antenna! It's like a giant ear for listening to moonbeams.",
+                "Let's find the Antenna! It helps us catch stories from the comets as they fly by."
+            ],
+            end_voice_lines=[
+                "Amazing! We found the Antenna! Now we can hear the stars twinkling. You're a super finder!",
+                "Look at that, the Antenna! It's pointing right at a laughing planet."
+            ]
+        ),
+        ScavengerHuntLocation.LOCATION5: ScavengerHuntLocationData(
+            start_voice_lines=[
+                "Time to find the System Modulator! It changes our ship's music from sleepy songs to dance party tunes.",
+                "Let's track down the System Modulator. It mixes up the space music to make it extra groovy."
+            ],
+            end_voice_lines=[
+                "You found it! The System Modulator is ready to boogie!",
+                "Hooray! The System Modulator is working. I feel a dance party coming on!"
+            ]
+        ),
+        ScavengerHuntLocation.LOCATION6: ScavengerHuntLocationData(
+            start_voice_lines=[
+                "Last one! We need the Crystal Oscillator. It's the sparkly heart of our ship.",
+                "Let's find the Crystal Oscillator! It goes 'tick-tock' to keep the whole ship on time for adventures."
+            ],
+            end_voice_lines=[
+                "We did it! We found the Crystal Oscillator! The whole ship is purring like a happy kitten. You're the best!",
+                "The Crystal Oscillator! It's glowing so brightly! Our ship is all fixed and ready to fly to candy-floss clouds!"
+            ]
+        ),
+    }
+
+    HUNT_ALPHA = [
+        ScavengerHuntLocation.LOCATION1,
+        ScavengerHuntLocation.LOCATION2,
+        ScavengerHuntLocation.LOCATION3,
+    ]
+    HUNT_BETA = [
+        ScavengerHuntLocation.LOCATION4,
+        ScavengerHuntLocation.LOCATION5,
+        ScavengerHuntLocation.LOCATION6,
+    ]
+
+    INITIAL_DETECTION_PHRASES: dict[Distance, list[str]] = {
+        Distance.VERY_FAR: [
+            "Ooh, I've started sensing something, but it's really, really far away!",
+            "Ooh, I've started feeling a faint wiggle... I think we're on the right path, but it's a long way to go!"
+        ],
+        Distance.FAR: [
+            "Okay! I can feel it now, but it's still pretty far.",
+            "Ooh I can feel it! It's far away, but it's definitely there. Let's keep looking!"
+        ],
+        Distance.NEAR: [
+            "Ooh, I can sense it and its energy is quite strong! We must be close.",
+            "Yay! I'm feeling the wiggles and it's quite strong, it must be nearby!"
+        ],
+        Distance.VERY_NEAR: [
+            "Wow, I can feel it and it's really really close! My lights are practically dancing!",
+            "Yay, I can sense it and it's super close! I'm buzzing with excitement! It's just up ahead!"
+        ]
+    }
+
+    GETTING_CLOSER_PHRASES: dict[Distance, list[str]] = {
+        Distance.VERY_FAR: [
+            "Ooh, we're getting closer! It's still far away, but we're getting there.",
+            "Ooh, I think we're on the right path! It's a long way to go, bur we're closer! Keep going!"
+        ],
+        Distance.FAR: [
+            "Yes, that's it! We're getting closer! The wiggles are getting stronger!",
+            "We're getting warmer! Keep going this way!"
+        ],
+        Distance.NEAR: [
+            "We're getting so warm! It must be just around the corner!",
+            "Oh, this is definitely the right way. I can feel it getting stronger!"
+        ],
+        Distance.VERY_NEAR: [
+            "Yay we're really close now, it's right here! I can almost touch it! My whole body is buzzing!",
+            "Oh hurrah! We're so, so close now! Don't stop now!"
+        ]
+    }
+
+    GETTING_FARTHER_PHRASES: dict[Distance, list[str]] = {
+        Distance.NEAR: [
+            "Oh no, the feeling is getting weaker. I think we're going the wrong way.",
+            "Hmm, I think we're getting colder. Let's try turning around."
+        ],
+        Distance.FAR: [
+            "We're getting colder... Let's turn back and try a different path.",
+            "Whoopsie! The signal is getting faint. We must have taken a wrong turn."
+        ],
+        Distance.VERY_FAR: [
+            "Whoopsie! The signal is almost gone. We've gone way off track!",
+            "Oh no, we're going the wrong way! The wiggles are almost gone."
+        ],
+        Distance.UNKNOWN: [
+            "Oh dear, I've lost the signal completely. Where did it go?",
+            "The trail went completely cold. Let's retrace our steps and find it again."
+        ]
+    }
+    
+    LOST_SIGNAL_PHRASES: list[str] = [
+        "Oh dear, I've lost the signal. Where did it go?",
+        "Hmm, I can't feel it anymore. It must be hiding from us!",
+        "The trail went cold. Let's retrace our steps."
+    ]
+    
+    INACTIVITY_HINT_PHRASES: dict[Distance, list[str]] = {
+        Distance.UNKNOWN: [
+            "I can't sense the {objective} at all. Let's try moving around a bit.",
+            "Where could the {objective} be? I'm not picking up any signal.",
+            "Hmm, I don't feel any wiggles from the {objective}. Let's try a new spot.",
+            "The {objective} is hiding well! I can't feel it from here."
+        ],
+        Distance.VERY_FAR: [
+            "We're still very far away from the {objective}. Keep looking!",
+            "The {objective} is out there somewhere, but it feels like a long way off.",
+            "My senses are just barely tingling. The {objective} is super far away.",
+            "It's a long journey to the {objective}, but I know we can find it!"
+        ],
+        Distance.FAR: [
+            "I can still sense the {objective}, but we're not very close. Let's keep exploring.",
+            "We're on the right track for the {objective}, but it's still a ways to go.",
+            "The signal from the {objective} is steady, but we have more ground to cover.",
+            "Keep going! We're making progress toward the {objective}, but there's still a distance to go."
+        ],
+        Distance.NEAR: [
+            "We're getting so close to the {objective}! It must be just around here somewhere.",
+            "The feeling is stronger... the {objective} is nearby!",
+            "The {objective} is calling to us! I can feel its energy buzzing nearby.",
+            "I'm getting excited! The {objective} feels like it's just a hop, skip, and a jump away."
+        ],
+        Distance.VERY_NEAR: [
+            "It's right here! The {objective} is so close I can almost feel the fizzing!",
+            "My lights are tingling! We must be right on top of the {objective}!",
+            "I can almost taste the sparkly energy of the {objective}! It's right here!",
+            "Any second now! The {objective} is so close, my lights are going crazy!"
+        ]
+    }
 
 # Touch Sensor Configuration
 class TouchConfig:

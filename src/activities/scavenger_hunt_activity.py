@@ -10,7 +10,12 @@ import time
 import re
 from typing import Dict, Any, Optional
 from services.service import BaseService
-from config import ScavengerHuntConfig, ScavengerHuntStep, ScavengerHuntLocation, Distance, SoundEffect
+from config import ScavengerHuntConfig, ScavengerHuntLocation, Distance, SoundEffect
+from dataclasses import dataclass
+
+@dataclass
+class ScavengerHuntStep:
+    location: ScavengerHuntLocation
 
 class ScavengerHuntActivity(BaseService):
     """Service that manages the scavenger hunt game activity"""
@@ -21,118 +26,27 @@ class ScavengerHuntActivity(BaseService):
         self._game_active: bool = False
         self._current_step: ScavengerHuntStep | None = None
         self._current_location_detected: bool = False  # Track if we've ever seen the next desired location.
-        self._remaining_steps: list[ScavengerHuntStep] = list(ScavengerHuntConfig.SCAVENGER_HUNT_STEPS)
+        self._remaining_steps: list[ScavengerHuntStep] = []
+        self._all_hunt_steps: list[ScavengerHuntStep] = []
         self._last_spoken_time: float = time.time()
         self._speech_events: Dict[str, asyncio.Event] = {}
         self._victory_in_progress: bool = False
+        self._step_transition_in_progress: bool = False
         if not self._remaining_steps:
             self.logger.error("Created a scavenger hunt with no steps!")
         
-        # Phrases for when the beacon is first detected
-        self._initial_detection_phrases: Dict[Distance, list[str]] = {
-            Distance.VERY_FAR: [
-                "Ooh, I've started sensing something, but it's really, really far away!",
-                "Ooh, I've started feeling a faint wiggle... I think we're on the right path, but it's a long way to go!"
-            ],
-            Distance.FAR: [
-                "Okay! I can feel it now, but it's still pretty far.",
-                "Ooh I can feel it! It's far away, but it's definitely there. Let's keep looking!"
-            ],
-            Distance.NEAR: [
-                "Ooh, I can sense it and its energy is quite strong! We must be close.",
-                "Yay! I'm feeling the wiggles and it's quite strong, it must be nearby!"
-            ],
-            Distance.VERY_NEAR: [
-                "Wow, I can feel it and it's really really close! My lights are practically dancing!",
-                "Yay, I can sense it and it's super close! I'm buzzing with excitement! It's just up ahead!"
-            ]
-        }
-
-        # Phrases for getting closer to the beacon
-        self._getting_closer_phrases: Dict[Distance, list[str]] = {
-            Distance.VERY_FAR: [
-                "Ooh, we're getting closer! It's still far away, but we're getting there.",
-                "Ooh, I think we're on the right path! It's a long way to go, bur we're closer! Keep going!"
-            ],
-            Distance.FAR: [
-                "Yes, that's it! We're getting closer! The wiggles are getting stronger!",
-                "We're getting warmer! Keep going this way!"
-            ],
-            Distance.NEAR: [
-                "We're getting so warm! It must be just around the corner!",
-                "Oh, this is definitely the right way. I can feel it getting stronger!"
-            ],
-            Distance.VERY_NEAR: [
-                "Yay we're really close now, it's right here! I can almost touch it! My whole body is buzzing!",
-                "Oh hurrah! We're so, so close now! Don't stop now!"
-            ]
-        }
-
-        # Phrases for getting farther from the beacon
-        self._getting_farther_phrases: Dict[Distance, list[str]] = {
-            Distance.NEAR: [
-                "Oh no, the feeling is getting weaker. I think we're going the wrong way.",
-                "Hmm, I think we're getting colder. Let's try turning around."
-            ],
-            Distance.FAR: [
-                "We're getting colder... Let's turn back and try a different path.",
-                "Whoopsie! The signal is getting faint. We must have taken a wrong turn."
-            ],
-            Distance.VERY_FAR: [
-                "Whoopsie! The signal is almost gone. We've gone way off track!",
-                "Oh no, we're going the wrong way! The wiggles are almost gone."
-            ],
-            Distance.UNKNOWN: [
-                "Oh dear, I've lost the signal completely. Where did it go?",
-                "The trail went completely cold. Let's retrace our steps and find it again."
-            ]
-        }
-        
-        # Phrases for when the signal is lost
-        self._lost_signal_phrases: list[str] = [
-            "Oh dear, I've lost the signal. Where did it go?",
-            "Hmm, I can't feel it anymore. It must be hiding from us!",
-            "The trail went cold. Let's retrace our steps."
-        ]
-        
-        # Phrases for inactivity hints
-        self._inactivity_hint_phrases: Dict[Distance, list[str]] = {
-            Distance.UNKNOWN: [
-                "I can't sense the {objective} at all. Let's try moving around a bit.",
-                "Where could the {objective} be? I'm not picking up any signal.",
-                "Hmm, I don't feel any wiggles from the {objective}. Let's try a new spot.",
-                "The {objective} is hiding well! I can't feel it from here."
-            ],
-            Distance.VERY_FAR: [
-                "We're still very far away from the {objective}. Keep looking!",
-                "The {objective} is out there somewhere, but it feels like a long way off.",
-                "My senses are just barely tingling. The {objective} is super far away.",
-                "It's a long journey to the {objective}, but I know we can find it!"
-            ],
-            Distance.FAR: [
-                "I can still sense the {objective}, but we're not very close. Let's keep exploring.",
-                "We're on the right track for the {objective}, but it's still a ways to go.",
-                "The signal from the {objective} is steady, but we have more ground to cover.",
-                "Keep going! We're making progress toward the {objective}, but there's still a distance to go."
-            ],
-            Distance.NEAR: [
-                "We're getting so close to the {objective}! It must be just around here somewhere.",
-                "The feeling is stronger... the {objective} is nearby!",
-                "The {objective} is calling to us! I can feel its energy buzzing nearby.",
-                "I'm getting excited! The {objective} feels like it's just a hop, skip, and a jump away."
-            ],
-            Distance.VERY_NEAR: [
-                "It's right here! The {objective} is so close I can almost feel the fizzing!",
-                "My lights are tingling! We must be right on top of the {objective}!",
-                "I can almost taste the sparkly energy of the {objective}! It's right here!",
-                "Any second now! The {objective} is so close, my lights are going crazy!"
-            ]
-        }
-
-    async def start(self):
+    async def start(self, hunt_locations: list[ScavengerHuntLocation] = ScavengerHuntConfig.HUNT_ALPHA):
         """Start the scavenger hunt service"""
         await super().start()
         self._game_active = True
+        self._all_hunt_steps = [ScavengerHuntStep(location=loc) for loc in hunt_locations]
+        self._remaining_steps = list(self._all_hunt_steps)
+
+        if not self._all_hunt_steps:
+            self.logger.error("Scavenger hunt started with no locations!")
+            asyncio.create_task(self.publish({"type": "scavenger_hunt_won"})) # End silently
+            return
+
         # Disable any LED effects
         await self.publish({
             "type": "stop_led_effect"
@@ -147,7 +61,7 @@ class ScavengerHuntActivity(BaseService):
         })
         
         # Generate and speak the intro line
-        all_objectives = [step.LOCATION.objective_name for step in ScavengerHuntConfig.SCAVENGER_HUNT_STEPS]
+        all_objectives = [step.location.objective_name for step in self._all_hunt_steps]
         if len(all_objectives) > 2:
             # Format as "the A, the B, and the C"
             objectives_list_str = ", the ".join(all_objectives[:-1])
@@ -163,7 +77,7 @@ class ScavengerHuntActivity(BaseService):
             f"Yay! My tummy light will spin faster the closer we get to a missing part. We need to find {objectives_list_str}. ... Let's go!"
         )
         await self._speak_and_update_timer(intro_text)
-        await asyncio.sleep(15) # Give a moment for the long intro to finish.
+        await asyncio.sleep(18) # Give a moment for the long intro to finish.
         
         # Start the first step in our hunt.
         await self._start_next_step()
@@ -204,17 +118,23 @@ class ScavengerHuntActivity(BaseService):
             self.logger.error("Trying to start next step when none remain!")
         self._current_step = self._remaining_steps.pop(0)
         self._current_location_detected = False
-        await self._speak_and_update_timer(random.choice(self._current_step.START_VOICE_LINES))
+        self._step_transition_in_progress = False  # Reset for the new step
         
+        step_data = ScavengerHuntConfig.LOCATION_DATA.get(self._current_step.location)
+        if step_data:
+            await self._speak_and_update_timer(random.choice(step_data.start_voice_lines))
+        else:
+            self.logger.warning(f"No start voice line found for location: {self._current_step.location.name}")
+
     @property
     def _current_step_name(self) -> str:
-        return self._current_step.NAME
+        return self._current_step.location.name if self._current_step else ""
         
     @property
     def _current_objective_name(self) -> str:
         """Extracts the 'pretty' name of the objective from the current step's location."""
         if self._current_step:
-            return self._current_step.LOCATION.objective_name
+            return self._current_step.location.objective_name
         return ""
 
     async def _hint_loop(self):
@@ -229,12 +149,12 @@ class ScavengerHuntActivity(BaseService):
                     # Get current distance to the beacon
                     distance = Distance.UNKNOWN
                     async with self.global_state_lock:
-                        location_info = self.global_state.location_beacons.get(self._current_step.LOCATION.beacon_id, {})
+                        location_info = self.global_state.location_beacons.get(self._current_step.location.beacon_id, {})
                         distance = location_info.get("distance", Distance.UNKNOWN)
 
                     # Get and format the hint phrase
-                    if distance in self._inactivity_hint_phrases:
-                        phrase_template = random.choice(self._inactivity_hint_phrases[distance])
+                    if distance in ScavengerHuntConfig.INACTIVITY_HINT_PHRASES:
+                        phrase_template = random.choice(ScavengerHuntConfig.INACTIVITY_HINT_PHRASES[distance])
                         text_to_speak = phrase_template.format(objective=self._current_objective_name)
                         await self._speak_and_update_timer(text_to_speak)
                     
@@ -290,7 +210,12 @@ class ScavengerHuntActivity(BaseService):
         }))
 
     async def _transition_to_next_step(self):
-        await self._speak_and_update_timer(random.choice(self._current_step.END_VOICE_LINES))
+        step_data = ScavengerHuntConfig.LOCATION_DATA.get(self._current_step.location)
+        if step_data:
+            await self._speak_and_update_timer(random.choice(step_data.end_voice_lines))
+        else:
+            self.logger.warning(f"No end voice line found for location: {self._current_step.location.name}")
+            
         await self.publish({
             "type": "start_led_effect",
             "data": {
@@ -302,6 +227,21 @@ class ScavengerHuntActivity(BaseService):
         await asyncio.sleep(ScavengerHuntConfig.INTER_STEP_SLEEP_TIME)
         await self._start_next_step()
     
+    async def _complete_current_step(self):
+        """Helper to manage the logic for completing a step to avoid race conditions."""
+        if self._step_transition_in_progress:
+            self.logger.debug("Step transition already in progress, ignoring.")
+            return
+        self._step_transition_in_progress = True
+
+        self.logger.info(f"Scavenger hunt step {self._current_step_name} completed!")
+        await self.publish({"type": "scavenger_hunt_step_completed"})
+
+        if self._remaining_steps:
+            await self._transition_to_next_step()
+        else:
+            await self._handle_victory()
+
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
         event_type = event.get("type")
@@ -312,26 +252,38 @@ class ScavengerHuntActivity(BaseService):
                 self._speech_events[key].set()
                 del self._speech_events[key]
 
+        elif event_type == "all_beacons_update":
+            if self._victory_in_progress or not self._current_step or self._step_transition_in_progress:
+                return
+            beacons = event.get("data", {}).get("beacons", {})
+            current_beacon_id = self._current_step.location.beacon_id
+            if current_beacon_id in beacons:
+                beacon_data = beacons[current_beacon_id]
+                if beacon_data.get("distance") == Distance.IMMEDIATE:
+                    self.logger.info(f"IMMEDIATE distance for {current_beacon_id} from periodic update. Completing step.")
+                    await self._complete_current_step()
+            return
+
         if event_type == "proximity_changed":
             if self._victory_in_progress:
                 self.logger.debug("Ignoring proximity event during victory sequence.")
                 return
             data = event.get("data", {})
             location = data.get("location")
-            self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.LOCATION.beacon_id}")
+            self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.location.beacon_id}")
             
             # Only care about the current step's location
-            if location == self._current_step.LOCATION.beacon_id:
+            if location == self._current_step.location.beacon_id:
                 distance: Distance = data.get("distance")
                 prev_distance: Distance = data.get("previous_distance")
                 smoothed_rssi = data.get("smoothed_rssi")
-                self.logger.info(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.LOCATION.objective_name}")
+                self.logger.info(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.location.objective_name}")
                 self.logger.info(f"WENT FROM {prev_distance} -> {distance}!")
                 
                 # Mark that we've detected the next step's location at least once
                 if not self._current_location_detected and distance != Distance.UNKNOWN:
                     self._current_location_detected = True
-                    self.logger.info(f"Location {self._current_step.LOCATION.objective_name} detected for the first time!")
+                    self.logger.info(f"Location {self._current_step.location.objective_name} detected for the first time!")
                 
                 # Update beacon speed on every valid signal update.
                 if smoothed_rssi is not None and distance != Distance.UNKNOWN:
@@ -370,7 +322,7 @@ class ScavengerHuntActivity(BaseService):
                 if distance == Distance.UNKNOWN:
                     if prev_distance and prev_distance != Distance.UNKNOWN:
                         self.logger.info("Signal lost for current step.")
-                        await self._speak_and_update_timer(random.choice(self._lost_signal_phrases))
+                        await self._speak_and_update_timer(random.choice(ScavengerHuntConfig.LOST_SIGNAL_PHRASES))
                         await self.publish({
                             "type": "start_or_update_effect",
                             "data": {
@@ -386,7 +338,7 @@ class ScavengerHuntActivity(BaseService):
                     await self.publish({
                         "type": "scavenger_hunt_step_completed"
                     })
-                    self.logger.info("Scavenger hunt step {self._current_step_name} completed!")
+                    self.logger.info(f"Scavenger hunt step {self._current_step_name} completed!")
 
                     if self._remaining_steps:
                         await self._transition_to_next_step()
@@ -400,18 +352,18 @@ class ScavengerHuntActivity(BaseService):
                     # Case 1: First detection (transition from UNKNOWN)
                     if prev_distance == Distance.UNKNOWN:
                         self.logger.info(f"First detection for current step. Distance: {distance}")
-                        if distance in self._initial_detection_phrases:
-                            text_to_speak = random.choice(self._initial_detection_phrases[distance])
+                        if distance in ScavengerHuntConfig.INITIAL_DETECTION_PHRASES:
+                            text_to_speak = random.choice(ScavengerHuntConfig.INITIAL_DETECTION_PHRASES[distance])
                     # Case 2: Getting closer
                     elif distance < prev_distance:
                         self.logger.info(f"Getting closer to current step: {prev_distance} -> {distance}")
-                        if distance in self._getting_closer_phrases:
-                            text_to_speak = random.choice(self._getting_closer_phrases[distance])
+                        if distance in ScavengerHuntConfig.GETTING_CLOSER_PHRASES:
+                            text_to_speak = random.choice(ScavengerHuntConfig.GETTING_CLOSER_PHRASES[distance])
                     # Case 3: Getting farther
                     elif distance > prev_distance:
                         self.logger.info(f"Getting farther from current step: {prev_distance} -> {distance}")
-                        if distance in self._getting_farther_phrases:
-                            text_to_speak = random.choice(self._getting_farther_phrases[distance])
+                        if distance in ScavengerHuntConfig.GETTING_FARTHER_PHRASES:
+                            text_to_speak = random.choice(ScavengerHuntConfig.GETTING_FARTHER_PHRASES[distance])
                     
                     if text_to_speak:
                         await self._speak_and_update_timer(text_to_speak)

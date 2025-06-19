@@ -17,6 +17,7 @@ class LocationService(BaseService):
         self._last_unknown_publish = 0
         self._last_location: str = "unknown"
         self._last_distances: Dict[str, Dict[str, Union[Distance, int]]] = {}
+        self._last_all_beacons_update_time: float = 0.0
         
     def _location_changed(self, new_location: str) -> bool:
         """Check if location has changed"""
@@ -127,6 +128,17 @@ class LocationService(BaseService):
                     
                 # Handle proximity updates for all beacons
                 await self._handle_beacon_updates(all_beacons)
+
+                # Periodically publish all beacon data
+                current_time = time.time()
+                if all_beacons and (current_time - self._last_all_beacons_update_time) >= BLEConfig.ALL_BEACONS_UPDATE_INTERVAL:
+                    await self.publish({
+                        "type": "all_beacons_update",
+                        "data": { "beacons": all_beacons },
+                        "producer_name": "location_service"
+                    })
+                    self.logger.debug(f"Published all_beacons_update with {len(all_beacons)} beacons")
+                    self._last_all_beacons_update_time = current_time
                 
                 # Sleep until next scan
                 await asyncio.sleep(scan_interval)
