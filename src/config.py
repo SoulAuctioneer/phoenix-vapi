@@ -377,6 +377,9 @@ class BLEConfig:
     # Minimum time between location changes
     MIN_TIME_BETWEEN_CHANGES = 7.0  # Minimum seconds between location changes (was 15.0)
 
+    # Interval for publishing all beacon data (in seconds)
+    ALL_BEACONS_UPDATE_INTERVAL = 5.0
+
 # Hide and Seek Activity Configuration
 class HideSeekConfig:
     # How much to ramp audio cue volume the further away the beacon is
