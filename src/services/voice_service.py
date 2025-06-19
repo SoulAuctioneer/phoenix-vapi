@@ -99,6 +99,7 @@ from typing import Dict, Any, Optional, Tuple
 from services.service import BaseService
 from managers.audio_manager import AudioManager, AudioConfig
 from config import AudioBaseConfig, get_filter_logger
+from utils.audio_processing import pcm_bytes_to_numpy
 
 logger = get_filter_logger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -226,7 +227,7 @@ class VoiceService(BaseService):
             return False
             
         # Convert PCM bytes to numpy array
-        audio_np_array = self.voice_manager.pcm_bytes_to_numpy(audio_chunk_bytes)
+        audio_np_array = pcm_bytes_to_numpy(audio_chunk_bytes)
         
         if audio_np_array.size > 0:
             # Resize the chunk using the producer's own resizer method
@@ -366,7 +367,7 @@ class VoiceService(BaseService):
         """Play cached audio data chunk by chunk to allow for cancellation."""
         try:
             logger.info(f"Playing cached TTS audio for producer '{tts_producer.name}'...")
-            audio_np_array = self.voice_manager.pcm_bytes_to_numpy(audio_data)
+            audio_np_array = pcm_bytes_to_numpy(audio_data)
             
             processing_chunk_size = AudioBaseConfig.CHUNK_SIZE * 10 
 
