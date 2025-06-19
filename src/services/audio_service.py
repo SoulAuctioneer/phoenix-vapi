@@ -70,7 +70,8 @@ class AudioService(BaseService):
             effect_name = event.get("effect_name")
             loop = event.get("loop", False)  # Get loop parameter with default False
             volume = event.get("volume", None)  # Allow specifying custom volume
-            await self._play_sound(effect_name, loop=loop, volume=volume)
+            on_finish_event = event.get("on_finish_event")
+            await self._play_sound(effect_name, loop=loop, volume=volume, on_finish_event=on_finish_event)
         elif event_type == "stop_sound":
             effect_name = event.get("effect_name")  # For logging purposes
             self.audio_manager.stop_sound(effect_name)
@@ -211,31 +212,40 @@ class AudioService(BaseService):
         if volume_changed:
             await self._play_sound(SoundEffect.SQUEAK)
 
-    async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None) -> bool:
+    async def _play_sound(self, effect_name: str, loop: bool = False, volume: float = None, on_finish_event: asyncio.Event = None) -> bool:
         """Helper method to play a sound effect with error handling
         Args:
             effect_name: Name of the sound effect to play
             loop: Whether to loop the sound effect (default: False)
             volume: Optional specific volume to use (default: None, uses default volume)
+            on_finish_event: An asyncio.Event to set when the sound finishes playing.
         Returns:
             bool: True if sound played successfully, False otherwise
         """
         if not self.audio_manager:
             self.logger.warning("Cannot play sound - audio manager not initialized")
+            if on_finish_event:
+                on_finish_event.set() # Don't block forever if audio isn't running
             return False
             
         try:
             event_loop = asyncio.get_running_loop()
 
             def on_finish_sync_callback(effect_name_finished):
-                async def publish_finish_event():
+                async def finish_actions():
                     self.logger.info(f"Sound effect '{effect_name_finished}' finished playing.")
+                    # Publish the generic finish event
                     await self.publish({
                         "type": "sound_effect_finished",
                         "data": {"effect_name": effect_name_finished}
                     })
+                    # Set the specific event for the caller if provided
+                    if on_finish_event:
+                        # This needs to be thread-safe as it's called from the audio thread
+                        event_loop.call_soon_threadsafe(on_finish_event.set)
+
                 # Schedule the async function to run on the event loop from the background thread
-                event_loop.call_soon_threadsafe(asyncio.create_task, publish_finish_event())
+                event_loop.call_soon_threadsafe(asyncio.create_task, finish_actions())
 
             # Start playing the sound first
             success = await event_loop.run_in_executor(
