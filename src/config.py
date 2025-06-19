@@ -197,9 +197,9 @@ class SoundEffect(str, Enum):
     WEE2 = "wee2.wav"
     WEE3 = "wee3.wav"
     WEE4 = "wee4.wav"
-    BRING_BRING = f"bring_bring_{TTS_VOICE}.wav"
-    HMM = f"hmm_{TTS_VOICE}.wav"
-    YAY_PLAY = f"yay_play_{TTS_VOICE}.wav"
+    BRING_BRING = "bring_bring_ana.wav"# f"bring_bring_{TTS_VOICE}.wav" # TODO: Use VoiceService instead
+    HMM = "hmm_ana.wav"# f"hmm_{TTS_VOICE}.wav" # TODO: Use VoiceService instead
+    YAY_PLAY = "yay_play_ana.wav"# f"yay_play_{TTS_VOICE}.wav" # TODO: Use VoiceService instead
     LOW_BATTERY = "low_battery.wav"
     CHIME_LOW = "chime_low.wav"
     CHIME_MID = "chime_mid.wav"

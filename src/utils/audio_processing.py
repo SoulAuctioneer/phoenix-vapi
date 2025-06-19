@@ -65,7 +65,8 @@ class StreamingPitchShifter:
         self.pitchshifter = StftPitchShift(
             framesize=chunk_size,
             hopsize=chunk_size // 4, # A common overlap for STFT
-            samplerate=sample_rate
+            samplerate=sample_rate,
+            rms=True
         )
         self._input_buffer = np.array([], dtype=np.float32)
 
@@ -87,8 +88,7 @@ class StreamingPitchShifter:
         # Perform pitch shifting
         shifted_chunk_float = self.pitchshifter.shiftpitch(
             audio_chunk_float, 
-            factors=self.pitch_factor,
-            normalize=True
+            factors=self.pitch_factor
         )
         
         # Convert back to int16

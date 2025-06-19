@@ -19,9 +19,10 @@ sudo sh -c "echo 'hdmi_blanking=2' >> $CONFIG_PATH"
 NOTE: The thin wires on #0's LEDs might be causing the high power draw. If one of the others fails, could scavenge it.
 
 MOST IMPORTANT NOW:
+* MUST ENSURE ALL TTS STUFF IS CACHED ON ALL PEAS!!!!
 * Clean up mic ports on #3.
 * Fix respeaker on #5
-* Finish upgrading V1 pea
+* Two voices
 * Change spoken hints for some kinda whoopy bloop peanglish.
 * Squealing activity also needs some lights
 # Split scavenger hunt into the two paths.
