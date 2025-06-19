@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 from managers.voice_manager import VoiceManager
 from config import ElevenLabsConfig
 
+# The default pitch used when an event doesn't specify one.
+# This must match VoiceService.DEFAULT_PITCH to ensure cache hits.
+DEFAULT_PITCH = 4.0
+
 # --- List of texts to pre-cache ---
 # You can add any text here to pre-cache it.
 TEXTS_TO_CACHE = [
@@ -100,7 +104,7 @@ async def precache_tts_audio():
             # Using default TTS parameters for now.
             # If you use custom parameters (voice, pitch, etc.) in your app,
             # you'll need to replicate them here for the cache to match.
-            cache_key = generate_cache_key(text, voice_id=voice_id)
+            cache_key = generate_cache_key(text, voice_id=voice_id, pitch=DEFAULT_PITCH)
             cache_path = pre_cache_dir / f"{cache_key}.pcm"
 
             if cache_path.exists():
@@ -111,7 +115,7 @@ async def precache_tts_audio():
             logger.info(f"Caching '{text[:40]}...' for voice {voice_name}")
             
             try:
-                audio_stream = await voice_manager.generate_audio_stream(text, voice_id=voice_id)
+                audio_stream = await voice_manager.generate_audio_stream(text, voice_id=voice_id, pitch=DEFAULT_PITCH)
                 if audio_stream:
                     audio_bytes = b"".join([chunk async for chunk in audio_stream])
                     if audio_bytes:

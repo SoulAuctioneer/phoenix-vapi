@@ -201,7 +201,7 @@ class VoiceService(BaseService):
                 try:
                     async with aiofiles.open(pre_cache_path, 'rb') as f:
                         audio_data = await f.read()
-                    logger.info(f"Pre-cache hit for text: '{text[:30]}...' (key: {cache_key[:8]}...)")
+                    logger.info(f"Pre-cache hit for text: '{text[:30]}...' (key: {cache_key}...)")
                     return audio_data
                 except Exception as e:
                     logger.error(f"Error reading pre-cached audio file {pre_cache_path}: {e}")
@@ -212,13 +212,13 @@ class VoiceService(BaseService):
             try:
                 async with aiofiles.open(cache_path, 'rb') as f:
                     audio_data = await f.read()
-                logger.info(f"Cache hit for text: '{text[:30]}...' (key: {cache_key[:8]}...)")
+                logger.info(f"Cache hit for text: '{text[:30]}...' (key: {cache_key}...)")
                 return audio_data
             except Exception as e:
                 logger.error(f"Error reading cached audio file {cache_path}: {e}")
                 return None
         
-        logger.debug(f"Cache miss for text: '{text[:30]}...' (key: {cache_key[:8]}...)")
+        logger.debug(f"Cache miss for text: '{text[:30]}...' (key: {cache_key}...)")
         return None
 
     async def _save_to_cache(self, audio_data: bytes, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None):
@@ -229,7 +229,7 @@ class VoiceService(BaseService):
         try:
             async with aiofiles.open(cache_path, 'wb') as f:
                 await f.write(audio_data)
-            logger.info(f"Cached audio for text: '{text[:30]}...' (key: {cache_key[:8]}...)")
+            logger.info(f"Cached audio for text: '{text[:30]}...' (key: {cache_key})")
         except Exception as e:
             logger.error(f"Error saving audio to cache {cache_path}: {e}")
 
