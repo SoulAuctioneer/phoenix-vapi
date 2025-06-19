@@ -21,7 +21,7 @@ class ScavengerHuntActivity(BaseService):
         self._game_active: bool = False
         self._current_step: ScavengerHuntStep | None = None
         self._current_location_detected: bool = False  # Track if we've ever seen the next desired location.
-        self._remaining_steps: list[ScavengerHuntStep] = ScavengerHuntConfig.SCAVENGER_HUNT_STEPS
+        self._remaining_steps: list[ScavengerHuntStep] = list(ScavengerHuntConfig.SCAVENGER_HUNT_STEPS)
         self._last_spoken_time: float = time.time()
         self._speech_events: Dict[str, asyncio.Event] = {}
         self._victory_in_progress: bool = False
@@ -148,10 +148,12 @@ class ScavengerHuntActivity(BaseService):
         
         # Generate and speak the intro line
         all_objectives = [step.LOCATION.objective_name for step in ScavengerHuntConfig.SCAVENGER_HUNT_STEPS]
-        if len(all_objectives) > 1:
+        if len(all_objectives) > 2:
             # Format as "the A, the B, and the C"
             objectives_list_str = ", the ".join(all_objectives[:-1])
             objectives_list_str = f"the {objectives_list_str}, and the {all_objectives[-1]}"
+        elif len(all_objectives) == 2:
+            objectives_list_str = f"the {all_objectives[0]} and the {all_objectives[1]}"
         elif len(all_objectives) == 1:
             objectives_list_str = f"the {all_objectives[0]}"
         else:
