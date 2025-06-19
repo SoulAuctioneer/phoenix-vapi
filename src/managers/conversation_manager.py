@@ -312,7 +312,7 @@ class ConversationManager:
         self._initialized = False
         self._pitch_shifter = None
         
-        self._raw_audio_queue = asyncio.Queue(maxsize=10) # Intermediate queue
+        self._raw_audio_queue = queue.Queue(maxsize=10) # Intermediate queue
         self._audio_reader_thread = None
         self._pitch_shift_worker_task = None
 
@@ -1320,7 +1320,9 @@ class ConversationManager:
 
         try:
             while True:
-                raw_chunk = await self._raw_audio_queue.get()
+                raw_chunk = await loop.run_in_executor(
+                    None, self._raw_audio_queue.get
+                )
 
                 chunks_to_play = []
                 if self.state_manager.assistant_speaking and self._pitch_shifter:
@@ -1355,19 +1357,14 @@ class ConversationManager:
         while self.state_manager.state.can_receive_audio:
             try:
                 buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
-                if buffer and self.loop:
+                if buffer:
                     audio_np = np.frombuffer(buffer, dtype=np.int16)
-                    # Schedule the coroutine on the main event loop
-                    future = asyncio.run_coroutine_threadsafe(
-                        self._raw_audio_queue.put(audio_np),
-                        self.loop
-                    )
-                    future.result(timeout=1) # Wait for the put to complete
+                    try:
+                        self._raw_audio_queue.put_nowait(audio_np)
+                    except queue.Full:
+                        logger.warning("Raw audio queue is full. An audio chunk was dropped.")
                 else:
                     time.sleep(0.001) # Avoid tight loop if no buffer
-            except queue.Full:
-                 logger.warning("Raw audio queue is full. An audio chunk was dropped.")
-                 time.sleep(0.01) # Wait a bit before retrying
             except Exception as e:
                 if self.state_manager.state.can_receive_audio:
                     logger.error(f"Error in audio reader thread: {e}", exc_info=True)
