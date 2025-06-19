@@ -3,7 +3,10 @@
 import logging
 from typing import Dict, Any
 from services.service import BaseService
-from config import SoundEffect
+from config import SoundEffect, PLATFORM
+
+if PLATFORM == "raspberry-pi":
+    from utils import system as system_utils
 
 class SleepActivity(BaseService):
     """Service that manages the sleep activity state
@@ -24,6 +27,11 @@ class SleepActivity(BaseService):
         await super().start()
         self._is_active = True
         
+        if PLATFORM == "raspberry-pi":
+            self.logger.info("Entering power-saving sleep mode...")
+            await system_utils.set_cpu_governor("powersave")
+            await system_utils.set_bluetooth_enabled(False)
+
         # Start the breathing sound effect on loop
         # Commented out until I can figure out the volume issue
         # await self.publish({
@@ -54,6 +62,11 @@ class SleepActivity(BaseService):
         """Stop the sleep activity"""
         if self._is_active:
             self._is_active = False
+            
+            if PLATFORM == "raspberry-pi":
+                self.logger.info("Exiting power-saving sleep mode...")
+                await system_utils.set_cpu_governor("ondemand")
+                await system_utils.set_bluetooth_enabled(True)
             
             # Stop the breathing sound
             # Commented out until I can figure out the volume issue
