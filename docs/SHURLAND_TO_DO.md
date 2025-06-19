@@ -1,8 +1,24 @@
 FOR-THE-DAY NOTES:
 * Check if Pis wakeword / intent detection works even when offline. Seems to!
 
+Update all Pis:
+sudo apt-get update && sudo apt-get install -y build-essential gfortran libatlas-base-dev cpufrequtils
+source .venv/bin/activate
+pip install -r requirements.txt
+
+if [ -f "/boot/firmware/config.txt" ]; then
+    CONFIG_PATH="/boot/firmware/config.txt"
+else
+    CONFIG_PATH="/boot/config.txt"
+fi
+sudo sh -c "echo '' >> $CONFIG_PATH"
+sudo sh -c "echo '# Disable HDMI output for power savings' >> $CONFIG_PATH"
+sudo sh -c "echo 'hdmi_blanking=2' >> $CONFIG_PATH"
+
+
+NOTE: The thin wires on #0's LEDs might be causing the high power draw. If one of the others fails, could scavenge it.
+
 MOST IMPORTANT NOW:
-* Disable HDMI on all devices, install any new dependencies, including i2c-tools cpufrequtils
 * Clean up mic ports on #3.
 * Fix respeaker on #5
 * Finish upgrading V1 pea
