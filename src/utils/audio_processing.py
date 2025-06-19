@@ -90,8 +90,7 @@ class StreamingPitchShifter:
         # Perform pitch shifting
         shifted_chunk_float = self.pitchshifter.shiftpitch(
             audio_chunk_float, 
-            factors=self.pitch_factor,
-            rms=True
+            factors=self.pitch_factor
         )
         
         logger.debug(f"Shifted chunk (float): shape={shifted_chunk_float.shape}, dtype={shifted_chunk_float.dtype}, min={np.min(shifted_chunk_float)}, max={np.max(shifted_chunk_float)}")
