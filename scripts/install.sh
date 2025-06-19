@@ -110,36 +110,25 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
             REBOOT_REQUIRED=1
         fi
         
-        # Disable HDMI on boot for power saving
-        RC_LOCAL_PATH="/etc/rc.local"
-        if [ -f "$RC_LOCAL_PATH" ]; then
-            # Check if tvservice command is already in rc.local
-            if ! grep -q "/usr/bin/tvservice -o" "$RC_LOCAL_PATH"; then
-                echo "Disabling HDMI on boot by adding 'tvservice -o' to $RC_LOCAL_PATH"
-                # Insert command before 'exit 0'
-                sudo sed -i -e 's/^exit 0/\/usr\/bin\/tvservice -o\nexit 0/' "$RC_LOCAL_PATH"
-            fi
-        else
-            echo "Creating $RC_LOCAL_PATH to disable HDMI on boot..."
-            sudo bash -c "cat > $RC_LOCAL_PATH" << EOL
-#!/bin/sh -e
-#
-# rc.local
-#
-# This script is executed at the end of each multiuser runlevel.
-# Make sure that the script will "exit 0" on success or any other
-# value on error.
-#
-# In order to enable or disable this script just change the execution
-# bits.
-#
-# By default this script does nothing.
+        # Disable HDMI on boot for power saving using a systemd service
+        HDMI_SERVICE_FILE="/etc/systemd/system/hdmi-off.service"
+        if [ ! -f "$HDMI_SERVICE_FILE" ]; then
+            echo "Creating systemd service to disable HDMI on boot..."
+            sudo bash -c "cat > $HDMI_SERVICE_FILE" << EOL
+[Unit]
+Description=Disable HDMI output for power savings
 
-/usr/bin/tvservice -o
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/tvservice -o
+RemainAfterExit=yes
 
-exit 0
+[Install]
+WantedBy=multi-user.target
 EOL
-            sudo chmod +x "$RC_LOCAL_PATH"
+            sudo systemctl daemon-reload
+            sudo systemctl enable hdmi-off.service
+            echo "HDMI will be disabled on next boot."
         fi
         
         # Create udev rule for NeoPixel access if it doesn't exist
