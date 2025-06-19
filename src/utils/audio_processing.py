@@ -89,7 +89,7 @@ class StreamingPitchShifter:
         
         # Perform pitch shifting
         shifted_chunk_float = self.pitchshifter.shiftpitch(
-            x=audio_chunk_float, 
+            audio_chunk_float, 
             factors=self.pitch_factor,
             rms=True
         )
