@@ -257,6 +257,7 @@ class ElevenLabsConfig:
         "ana": "dPKFsZN0BnPRUfVI2DUW",
         "blondie": "exsUS4vynmxd379XN4yO",
         "lucy": "lcMyyd2HUfFzxdCaC4Ta",
+        "daria": "DUhzmIGFwXJ752SvgcCj"
     }
     # Find voice IDs using: https://api.elevenlabs.io/v1/voices
     DEFAULT_VOICE_ID = VOICE_IDS.get(TTS_VOICE, VOICE_IDS["ana"])

@@ -9,12 +9,12 @@ TODAY:
 # Split scavenger hunt into the two paths.
 * Create mother pea activity.
 * MUST ENSURE ALL TTS STUFF IS CACHED ON ALL PEAS!!!!
-* Two voices
+* Set two peas to the another voice
 * Test shutting down with command
 * Clean up mic ports on #3.
 
 TOMORROW:
-* Upgrade Tom's pea.
+* Upgrade Tom's pea (software instructions at bottom).
 * Make conversation voice sound childish. Maybe just do call/response from wakword+intent only.
 * Add squeal effects etc to squealing activity.
 * Lights in botany dock
