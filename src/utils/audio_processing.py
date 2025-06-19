@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import time
 from config import AudioBaseConfig, get_filter_logger
 
 logger = get_filter_logger(__name__)
@@ -86,22 +87,32 @@ class StreamingPitchShifter:
         logger.debug(f"Processing chunk: shape={audio_chunk.shape}, dtype={audio_chunk.dtype}, min={np.min(audio_chunk)}, max={np.max(audio_chunk)}")
 
         # Convert to float32 for processing
+        conversion_start_time = time.time()
         audio_chunk_float = audio_chunk.astype(np.float32) / 32768.0
+        conversion_end_time = time.time()
+        logger.debug(f"Conversion to float32 took {conversion_end_time - conversion_start_time:.4f}s")
         
         # Perform pitch shifting
+        shift_start_time = time.time()
         shifted_chunk_float = self.pitchshifter.shiftpitch(
             audio_chunk_float, 
             factors=self.pitch_factor
         )
+        shift_end_time = time.time()
+        logger.debug(f"stftpitchshift.shiftpitch took {shift_end_time - shift_start_time:.4f}s")
         
         logger.debug(f"Shifted chunk (float): shape={shifted_chunk_float.shape}, dtype={shifted_chunk_float.dtype}, min={np.min(shifted_chunk_float)}, max={np.max(shifted_chunk_float)}")
 
         # Convert back to int16
+        reconversion_start_time = time.time()
         shifted_chunk_int16 = (shifted_chunk_float * 32767).astype(np.int16)
+        reconversion_end_time = time.time()
+        logger.debug(f"Conversion to int16 took {reconversion_end_time - reconversion_start_time:.4f}s")
         
         logger.debug(f"Shifted chunk (int16): shape={shifted_chunk_int16.shape}, dtype={shifted_chunk_int16.dtype}, min={np.min(shifted_chunk_int16)}, max={np.max(shifted_chunk_int16)}")
 
         # Add new data to the internal output buffer
+        buffering_start_time = time.time()
         self._output_buffer = np.concatenate([self._output_buffer, shifted_chunk_int16])
 
         # Extract as many full chunks as possible
@@ -109,6 +120,8 @@ class StreamingPitchShifter:
         while len(self._output_buffer) >= self.chunk_size:
             chunks_to_return.append(self._output_buffer[:self.chunk_size])
             self._output_buffer = self._output_buffer[self.chunk_size:]
+        buffering_end_time = time.time()
+        logger.debug(f"Buffering and chunking took {buffering_end_time - buffering_start_time:.4f}s")
         
         logger.debug(f"Returning {len(chunks_to_return)} chunks of size {self.chunk_size}")
         return chunks_to_return
