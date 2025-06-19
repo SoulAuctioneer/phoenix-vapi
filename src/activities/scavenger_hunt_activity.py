@@ -123,13 +123,14 @@ class ScavengerHuntActivity(BaseService):
         self._current_step = self._remaining_steps.pop(0)
         self._current_location_detected = False
         self._current_distance = Distance.UNKNOWN
-        self._step_transition_in_progress = False  # Reset for the new step
         
         step_data = ScavengerHuntConfig.LOCATION_DATA.get(self._current_step.location)
         if step_data:
             await self._speak_and_update_timer(random.choice(step_data.start_voice_lines))
         else:
             self.logger.warning(f"No start voice line found for location: {self._current_step.location.name}")
+
+        self._step_transition_in_progress = False  # Reset for the new step
 
     @property
     def _current_step_name(self) -> str:
