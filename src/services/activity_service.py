@@ -33,7 +33,7 @@ class ActivityType(Enum):
 # Map activities to their required supporting services, activity-specific service, and optional start/stop sounds/TTS
 # Format: (list of supporting services, activity service name if any, start_sound, stop_sound, start_tts_text, stop_tts_text)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]] = {
-    ActivityType.FIRST_CONTACT: ([], 'conversation', None, None, None, None),
+    ActivityType.FIRST_CONTACT: ([], 'conversation', "YAWN2", None, None, None),
     ActivityType.CONVERSATION: ([], 'conversation', "YAWN2", None, None, None),
     ActivityType.MOVE: (['accelerometer'], 'move', "YAY_PLAY", None, None, None),
     ActivityType.HIDE_SEEK: (['location'], 'hide_seek', None, None, None, None),
