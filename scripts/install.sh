@@ -110,25 +110,15 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
             REBOOT_REQUIRED=1
         fi
         
-        # Disable HDMI on boot for power saving using a systemd service
-        HDMI_SERVICE_FILE="/etc/systemd/system/hdmi-off.service"
-        if [ ! -f "$HDMI_SERVICE_FILE" ]; then
-            echo "Creating systemd service to disable HDMI on boot..."
-            sudo bash -c "cat > $HDMI_SERVICE_FILE" << EOL
-[Unit]
-Description=Disable HDMI output for power savings
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/tvservice -o
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOL
-            sudo systemctl daemon-reload
-            sudo systemctl enable hdmi-off.service
-            echo "HDMI will be disabled on next boot."
+        # Disable HDMI on boot for power saving on modern RPi OS (Bookworm+)
+        if [ -f "$CONFIG_PATH" ]; then
+            if ! grep -q "^hdmi_blanking=2" "$CONFIG_PATH"; then
+                echo "Disabling HDMI on boot for power savings by adding 'hdmi_blanking=2' to $CONFIG_PATH"
+                sudo sh -c "echo '' >> $CONFIG_PATH" # Add newline for safety
+                sudo sh -c "echo '# Disable HDMI output for power savings' >> $CONFIG_PATH"
+                sudo sh -c "echo 'hdmi_blanking=2' >> $CONFIG_PATH"
+                REBOOT_REQUIRED=1
+            fi
         fi
         
         # Create udev rule for NeoPixel access if it doesn't exist
