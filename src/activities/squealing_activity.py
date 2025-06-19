@@ -32,27 +32,23 @@ class SquealingActivity(BaseService):
         # NOTE: Lower stability is more expressive. ElevenLabs default is likely 0.75.
         # We set it lower for more "panicked" speech.
         self._TTS_STABILITY = 0.5
-        self._tts_delay_min_sec = 0.5
-        self._tts_delay_max_sec = 2
+        self._tts_delay_min_sec = 0.3
+        self._tts_delay_max_sec = 1.5
         self._pickup_speech_delay_sec = 1
         self._squeal_actions = [
-            {"type": "speak", "value": "Where ARE we??!"},
             {"type": "sound", "value": "OUCH1"},
+            {"type": "speak", "value": "Where ARE we??!"},
             {"type": "speak", "value": "WHAT'S GOING ON?!"},
-            {"type": "sound", "value": "OUCH2"},
             {"type": "speak", "value": "Is THIS Earth??"},
             {"type": "speak", "value": "Waaah!!!"},
-            {"type": "sound", "value": "OUCH1"},
             {"type": "speak", "value": "Are we THERE yet?!"},
             {"type": "speak", "value": "I'm scared!!"},
             {"type": "sound", "value": "OUCH2"},
             {"type": "speak", "value": "Did we MAKE it?!"},
             {"type": "speak", "value": "I'm SO tired!!"},
             {"type": "speak", "value": "Wow that was such a long journey!!"},
-            {"type": "sound", "value": "OUCH1"},
-            {"type": "speak", "value": "OH NO! We've CRASHED!"},
+            {"type": "speak", "value": "Oh NOOO!! We've CRASHED!"},
             {"type": "speak", "value": "The transmitter's broken!"},
-            {"type": "sound", "value": "OUCH2"},
             {"type": "speak", "value": "I want GRANDMA!!!"}
         ]
         
@@ -207,6 +203,16 @@ class SquealingActivity(BaseService):
                     # Wait a second
                     await asyncio.sleep(self._pickup_speech_delay_sec)
 
+                    # Start twinkling effect for speech
+                    await self.publish({
+                        "type": "start_led_effect",
+                        "data": {
+                            "effect_name": "TWINKLING",
+                            "speed": 0.1,
+                            "brightness": self._LED_BRIGHTNESS
+                        }
+                    })
+
                     # Create an event to wait for TTS completion
                     tts_finished_event = asyncio.Event()
                     
@@ -224,6 +230,16 @@ class SquealingActivity(BaseService):
 
                     # Add a final sequence of yawns and snores
                     await asyncio.sleep(1)
+
+                    # Change to green breathing for yawn
+                    await self.publish({
+                        "type": "start_led_effect",
+                        "data": {
+                            "effect_name": "GREEN_BREATHING",
+                            "speed": 0.03, # Default calm speed
+                            "brightness": self._LED_BRIGHTNESS
+                        }
+                    })
 
                     yawn_finished_event = asyncio.Event()
                     await self.publish({
