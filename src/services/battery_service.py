@@ -43,7 +43,6 @@ class BatteryService(BaseService):
         self._is_charging: bool = False
         self._last_charging_check_voltage: float = 0.0
         # Add tracking for time estimates
-        self._last_charge_time: Optional[float] = None
         self._charge_rate: Optional[float] = None  # Percent per hour
         # Add tracking for low battery sound
         self._last_low_battery_sound_time: Optional[float] = None
@@ -190,44 +189,6 @@ class BatteryService(BaseService):
         # Always update last voltage to track small changes
         self._last_charging_check_voltage = voltage
         
-    def _update_charge_rate(self, current_charge: float, current_time: float) -> None:
-        """Update charge/discharge rate calculation
-        
-        Args:
-            current_charge: Current battery charge percentage
-            current_time: Current time in seconds
-        """
-        if self._last_charge_time is None:
-            self._last_charge_time = current_time
-            return
-            
-        # Calculate time difference in hours
-        time_diff = (current_time - self._last_charge_time) / 3600.0
-        if time_diff < 0.1:  # Require at least 6 minutes between measurements
-            return
-            
-        # Calculate charge rate in percent per hour
-        charge_diff = current_charge - self._last_charge
-        rate = charge_diff / time_diff
-        
-        # Update or initialize moving average of charge rate
-        if self._charge_rate is None:
-            self._charge_rate = rate
-        else:
-            # Use exponential moving average
-            alpha = 0.3  # Weight for new values
-            self._charge_rate = (alpha * rate) + ((1 - alpha) * self._charge_rate)
-            
-        self._last_charge_time = current_time
-        
-        # Log significant rate changes
-        if abs(self._charge_rate) > 0.1:  # More than 0.1% per hour
-            direction = "charging" if self._charge_rate > 0 else "discharging"
-            self.logger.debug(
-                f"Battery {direction} at {abs(self._charge_rate):.1f}% per hour "
-                f"(current charge: {current_charge:.1f}%)"
-            )
-            
     def _estimate_time_remaining(self, current_charge: float) -> Optional[float]:
         """Estimate time remaining until empty/full in hours
         
@@ -322,7 +283,7 @@ class BatteryService(BaseService):
                 
                 # Update charging state and charge rate
                 await self._update_charging_state(voltage)
-                self._update_charge_rate(charge_percent, current_time)
+                self._charge_rate = self.max17.charge_rate
                 
                 # Calculate time estimate
                 time_remaining = self._estimate_time_remaining(charge_percent)
@@ -415,9 +376,17 @@ class BatteryService(BaseService):
             raise
             
     async def handle_event(self, event: Dict[str, Any]):
-        """Handle incoming events from other services
+        """Handle incoming events from other services.
         
-        Currently no events are handled, but could be extended to handle
-        configuration changes or monitoring control events.
+        Handles 'sleep' and 'wake' events to control battery monitor hibernation.
         """
-        pass  # No events handled currently 
+        if not self.max17:
+            return  # No device to control
+
+        event_type = event.get("type")
+        if event_type == "device_sleep":
+            self.logger.info("Forcing battery monitor to hibernate.")
+            self.max17.hibernate()
+        elif event_type == "device_wake":
+            self.logger.info("Waking up battery monitor from hibernation.")
+            self.max17.wake()
