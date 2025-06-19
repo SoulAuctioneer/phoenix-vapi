@@ -68,16 +68,17 @@ class StreamingPitchShifter:
             samplerate=sample_rate
         )
         self._input_buffer = np.array([], dtype=np.float32)
+        self._output_buffer = np.array([], dtype=np.int16)
         logger.debug(f"StreamingPitchShifter initialized with pitch_factor={pitch_factor}, sample_rate={sample_rate}, chunk_size={chunk_size}")
 
     def process_chunk(self, audio_chunk: np.ndarray) -> np.ndarray:
         """
-        Process a chunk of audio, returning the pitch-shifted chunk.
+        Process a chunk of audio, returning any available pitch-shifted chunks of the correct size.
         Handles internal buffering to ensure continuous processing.
         Args:
             audio_chunk (np.ndarray): Input audio chunk (int16).
         Returns:
-            np.ndarray: Pitch-shifted audio chunk (int16).
+            List[np.ndarray]: A list of pitch-shifted audio chunks, each of the configured chunk_size.
         """
         if audio_chunk.dtype != np.int16:
             raise ValueError("Input audio chunk must be of type np.int16")
@@ -100,8 +101,19 @@ class StreamingPitchShifter:
         
         logger.debug(f"Shifted chunk (int16): shape={shifted_chunk_int16.shape}, dtype={shifted_chunk_int16.dtype}, min={np.min(shifted_chunk_int16)}, max={np.max(shifted_chunk_int16)}")
 
-        return shifted_chunk_int16
+        # Add new data to the internal output buffer
+        self._output_buffer = np.concatenate([self._output_buffer, shifted_chunk_int16])
+
+        # Extract as many full chunks as possible
+        chunks_to_return = []
+        while len(self._output_buffer) >= self.chunk_size:
+            chunks_to_return.append(self._output_buffer[:self.chunk_size])
+            self._output_buffer = self._output_buffer[self.chunk_size:]
+        
+        logger.debug(f"Returning {len(chunks_to_return)} chunks of size {self.chunk_size}")
+        return chunks_to_return
 
     def clear(self):
         """Clear the internal buffer."""
         self._input_buffer = np.array([], dtype=np.float32) 
+        self._output_buffer = np.array([], dtype=np.int16) 

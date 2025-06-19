@@ -1146,19 +1146,24 @@ class ConversationManager:
                         audio_np = np.frombuffer(buffer, dtype=np.int16)
 
                         # Pitch shift if enabled and assistant is speaking
+                        chunks_to_play = []
                         if self.state_manager.assistant_speaking and self._pitch_shifter:
                             # Run the CPU-bound pitch shifting in a thread pool to avoid blocking the event loop
-                            audio_np = await loop.run_in_executor(
+                            processed_chunks = await loop.run_in_executor(
                                 None, self._pitch_shifter.process_chunk, audio_np
                             )
-                            logger.debug("Pitch shifting complete, chunk ready for producer.")
+                            if processed_chunks:
+                                chunks_to_play.extend(processed_chunks)
+                        else:
+                            chunks_to_play.append(audio_np)
 
                         # Put the (potentially pitch-shifted) audio into the producer's buffer
-                        if audio_np is not None and audio_np.size > 0:
-                            self._audio_producer.buffer.put(audio_np)
-                            logger.debug(f"Put audio chunk of size {audio_np.size} into producer 'daily_call'.")
-                        else:
-                            logger.warning("Pitch-shifted audio chunk is empty, not putting in buffer.")
+                        for chunk in chunks_to_play:
+                            if chunk is not None and chunk.size > 0:
+                                self._audio_producer.buffer.put(chunk)
+                                logger.debug(f"Put audio chunk of size {chunk.size} into producer 'daily_call'.")
+                            else:
+                                logger.warning("Pitch-shifted audio chunk is empty, not putting in buffer.")
                     
                     # Yield control to the event loop briefly
                     await asyncio.sleep(0.001)
