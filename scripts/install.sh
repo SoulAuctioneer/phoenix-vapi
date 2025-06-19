@@ -27,7 +27,8 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         libdbus-1-dev \
         pkg-config \
         python3-dev \
-        python3-pip
+        python3-pip \
+        rubberband-cli # For TTS pitch shifting
     
     # Add user to bluetooth group
     if ! groups $USER | grep -q "bluetooth"; then
