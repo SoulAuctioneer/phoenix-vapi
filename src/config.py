@@ -210,6 +210,7 @@ class SoundEffect(str, Enum):
     OUCH1 = "ouch1.wav"
     OUCH2 = "ouch2.wav"
     SQUEAK = "squeak.wav"
+    SNORE = "snore.wav"
     CHIRP1 = "chirp1.wav"
     CHIRP2 = "chirp2.wav"
     CHIRP3 = "chirp3.wav"
