@@ -95,11 +95,6 @@ class ScavengerHuntActivity(BaseService):
                 pass
             self._sound_task = None
         
-        await self.publish({
-            "type": "stop_led_effect",
-            "data": { "effect_name": "ROTATING_BEACON" }
-        })
-        
         await super().stop()
         self.logger.info("scavenger hunt service stopped")
         
@@ -181,17 +176,6 @@ class ScavengerHuntActivity(BaseService):
         self.logger.info("Scavenger hunt won! Starting victory sequence.")
         self._game_active = False # Stop hint loop and other background processes
         
-        # Stop any ongoing hint speech
-        await self.publish({
-            "type": "stop_sound",
-            "effect_name": "elevenlabs_tts"
-        })
-        # Stop the beacon
-        await self.publish({
-            "type": "stop_led_effect",
-            "data": { "effect_name": "ROTATING_BEACON" }
-        })
-
         # Start a celebratory LED effect
         await self.publish({
             "type": "start_led_effect",
