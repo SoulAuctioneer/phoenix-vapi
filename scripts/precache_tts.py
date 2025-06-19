@@ -5,6 +5,7 @@ from pathlib import Path
 import logging
 import hashlib
 from typing import Optional
+import aiofiles
 
 # Add src directory to the Python path to mimic the application's runtime environment
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -114,8 +115,8 @@ async def precache_tts_audio():
                 if audio_stream:
                     audio_bytes = b"".join([chunk async for chunk in audio_stream])
                     if audio_bytes:
-                        async with asyncio.to_thread(cache_path.open, 'wb') as f:
-                            f.write(audio_bytes)
+                        async with aiofiles.open(cache_path, 'wb') as f:
+                            await f.write(audio_bytes)
                         logger.info(f"-> Successfully cached '{text[:40]}...'.")
                         generated_count += 1
                     else:
