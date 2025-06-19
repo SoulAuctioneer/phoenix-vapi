@@ -399,7 +399,7 @@ class ConversationManager:
             self._audio_producer = self.audio_manager.add_producer(
                 "daily_call",
                 chunk_size=ConversationConfig.Audio.CHUNK_SIZE,
-                buffer_size=ConversationConfig.Audio.BUFFER_SIZE * 8,
+                buffer_size=ConversationConfig.Audio.BUFFER_SIZE,
                 is_stream=True
             )
             # Clear any existing data in the buffer
@@ -1148,10 +1148,15 @@ class ConversationManager:
                         # Pitch shift if enabled and assistant is speaking
                         chunks_to_play = []
                         if self.state_manager.assistant_speaking and self._pitch_shifter:
+                            start_time = time.perf_counter()
                             # Run the CPU-bound pitch shifting in a thread pool to avoid blocking the event loop
                             processed_chunks = await loop.run_in_executor(
                                 None, self._pitch_shifter.process_chunk, audio_np
                             )
+                            end_time = time.perf_counter()
+                            processing_time = (end_time - start_time) * 1000
+                            logger.debug(f"Pitch shifting took {processing_time:.2f} ms.")
+
                             if processed_chunks:
                                 chunks_to_play.extend(processed_chunks)
                         else:
