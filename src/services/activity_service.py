@@ -15,6 +15,7 @@ from activities.call_activity import CallActivity
 from activities.play_music_activity import PlayMusicActivity
 import asyncio
 from config import ASSISTANT_CONFIG_FIRST_CONTACT
+from utils.system import shutdown_pi
 
 # TODO: Should this be StrEnum?
 class ActivityType(Enum):
@@ -378,7 +379,11 @@ class ActivityService(BaseService):
             elif intent == "play_music":
                 await self._queue_transition(ActivityType.PLAY_MUSIC)
             
-            # TODO: Handle "shut_down" intent
+            elif intent == "shut_down":
+                self.logger.info("Shut down intent received. Shutting down system.")
+                await self.publish({"type": "speak_audio", "text": "OK, shutting down."})
+                await shutdown_pi()
+
             else:
                 self.logger.error(f"Can't handle 'intent_detected' intent with value: {intent}.")
 

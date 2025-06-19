@@ -67,4 +67,16 @@ async def set_bluetooth_enabled(enabled: bool):
     # Add to /etc/sudoers.d/phoenix:
     # <user> ALL=(ALL) NOPASSWD: /usr/sbin/rfkill
     command = f"sudo rfkill {action} bluetooth"
+    await _run_shell_command(command)
+
+async def shutdown_pi():
+    """
+    Shuts down the Raspberry Pi gracefully.
+    Requires passwordless sudo for the `shutdown` command.
+    """
+    logger.info("Shutting down the system now.")
+    # NOTE: This requires passwordless sudo for the `shutdown` command.
+    # Add to /etc/sudoers.d/phoenix:
+    # <user> ALL=(ALL) NOPASSWD: /sbin/shutdown
+    command = "sudo shutdown -h now"
     await _run_shell_command(command) 
