@@ -9,6 +9,14 @@ from config import ElevenLabsConfig, AudioBaseConfig, get_filter_logger
 logger = get_filter_logger(__name__)
 logger.setLevel(logging.DEBUG)
 
+try:
+    import pyrubberband as pyrb
+    PYRUBBERBAND_AVAILABLE = True
+    logger.info("pyrubberband found, pitch shifting is available.")
+except ImportError:
+    PYRUBBERBAND_AVAILABLE = False
+    logger.warning("pyrubberband not found, pitch shifting is disabled. To enable, run: pip install pyrubberband")
+
 class VoiceManager:
     """Manages interactions with the ElevenLabs API for TTS"""
     def __init__(self):
@@ -25,7 +33,7 @@ class VoiceManager:
             logger.error(f"Failed to initialize ElevenLabs client: {e}")
             raise
 
-    async def generate_audio_stream(self, text: str, voice_id: str = None, model_id: str = None, stability: float = None, style: float = None, use_speaker_boost: bool = None):
+    async def generate_audio_stream(self, text: str, voice_id: str = None, model_id: str = None, stability: float = None, style: float = None, use_speaker_boost: bool = None, pitch: float = 0.0):
         """Generates audio stream from text using ElevenLabs API.
 
         Args:
@@ -36,6 +44,7 @@ class VoiceManager:
                        Value between 0.0 and 1.0. Defaults to None (api default).
             style: The style of the voice. A value between 0.0 and 1.0.
             use_speaker_boost: Whether to use speaker boost.
+            pitch: Pitch shift in semitones. Can be positive or negative. Requires pyrubberband.
 
         Returns:
             An async iterator yielding audio chunks (bytes).
@@ -68,8 +77,45 @@ class VoiceManager:
                 stream_params["voice_settings"] = voice_settings
 
             audio_stream_generator = self._async_client.text_to_speech.stream(**stream_params)
-            logger.info("Audio stream generation started.")
-            return audio_stream_generator
+            
+            if pitch != 0.0 and PYRUBBERBAND_AVAILABLE:
+                logger.info(f"Applying pitch shift of {pitch} semitones.")
+                # Buffer the entire audio stream. This adds latency but is necessary for pitch shifting.
+                audio_bytes = b"".join([chunk async for chunk in audio_stream_generator])
+                
+                # Convert to numpy array
+                audio_array = self.pcm_bytes_to_numpy(audio_bytes)
+
+                if audio_array.size == 0:
+                    logger.warning("Received empty audio stream from ElevenLabs.")
+                    async def empty_generator():
+                        yield b''
+                    return empty_generator()
+
+                # Pitch shift
+                pitch_shifted_array = pyrb.pitch_shift(
+                    audio_array, 
+                    AudioBaseConfig.SAMPLE_RATE, 
+                    n_steps=pitch
+                )
+
+                # Convert back to bytes
+                pitch_shifted_bytes = pitch_shifted_array.astype(np.int16).tobytes()
+                
+                # Create a new async generator for the pitch-shifted audio
+                async def shifted_audio_generator():
+                    # We can chunk it to simulate the original stream behavior
+                    chunk_size = 4096 # A reasonable chunk size
+                    for i in range(0, len(pitch_shifted_bytes), chunk_size):
+                        yield pitch_shifted_bytes[i:i+chunk_size]
+
+                logger.info("Audio stream generation with pitch shift started.")
+                return shifted_audio_generator()
+            else:
+                if pitch != 0.0 and not PYRUBBERBAND_AVAILABLE:
+                    logger.warning("Pitch shifting requested but pyrubberband is not installed. Ignoring pitch shift.")
+                logger.info("Audio stream generation started.")
+                return audio_stream_generator
         except Exception as e:
             logger.error(f"Error generating audio stream from ElevenLabs: {e}")
             return None

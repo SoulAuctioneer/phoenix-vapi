@@ -111,6 +111,7 @@ class VoiceService(BaseService):
     """Service to manage Text-to-Speech using VoiceManager and AudioManager."""
     TTS_CACHE_DIR = "data/tts_cache"  # Directory to store cached TTS audio files
     TTS_PRODUCER_NAME = "elevenlabs_tts" # A constant name for the TTS audio producer
+    DEFAULT_PITCH = 7.0
 
     def __init__(self, service_manager):
         super().__init__(service_manager)
@@ -162,7 +163,7 @@ class VoiceService(BaseService):
         await super().stop()
         logger.info("VoiceService stopped.")
 
-    def _generate_cache_key(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None) -> str:
+    def _generate_cache_key(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None) -> str:
         """Generate a unique cache key based on text and TTS parameters."""
         # Use default values if not provided
         from config import ElevenLabsConfig
@@ -170,7 +171,7 @@ class VoiceService(BaseService):
         model_id = model_id or ElevenLabsConfig.DEFAULT_MODEL_ID
         
         # Create a unique string combining all parameters
-        cache_string = f"{text}|{voice_id}|{model_id}|{stability}|{style}|{use_speaker_boost}"
+        cache_string = f"{text}|{voice_id}|{model_id}|{stability}|{style}|{use_speaker_boost}|{pitch}"
         
         # Generate SHA256 hash for filename
         hash_object = hashlib.sha256(cache_string.encode('utf-8'))
@@ -180,9 +181,9 @@ class VoiceService(BaseService):
         """Get the full path for a cached audio file."""
         return self._cache_dir / f"{cache_key}.pcm"
 
-    async def _check_cache(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None) -> Optional[bytes]:
+    async def _check_cache(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None) -> Optional[bytes]:
         """Check if audio is cached and return it if available."""
-        cache_key = self._generate_cache_key(text, voice_id, model_id, stability, style, use_speaker_boost)
+        cache_key = self._generate_cache_key(text, voice_id, model_id, stability, style, use_speaker_boost, pitch)
         cache_path = self._get_cache_path(cache_key)
         
         if cache_path.exists():
@@ -197,9 +198,9 @@ class VoiceService(BaseService):
         
         return None
 
-    async def _save_to_cache(self, audio_data: bytes, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None):
+    async def _save_to_cache(self, audio_data: bytes, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None):
         """Save audio data to cache."""
-        cache_key = self._generate_cache_key(text, voice_id, model_id, stability, style, use_speaker_boost)
+        cache_key = self._generate_cache_key(text, voice_id, model_id, stability, style, use_speaker_boost, pitch)
         cache_path = self._get_cache_path(cache_key)
         
         try:
@@ -302,6 +303,7 @@ class VoiceService(BaseService):
         stability = event.get("stability")
         style = event.get("style")
         use_speaker_boost = event.get("use_speaker_boost")
+        pitch = event.get("pitch", self.DEFAULT_PITCH)
         on_finish_event = event.get("on_finish_event")
 
         # 2. Define the on_finish callback for the producer
@@ -335,13 +337,13 @@ class VoiceService(BaseService):
         logger.info(f"Processing speak_audio event for text: '{text[:30]}...'")
         
         # 4. Check cache or stream audio
-        cached_audio = await self._check_cache(text, voice_id, model_id, stability, style, use_speaker_boost)
+        cached_audio = await self._check_cache(text, voice_id, model_id, stability, style, use_speaker_boost, pitch)
         
         play_coro = None
         if cached_audio:
             play_coro = self._play_cached_audio(tts_producer, cached_audio)
         else:
-            play_coro = self._stream_and_play_tts(tts_producer, text, voice_id, model_id, stability, style, use_speaker_boost)
+            play_coro = self._stream_and_play_tts(tts_producer, text, voice_id, model_id, stability, style, use_speaker_boost, pitch)
 
         # 5. Execute playback
         try:
@@ -390,7 +392,7 @@ class VoiceService(BaseService):
             logger.error(f"Error playing cached audio for '{tts_producer.name}': {e}", exc_info=True)
             self.audio_manager.remove_producer(tts_producer.name)
 
-    async def _stream_and_play_tts(self, tts_producer, text: str, voice_id: str = None, model_id: str = None, stability: float = None, style: float = None, use_speaker_boost: bool = None):
+    async def _stream_and_play_tts(self, tts_producer, text: str, voice_id: str = None, model_id: str = None, stability: float = None, style: float = None, use_speaker_boost: bool = None, pitch: float = 0.0):
         """Generates audio stream using VoiceManager and plays it via AudioManager."""
         try:
             tts_producer.loading = True # Mark as loading to prevent premature cleanup
@@ -400,7 +402,8 @@ class VoiceService(BaseService):
                 model_id=model_id,
                 stability=stability,
                 style=style,
-                use_speaker_boost=use_speaker_boost
+                use_speaker_boost=use_speaker_boost,
+                pitch=pitch
             )
 
             if not audio_stream_iterator:
@@ -421,7 +424,7 @@ class VoiceService(BaseService):
             
             if all_audio_chunks:
                 combined_audio = b''.join(all_audio_chunks)
-                await self._save_to_cache(combined_audio, text, voice_id, model_id, stability, style, use_speaker_boost)
+                await self._save_to_cache(combined_audio, text, voice_id, model_id, stability, style, use_speaker_boost, pitch)
 
             # Mark as finished loading so it can be cleaned up
             tts_producer.loading = False
