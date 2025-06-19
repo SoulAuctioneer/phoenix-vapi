@@ -1315,8 +1315,8 @@ class ConversationManager:
             self._pitch_shifter = StreamingPitchShifter(pitch_factor=pitch_factor)
             # "Warm up" the pitch shifter to avoid a long delay on the first chunk
             try:
-                logger.info("Warming up pitch shifter...")
-                warmup_chunk = np.zeros(ConversationConfig.Audio.CHUNK_SIZE, dtype=np.int16)
+                logger.info("Warming up pitch shifter with random noise...")
+                warmup_chunk = np.random.randint(-1000, 1000, ConversationConfig.Audio.CHUNK_SIZE, dtype=np.int16)
                 await loop.run_in_executor(
                     None, self._pitch_shifter.process_chunk, warmup_chunk
                 )
@@ -1330,24 +1330,35 @@ class ConversationManager:
 
         try:
             while True:
+                q_get_start_time = time.time()
                 raw_chunk = await loop.run_in_executor(
                     None, self._raw_audio_queue.get
                 )
+                q_get_end_time = time.time()
+                logger.debug(f"Pitch shift worker: got chunk from queue in {q_get_end_time - q_get_start_time:.4f}s. Queue size: {self._raw_audio_queue.qsize()}")
+
 
                 chunks_to_play = []
                 if self.state_manager.assistant_speaking and self._pitch_shifter:
+                    shift_start_time = time.time()
                     processed_chunks = await loop.run_in_executor(
                         None, self._pitch_shifter.process_chunk, raw_chunk
                     )
+                    shift_end_time = time.time()
+                    logger.debug(f"Pitch shifting took {shift_end_time - shift_start_time:.4f}s")
                     if processed_chunks:
                         chunks_to_play.extend(processed_chunks)
                 else:
                     chunks_to_play.append(raw_chunk)
 
-                for chunk in chunks_to_play:
-                    if chunk is not None and chunk.size > 0:
-                        # This put is blocking, but the buffer is sized to handle it
-                        self._audio_producer.buffer.put(chunk)
+                if chunks_to_play:
+                    put_start_time = time.time()
+                    for chunk in chunks_to_play:
+                        if chunk is not None and chunk.size > 0:
+                            # This put is blocking, but the buffer is sized to handle it
+                            self._audio_producer.buffer.put(chunk)
+                    put_end_time = time.time()
+                    logger.debug(f"Put {len(chunks_to_play)} chunks to producer buffer in {put_end_time - put_start_time:.4f}s")
 
                 self._raw_audio_queue.task_done()
 
@@ -1368,6 +1379,7 @@ class ConversationManager:
             try:
                 buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
                 if buffer:
+                    logger.debug(f"Read {len(buffer)} bytes from speaker device.")
                     audio_np = np.frombuffer(buffer, dtype=np.int16)
                     try:
                         self._raw_audio_queue.put_nowait(audio_np)
