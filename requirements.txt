@@ -15,8 +15,8 @@ flask # web server for CallActivity
 pyngrok # ngrok for local development server
 elevenlabs # ElevenLabs Text-to-Speech API
 aiofiles # async file I/O for TTS caching
-pyrubberband # Pitch shifting for TTS TODO: Remove as we are replacing with below
-stftpitchshift # Added from the code block
+pyrubberband # Pitch shifting for TTS non-streaming
+stftpitchshift # Pitch shifting for TTS streaming
 
 # Platform-specific packages
 rpi_ws281x; sys_platform == 'linux'  # Only install on Linux
