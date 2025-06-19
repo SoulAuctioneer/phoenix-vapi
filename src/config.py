@@ -250,9 +250,17 @@ class SoundEffect(str, Enum):
 # ElevenLabs Configuration
 class ElevenLabsConfig:
     """Configuration for ElevenLabs Text-to-Speech"""
-    API_KEY = ELEVENLABS_API_KEY
+
+    VOICE_IDS = {
+        "timmy": "chcMmmtY1cmQh2ye1oXi",
+        "ana": "dPKFsZN0BnPRUfVI2DUW",
+        "blondie": "exsUS4vynmxd379XN4yO",
+        "lucy": "lcMyyd2HUfFzxdCaC4Ta",
+    }
     # Find voice IDs using: https://api.elevenlabs.io/v1/voices
-    DEFAULT_VOICE_ID = "chcMmmtY1cmQh2ye1oXi" if TTS_VOICE == "timmy" else "dPKFsZN0BnPRUfVI2DUW" # Timmy / Mister Wibble or Ana-Rita3 / Fifi
+    DEFAULT_VOICE_ID = VOICE_IDS[TTS_VOICE]
+
+    API_KEY = ELEVENLABS_API_KEY
     DEFAULT_MODEL_ID = "eleven_turbo_v2_5" # Or "eleven_turbo_v2_5" for lower latency
     OUTPUT_FORMAT = "pcm_16000" # Use PCM format matching our AudioManager sample rate
     # Example: OUTPUT_FORMAT = "mp3_44100_128" # If using different settings
