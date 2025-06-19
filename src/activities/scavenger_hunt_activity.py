@@ -74,10 +74,9 @@ class ScavengerHuntActivity(BaseService):
             objectives_list_str = "all the missing parts" # Fallback
 
         intro_text = (
-            f"Yay! My tummy light will spin faster the closer we get to a missing part. We need to find {objectives_list_str}. ... Let's go!"
+            f"Yaaay! My tummy light will spin faster the closer we get to a missing part. We need to find {objectives_list_str}. ... Let's go!"
         )
-        await self._speak_and_update_timer(intro_text)
-        await asyncio.sleep(18) # Give a moment for the long intro to finish.
+        await self._speak_and_update_timer(intro_text, wait_for_completion=True)
         
         # Start the first step in our hunt.
         await self._start_next_step()
@@ -105,13 +104,24 @@ class ScavengerHuntActivity(BaseService):
         await super().stop()
         self.logger.info("scavenger hunt service stopped")
         
-    async def _speak_and_update_timer(self, text: str):
+    async def _speak_and_update_timer(self, text: str, wait_for_completion: bool = False):
         """Helper to speak and reset the inactivity timer."""
+        finish_event = None
+        if wait_for_completion:
+            finish_event = asyncio.Event()
+            
         await self.publish({
             "type": "speak_audio",
-            "text": text
+            "text": text,
+            "on_finish_event": finish_event
         })
         self._last_spoken_time = time.time()
+        
+        if finish_event:
+            try:
+                await finish_event.wait()
+            except asyncio.CancelledError:
+                self.logger.info("Wait for speech completion cancelled.")
 
     async def _start_next_step(self):
         if not self._remaining_steps:
@@ -197,10 +207,10 @@ class ScavengerHuntActivity(BaseService):
             "Now we can fix the transmitter and call Grandmother Pea on the Mothership! "
             "You're the best! Thank you so much for helping us! Now I can have a nice relaxing nap!"
         )
-        await self._speak_and_update_timer(victory_text)
+        await self._speak_and_update_timer(victory_text, wait_for_completion=True)
         
         # Let the effect and speech play out
-        await asyncio.sleep(18)
+        await asyncio.sleep(2) # Give a moment for the effect to be seen after speech
         
         # Formally publish the win event to be handled by the activity service
         # We create a task here to avoid a deadlock where this service awaits
@@ -212,7 +222,7 @@ class ScavengerHuntActivity(BaseService):
     async def _transition_to_next_step(self):
         step_data = ScavengerHuntConfig.LOCATION_DATA.get(self._current_step.location)
         if step_data:
-            await self._speak_and_update_timer(random.choice(step_data.end_voice_lines))
+            await self._speak_and_update_timer(random.choice(step_data.end_voice_lines), wait_for_completion=True)
         else:
             self.logger.warning(f"No end voice line found for location: {self._current_step.location.name}")
             
@@ -246,13 +256,7 @@ class ScavengerHuntActivity(BaseService):
         """Handle events from other services"""
         event_type = event.get("type")
 
-        if event_type == "speech_finished":
-            key = event.get("key")
-            if key and key in self._speech_events:
-                self._speech_events[key].set()
-                del self._speech_events[key]
-
-        elif event_type == "all_beacons_update":
+        if event_type == "all_beacons_update":
             if self._victory_in_progress or not self._current_step or self._step_transition_in_progress:
                 return
             beacons = event.get("data", {}).get("beacons", {})

@@ -428,15 +428,15 @@ class ScavengerHuntConfig:
 
     LOCATION_DATA: dict[ScavengerHuntLocation, ScavengerHuntLocationData] = {
         ScavengerHuntLocation.LOCATION1: ScavengerHuntLocationData(
-            start_voice_lines=["The Junction Box is where all the giggly wires meet up to tell secrets!"],
+            start_voice_lines=["First, the Junction Box is where all the giggly wires meet up to tell secrets!"],
             end_voice_lines=["Yay! We found the Junction Box! All the wires are wiggling with happiness. Great job!"]
         ),
         ScavengerHuntLocation.LOCATION2: ScavengerHuntLocationData(
-            start_voice_lines=["The Transmitter Valve helps us send messages to the stars!"],
+            start_voice_lines=["Next, the Transmitter Valve helps us send messages to the stars!"],
             end_voice_lines=["Yay! We found it! The Transmitter Valve is open and ready to whoosh our messages out!"]
         ),
         ScavengerHuntLocation.LOCATION3: ScavengerHuntLocationData(
-            start_voice_lines=["The Signal Processor unscrambles all the funny space noises!"],
+            start_voice_lines=["Last one! The Signal Processor unscrambles all the funny space noises!"],
             end_voice_lines=["Yes! The Signal Processor! Now the alien chatter sounds like songs instead of gobbledegook."]
         ),
         ScavengerHuntLocation.LOCATION4: ScavengerHuntLocationData(
