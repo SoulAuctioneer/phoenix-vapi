@@ -12,6 +12,7 @@ import concurrent.futures
 from managers.audio_manager import AudioManager
 from config import ConversationConfig, FULL_ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT, get_filter_logger
 import queue
+from utils.audio_processing import StreamingPitchShifter, STFTPITCHSHIFT_AVAILABLE
 
 logger = get_filter_logger('conversation_manager')
 logger.setLevel(logging.DEBUG)
@@ -288,6 +289,8 @@ class CallEventHandler(daily.EventHandler):
 class ConversationManager:
     """Handles Daily call functionality and Vapi API integration"""
     
+    DEFAULT_PITCH_SEMITONES = 4.0
+
     def __init__(self, *, publish_event_callback=None, memory_manager=None):
         # Public attributes
         self.api_key = ConversationConfig.Vapi.API_KEY
@@ -306,6 +309,7 @@ class ConversationManager:
         self._call_client = None
         self._start_event = asyncio.Event()
         self._initialized = False
+        self._pitch_shifter = None
         
         # Message queue for non-interrupting messages
         self._message_queue = asyncio.Queue()
@@ -739,6 +743,7 @@ class ConversationManager:
             role = message.get("role", "")
             # Update speaking state based on status
             is_speaking = status == "started"
+
             await self.state_manager.set_speaking_state(role, is_speaking)
             logger.info(f"Speech update - Status: {status}, Role: {role}")
         elif msg_type == "transcript":
@@ -1122,12 +1127,25 @@ class ConversationManager:
             chunk_duration = ConversationConfig.Audio.CHUNK_SIZE / ConversationConfig.Audio.SAMPLE_RATE
             sleep_duration = chunk_duration / 2  # Sleep for half chunk duration
             
+            # Initialize pitch shifter if available
+            if STFTPITCHSHIFT_AVAILABLE:
+                # Convert semitones to a pitch factor
+                pitch_factor = 2 ** (self.DEFAULT_PITCH_SEMITONES / 12.0)
+                self._pitch_shifter = StreamingPitchShifter(pitch_factor=pitch_factor)
+            else:
+                self._pitch_shifter = None
+
             while self.state_manager.state.can_receive_audio:
                 try:
                     buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
                     if len(buffer) > 0 and self._audio_producer and self._audio_producer.active:
-                        # Convert bytes to numpy array and send to audio manager
+                        # Convert bytes to numpy array
                         audio_np = np.frombuffer(buffer, dtype=np.int16)
+
+                        # Pitch shift if enabled and assistant is speaking
+                        if self.state_manager.assistant_speaking and self._pitch_shifter:
+                            audio_np = self._pitch_shifter.process_chunk(audio_np)
+
                         # Important - do not change this line
                         self._audio_producer.buffer.put(audio_np)
                     
@@ -1140,6 +1158,10 @@ class ConversationManager:
                     await asyncio.sleep(0.001)
         except asyncio.CancelledError:
             logger.info("Receive bot audio task cancelled")
+            # Clean up pitch shifter
+            if self._pitch_shifter:
+                self._pitch_shifter.clear()
+                self._pitch_shifter = None
             raise
 
     async def _send_user_audio(self):

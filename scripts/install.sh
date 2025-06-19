@@ -16,7 +16,7 @@ is_raspberry_pi() {
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
     echo "Installing audio dependencies for macOS..."
-    brew install portaudio
+    brew install portaudio gcc
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     # Linux
     echo "Installing audio dependencies for Linux..."
@@ -28,7 +28,9 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         pkg-config \
         python3-dev \
         python3-pip \
-        rubberband-cli # For TTS pitch shifting
+        rubberband-cli \
+        build-essential gfortran libatlas-base-dev # For scipy/stftpitchshift \
+        i2c-tools cpufrequtils
     
     # Add user to bluetooth group
     if ! groups $USER | grep -q "bluetooth"; then
@@ -49,7 +51,7 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         fi
         
         # Install I2C tools
-        sudo apt-get install -y i2c-tools
+        sudo apt-get install -y i2c-tools cpufrequtils
         
         # Enable I2C interface with proper configuration for BNO085
         if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_PATH"; then
@@ -106,6 +108,38 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
             echo "Ensuring i2c-dev module is configured to load on boot..."
             echo "i2c-dev" | sudo tee -a /etc/modules > /dev/null
             REBOOT_REQUIRED=1
+        fi
+        
+        # Disable HDMI on boot for power saving
+        RC_LOCAL_PATH="/etc/rc.local"
+        if [ -f "$RC_LOCAL_PATH" ]; then
+            # Check if tvservice command is already in rc.local
+            if ! grep -q "/usr/bin/tvservice -o" "$RC_LOCAL_PATH"; then
+                echo "Disabling HDMI on boot by adding 'tvservice -o' to $RC_LOCAL_PATH"
+                # Insert command before 'exit 0'
+                sudo sed -i -e 's/^exit 0/\/usr\/bin\/tvservice -o\nexit 0/' "$RC_LOCAL_PATH"
+            fi
+        else
+            echo "Creating $RC_LOCAL_PATH to disable HDMI on boot..."
+            sudo bash -c "cat > $RC_LOCAL_PATH" << EOL
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+/usr/bin/tvservice -o
+
+exit 0
+EOL
+            sudo chmod +x "$RC_LOCAL_PATH"
         fi
         
         # Create udev rule for NeoPixel access if it doesn't exist

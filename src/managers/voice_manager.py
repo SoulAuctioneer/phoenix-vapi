@@ -5,17 +5,10 @@ print("Importing elevenlabs.client. This is very slow...")
 from elevenlabs.client import ElevenLabs, AsyncElevenLabs
 print("Imported elevenlabs.client.")
 from config import ElevenLabsConfig, AudioBaseConfig, get_filter_logger
+from utils.audio_processing import pitch_shift_audio, pcm_bytes_to_numpy, PYRUBBERBAND_AVAILABLE
 
 logger = get_filter_logger(__name__)
 logger.setLevel(logging.DEBUG)
-
-try:
-    import pyrubberband as pyrb
-    PYRUBBERBAND_AVAILABLE = True
-    logger.info("pyrubberband found, pitch shifting is available.")
-except ImportError:
-    PYRUBBERBAND_AVAILABLE = False
-    logger.warning("pyrubberband not found, pitch shifting is disabled. To enable, run: pip install pyrubberband")
 
 class VoiceManager:
     """Manages interactions with the ElevenLabs API for TTS"""
@@ -84,7 +77,7 @@ class VoiceManager:
                 audio_bytes = b"".join([chunk async for chunk in audio_stream_generator])
                 
                 # Convert to numpy array
-                audio_array = self.pcm_bytes_to_numpy(audio_bytes)
+                audio_array = pcm_bytes_to_numpy(audio_bytes)
 
                 if audio_array.size == 0:
                     logger.warning("Received empty audio stream from ElevenLabs.")
@@ -93,14 +86,14 @@ class VoiceManager:
                     return empty_generator()
 
                 # Pitch shift
-                pitch_shifted_array = pyrb.pitch_shift(
+                pitch_shifted_array = pitch_shift_audio(
                     audio_array, 
-                    AudioBaseConfig.SAMPLE_RATE, 
-                    n_steps=pitch
+                    pitch,
+                    AudioBaseConfig.SAMPLE_RATE
                 )
 
                 # Convert back to bytes
-                pitch_shifted_bytes = pitch_shifted_array.astype(np.int16).tobytes()
+                pitch_shifted_bytes = pitch_shifted_array.tobytes()
                 
                 # Create a new async generator for the pitch-shifted audio
                 async def shifted_audio_generator():
@@ -134,24 +127,4 @@ class VoiceManager:
             return response.voices
         except Exception as e:
             logger.error(f"Error fetching voices from ElevenLabs: {e}")
-            return None
-
-    # Static method to convert PCM bytes to numpy array
-    @staticmethod
-    def pcm_bytes_to_numpy(pcm_bytes: bytes) -> np.ndarray:
-        """Converts PCM audio bytes (expected int16) to a numpy array.
-
-        Args:
-            pcm_bytes: Raw PCM audio data as bytes.
-
-        Returns:
-            Numpy array of type int16.
-        """
-        try:
-            # Assuming the PCM format is s16le (signed 16-bit little-endian)
-            # which corresponds to np.int16
-            audio_array = np.frombuffer(pcm_bytes, dtype=np.int16)
-            return audio_array
-        except Exception as e:
-            logger.error(f"Error converting PCM bytes to numpy array: {e}")
-            return np.array([], dtype=np.int16) # Return empty array on error 
+            return None 
