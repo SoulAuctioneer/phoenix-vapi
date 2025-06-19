@@ -1183,6 +1183,29 @@ class ConversationManager:
                 self._pitch_shifter.clear()
                 self._pitch_shifter = None
             raise
+        except Exception as e:
+            logger.error(f"Error in receive audio task: {e}", exc_info=True)
+            await asyncio.sleep(0.1)
+
+    def _read_and_process_audio_chunk(self):
+        """
+        Reads a chunk of audio from the speaker device and processes it.
+        This function is designed to be run in an executor to handle blocking calls.
+        Returns a list of processed audio chunks.
+        """
+        # This is a blocking call.
+        buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
+        
+        if not (buffer and self._audio_producer and self._audio_producer.active):
+            return []
+
+        audio_np = np.frombuffer(buffer, dtype=np.int16)
+        
+        if self.state_manager.assistant_speaking and self._pitch_shifter:
+            processed_chunks = self._pitch_shifter.process_chunk(audio_np)
+            return processed_chunks
+        else:
+            return [audio_np]
 
     async def _send_user_audio(self):
         """Task for sending user audio to Daily"""
