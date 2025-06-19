@@ -466,8 +466,8 @@ class AudioManager:
                             else:
                                 if producer.buffer.buffer.empty():
                                     # Log when a producer's buffer is empty
-                                    if name == 'daily_call':
-                                        self.logger.warning(f"Producer '{name}' buffer is empty.")
+                                    #if name == 'daily_call':
+                                    #    self.logger.warning(f"Producer '{name}' buffer is empty.")
 
                                     # If looping is enabled and we have original audio data, queue it for requeuing
                                     if producer.loop and producer._original_audio is not None and producer.active:
