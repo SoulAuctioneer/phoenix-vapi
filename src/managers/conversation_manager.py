@@ -458,8 +458,9 @@ class ConversationManager:
             # Set initial volume for this call
             self.audio_manager.set_producer_volume("daily_call", self.state_manager.get_volume())
             
-            # Start the input thread
+            # Start the threads/tasks
             self._input_thread.start()
+            self._audio_reader_thread.start()
             
         except Exception as e:
             logger.error(f"Failed to initialize call audio: {e}")
