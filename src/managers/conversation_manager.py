@@ -1126,6 +1126,8 @@ class ConversationManager:
             # Calculate sleep time based on chunk size
             chunk_duration = ConversationConfig.Audio.CHUNK_SIZE / ConversationConfig.Audio.SAMPLE_RATE
             sleep_duration = chunk_duration / 2  # Sleep for half chunk duration
+
+            loop = asyncio.get_running_loop()
             
             # Initialize pitch shifter if available
             if STFTPITCHSHIFT_AVAILABLE:
@@ -1137,6 +1139,7 @@ class ConversationManager:
 
             while self.state_manager.state.can_receive_audio:
                 try:
+                    # NOTE: read_frames is a blocking call from the daily-python library
                     buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
                     if len(buffer) > 0 and self._audio_producer and self._audio_producer.active:
                         # Convert bytes to numpy array
@@ -1144,13 +1147,16 @@ class ConversationManager:
 
                         # Pitch shift if enabled and assistant is speaking
                         if self.state_manager.assistant_speaking and self._pitch_shifter:
-                            audio_np = self._pitch_shifter.process_chunk(audio_np)
+                            # Run the CPU-bound pitch shifting in a thread pool to avoid blocking the event loop
+                            audio_np = await loop.run_in_executor(
+                                None, self._pitch_shifter.process_chunk, audio_np
+                            )
 
-                        # Important - do not change this line
-                        self._audio_producer.buffer.put(audio_np)
+                        # Put the (potentially pitch-shifted) audio into the producer's buffer
+                        if audio_np is not None and audio_np.size > 0:
+                            self._audio_producer.buffer.put(audio_np)
                     
-                    # Always sleep a consistent amount to maintain timing
-                    # Important - do not change this line
+                    # Yield control to the event loop briefly
                     await asyncio.sleep(0.001)
                 except Exception as e:
                     if self.state_manager.state != CallState.ERROR:
