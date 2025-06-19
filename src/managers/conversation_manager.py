@@ -300,7 +300,6 @@ class ConversationManager:
         self.state_manager = CallStateManager(self)
         self.audio_manager = None
         self.memory_manager = memory_manager
-        self.loop = None
 
         # Private attributes - using single underscore
         self._mic_device = None
@@ -311,12 +310,7 @@ class ConversationManager:
         self._call_client = None
         self._start_event = asyncio.Event()
         self._initialized = False
-        self._pitch_shifter = None
         
-        self._raw_audio_queue = queue.Queue(maxsize=10) # Intermediate queue
-        self._audio_reader_thread = None
-        self._pitch_shift_worker_task = None
-
         # Message queue for non-interrupting messages
         self._message_queue = asyncio.Queue()
         self._message_processor_task = None
@@ -337,7 +331,6 @@ class ConversationManager:
             return
             
         try:
-            self.loop = asyncio.get_running_loop()
             # Initialize audio manager first
             self.audio_manager = AudioManager.get_instance()
             
@@ -350,45 +343,6 @@ class ConversationManager:
             
             # Start message processor task
             self._message_processor_task = asyncio.create_task(self._process_queued_messages())
-            
-            # Create the input thread first
-            self._input_thread = threading.Thread(
-                target=self._input_audio_thread,
-                name="DailyInputAudioThread"
-            )
-            self._input_thread.daemon = True
-            
-            # Create the audio reader thread and pitch shifting worker
-            self._audio_reader_thread = threading.Thread(
-                target=self._audio_reader_loop,
-                name="DailyAudioReaderThread"
-            )
-            self._audio_reader_thread.daemon = True
-            self._pitch_shift_worker_task = asyncio.create_task(self._pitch_shift_worker())
-
-            # Create minimal input buffer
-            self._input_buffer = queue.Queue(maxsize=4)  # Minimal buffer size
-            
-            # Register with audio manager for this call
-            self._audio_consumer = self.audio_manager.add_consumer(
-                self._handle_input_audio,
-                chunk_size=ConversationConfig.Audio.CHUNK_SIZE
-            )
-            self._audio_producer = self.audio_manager.add_producer(
-                "daily_call",
-                chunk_size=ConversationConfig.Audio.CHUNK_SIZE,
-                buffer_size=ConversationConfig.Audio.BUFFER_SIZE,
-                is_stream=True
-            )
-            # Clear any existing data in the buffer
-            self._audio_producer.buffer.clear()
-            
-            # Set initial volume for this call
-            self.audio_manager.set_producer_volume("daily_call", self.state_manager.get_volume())
-            
-            # Start the threads/tasks
-            self._input_thread.start()
-            self._audio_reader_thread.start()
             
             self._initialized = True
         except Exception as e:
@@ -431,14 +385,9 @@ class ConversationManager:
             )
             self._input_thread.daemon = True
             
-            # Create the audio reader thread and pitch shifting worker
-            self._audio_reader_thread = threading.Thread(
-                target=self._audio_reader_loop,
-                name="DailyAudioReaderThread"
-            )
-            self._audio_reader_thread.daemon = True
-            self._pitch_shift_worker_task = asyncio.create_task(self._pitch_shift_worker())
-
+            # Create the receive audio task
+            self._receive_bot_audio_task = asyncio.create_task(self._receive_bot_audio())
+            
             # Create minimal input buffer
             self._input_buffer = queue.Queue(maxsize=4)  # Minimal buffer size
             
@@ -459,9 +408,8 @@ class ConversationManager:
             # Set initial volume for this call
             self.audio_manager.set_producer_volume("daily_call", self.state_manager.get_volume())
             
-            # Start the threads/tasks
+            # Start the input thread
             self._input_thread.start()
-            self._audio_reader_thread.start()
             
         except Exception as e:
             logger.error(f"Failed to initialize call audio: {e}")
@@ -999,18 +947,15 @@ class ConversationManager:
     async def _cleanup_call_audio(self):
         """Cleanup audio components specific to a call"""
         # Cancel audio tasks if they exist and are not None
-        if hasattr(self, '_pitch_shift_worker_task') and self._pitch_shift_worker_task is not None:
-            self._pitch_shift_worker_task.cancel()
+        if hasattr(self, '_receive_bot_audio_task') and self._receive_bot_audio_task is not None:
+            self._receive_bot_audio_task.cancel()
             try:
-                await self._pitch_shift_worker_task
+                await self._receive_bot_audio_task
             except asyncio.CancelledError:
                 pass
-            self._pitch_shift_worker_task = None
+            self._receive_bot_audio_task = None
             
-        # Wait for threads to finish
-        if hasattr(self, '_audio_reader_thread') and self._audio_reader_thread is not None:
-            self._audio_reader_thread.join(timeout=1.0)
-            self._audio_reader_thread = None
+        # Wait for input thread to finish
         if hasattr(self, '_input_thread') and self._input_thread is not None:
             self._input_thread.join(timeout=1.0)
             self._input_thread = None
@@ -1169,6 +1114,39 @@ class ConversationManager:
         if self.state_manager.assistant_speaking and ConversationConfig.MUTE_WHEN_ASSISTANT_SPEAKING:
             self.add_message("user", "Wait, I want to say something.")
     
+    async def _receive_bot_audio(self):
+        """Task for receiving bot audio from Daily"""
+        try:
+            await self.state_manager.start_event.wait()
+            if self.state_manager.state == CallState.ERROR:
+                logger.error("Unable to receive bot audio due to error state")
+                return
+                
+            logger.info("Started receiving bot audio")
+            # Calculate sleep time based on chunk size
+            chunk_duration = ConversationConfig.Audio.CHUNK_SIZE / ConversationConfig.Audio.SAMPLE_RATE
+            sleep_duration = chunk_duration / 2  # Sleep for half chunk duration
+            
+            while self.state_manager.state.can_receive_audio:
+                try:
+                    buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
+                    if len(buffer) > 0 and self._audio_producer and self._audio_producer.active:
+                        # Convert bytes to numpy array and send to audio manager
+                        audio_np = np.frombuffer(buffer, dtype=np.int16)
+                        # Important - do not change this line
+                        self._audio_producer.buffer.put(audio_np)
+                    
+                    # Always sleep a consistent amount to maintain timing
+                    # Important - do not change this line
+                    await asyncio.sleep(0.001)
+                except Exception as e:
+                    if self.state_manager.state != CallState.ERROR:
+                        logger.error(f"Error in receive audio task: {e}")
+                    await asyncio.sleep(0.001)
+        except asyncio.CancelledError:
+            logger.info("Receive bot audio task cancelled")
+            raise
+
     async def _send_user_audio(self):
         """Task for sending user audio to Daily"""
         try:
@@ -1302,83 +1280,4 @@ class ConversationManager:
             except Exception as e:
                 logger.error(f"Error processing queued message: {e}")
                 await asyncio.sleep(0.1)
-
-    async def _pitch_shift_worker(self):
-        """
-        Gets raw audio from a queue, pitch-shifts it, and puts it into the
-        final producer buffer for playback.
-        """
-        loop = asyncio.get_running_loop()
-        
-        # Initialize pitch shifter if available
-        if STFTPITCHSHIFT_AVAILABLE and self.ENABLE_PITCH_SHIFT:
-            pitch_factor = 2 ** (self.DEFAULT_PITCH_SEMITONES / 12.0)
-            self._pitch_shifter = StreamingPitchShifter(pitch_factor=pitch_factor)
-            # "Warm up" the pitch shifter to avoid a long delay on the first chunk
-            try:
-                logger.info("Warming up pitch shifter with random noise...")
-                warmup_chunk = np.random.randint(-1000, 1000, ConversationConfig.Audio.CHUNK_SIZE, dtype=np.int16)
-                await loop.run_in_executor(
-                    None, self._pitch_shifter.process_chunk, warmup_chunk
-                )
-                logger.info("Pitch shifter warmed up.")
-            except Exception as e:
-                logger.error(f"Error warming up pitch shifter: {e}")
-        else:
-            self._pitch_shifter = None
-
-        logger.info("Pitch shift worker started.")
-
-        try:
-            while True:
-                raw_chunk = await loop.run_in_executor(
-                    None, self._raw_audio_queue.get
-                )
-
-                chunks_to_play = []
-                if self.state_manager.assistant_speaking and self._pitch_shifter:
-                    processed_chunks = await loop.run_in_executor(
-                        None, self._pitch_shifter.process_chunk, raw_chunk
-                    )
-                    if processed_chunks:
-                        chunks_to_play.extend(processed_chunks)
-                else:
-                    chunks_to_play.append(raw_chunk)
-
-                for chunk in chunks_to_play:
-                    if chunk is not None and chunk.size > 0:
-                        # This put is blocking, but the buffer is sized to handle it
-                        self._audio_producer.buffer.put(chunk)
-
-                self._raw_audio_queue.task_done()
-
-        except asyncio.CancelledError:
-            logger.info("Pitch shift worker cancelled.")
-            if self._pitch_shifter:
-                self._pitch_shifter.clear()
-        except Exception as e:
-            logger.error(f"Error in pitch shift worker: {e}", exc_info=True)
-
-    def _audio_reader_loop(self):
-        """
-        Dedicated thread to read audio from the blocking Daily device
-        and put it into a queue for async processing.
-        """
-        logger.info("Audio reader thread started.")
-        while self.state_manager.state.can_receive_audio:
-            try:
-                buffer = self._speaker_device.read_frames(ConversationConfig.Audio.CHUNK_SIZE)
-                if buffer:
-                    audio_np = np.frombuffer(buffer, dtype=np.int16)
-                    try:
-                        self._raw_audio_queue.put_nowait(audio_np)
-                    except queue.Full:
-                        logger.warning("Raw audio queue is full. An audio chunk was dropped.")
-                else:
-                    time.sleep(0.001) # Avoid tight loop if no buffer
-            except Exception as e:
-                if self.state_manager.state.can_receive_audio:
-                    logger.error(f"Error in audio reader thread: {e}", exc_info=True)
-                break
-        logger.info("Audio reader thread stopped.")
 
