@@ -111,6 +111,7 @@ logger.info("Imported VoiceManager.")
 class VoiceService(BaseService):
     """Service to manage Text-to-Speech using VoiceManager and AudioManager."""
     TTS_CACHE_DIR = "data/tts_cache"  # Directory to store cached TTS audio files
+    PRE_CACHE_DIR = "assets/tts_cache" # Directory for pre-cached audio files
     TTS_PRODUCER_NAME = "elevenlabs_tts" # A constant name for the TTS audio producer
     DEFAULT_PITCH = 4.0
 
@@ -119,6 +120,7 @@ class VoiceService(BaseService):
         self.voice_manager = None
         self.audio_manager = None
         self._cache_dir = None
+        self._pre_cache_dir = None
         self._current_tts_task: Optional[Tuple[asyncio.Task, Optional[asyncio.Event]]] = None
 
     async def start(self):
@@ -130,10 +132,16 @@ class VoiceService(BaseService):
             if not self.audio_manager.is_running:
                 logger.warning("AudioManager is not running. VoiceService might not play audio correctly.")
             
-            # Initialize cache directory
+            # Initialize cache directories
             self._cache_dir = Path(self.TTS_CACHE_DIR)
             self._cache_dir.mkdir(exist_ok=True)
-            logger.info(f"TTS cache directory: {self._cache_dir.absolute()}")
+            logger.info(f"TTS on-demand cache directory: {self._cache_dir.absolute()}")
+
+            self._pre_cache_dir = Path(self.PRE_CACHE_DIR)
+            if self._pre_cache_dir.exists():
+                logger.info(f"TTS pre-cache directory found: {self._pre_cache_dir.absolute()}")
+            else:
+                logger.warning(f"TTS pre-cache directory not found: {self._pre_cache_dir.absolute()}")
 
             logger.info("VoiceService started successfully.")
         except Exception as e:
@@ -185,8 +193,21 @@ class VoiceService(BaseService):
     async def _check_cache(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None) -> Optional[bytes]:
         """Check if audio is cached and return it if available."""
         cache_key = self._generate_cache_key(text, voice_id, model_id, stability, style, use_speaker_boost, pitch)
-        cache_path = self._get_cache_path(cache_key)
         
+        # Check pre-cache directory first
+        if self._pre_cache_dir.exists():
+            pre_cache_path = self._pre_cache_dir / f"{cache_key}.pcm"
+            if pre_cache_path.exists():
+                try:
+                    async with aiofiles.open(pre_cache_path, 'rb') as f:
+                        audio_data = await f.read()
+                    logger.info(f"Pre-cache hit for text: '{text[:30]}...' (key: {cache_key[:8]}...)")
+                    return audio_data
+                except Exception as e:
+                    logger.error(f"Error reading pre-cached audio file {pre_cache_path}: {e}")
+
+        # Then check on-demand cache directory
+        cache_path = self._get_cache_path(cache_key)
         if cache_path.exists():
             try:
                 async with aiofiles.open(cache_path, 'rb') as f:
@@ -197,6 +218,7 @@ class VoiceService(BaseService):
                 logger.error(f"Error reading cached audio file {cache_path}: {e}")
                 return None
         
+        logger.debug(f"Cache miss for text: '{text[:30]}...' (key: {cache_key[:8]}...)")
         return None
 
     async def _save_to_cache(self, audio_data: bytes, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None):

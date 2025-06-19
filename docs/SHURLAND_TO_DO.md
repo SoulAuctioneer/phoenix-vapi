@@ -1,12 +1,6 @@
-FOR-THE-DAY NOTES:
-* Check if Pis wakeword / intent detection works even when offline. Seems to!
-
-
-
-NOTE: The thin wires on #0's LEDs might be causing the high power draw. If one of the others fails, could scavenge it.
 
 TODAY:
-* Create new Rhino model with only stuff that we need for the event 
+* Create new Rhino model with only stuff that we need for the event:
   * Add stuff from intentservice. 
   * Don't forget two paths for scavenger hunt.
   * Make chat harder to trigger -- e.g. "Let's have a chat".
@@ -25,7 +19,8 @@ TOMORROW:
 * Add squeal effects etc to squealing activity.
 * Lights in botany dock
 * Try dynamically adjusting volume based on ambient noise levels
-* Fix respeaker on #5
+* Fix respeaker on #5:
+  * NOTE: The thin wires on #0's LEDs might be causing the high power draw. If one of the others fails, could scavenge it.
 
 LATER:
 * Need another PicoVoice account? ash.eldritch was disabled, but it seems to still be working?
@@ -106,7 +101,7 @@ if [ -f "/boot/firmware/config.txt" ]; then
 else
     CONFIG_PATH="/boot/config.txt"
 fi
-echo $CONFIG_PATH
+cat $CONFIG_PATH
 sudo sh -c "echo '' >> $CONFIG_PATH"
 sudo sh -c "echo '# Disable HDMI output for power savings' >> $CONFIG_PATH"
 sudo sh -c "echo 'hdmi_blanking=2' >> $CONFIG_PATH"
