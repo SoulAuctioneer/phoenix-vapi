@@ -417,6 +417,14 @@ class ScavengerHuntConfig:
     CHIRP_VOLUME = 0.5
     CHIRP_INTERVAL_SCALING_FACTOR = 10.0
 
+    INTRO_TEXT_TEMPLATE: str = "Yay! My tummy light will spin faster the closer we get to a missing part. We need to find {objectives_list_str}. ... Let's go!"
+    INTRO_FALLBACK_OBJECTIVES: str = "all the missing parts"
+    VICTORY_TEXT: str = (
+        "We did it! We found all the pieces! Hooray!! "
+        "Now we can fix the transmitter and call Grandmother Pea on the Mothership! "
+        "You're the best! ... Now I can have a nice, relaxing nap!"
+    )
+
     BEACON_RSSI_SPEED_MAPPING = {
         "max_rssi": -60,
         "min_rssi": -95,

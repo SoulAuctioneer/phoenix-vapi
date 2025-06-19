@@ -71,11 +71,9 @@ class ScavengerHuntActivity(BaseService):
         elif len(all_objectives) == 1:
             objectives_list_str = f"the {all_objectives[0]}"
         else:
-            objectives_list_str = "all the missing parts" # Fallback
+            objectives_list_str = ScavengerHuntConfig.INTRO_FALLBACK_OBJECTIVES # Fallback
 
-        intro_text = (
-            f"Yaaay! My tummy light will spin faster the closer we get to a missing part. We need to find {objectives_list_str}. ... Let's go!"
-        )
+        intro_text = ScavengerHuntConfig.INTRO_TEXT_TEMPLATE.format(objectives_list_str=objectives_list_str)
         await self._speak_and_update_timer(intro_text, wait_for_completion=True)
         
         # Start the first step in our hunt.
@@ -202,11 +200,7 @@ class ScavengerHuntActivity(BaseService):
         })
         
         # Victory speech
-        victory_text = (
-            "We did it! We found all the pieces! Hooray! "
-            "Now we can fix the transmitter and call Grandmother Pea on the Mothership! "
-            "You're the best! Thank you so much for helping us! Now I can have a nice relaxing nap!"
-        )
+        victory_text = ScavengerHuntConfig.VICTORY_TEXT
         await self._speak_and_update_timer(victory_text, wait_for_completion=True)
         
         # Let the effect and speech play out
