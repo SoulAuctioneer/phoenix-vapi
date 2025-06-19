@@ -6,16 +6,18 @@ import logging
 import hashlib
 from typing import Optional
 
-# Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add src directory to the Python path to mimic the application's runtime environment
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+src_path = os.path.join(project_root, 'src')
+sys.path.insert(0, src_path)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # This is slow, but necessary.
-from src.managers.voice_manager import VoiceManager
-from src.config import ElevenLabsConfig
+from managers.voice_manager import VoiceManager
+from config import ElevenLabsConfig
 
 # --- List of texts to pre-cache ---
 # You can add any text here to pre-cache it.
@@ -148,6 +150,9 @@ if __name__ == "__main__":
         logger.info(f"Loaded .env file from: {dotenv_path}")
     else:
         logger.warning(f".env file not found at {dotenv_path}. Environment variables should be set manually.")
+
+    # Move this import down here to ensure the path is set up first
+    from dotenv import load_dotenv
 
     # Check for API key before starting
     if not os.getenv("ELEVENLABS_API_KEY"):

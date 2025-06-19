@@ -14,6 +14,7 @@ TODAY:
 * Clean up mic ports on #3.
 
 TOMORROW:
+* Conversation first part of audio is being cut off, looks like amp is disabled initially for a moment. Started happening after the attempted pitch refactor.
 * Upgrade Tom's pea (software instructions at bottom).
 * Make conversation voice sound childish. Maybe just do call/response from wakword+intent only.
 * Add squeal effects etc to squealing activity.
@@ -92,7 +93,7 @@ Then finale: Mother pea voice recording says “Hey magic peas, don’t be afrai
 
 Update Tom's Pi:
 git pull
-sudo apt-get update && sudo apt-get install -y build-essential gfortran libatlas-base-dev cpufrequtils
+sudo apt-get update && sudo apt-get install -y build-essential gfortran libatlas-base-dev cpufrequtils rubberband-cli
 source .venv/bin/activate
 pip install -r requirements.txt
 

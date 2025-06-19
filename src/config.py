@@ -252,12 +252,13 @@ class SoundEffect(str, Enum):
 class ElevenLabsConfig:
     """Configuration for ElevenLabs Text-to-Speech"""
 
+    # TODO: pizero2 (Tom's and pizero5 (respeaker not working) don't have unique voices yet)
     VOICE_IDS = {
         "timmy": "chcMmmtY1cmQh2ye1oXi",
-        "ana": "dPKFsZN0BnPRUfVI2DUW",
-        "blondie": "exsUS4vynmxd379XN4yO",
-        "lucy": "lcMyyd2HUfFzxdCaC4Ta",
-        "daria": "DUhzmIGFwXJ752SvgcCj"
+        "ana": "dPKFsZN0BnPRUfVI2DUW", # pizero
+        "blondie": "exsUS4vynmxd379XN4yO", # pizero3
+        "lucy": "lcMyyd2HUfFzxdCaC4Ta", # pizero4
+        "daria": "DUhzmIGFwXJ752SvgcCj" # pizero6
     }
     # Find voice IDs using: https://api.elevenlabs.io/v1/voices
     DEFAULT_VOICE_ID = VOICE_IDS.get(TTS_VOICE, VOICE_IDS["ana"])
