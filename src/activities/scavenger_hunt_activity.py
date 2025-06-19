@@ -26,6 +26,7 @@ class ScavengerHuntActivity(BaseService):
         self._game_active: bool = False
         self._current_step: ScavengerHuntStep | None = None
         self._current_location_detected: bool = False  # Track if we've ever seen the next desired location.
+        self._current_distance: Distance = Distance.UNKNOWN
         self._remaining_steps: list[ScavengerHuntStep] = []
         self._all_hunt_steps: list[ScavengerHuntStep] = []
         self._last_spoken_time: float = time.time()
@@ -126,6 +127,7 @@ class ScavengerHuntActivity(BaseService):
             self.logger.error("Trying to start next step when none remain!")
         self._current_step = self._remaining_steps.pop(0)
         self._current_location_detected = False
+        self._current_distance = Distance.UNKNOWN
         self._step_transition_in_progress = False  # Reset for the new step
         
         step_data = ScavengerHuntConfig.LOCATION_DATA.get(self._current_step.location)
@@ -246,122 +248,130 @@ class ScavengerHuntActivity(BaseService):
         else:
             await self._handle_victory()
 
+    async def _handle_beacon_update(self, beacon_id: str, distance: Distance, smoothed_rssi: Optional[float], prev_distance: Distance):
+        """Unified handler for processing updates for the current target beacon."""
+        self.logger.info(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_objective_name}")
+        self.logger.info(f"WENT FROM {prev_distance} -> {distance}!")
+        
+        # Mark that we've detected the next step's location at least once
+        if not self._current_location_detected and distance != Distance.UNKNOWN:
+            self._current_location_detected = True
+            self.logger.info(f"Location {self._current_objective_name} detected for the first time!")
+        
+        # Update beacon speed on every valid signal update.
+        if smoothed_rssi is not None and distance != Distance.UNKNOWN:
+            # Unpack config values for interpolation
+            min_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_rssi"]
+            max_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_rssi"]
+            min_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_speed"]
+            max_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_speed"]
+
+            # Clamp the RSSI value to the defined range
+            clamped_rssi = max(min_rssi, min(max_rssi, smoothed_rssi))
+
+            # Perform linear interpolation
+            rssi_range = max_rssi - min_rssi
+            speed_range = max_speed - min_speed
+            
+            if rssi_range == 0:
+                speed_to_set = min_speed
+            else:
+                # Invert the speed mapping because lower speed value means faster rotation
+                percent = (clamped_rssi - min_rssi) / rssi_range
+                speed_to_set = max_speed - (percent * speed_range)
+            
+            self.logger.debug(f"Updating beacon speed to {speed_to_set:.3f} based on smoothed RSSI {smoothed_rssi}")
+
+            await self.publish({
+                "type": "start_or_update_effect",
+                "data": {
+                    "effect_name": "ROTATING_BEACON",
+                    "color": "yellow",
+                    "speed": speed_to_set
+                }
+            })
+
+        # If we've just lost the signal, say something and stop.
+        if distance == Distance.UNKNOWN:
+            if prev_distance and prev_distance != Distance.UNKNOWN:
+                self.logger.info("Signal lost for current step.")
+                await self._speak_and_update_timer(random.choice(ScavengerHuntConfig.LOST_SIGNAL_PHRASES))
+                await self.publish({
+                    "type": "start_or_update_effect",
+                    "data": {
+                        "effect_name": "ROTATING_BEACON",
+                        "color": "yellow",
+                        "speed": ScavengerHuntConfig.BEACON_LOST_SPEED
+                    }
+                })
+            return
+
+        # If we've found current location, either transition to next step or declare victory.
+        if distance == Distance.IMMEDIATE:
+            await self._complete_current_step()
+            return # Exit after handling immediate distance
+
+        # Handle speech cues based on discrete distance *transitions*.
+        if prev_distance and distance != prev_distance:
+            text_to_speak = None
+            # Case 1: First detection (transition from UNKNOWN)
+            if prev_distance == Distance.UNKNOWN:
+                self.logger.info(f"First detection for current step. Distance: {distance}")
+                if distance in ScavengerHuntConfig.INITIAL_DETECTION_PHRASES:
+                    text_to_speak = random.choice(ScavengerHuntConfig.INITIAL_DETECTION_PHRASES[distance])
+            # Case 2: Getting closer
+            elif distance < prev_distance:
+                self.logger.info(f"Getting closer to current step: {prev_distance} -> {distance}")
+                if distance in ScavengerHuntConfig.GETTING_CLOSER_PHRASES:
+                    text_to_speak = random.choice(ScavengerHuntConfig.GETTING_CLOSER_PHRASES[distance])
+            # Case 3: Getting farther
+            elif distance > prev_distance:
+                self.logger.info(f"Getting farther from current step: {prev_distance} -> {distance}")
+                if distance in ScavengerHuntConfig.GETTING_FARTHER_PHRASES:
+                    text_to_speak = random.choice(ScavengerHuntConfig.GETTING_FARTHER_PHRASES[distance])
+            
+            if text_to_speak:
+                await self._speak_and_update_timer(text_to_speak)
+
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
         event_type = event.get("type")
 
-        if event_type == "all_beacons_update":
+        if event_type == "all_beacons_update" or event_type == "proximity_changed":
             if self._victory_in_progress or not self._current_step or self._step_transition_in_progress:
                 return
-            beacons = event.get("data", {}).get("beacons", {})
+
             current_beacon_id = self._current_step.location.beacon_id
-            if current_beacon_id in beacons:
-                beacon_data = beacons[current_beacon_id]
-                if beacon_data.get("distance") == Distance.IMMEDIATE:
-                    self.logger.info(f"IMMEDIATE distance for {current_beacon_id} from periodic update. Completing step.")
-                    await self._complete_current_step()
-            return
+            beacon_data_to_process = None
+            provided_prev_distance = None
 
-        if event_type == "proximity_changed":
-            if self._victory_in_progress:
-                self.logger.debug("Ignoring proximity event during victory sequence.")
-                return
-            data = event.get("data", {})
-            location = data.get("location")
-            self.logger.info(f"LOOKING AT PROXIMITY CHANGE FOR {location} IN SCAVENGER HUNT; WANT {self._current_step.location.beacon_id}")
-            
-            # Only care about the current step's location
-            if location == self._current_step.location.beacon_id:
-                distance: Distance = data.get("distance")
-                prev_distance: Distance = data.get("previous_distance")
-                smoothed_rssi = data.get("smoothed_rssi")
-                self.logger.info(f"GOT DISTANCE {distance} FOR CURRENT LOCATION: {self._current_step.location.objective_name}")
-                self.logger.info(f"WENT FROM {prev_distance} -> {distance}!")
+            if event_type == "proximity_changed":
+                data = event.get("data", {})
+                if data.get("location") == current_beacon_id:
+                    self.logger.info(f"Processing proximity_changed for {current_beacon_id}")
+                    beacon_data_to_process = data
+                    provided_prev_distance = data.get("previous_distance")
+
+            elif event_type == "all_beacons_update":
+                beacons = event.get("data", {}).get("beacons", {})
+                if current_beacon_id in beacons:
+                    self.logger.info(f"Processing all_beacons_update for {current_beacon_id}")
+                    beacon_data_to_process = beacons[current_beacon_id]
+
+            if beacon_data_to_process:
+                distance = beacon_data_to_process.get("distance", Distance.UNKNOWN)
+                smoothed_rssi = beacon_data_to_process.get("smoothed_rssi")
                 
-                # Mark that we've detected the next step's location at least once
-                if not self._current_location_detected and distance != Distance.UNKNOWN:
-                    self._current_location_detected = True
-                    self.logger.info(f"Location {self._current_step.location.objective_name} detected for the first time!")
+                # If the event provides a previous_distance, use it. Otherwise, use our internally tracked one.
+                prev_distance_to_use = provided_prev_distance if provided_prev_distance is not None else self._current_distance
+
+                await self._handle_beacon_update(
+                    beacon_id=current_beacon_id,
+                    distance=distance,
+                    smoothed_rssi=smoothed_rssi,
+                    prev_distance=prev_distance_to_use
+                )
                 
-                # Update beacon speed on every valid signal update.
-                if smoothed_rssi is not None and distance != Distance.UNKNOWN:
-                    # Unpack config values for interpolation
-                    min_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_rssi"]
-                    max_rssi = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_rssi"]
-                    min_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["min_speed"]
-                    max_speed = ScavengerHuntConfig.BEACON_RSSI_SPEED_MAPPING["max_speed"]
-
-                    # Clamp the RSSI value to the defined range
-                    clamped_rssi = max(min_rssi, min(max_rssi, smoothed_rssi))
-
-                    # Perform linear interpolation
-                    rssi_range = max_rssi - min_rssi
-                    speed_range = max_speed - min_speed
-                    
-                    if rssi_range == 0:
-                        speed_to_set = min_speed
-                    else:
-                        # Invert the speed mapping because lower speed value means faster rotation
-                        percent = (clamped_rssi - min_rssi) / rssi_range
-                        speed_to_set = max_speed - (percent * speed_range)
-                    
-                    self.logger.debug(f"Updating beacon speed to {speed_to_set:.3f} based on smoothed RSSI {smoothed_rssi}")
-
-                    await self.publish({
-                        "type": "start_or_update_effect",
-                        "data": {
-                            "effect_name": "ROTATING_BEACON",
-                            "color": "yellow",
-                            "speed": speed_to_set
-                        }
-                    })
-
-                # If we've just lost the signal, say something and stop.
-                if distance == Distance.UNKNOWN:
-                    if prev_distance and prev_distance != Distance.UNKNOWN:
-                        self.logger.info("Signal lost for current step.")
-                        await self._speak_and_update_timer(random.choice(ScavengerHuntConfig.LOST_SIGNAL_PHRASES))
-                        await self.publish({
-                            "type": "start_or_update_effect",
-                            "data": {
-                                "effect_name": "ROTATING_BEACON",
-                                "color": "yellow",
-                                "speed": ScavengerHuntConfig.BEACON_LOST_SPEED
-                            }
-                        })
-                    return
-
-                # If we've found current location, either transition to next step or declare victory.
-                if distance == Distance.IMMEDIATE:
-                    await self.publish({
-                        "type": "scavenger_hunt_step_completed"
-                    })
-                    self.logger.info(f"Scavenger hunt step {self._current_step_name} completed!")
-
-                    if self._remaining_steps:
-                        await self._transition_to_next_step()
-                    else:
-                        await self._handle_victory()
-                    return # Exit after handling immediate distance
-
-                # Handle speech cues based on discrete distance *transitions*.
-                if prev_distance and distance != prev_distance:
-                    text_to_speak = None
-                    # Case 1: First detection (transition from UNKNOWN)
-                    if prev_distance == Distance.UNKNOWN:
-                        self.logger.info(f"First detection for current step. Distance: {distance}")
-                        if distance in ScavengerHuntConfig.INITIAL_DETECTION_PHRASES:
-                            text_to_speak = random.choice(ScavengerHuntConfig.INITIAL_DETECTION_PHRASES[distance])
-                    # Case 2: Getting closer
-                    elif distance < prev_distance:
-                        self.logger.info(f"Getting closer to current step: {prev_distance} -> {distance}")
-                        if distance in ScavengerHuntConfig.GETTING_CLOSER_PHRASES:
-                            text_to_speak = random.choice(ScavengerHuntConfig.GETTING_CLOSER_PHRASES[distance])
-                    # Case 3: Getting farther
-                    elif distance > prev_distance:
-                        self.logger.info(f"Getting farther from current step: {prev_distance} -> {distance}")
-                        if distance in ScavengerHuntConfig.GETTING_FARTHER_PHRASES:
-                            text_to_speak = random.choice(ScavengerHuntConfig.GETTING_FARTHER_PHRASES[distance])
-                    
-                    if text_to_speak:
-                        await self._speak_and_update_timer(text_to_speak)
+                # Update our internally tracked distance
+                if distance != Distance.UNKNOWN:
+                    self._current_distance = distance
