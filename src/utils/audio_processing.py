@@ -68,6 +68,7 @@ class StreamingPitchShifter:
             samplerate=sample_rate
         )
         self._input_buffer = np.array([], dtype=np.float32)
+        logger.debug(f"StreamingPitchShifter initialized with pitch_factor={pitch_factor}, sample_rate={sample_rate}, chunk_size={chunk_size}")
 
     def process_chunk(self, audio_chunk: np.ndarray) -> np.ndarray:
         """
@@ -81,6 +82,8 @@ class StreamingPitchShifter:
         if audio_chunk.dtype != np.int16:
             raise ValueError("Input audio chunk must be of type np.int16")
 
+        logger.debug(f"Processing chunk: shape={audio_chunk.shape}, dtype={audio_chunk.dtype}, min={np.min(audio_chunk)}, max={np.max(audio_chunk)}")
+
         # Convert to float32 for processing
         audio_chunk_float = audio_chunk.astype(np.float32) / 32768.0
         
@@ -91,9 +94,13 @@ class StreamingPitchShifter:
             rms=True
         )
         
+        logger.debug(f"Shifted chunk (float): shape={shifted_chunk_float.shape}, dtype={shifted_chunk_float.dtype}, min={np.min(shifted_chunk_float)}, max={np.max(shifted_chunk_float)}")
+
         # Convert back to int16
         shifted_chunk_int16 = (shifted_chunk_float * 32767).astype(np.int16)
         
+        logger.debug(f"Shifted chunk (int16): shape={shifted_chunk_int16.shape}, dtype={shifted_chunk_int16.dtype}, min={np.min(shifted_chunk_int16)}, max={np.max(shifted_chunk_int16)}")
+
         return shifted_chunk_int16
 
     def clear(self):

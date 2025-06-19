@@ -1151,10 +1151,14 @@ class ConversationManager:
                             audio_np = await loop.run_in_executor(
                                 None, self._pitch_shifter.process_chunk, audio_np
                             )
+                            logger.debug("Pitch shifting complete, chunk ready for producer.")
 
                         # Put the (potentially pitch-shifted) audio into the producer's buffer
                         if audio_np is not None and audio_np.size > 0:
                             self._audio_producer.buffer.put(audio_np)
+                            logger.debug(f"Put audio chunk of size {audio_np.size} into producer 'daily_call'.")
+                        else:
+                            logger.warning("Pitch-shifted audio chunk is empty, not putting in buffer.")
                     
                     # Yield control to the event loop briefly
                     await asyncio.sleep(0.001)
