@@ -1,51 +1,34 @@
 FOR-THE-DAY NOTES:
 * Check if Pis wakeword / intent detection works even when offline. Seems to!
 
-Update all Pis:
-sudo apt-get update && sudo apt-get install -y build-essential gfortran libatlas-base-dev cpufrequtils
-source .venv/bin/activate
-pip install -r requirements.txt
-
-if [ -f "/boot/firmware/config.txt" ]; then
-    CONFIG_PATH="/boot/firmware/config.txt"
-else
-    CONFIG_PATH="/boot/config.txt"
-fi
-sudo sh -c "echo '' >> $CONFIG_PATH"
-sudo sh -c "echo '# Disable HDMI output for power savings' >> $CONFIG_PATH"
-sudo sh -c "echo 'hdmi_blanking=2' >> $CONFIG_PATH"
 
 
 NOTE: The thin wires on #0's LEDs might be causing the high power draw. If one of the others fails, could scavenge it.
 
-MOST IMPORTANT NOW:
-* MUST ENSURE ALL TTS STUFF IS CACHED ON ALL PEAS!!!!
-* Clean up mic ports on #3.
-* Fix respeaker on #5
-* Two voices
-* Change spoken hints for some kinda whoopy bloop peanglish.
-* Squealing activity also needs some lights
+TODAY:
+* Create new Rhino model with only stuff that we need for the event 
+  * Add stuff from intentservice. 
+  * Don't forget two paths for scavenger hunt.
+  * Make chat harder to trigger -- e.g. "Let's have a chat".
+* Make plantasia tune.
+* Update lab script from Thom's changes. (* Need a bunch of new strings if we're going to do the call/response in lab just from wake words)
 # Split scavenger hunt into the two paths.
-* Tiny Bluetooth LED string light or something
-* The service isn't pulling latest
-* Have to be able to shut down with command
-* Create mother pea activity
+* Create mother pea activity.
+* MUST ENSURE ALL TTS STUFF IS CACHED ON ALL PEAS!!!!
+* Two voices
+* Test shutting down with command
+* Clean up mic ports on #3.
 
+TOMORROW:
+* Upgrade Tom's pea.
+* Make conversation voice sound childish. Maybe just do call/response from wakword+intent only.
+* Add squeal effects etc to squealing activity.
+* Lights in botany dock
+* Try dynamically adjusting volume based on ambient noise levels
+* Fix respeaker on #5
+
+LATER:
 * Need another PicoVoice account? ash.eldritch was disabled, but it seems to still be working?
-*	LEDs in Bluetooth speaker Pea (El wire?)
-* Do what I can here to make upgrading Tom's easier over there.
-* Test 4, 5, 6
-* Test battery life
-* Switch branch to demo
-
-* Make plantasia tune
-* ALSO humming thing??? Ask Lucy about that
-* Add squeal effects etc to squealing activity
-* Update spoken strings for scavenger hunt (see script below)
-* Create new Rhino model with only stuff that we need for the event (add stuff from intentservice)
-  * Need a bunch of new strings if we're going to do the call/response in lab just from wake words
-
-* Set up Pis for Shurland WiFi: scripts/add_wifi.sh "Shurland-Appliance" "15321532"
 * Bug: "go to sleep" inside conversation doesn't shut down LEDs, maybe doesn't stop service properly. Only works via the intent.
 *	Amazon returns
 * Pay folks
@@ -96,33 +79,6 @@ https://docs.google.com/presentation/d/10CB5ldhfgQDrg7EVcocxdp6LFyqzWWMMBgkNeTOz
 
 
 
-SOFTWARE:
-* Squealing activity:
-  - Custom intent to start activity
-  - Rotate audio samples: "Where are we?" "Sqeal", "Is this Earth?", "Waaaah", "Are we there yet?"
-  - Detect when it's picked up. Says something like "ooh thank mother pea, we're gonna be okay. I'm so exhausted", and goes to sleep.
-
-* Add the snoring back in when it's sleeping.
-
-* Reacting-to-sound-getting-brighter activity:
-  - 
-* Waking up:
-  - Open-ended conversation, kids have some specific questions 
-
-* Botany Room:
-  - Create humming
-  - Can dock light up when I control it remotely?
-
-* Scavenger hunt activity
-  - Oooh I sense something (first time it detects it), oh no we're getting further away, ooh I can feel it, we're getting closer, 
-  - Handle multiple in the same area, say I can sense two perhaps.
-    - Currently we have a linear flow, so this may not make sense.
-
-Other:
-* Add a system shutdown command - intent custom command 9. 
-* Try to figure out reduced power draw 
-* Try dynamically adjusting volume based on ambient noise levels
-
 
 Squealing peas in crater (2 fake peas that just glow, and 1 real).
 Take them to the lab.
@@ -138,90 +94,20 @@ Then finale: Mother pea voice recording says “Hey magic peas, don’t be afrai
 
 
 
-SCRIPT:
 
-Entrance hall scene: 
+Update Tom's Pi:
+git pull
+sudo apt-get update && sudo apt-get install -y build-essential gfortran libatlas-base-dev cpufrequtils
+source .venv/bin/activate
+pip install -r requirements.txt
 
-
-PETE The Scientist 
-“Welcome to the Pea HQ, now what I'm going to reveal to you is top secret. You’re the first humans we’ve invited here. (pick an adult) Wow you’re really tall for your age! We’ve been communicating with another planet - with the ‘Pea people’ and we’re…” 
-
-*CRASH EXPLOSION SOUND 
-
-(Petal & Pete take all the children outside and surround the crash site hole, everyone needs to be really quiet and Pete jumps down to pick up the peas x 4, Petal takes 2 peas and so does Pete)
-
-MAGIC PEA
-(We hear excited pea chatter from the hole as smoke pours out) 
-‘We made it/ Wow that was such a long journey/Are we there yet?/ I’m so tired now, maybe we should have a little nap’ 
-(sleeping pea sounds)
-
-PETE The Scientist 
-“Everyone gather round the edge, be very quiet, we don't want to scare the peas - they look, yes, like baby magic peas. This is incredible. I can't believe it, they’re here on earth. This is a momentous day. I never thought in a hundred thousand million squillion years the magic peas would land on earth! 
-Petal you carry two and I'll take these two. Wait, what's this?
- (Pete picks up a tube with something inside)
-
-PETE The Scientist 
-(Whilst travelling with the Peas to the Lab)
-“I’ve been sending a message into space for some time now, hoping to discover other life and they must have heard it!”
-
-Lab Scene:
-Pete gets kids to ask questions to the pea’s. Prompts by whispering questions to them.
-PETE The Scientist 
-“Welcome to my lab (proud) this is the hub of our headquarters. 
-From here I monitor earth and beyond all in our pursuit of peas-ful power of peas in a pod to spread hap-pea-ness.
-Ah look perfect I can put the magic pea in this incubator. Let's see if we can wake it up. Can some of you assist me? Great. Can you ask it (whispers to 1st child)"
-
-Child
-“Hey Magic Pea, what are you?” 
-
-MAGIC PEA 
-“I’m a fluffy friend from space, and like you children we magic peas love to play! 
-You all have creative super-powers and we the magic peas are looking to help you create a peas-ful future!
-We are seeking to create a future more magical than adults could ever imagine!”
-
-PETE The Scientist 
- “Wow, this sounds un-pea-leivable! Oh I have another question, ‘Hey Magic Pea, where have you come from?’”
-
-CHILD
-“Hey Magic Pea, where have you come from?”
-
-MAGIC PEA
-“We’ve come all the way through space, through a wormhole, from a galaxy called Pea-topia. (get excited) 
-
-PETE The Scientist 
-“Oh wow, (Pete moves over to the blackboard and draws a tunnel) A wormhole is like a giant tunnel in space, it’s a shortcut from one place to another.
-That must have taken a lot of energy. Ah, I have another question! (Whispers)Hey Magic pea, How did you power yourself?”
-CHILD
-“Hey Magic pea, How did you power yourself?” 
-MAGIC PEA
-“We powered ourselves through the power of positive energy. Ooo its the best, it's created by working together as a team. When we all work together we create a positive energy charge!!!” 
-PETE The Scientist 
-“That’s fantastic. I wonder if that's something we can do too? 
-Now another important question.. (Whispers)Why are you here?”
-CHILD
-“Why are you here?”
-
-
-MAGIC PEA
-“Grandmother Pea sent us. There’s been a solar storm in our galaxy, and everything has been thrown off-kilter. So we have been sent to learn all about earth and make friends with you, our neighbour. Will you help us?”
-PETE The Scientist 
-Yes of course we will, we’d love to help you, Wouldn’t we pea pals!
-(We hear sounds of peas snoring again)
-PETE The Scientist 
-“They must be so tired, but we’ve learnt lots from our little furry friends.” 
-
-
-
-
-
-Transmitter Hunt 
-
-We need to find the following pieces: 
-
-1.⁠ ⁠Junction Box
-2.⁠ ⁠⁠transmitter valve
-3.⁠ ⁠⁠signal processor
-4.⁠ ⁠⁠antenna
-5.⁠ ⁠system modulator
-6.⁠ ⁠⁠crystal oscillator  
-
+if [ -f "/boot/firmware/config.txt" ]; then
+    CONFIG_PATH="/boot/firmware/config.txt"
+else
+    CONFIG_PATH="/boot/config.txt"
+fi
+echo $CONFIG_PATH
+sudo sh -c "echo '' >> $CONFIG_PATH"
+sudo sh -c "echo '# Disable HDMI output for power savings' >> $CONFIG_PATH"
+sudo sh -c "echo 'hdmi_blanking=2' >> $CONFIG_PATH"
+echo $CONFIG_PATH
