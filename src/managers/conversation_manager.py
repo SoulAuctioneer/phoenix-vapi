@@ -430,9 +430,14 @@ class ConversationManager:
             )
             self._input_thread.daemon = True
             
-            # Create the receive audio task
-            self._receive_bot_audio_task = asyncio.create_task(self._receive_bot_audio())
-            
+            # Create the audio reader thread and pitch shifting worker
+            self._audio_reader_thread = threading.Thread(
+                target=self._audio_reader_loop,
+                name="DailyAudioReaderThread"
+            )
+            self._audio_reader_thread.daemon = True
+            self._pitch_shift_worker_task = asyncio.create_task(self._pitch_shift_worker())
+
             # Create minimal input buffer
             self._input_buffer = queue.Queue(maxsize=4)  # Minimal buffer size
             
