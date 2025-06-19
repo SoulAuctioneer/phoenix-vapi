@@ -111,7 +111,7 @@ class VoiceService(BaseService):
     """Service to manage Text-to-Speech using VoiceManager and AudioManager."""
     TTS_CACHE_DIR = "data/tts_cache"  # Directory to store cached TTS audio files
     TTS_PRODUCER_NAME = "elevenlabs_tts" # A constant name for the TTS audio producer
-    DEFAULT_PITCH = 3.0
+    DEFAULT_PITCH = 4.0
 
     def __init__(self, service_manager):
         super().__init__(service_manager)
