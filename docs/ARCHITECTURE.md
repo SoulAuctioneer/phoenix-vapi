@@ -74,15 +74,25 @@ Below is a comprehensive list of events used throughout the system:
 | `sleep_mode_entered` | Indicates sleep mode activation | SleepActivity | - | - |
 | `sleep_mode_exited` | Indicates sleep mode deactivation | SleepActivity | - | - |
 
-### Sensor Integration
+### Hardware Components
 
-The application integrates with various sensors to enable interaction:
-- Audio input/output for voice detection and responses
-- Class-D audio amplifier PAM8302A
-- BLE beacons for location tracking
-- Accelerometer for motion detection
-- Touch sensors for physical interaction
-- LED controllers for visual feedback
+The application integrates with various hardware components to enable interaction:
+- **Processor**: Raspberry Pi Zero 2 W
+- **Power Management**:
+  - 3.7V battery
+  - Adafruit Powerboost for charging and power management
+  - MAX17048 LiPoly/LiIon fuel gauge for battery monitoring
+- **Audio**:
+  - Respeaker Mic Array 2.0 for audio input (4 microphones), output, DSP, and RGB lighting
+  - Class-D audio amplifier PAM8302A
+- **Sensors**:
+  - BNO085 9-DOF IMU for motion detection
+  - Touch sensors for physical interaction
+- **Visual Feedback**:
+  - Neopixel 24-LED RGB ring
+  - Respeaker Mic Array 2.0's built-in LEDs
+- **Location Tracking**:
+  - BLE beacons for coarse location tracking
 
 ## Project Structure
 
@@ -152,7 +162,7 @@ The `src/utils/` directory contains shared utilities and helper functions used a
 ## Cross-Platform Compatibility
 
 The application is designed to run on:
-- Raspberry Pi (primary target for the physical toy)
+- Raspberry Pi Zero 2 W (primary target for the physical toy)
 - macOS (for development and testing)
 
 Platform-specific code is isolated and controlled via configuration settings to enable development on both platforms.
@@ -201,3 +211,9 @@ The application requires several API keys to function:
 - OpenAI API key (optional) for alternative intent detection
 
 These keys should be specified in the `.env` file which is not committed to version control. 
+
+## Future Optimizations
+
+### Power Management with Dedicated MCU
+
+-   **TODO**: For ultimate power savings in sleep mode, a future architecture could incorporate a dedicated low-power microcontroller (MCU) like the `ESP32-S3`. This MCU's sole responsibility would be to run the wake-word engine. Upon detecting the wake word, it would then power on the Raspberry Pi to handle the more complex application logic. This would allow the Pi to be completely powered off during idle periods, extending battery life significantly. 

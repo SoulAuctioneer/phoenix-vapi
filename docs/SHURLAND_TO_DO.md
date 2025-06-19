@@ -1,4 +1,8 @@
+FOR-THE-DAY NOTES:
+* Check if Pis wakeword / intent detection works even when offline. Seems to!
+
 MOST IMPORTANT NOW:
+* Disable HDMI on all devices, install any new dependencies, including i2c-tools cpufrequtils
 * Clean up mic ports on #3.
 * Fix respeaker on #5
 * Finish upgrading V1 pea
