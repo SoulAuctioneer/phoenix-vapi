@@ -36,9 +36,10 @@ class ScavengerHuntActivity(BaseService):
         if not self._remaining_steps:
             self.logger.error("Created a scavenger hunt with no steps!")
         
-    async def start(self, hunt_locations: list[ScavengerHuntLocation] = ScavengerHuntConfig.HUNT_ALPHA):
+    async def start(self, hunt_variant: str = "HUNT_ALPHA"):
         """Start the scavenger hunt service"""
         await super().start()
+        hunt_locations = getattr(ScavengerHuntConfig, hunt_variant, ScavengerHuntConfig.HUNT_ALPHA)
         self._game_active = True
         self._all_hunt_steps = [ScavengerHuntStep(location=loc) for loc in hunt_locations]
         self._remaining_steps = list(self._all_hunt_steps)

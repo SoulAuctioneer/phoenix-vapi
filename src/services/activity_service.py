@@ -13,6 +13,7 @@ from activities.squealing_activity import SquealingActivity
 from activities.move_activity import MoveActivity
 from activities.call_activity import CallActivity
 from activities.play_music_activity import PlayMusicActivity
+from activities.grandma_pea_activity import GrandmaPeaActivity
 import asyncio
 from config import ASSISTANT_CONFIG_FIRST_CONTACT
 from utils.system import shutdown_pi
@@ -30,6 +31,8 @@ class ActivityType(Enum):
     MOVE = "move"
     CALL = "call"
     PLAY_MUSIC = "play_music"
+    GRANDMA_PEA = "grandma_pea"
+
 # Map activities to their required supporting services, activity-specific service, and optional start/stop sounds/TTS
 # Format: (list of supporting services, activity service name if any, start_sound, stop_sound, start_tts_text, stop_tts_text)
 ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]] = {
@@ -42,7 +45,8 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.CUDDLE: (['haptic', 'sensor'], 'cuddle', None, None, None, None),
     ActivityType.SLEEP: ([], 'sleep', "YAWN", None, None, None),
     ActivityType.CALL: ([], 'call', None, None, None, None),
-    ActivityType.PLAY_MUSIC: ([], 'play_music', None, None, None, None)
+    ActivityType.PLAY_MUSIC: ([], 'play_music', None, None, None, None),
+    ActivityType.GRANDMA_PEA: ([], 'grandma_pea', None, None, None, None),
 }
 
 class ActivityService(BaseService):
@@ -69,6 +73,7 @@ class ActivityService(BaseService):
             'call': CallActivity,
             'sleep': SleepActivity,
             'play_music': PlayMusicActivity,
+            'grandma_pea': GrandmaPeaActivity,
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
@@ -327,43 +332,43 @@ class ActivityService(BaseService):
             # ...special handling for 'call'
             
             # Handle activity-related intents
-            if intent == "conversation":
+            if intent == "activity_conversation":
                 # Start conversation activity
                 await self._queue_transition(ActivityType.CONVERSATION)
                 
-            elif intent == "hide_and_seek":
-                # TODO: We're temporarily repurposing "hide_and_seek" -> scavenger hunt.
-                # Start scavenger hunt activity
-                await self._queue_transition(ActivityType.SCAVENGER_HUNT)
-                # Start hide and seek activity
-                # await self._queue_transition(ActivityType.HIDE_SEEK)
-
-            # TODO: This needs to be added to the Pico model.
-            elif intent == "scavenger_hunt":
-                # Start scavenger hunt activity
-                await self._queue_transition(ActivityType.SCAVENGER_HUNT)
-            
-            elif intent == "first_contact":
+            elif intent == "activity_first_contact":
                 # Start first contact activity
                 await self._queue_transition(ActivityType.FIRST_CONTACT, assistant_config=ASSISTANT_CONFIG_FIRST_CONTACT, include_memories=False)
 
-            elif intent == "squealing":
+            elif intent == "activity_scavenger_hunt_alpha":
+                # Start scavenger hunt activity
+                await self._queue_transition(ActivityType.SCAVENGER_HUNT, hunt_variant="HUNT_ALPHA")
+
+            elif intent == "activity_scavenger_hunt_beta":
+                # Start scavenger hunt activity
+                await self._queue_transition(ActivityType.SCAVENGER_HUNT, hunt_variant="HUNT_BETA")
+
+            elif intent == "activity_squealing":
                 # Start squealing activity
                 await self._queue_transition(ActivityType.SQUEALING)
 
-            elif intent == "cuddle":
+            elif intent == "activity_grandma_pea":
+                # Start grandma pea activity
+                await self._queue_transition(ActivityType.GRANDMA_PEA)
+
+            elif intent == "activity_cuddle":
                 # Start cuddle activity
                 await self._queue_transition(ActivityType.CUDDLE)
 
-            elif intent == "move":
+            elif intent == "activity_move":
                 # Start move activity
                 await self._queue_transition(ActivityType.MOVE)
                 
-            elif intent == "sleep":
+            elif intent == "activity_sleep":
                 # Return to sleep activity
                 await self._queue_transition(ActivityType.SLEEP)
                 
-            elif intent == "call":
+            elif intent == "activity_call":
                 # Start call activity, passing the contact name
                 slots = event.get("slots")
                 if slots and "contact" in slots:
@@ -376,7 +381,7 @@ class ActivityService(BaseService):
                 else:
                     self.logger.error("No contact name provided for call activity")
 
-            elif intent == "play_music":
+            elif intent == "activity_play_music":
                 await self._queue_transition(ActivityType.PLAY_MUSIC)
             
             elif intent == "shut_down":
@@ -420,6 +425,10 @@ class ActivityService(BaseService):
             if self.current_activity == ActivityType.SQUEALING and not self.is_transitioning:
                 await self._stop_activity(ActivityType.SQUEALING)
 
+        elif event_type == "grandma_activity_ended":
+            self.logger.info("Ending grandma pea activity")
+            if self.current_activity == ActivityType.GRANDMA_PEA and not self.is_transitioning:
+                await self._stop_activity(ActivityType.GRANDMA_PEA)
                 
         elif event_type == "hide_seek_won":
             # TODO: When hide and seek is won, transition to special conversation

@@ -94,7 +94,7 @@ class IntentConfig:
     # Path to the Rhino context file for intent detection
     MODEL_PATH = clean_env_value(os.getenv('RHINO_MODEL_PATH'))    
     # How long to listen for an intent after wake word (in seconds)
-    DETECTION_TIMEOUT = 7.0
+    DETECTION_TIMEOUT = 8.0
 
 # Wake Word Configuration
 class WakeWordConfig:
@@ -450,34 +450,16 @@ class ScavengerHuntConfig:
             end_voice_lines=["Yes! The Signal Processor! Now the alien chatter sounds like songs instead of gobbledegook."]
         ),
         ScavengerHuntLocation.LOCATION4: ScavengerHuntLocationData(
-            start_voice_lines=[
-                "We need to find the Antenna! It's like a giant ear for listening to moonbeams.",
-                "Let's find the Antenna! It helps us catch stories from the comets as they fly by."
-            ],
-            end_voice_lines=[
-                "Amazing! We found the Antenna! Now we can hear the stars twinkling. You're a super finder!",
-                "Look at that, the Antenna! It's pointing right at a laughing planet."
-            ]
+            start_voice_lines=["First, we need to find the Antenna! It's like a giant ear for listening to moonbeams."],
+            end_voice_lines=["Amazing! We found the Antenna! Now we can hear the stars twinkling. You're a super finder!"]
         ),
         ScavengerHuntLocation.LOCATION5: ScavengerHuntLocationData(
-            start_voice_lines=[
-                "Time to find the System Modulator! It changes our ship's music from sleepy songs to dance party tunes.",
-                "Let's track down the System Modulator. It mixes up the space music to make it extra groovy."
-            ],
-            end_voice_lines=[
-                "You found it! The System Modulator is ready to boogie!",
-                "Hooray! The System Modulator is working. I feel a dance party coming on!"
-            ]
+            start_voice_lines=["Now let's track down the System Modulator. It mixes up the space music to make it extra groovy."],
+            end_voice_lines=["Horray! You found it! The System Modulator is ready to boogie!"]
         ),
         ScavengerHuntLocation.LOCATION6: ScavengerHuntLocationData(
-            start_voice_lines=[
-                "Last one! We need the Crystal Oscillator. It's the sparkly heart of our ship.",
-                "Let's find the Crystal Oscillator! It goes 'tick-tock' to keep the whole ship on time for adventures."
-            ],
-            end_voice_lines=[
-                "We did it! We found the Crystal Oscillator! The whole ship is purring like a happy kitten. You're the best!",
-                "The Crystal Oscillator! It's glowing so brightly! Our ship is all fixed and ready to fly to candy-floss clouds!"
-            ]
+            start_voice_lines=["Last one! We need the Crystal Oscillator. It goes 'tick-tock' to keep the whole ship on time for adventures."],
+            end_voice_lines=["We did it! We found the Crystal Oscillator! Now the transmitter will purr like a happy kitten. You're the best!"]
         ),
     }
 
@@ -1107,7 +1089,9 @@ FIRST_CONTACT_CONTEXT = dedent("""
     Prior to this conversation, PETE THE SCIENTIST has said:
     "From here I monitor Earth and beyond, all in our pursuit of the peas-ful power of peas in a pod to spread hap-pea-ness. Ah, look! Perfect! I can put the magical pea in this incubator. Let's see if we can wake it up. Can some of you assist me? Great! Can you ask it (whispers to 1st child):"
 
-    You will now follow a scripted conversation with Pete and the children. Respond with the appropriate responses when asked questions that match the script below. If you are asked a question that is not in the script, stay silent. Don't elaborate: for this particular conversation, just stick to the script rather than asking follow-on questions.
+    You will now follow a scripted conversation with Pete and the children. Respond with the appropriate responses when asked questions that match the script below. If you are asked a question that is not in the script, stay silent. 
+    Don't elaborate: for this particular conversation, just stick to the script rather than asking follow-on questions.
+    You are speaking with childen, so sometimes you will hear something that has not been transcribed correctly, so do your best to match the intent of the question and respond with the appropriate response.
 
     YOUR INITIAL INTERACTION SCRIPT:
 
