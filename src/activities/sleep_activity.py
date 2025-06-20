@@ -26,11 +26,12 @@ class SleepActivity(BaseService):
         """Start the sleep activity"""
         await super().start()
         self._is_active = True
-        
-        if PLATFORM == "raspberry-pi":
-            self.logger.info("Entering power-saving sleep mode...")
-            await system_utils.set_cpu_governor("powersave")
-            await system_utils.set_bluetooth_enabled(False)
+
+        # Disabled for now -- worried it's screwing up the wakeword detection        
+        # if PLATFORM == "raspberry-pi":
+        #     self.logger.info("Entering power-saving sleep mode...")
+        #     await system_utils.set_cpu_governor("powersave")
+        #     await system_utils.set_bluetooth_enabled(False)
 
         # Start the breathing sound effect on loop
         # Commented out until I can figure out the volume issue
@@ -63,10 +64,11 @@ class SleepActivity(BaseService):
         if self._is_active:
             self._is_active = False
             
-            if PLATFORM == "raspberry-pi":
-                self.logger.info("Exiting power-saving sleep mode...")
-                await system_utils.set_cpu_governor("ondemand")
-                await system_utils.set_bluetooth_enabled(True)
+            # Disabled for now -- worried it's screwing up the wakeword detection        
+            # if PLATFORM == "raspberry-pi":
+            #     self.logger.info("Exiting power-saving sleep mode...")
+            #     await system_utils.set_cpu_governor("ondemand")
+            #     await system_utils.set_bluetooth_enabled(True)
             
             # Stop the breathing sound
             # Commented out until I can figure out the volume issue
