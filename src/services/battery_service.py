@@ -10,6 +10,7 @@ import board
 import adafruit_max1704x
 from services.service import BaseService, ServiceManager
 from config import BatteryConfig
+from collections import deque
 
 class BatteryService(BaseService):
     """
@@ -44,6 +45,7 @@ class BatteryService(BaseService):
         self._last_charging_check_voltage: float = 0.0
         # Add tracking for time estimates
         self._charge_rate: Optional[float] = None  # Percent per hour
+        self._power_draw_history = deque(maxlen=int(5 * 60 / BatteryConfig.NORMAL_CHECK_INTERVAL)) # 5 minutes of history
         # Add tracking for low battery sound
         self._last_low_battery_sound_time: Optional[float] = None
         
@@ -150,6 +152,26 @@ class BatteryService(BaseService):
         await super().stop()
         self.logger.info("BatteryService stopped")
         
+    def get_average_power_draw_amps(self) -> Optional[float]:
+        """Calculate the average power draw in Amps over the last 5 minutes.
+        
+        Returns:
+            float: Average power draw in Amps, or None if not enough data.
+        """
+        if not self._power_draw_history:
+            return None
+            
+        avg_charge_rate = sum(self._power_draw_history) / len(self._power_draw_history)
+        
+        # Convert charge rate (%/hr) to current (A)
+        # Current (A) = (Charge Rate [%/hr] / 100) * Capacity [Ah]
+        # Capacity (Ah) = Capacity (mAh) / 1000
+        battery_capacity_ah = BatteryConfig.BATTERY_CAPACITY_MAH / 1000.0
+        avg_current = (avg_charge_rate / 100.0) * battery_capacity_ah
+        
+        # Return positive value for draw, negative for charge
+        return -avg_current
+
     async def _update_charging_state(self, voltage: float) -> None:
         """Update charging state based on voltage changes
         
@@ -285,14 +307,19 @@ class BatteryService(BaseService):
                 await self._update_charging_state(voltage)
                 self._charge_rate = self.max17.charge_rate
                 
+                # Store charge rate for power draw calculation
+                if self._charge_rate is not None:
+                    self._power_draw_history.append(self._charge_rate)
+
                 # Calculate time estimate
                 time_remaining = self._estimate_time_remaining(charge_percent)
                 
-                # Always publish if charging state changes
-                should_publish = self._should_publish_update(voltage, charge_percent)
-                
                 # Determine if we should publish an update
+                should_publish = self._should_publish_update(voltage, charge_percent)
                 if should_publish:
+                    # Get average power draw
+                    avg_power_draw = self.get_average_power_draw_amps()
+
                     # Build status update with time estimates
                     status_update = {
                         "type": "battery_status_update",
@@ -307,6 +334,8 @@ class BatteryService(BaseService):
                         status_update["charge_rate"] = self._charge_rate  # Percent per hour
                     if time_remaining is not None:
                         status_update["time_remaining"] = time_remaining  # Hours
+                    if avg_power_draw is not None:
+                        status_update["avg_power_draw_amps"] = avg_power_draw
                         
                     # Publish update
                     await self.publish(status_update)

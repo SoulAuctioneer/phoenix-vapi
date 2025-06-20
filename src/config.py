@@ -612,6 +612,9 @@ class HapticConfig:
 class BatteryConfig:
     """Configuration for battery monitoring service"""
     
+    # Battery capacity in milliamp-hours (mAh)
+    BATTERY_CAPACITY_MAH = 3600
+    
     # Monitoring intervals (in seconds)
     NORMAL_CHECK_INTERVAL = 60.0  # Check battery normally
     LOW_BATTERY_CHECK_INTERVAL = 60.0  # Check when battery is low
