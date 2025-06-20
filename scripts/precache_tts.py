@@ -26,22 +26,29 @@ DEFAULT_PITCH = 4.0
 
 # --- List of texts to pre-cache ---
 # You can add any text here to pre-cache it.
-TEXTS_TO_CACHE = [
-    # from SquealingActivity
-    "Where ARE we??!",
-    "WHAT'S GOING ON?!",
-    "Is THIS Earth??",
-    "Waaah!!!",
-    "Are we THERE yet?!",
-    "I'm scared!!",
-    "Did we MAKE it?!",
-    "I'm SO tired!!",
-    "Wow that was such a long journey!!",
-    "Oh NOOO!! We've CRASHED!",
-    "The transmitter's broken!",
-    "I want GRANDMA!!!",
-    "Ooh! Oooh! Who's that? ... Are you a human? ... Oh yaay! We're gonna be okay! ... Oof, I'm sooo so tired now, maybe we should have a little nap now that we're safe.",
 
+# To handle phrases with custom TTS parameters (e.g., stability),
+# you can use a dictionary format:
+# {"text": "Your text here", "stability": 0.5, "pitch": 4.0}
+# If you use a plain string, it will use default parameters.
+SQUEALING_ACTIVITY_STABILITY = 0.5
+SQUEALING_PHRASES = [
+    # These phrases from SquealingActivity use a custom stability
+    {"text": "Where ARE we??!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "WHAT'S GOING ON?!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "Is THIS Earth??", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "Waaah!!!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "I'm scared!!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "Did we MAKE it?!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "I'm SO tired!!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "Wow that was such a long journey!!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "Oh NOOO!! We've CRASHED!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "OH NO!! The transmitter's broken!!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "I want GRANDMA!!!", "stability": SQUEALING_ACTIVITY_STABILITY},
+    {"text": "Ooh! Oooh! Who's that? ... Are you a human? ... Oh yaay! We're gonna be okay! ... Oof, I'm sooo so tired now, maybe we should have a little nap now that we're safe.", "stability": SQUEALING_ACTIVITY_STABILITY},
+]
+
+TEXTS_TO_CACHE = [
     # from ActivityService
     "OK, shutting down.",
 
@@ -68,6 +75,9 @@ TEXTS_TO_CACHE = [
     # from ScavengerHuntConfig (static)
     ScavengerHuntConfig.VICTORY_TEXT,
 ]
+
+# Add phrases with special params
+TEXTS_TO_CACHE.extend(SQUEALING_PHRASES)
 
 # Add dynamically generated intro texts from ScavengerHuntConfig
 def _generate_intro_text(hunt_locations, template: str):
@@ -135,37 +145,49 @@ async def precache_tts_audio():
 
     for voice_name, voice_id in voices_to_cache.items():
         logger.info(f"--- Processing voice: {voice_name.upper()} (ID: {voice_id}) ---")
-        for text in TEXTS_TO_CACHE:
+        for item in TEXTS_TO_CACHE:
+            if isinstance(item, dict):
+                text_to_cache = item.get("text")
+                stability = item.get("stability")
+                pitch = item.get("pitch", DEFAULT_PITCH)
+            else:
+                text_to_cache = item
+                stability = None
+                pitch = DEFAULT_PITCH
+
+            if not text_to_cache:
+                continue
+
             # Using default TTS parameters for now.
             # If you use custom parameters (voice, pitch, etc.) in your app,
             # you'll need to replicate them here for the cache to match.
-            cache_key = generate_cache_key(text, voice_id=voice_id, pitch=DEFAULT_PITCH)
+            cache_key = generate_cache_key(text_to_cache, voice_id=voice_id, stability=stability, pitch=pitch)
             cache_path = pre_cache_dir / f"{cache_key}.pcm"
 
             if cache_path.exists():
-                logger.info(f"Skipping '{text[:40]}...': already cached for voice {voice_name}.")
+                logger.info(f"Skipping '{text_to_cache[:40]}...': already cached for voice {voice_name}.")
                 cached_count += 1
                 continue
 
-            logger.info(f"Caching '{text[:40]}...' for voice {voice_name}")
+            logger.info(f"Caching '{text_to_cache[:40]}...' for voice {voice_name} with stability={stability}, pitch={pitch}")
             
             try:
-                audio_stream = await voice_manager.generate_audio_stream(text, voice_id=voice_id, pitch=DEFAULT_PITCH)
+                audio_stream = await voice_manager.generate_audio_stream(text_to_cache, voice_id=voice_id, stability=stability, pitch=pitch)
                 if audio_stream:
                     audio_bytes = b"".join([chunk async for chunk in audio_stream])
                     if audio_bytes:
                         async with aiofiles.open(cache_path, 'wb') as f:
                             await f.write(audio_bytes)
-                        logger.info(f"-> Successfully cached '{text[:40]}...'.")
+                        logger.info(f"-> Successfully cached '{text_to_cache[:40]}...'.")
                         generated_count += 1
                     else:
-                        logger.warning(f"-> Failed to cache '{text[:40]}...': Received empty audio stream.")
+                        logger.warning(f"-> Failed to cache '{text_to_cache[:40]}...': Received empty audio stream.")
                         failed_count += 1
                 else:
-                    logger.error(f"-> Failed to generate audio for '{text[:40]}...'.")
+                    logger.error(f"-> Failed to generate audio for '{text_to_cache[:40]}...'.")
                     failed_count += 1
             except Exception as e:
-                logger.error(f"-> Error caching '{text[:40]}...': {e}", exc_info=False)
+                logger.error(f"-> Error caching '{text_to_cache[:40]}...': {e}", exc_info=False)
                 failed_count += 1
             
             # Small delay to avoid hitting API rate limits
