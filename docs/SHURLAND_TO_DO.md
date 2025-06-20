@@ -1,19 +1,15 @@
 
-TODAY:
-* Create new Rhino model with only stuff that we need for the event:
-  * Add stuff from intentservice. 
-  * Don't forget two paths for scavenger hunt.
-  * Make chat harder to trigger -- e.g. "Let's have a chat".
+BEFORE REHEARSALS:
+* Increase power on other 3 beacons.
+* Create new Rhino model with only stuff that we need for the event.
+* Re-run TTS caching.
 * Make plantasia tune.
-* Update lab script from Thom's changes. (* Need a bunch of new strings if we're going to do the call/response in lab just from wake words)
-# Split scavenger hunt into the two paths.
-* Create mother pea activity.
-* MUST ENSURE ALL TTS STUFF IS CACHED ON ALL PEAS!!!!
-* Set two peas to the another voice
-* Test shutting down with command
-* Clean up mic ports on #3.
+* Clean up mic ports on #3. Check others.
+* Verify we got cache hits for everything scavenger hunty and cratery.
+* Do a full run-through.
 
-TOMORROW:
+AFTER REHEARSALS:
+* Ask Sean for some shade over the crater.
 * Conversation first part of audio is being cut off, looks like amp is disabled initially for a moment. Started happening after the attempted pitch refactor.
 * Upgrade Tom's pea (software instructions at bottom).
 * Make conversation voice sound childish. Maybe just do call/response from wakword+intent only.
@@ -37,7 +33,7 @@ Add 30-second SFX/giggles intro to plant growy song, for actor to find responses
 For the music: Add 20 seconds of discovery figuring out how the pea responds, effects on beat, responding a bit harder each time. Lil bit of trumpet, lil bit of beats, mostly giggles and chuckles. Then we do the full initial verse while kids play with the pea, then go into the lull.
 
 
-
+9.15-10.15 technical runthrough.
 
 Expenses:
 - Nad work hours
