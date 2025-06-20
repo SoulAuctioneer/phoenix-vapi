@@ -189,9 +189,8 @@ class AudioManager:
     def set_amplifier(self, amplifier):
         """Sets the amplifier instance for power management."""
         # Disabled as it's disabling when it shouldn't be.
-        pass
-        # self.amplifier = amplifier
-        # # Ensure amp is off initially if we are just setting it
+        self.amplifier = amplifier
+        # Ensure amp is off initially if we are just setting it
         # if self.amplifier and self._amp_enabled:
         #     self.amplifier.disable()
         #     self._amp_enabled = False
@@ -497,16 +496,17 @@ class AudioManager:
 
                 # Convert back to int16 and clip to prevent overflow
                 mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
-                        
-                if active_producers > 0:
-                    self._last_audio_activity_time = time.time()
-                    if self.amplifier and not self._amp_enabled:
-                        self.amplifier.enable()
-                        self._amp_enabled = True
-                elif self.amplifier and self._amp_enabled:
-                    if time.time() - self._last_audio_activity_time > AudioAmplifierConfig.DISABLE_DELAY:
-                        self.amplifier.disable()
-                        self._amp_enabled = False
+
+                # TODO: Disabled for now as this is screwing up in ConversationManager.                         
+                # if active_producers > 0:
+                #     self._last_audio_activity_time = time.time()
+                #     if self.amplifier and not self._amp_enabled:
+                #         self.amplifier.enable()
+                #         self._amp_enabled = True
+                # elif self.amplifier and self._amp_enabled:
+                #     if time.time() - self._last_audio_activity_time > AudioAmplifierConfig.DISABLE_DELAY:
+                #         self.amplifier.disable()
+                #         self._amp_enabled = False
 
                 # Write to output stream
                 if active_producers > 0 or np.any(mixed_audio):
