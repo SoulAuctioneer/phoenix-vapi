@@ -48,6 +48,15 @@ SQUEALING_PHRASES = [
     {"text": "Ooh! Oooh! Who's that? ... Are you a human? ... Oh yaay! We're gonna be okay! ... Oof, I'm sooo so tired now, maybe we should have a little nap now that we're safe.", "stability": SQUEALING_ACTIVITY_STABILITY},
 ]
 
+GRANDMA_PEA_ACTIVITY_STABILITY = 0.6
+GRANDMA_PEA_PHRASES = [
+    # These phrases from GrandmaPeaActivity use a custom stability
+    {"text": "Yaay it's grandma pea! Weee!! We love you grandma!", "stability": GRANDMA_PEA_ACTIVITY_STABILITY},
+    {"text": "Yippee!! It's Grandma Pea! We missed you SO much!!", "stability": GRANDMA_PEA_ACTIVITY_STABILITY},
+    {"text": "Grandma!! It's really you! We're over the moon, but here on earth!!", "stability": GRANDMA_PEA_ACTIVITY_STABILITY},
+    {"text": "Grandma Pea! Grandma Pea! You're our favorite in the whole galaxy!!", "stability": GRANDMA_PEA_ACTIVITY_STABILITY},
+]
+
 TEXTS_TO_CACHE = [
     # from ActivityService
     "OK, shutting down.",
@@ -78,6 +87,7 @@ TEXTS_TO_CACHE = [
 
 # Add phrases with special params
 TEXTS_TO_CACHE.extend(SQUEALING_PHRASES)
+TEXTS_TO_CACHE.extend(GRANDMA_PEA_PHRASES)
 
 # Add dynamically generated intro texts from ScavengerHuntConfig
 def _generate_intro_text(hunt_locations, template: str):
@@ -101,9 +111,6 @@ INTRO_TEXT_TEMPLATE_LEDS_OFF: str = "Yay! I can sense that the transmitter parts
 for template in [INTRO_TEXT_TEMPLATE_LEDS_ON, INTRO_TEXT_TEMPLATE_LEDS_OFF]:
     TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_ALPHA, template))
     TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_BETA, template))
-
-# Remove potential duplicates
-TEXTS_TO_CACHE = list(set(TEXTS_TO_CACHE))
 
 # This logic is duplicated from VoiceService to avoid complex dependencies.
 def generate_cache_key(text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None) -> str:
