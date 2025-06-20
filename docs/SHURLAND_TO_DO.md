@@ -1,8 +1,10 @@
 
 BEFORE REHEARSALS:
-* Increase power on other 3 beacons.
 * Git pull all peas.
-* Re-run TTS caching.
+* Put bluetooth beacons out.
+* Put peas in coats.
+* Put dock in lab.
+* Put LED lights in botany room.
 * Make plantasia tune.
 * Clean up mic ports on #3. Check others.
 * Verify we got cache hits for everything scavenger hunty and cratery.

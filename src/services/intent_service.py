@@ -184,6 +184,8 @@ class IntentService(BaseService):
             }
         })
 
+        intent = intent_data["intent"]
+
         # Re-map custom command and volume intents
         if intent == "command_custom":
             slots = intent_data.get("slots", {})
