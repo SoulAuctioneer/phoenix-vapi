@@ -231,7 +231,7 @@ class ActivityService(BaseService):
         if self.current_activity:
             await self._stop_activity(self.current_activity)
             
-        # Ensure supporting services are running
+        # Ensure supporting services are running (without passing activity-specific kwargs)
         if not await self._ensure_services(supporting_services):
             self.logger.error(f"Failed to start {activity.name} - required supporting services could not be started")
             return
@@ -248,6 +248,12 @@ class ActivityService(BaseService):
         if activity in [ActivityType.CONVERSATION, ActivityType.FIRST_CONTACT]:
             conversation_activity = self.active_services.get('conversation')
             await conversation_activity.start_conversation(**kwargs)
+        elif activity == ActivityType.SCAVENGER_HUNT:
+            scavenger_hunt_activity = self.active_services.get('scavenger_hunt')
+            if scavenger_hunt_activity:
+                await scavenger_hunt_activity.start_hunt(**kwargs)
+            else:
+                self.logger.error("Scavenger hunt service not active for SCAVENGER_HUNT activity.")
                 
         self.current_activity = activity
         

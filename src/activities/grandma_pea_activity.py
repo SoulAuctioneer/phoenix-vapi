@@ -41,10 +41,10 @@ class GrandmaPeaActivity(BaseService):
         self._TTS_STABILITY = 0.6
         
         self._initial_delay_min_sec = 0.0
-        self._initial_delay_max_sec = 2.0
+        self._initial_delay_max_sec = 0.1
         
-        self._end_delay_min_sec = 10.0
-        self._end_delay_max_sec = 12.0
+        self._end_delay_min_sec = 100.0
+        self._end_delay_max_sec = 120.0
         
         self._tts_messages = [
             "Yaay it's grandma pea! Weee!! We love you grandma!",

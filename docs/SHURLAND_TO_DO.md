@@ -1,8 +1,8 @@
 
 BEFORE REHEARSALS:
 * Git pull all peas.
-* Don't bother with the lights on all the outdoorsy stuff, we won't see any of it!
 * BUG: Only the first scavenger hunt ALPHA runs, even with other intent. Looks like it's just using the default.
+* Still getting issue with git not ignoring data folder
 * Put bluetooth beacons on props or tape to stuff.
 * Make one of the peas louder either #3 or #4 
 * Extend the VAPI's timeout before asking "are you still there?"
