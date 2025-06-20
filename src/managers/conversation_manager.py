@@ -879,42 +879,54 @@ class ConversationManager:
         logger.info("ConversationManager cleanup starting...")
         try:
             # Cancel message processor task if it exists
+            logger.info("ConversationManager log point #1")
             if self._message_processor_task:
+                logger.info("ConversationManager log point #2")
                 self._message_processor_task.cancel()
+                logger.info("ConversationManager log point #3")
                 try:
+                    logger.info("ConversationManager log point #4")
                     await self._message_processor_task
                 except asyncio.CancelledError:
                     pass
                 self._message_processor_task = None
-            
+            logger.info("ConversationManager log point #5")
             # First leave any active call
             if not self.state_manager.state.is_terminal_state:
+                logger.info("ConversationManager log point #6")
                 await self.leave()
+            logger.info("ConversationManager log point #7")
                 
             # Then cleanup audio
             self._cleanup_audio_system()
-            
+            logger.info("ConversationManager log point #8")
+
             # Release call client if it exists
             if hasattr(self, '_call_client') and self._call_client:
                 try:
+                    logger.info("ConversationManager log point #9")
                     self._call_client.release()
+                    logger.info("ConversationManager log point #10")
                 except Exception as e:
                     logger.warning(f"Error releasing call client: {e}")
                 self._call_client = None
-            
+            logger.info("ConversationManager log point #11")
+
             # Small delay to ensure client is fully released
             await asyncio.sleep(0.2)
-            
+            logger.info("ConversationManager log point #12")
             # Reset to initialized state
             await self.state_manager.transition_to(CallState.INITIALIZED)
-            
+            logger.info("ConversationManager log point #12")
             # Clear event handler
             self._event_handler = None
-            
+            logger.info("ConversationManager log point #13")
         except Exception as e:
             logger.error(f"Error during ConversationManager cleanup: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
-            
+
+        logger.info("ConversationManager log point #14")
+
         # Final delay to ensure all resources are cleaned up
         await asyncio.sleep(0.2)
         logger.info("ConversationManager cleanup finished.")
