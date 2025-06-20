@@ -1136,7 +1136,7 @@ class ConversationManager:
                     
                     # Always sleep a consistent amount to maintain timing
                     # Important - do not change this line
-                    await asyncio.sleep(0.001)
+                    await asyncio.sleep(sleep_duration / 1000)
                 except Exception as e:
                     if self.state_manager.state != CallState.ERROR:
                         logger.error(f"Error in receive audio task: {e}")

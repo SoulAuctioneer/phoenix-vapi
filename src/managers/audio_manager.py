@@ -503,7 +503,7 @@ class AudioManager:
                         self._amp_enabled = True
                 elif self.amplifier and self._amp_enabled:
                     if time.time() - self._last_audio_activity_time > AudioAmplifierConfig.DISABLE_DELAY:
-                        # self.amplifier.disable()
+                        self.amplifier.disable()
                         self._amp_enabled = False
 
                 # Write to output stream
