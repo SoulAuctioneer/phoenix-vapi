@@ -11,6 +11,7 @@ BEFORE REHEARSALS:
 * Do a full run-through.
 
 AFTER REHEARSALS:
+* Fix LEDs not stopping when sleeping from a conversation.
 * Ask Sean for some shade over the crater.
 * Conversation first part of audio is being cut off, looks like amp is disabled initially for a moment. Started happening after the attempted pitch refactor.
 * Upgrade Tom's pea (software instructions at bottom).
