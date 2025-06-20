@@ -477,7 +477,7 @@ class ConversationManager:
 
     async def _handle_left_state(self):
         """Handle left state - cleanup and prepare for potential new call"""
-        self.logger.info("Handling LEFT state...")
+        logger.info("Handling LEFT state...")
         try:
             # Clean up call-specific resources
             await self._cleanup_call_audio()
@@ -498,7 +498,7 @@ class ConversationManager:
         except Exception as e:
             logger.error(f"Error in left state handler: {e}")
             await self.state_manager.transition_to(CallState.ERROR)
-        self.logger.info("LEFT state handling complete.")
+        logger.info("LEFT state handling complete.")
 
     async def _handle_joining_state(self):
         """Handle joining state - prepare for joining a call"""
@@ -876,7 +876,7 @@ class ConversationManager:
 
     async def cleanup(self):
         """Clean up all resources"""
-        self.logger.info("ConversationManager cleanup starting...")
+        logger.info("ConversationManager cleanup starting...")
         try:
             # Cancel message processor task if it exists
             if self._message_processor_task:
@@ -917,7 +917,7 @@ class ConversationManager:
             
         # Final delay to ensure all resources are cleaned up
         await asyncio.sleep(0.2)
-        self.logger.info("ConversationManager cleanup finished.")
+        logger.info("ConversationManager cleanup finished.")
 
     def send_app_message(self, message):
         """Send an application message to the assistant."""
@@ -951,24 +951,24 @@ class ConversationManager:
 
     async def _cleanup_call_audio(self):
         """Cleanup audio components specific to a call"""
-        self.logger.info("Cleaning up call audio...")
+        logger.info("Cleaning up call audio...")
         # Cancel audio tasks if they exist and are not None
         if hasattr(self, '_receive_bot_audio_task') and self._receive_bot_audio_task is not None:
-            self.logger.info("Cancelling receive bot audio task...")
+            logger.info("Cancelling receive bot audio task...")
             self._receive_bot_audio_task.cancel()
             try:
                 await self._receive_bot_audio_task
             except asyncio.CancelledError:
                 pass
             self._receive_bot_audio_task = None
-            self.logger.info("Receive bot audio task cancelled.")
+            logger.info("Receive bot audio task cancelled.")
             
         # Wait for input thread to finish
         if hasattr(self, '_input_thread') and self._input_thread is not None:
-            self.logger.info("Joining input audio thread...")
+            logger.info("Joining input audio thread...")
             self._input_thread.join(timeout=1.0)
             self._input_thread = None
-            self.logger.info("Input audio thread joined.")
+            logger.info("Input audio thread joined.")
             
         # Remove audio consumer and producer for this call
         if hasattr(self, '_audio_consumer') and self._audio_consumer is not None:
@@ -978,7 +978,7 @@ class ConversationManager:
         if hasattr(self, '_audio_producer') and self._audio_producer is not None:
             self.audio_manager.remove_producer("daily_call")
             self._audio_producer = None
-        self.logger.info("Call audio cleanup complete.")
+        logger.info("Call audio cleanup complete.")
 
     def _cleanup_audio_system(self):
         """Cleanup the entire audio system"""
