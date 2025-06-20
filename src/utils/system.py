@@ -79,4 +79,16 @@ async def shutdown_pi():
     # Add to /etc/sudoers.d/phoenix:
     # <user> ALL=(ALL) NOPASSWD: /sbin/shutdown
     command = "sudo shutdown -h now"
+    await _run_shell_command(command)
+
+async def reboot_pi():
+    """
+    Reboots the Raspberry Pi gracefully.
+    Requires passwordless sudo for the `shutdown` command.
+    """
+    logger.info("Rebooting the system now.")
+    # NOTE: This requires passwordless sudo for the `shutdown` command.
+    # Add to /etc/sudoers.d/phoenix:
+    # <user> ALL=(ALL) NOPASSWD: /sbin/shutdown
+    command = "sudo shutdown -r now"
     await _run_shell_command(command) 

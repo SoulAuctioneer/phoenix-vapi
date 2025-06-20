@@ -192,7 +192,9 @@ class IntentService(BaseService):
             if slots and "index" in slots:
                 index_val = int(slots["index"])
                 if index_val == 0:
-                    intent = "shut_down"
+                    intent = "system_shutdown"
+                elif index_val == 1:
+                    intent = "system_reboot"
         elif intent == "command_volume":
             slots = intent_data.get("slots", {})
             if slots:
