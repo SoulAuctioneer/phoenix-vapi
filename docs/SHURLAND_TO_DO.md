@@ -2,6 +2,10 @@
 BEFORE REHEARSALS:
 * Git pull all peas.
 * Put bluetooth beacons out.
+* Make one of the peas louder either #3 or #4 
+* Extend the VAPIs  time before asking "are you still there?"
+* Change "We're ready 
+* Yawn has gone when sleeping from conversation.
 * Put peas in coats.
 * Put dock in lab.
 * Put LED lights in botany room.
@@ -27,6 +31,11 @@ LATER:
 * Bug: "go to sleep" inside conversation doesn't shut down LEDs, maybe doesn't stop service properly. Only works via the intent.
 *	Amazon returns
 * Pay folks
+
+PEA ALLOCATIONS:
+* #3 and #4 - Scavenger Hunt
+* #6 - Lab
+* Bluetooth - Greenhouse
 
 
 GROW SONG:
