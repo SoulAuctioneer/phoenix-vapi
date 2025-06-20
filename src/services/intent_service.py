@@ -195,6 +195,8 @@ class IntentService(BaseService):
                     intent = "system_shutdown"
                 elif index_val == 1:
                     intent = "system_reboot"
+                elif index_val == 2:
+                    intent = "system_exit_app"
         elif intent == "command_volume":
             slots = intent_data.get("slots", {})
             if slots:

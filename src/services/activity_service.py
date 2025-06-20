@@ -16,7 +16,7 @@ from activities.play_music_activity import PlayMusicActivity
 from activities.grandma_pea_activity import GrandmaPeaActivity
 import asyncio
 from config import ASSISTANT_CONFIG_FIRST_CONTACT
-from utils.system import shutdown_pi, reboot_pi
+from utils.system import shutdown_pi, reboot_pi, exit_app
 
 # TODO: Should this be StrEnum?
 class ActivityType(Enum):
@@ -399,6 +399,11 @@ class ActivityService(BaseService):
                 self.logger.info("Reboot intent received. Rebooting system.")
                 await self.publish({"type": "speak_audio", "text": "OK, rebooting."})
                 await reboot_pi()
+
+            elif intent == "system_exit_app":
+                self.logger.info("Exit app intent received. Stopping application.")
+                await self.publish({"type": "speak_audio", "text": "OK, goodbye."})
+                await exit_app()
 
             else:
                 self.logger.error(f"Can't handle 'intent_detected' intent with value: {intent}.")

@@ -12,6 +12,7 @@ from services.wakeword_service import WakeWordService
 from services.activity_service import ActivityService
 from services.intent_service import IntentService
 from services.voice_service import VoiceService
+from utils.system import set_shutdown_callback
 
 if PLATFORM == "raspberry-pi":
     from services.led_service import LEDService
@@ -152,6 +153,7 @@ async def main():
         config.LOG_FILTERS = args.log_filters
     
     app = PhoenixApp()
+    set_shutdown_callback(app.handle_shutdown)
     
     # Setup signal handlers for graceful shutdown
     loop = asyncio.get_running_loop()

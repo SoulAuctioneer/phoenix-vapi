@@ -4,6 +4,15 @@ from config import PLATFORM
 
 logger = logging.getLogger(__name__)
 
+# This is a bit of a hack.
+# We will inject this at runtime from main.py
+shutdown_callback = None
+
+def set_shutdown_callback(callback):
+    """Sets the shutdown callback function."""
+    global shutdown_callback
+    shutdown_callback = callback
+
 async def _run_shell_command(command: str):
     """Executes a shell command and logs its output."""
     if PLATFORM != "raspberry-pi":
@@ -91,4 +100,14 @@ async def reboot_pi():
     # Add to /etc/sudoers.d/phoenix:
     # <user> ALL=(ALL) NOPASSWD: /sbin/shutdown
     command = "sudo shutdown -r now"
-    await _run_shell_command(command) 
+    await _run_shell_command(command)
+
+async def exit_app():
+    """
+    Stops the Phoenix application gracefully.
+    """
+    logger.info("Stopping the application now.")
+    if shutdown_callback:
+        shutdown_callback()
+    else:
+        logger.error("Shutdown callback not set. Cannot exit application.") 
