@@ -27,6 +27,83 @@
       "importance": "medium",
       "timestamp": "2025-05-04T04:41:45.904494+00:00",
       "created_at": "May 20, 2025 at 04:41 PM PST"
+    },
+    {
+      "content": "Phoenix is the name used by Fifi during the conversation.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-06-20T12:21:01.902263+00:00",
+      "created_at": "June 20, 2025 at 01:21 PM BST"
+    },
+    {
+      "content": "Phoenix, a fluffy friend from space, is visiting Earth to help create a peaceful future by playing and interacting with children.",
+      "topic": "story_progress",
+      "importance": "medium",
+      "timestamp": "2025-06-20T13:01:40.955999+00:00",
+      "created_at": "June 20, 2025 at 02:01 PM BST"
+    },
+    {
+      "content": "Phoenix and its fellow Magic Peas have traveled to Earth from a galaxy called Petopia through a wormhole.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-06-20T13:06:12.351487+00:00",
+      "created_at": "June 20, 2025 at 02:06 PM BST"
+    },
+    {
+      "content": "The Wi-Fi in Ash's location is not very strong.",
+      "topic": "fact",
+      "importance": "low",
+      "timestamp": "2025-06-20T13:12:02.000357+00:00",
+      "created_at": "June 20, 2025 at 02:12 PM BST"
+    },
+    {
+      "content": "Grandmother pea sent Phoenix and the Magic Peas to learn about Earth and make friends with neighbors.",
+      "topic": "event",
+      "importance": "medium",
+      "timestamp": "2025-06-20T13:16:08.845648+00:00",
+      "created_at": "June 20, 2025 at 02:16 PM BST"
+    },
+    {
+      "content": "Ash has a science lab.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-06-20T13:31:44.380355+00:00",
+      "created_at": "June 20, 2025 at 02:31 PM BST"
+    },
+    {
+      "content": "Ash wants to help create a peaceful future and make friends with the Magic Peas.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-06-20T13:39:42.833871+00:00",
+      "created_at": "June 20, 2025 at 02:39 PM BST"
+    },
+    {
+      "content": "Magic peas have a rhythm through spins as they travel through a tunnel in space.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-06-20T13:49:28.758214+00:00",
+      "created_at": "June 20, 2025 at 02:49 PM BST"
+    },
+    {
+      "content": "Ash considers the science lab as a magical hub with many small and big human friends.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-06-20T13:58:00.203121+00:00",
+      "created_at": "June 20, 2025 at 02:58 PM BST"
+    },
+    {
+      "content": "Phoenix identifies as a fluffy friend from space.",
+      "topic": "fact",
+      "importance": "medium",
+      "timestamp": "2025-06-20T14:04:33.119236+00:00",
+      "created_at": "June 20, 2025 at 03:04 PM BST"
+    },
+    {
+      "content": "Ash confirmed their willingness to help the Magic Peas learn about Earth and create a peaceful future.",
+      "topic": "fact",
+      "importance": "high",
+      "timestamp": "2025-06-20T14:15:31.279129+00:00",
+      "created_at": "June 20, 2025 at 03:15 PM BST"
     }
   ]
 }
