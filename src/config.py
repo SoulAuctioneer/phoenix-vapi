@@ -413,13 +413,17 @@ class ScavengerHuntLocationData:
 
 # Configuration for the Scavenger Hunt activity
 class ScavengerHuntConfig:
+    ENABLE_LED_EFFECTS = False
     PROVIDE_INTERMEDIATE_HINTS = False
     INTER_STEP_SLEEP_TIME: float = 5.0
     INACTIVITY_HINT_INTERVAL: float = 10.0
     CHIRP_VOLUME = 0.5
     CHIRP_INTERVAL_SCALING_FACTOR = 10.0
 
-    INTRO_TEXT_TEMPLATE: str = "Yay! My tummy light will spin faster the closer we get to a missing part. ... We need to find {objectives_list_str}. ... Let's go!"
+    if ENABLE_LED_EFFECTS:
+        INTRO_TEXT_TEMPLATE: str = "Yay! My tummy light will spin faster the closer we get to a missing part. ... We need to find {objectives_list_str}. ... Let's go!"
+    else:
+        INTRO_TEXT_TEMPLATE: str = "Yay! I can sense that the transmitter parts are scattered around. ... We need to find {objectives_list_str}. ... Let's go!"
     INTRO_FALLBACK_OBJECTIVES: str = "all the missing parts"
     VICTORY_TEXT: str = (
         "We did it! We found all the pieces! Hooray!! "

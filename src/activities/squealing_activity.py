@@ -26,8 +26,8 @@ class SquealingActivity(BaseService):
         super().__init__(service_manager)
         self._is_active = False
         self._tts_task = None
-        self._squeal_action_index = 0
         # TODO: get from config.
+        self._ENABLE_LED_EFFECTS = False
         self._LED_BRIGHTNESS = 0.6
         # NOTE: Lower stability is more expressive. ElevenLabs default is likely 0.75.
         # We set it lower for more "panicked" speech.
@@ -37,20 +37,20 @@ class SquealingActivity(BaseService):
         self._pickup_speech_delay_sec = 1
         self._squeal_actions = [
             {"type": "sound", "value": "OUCH1"},
-            {"type": "speak", "value": "Where ARE we??!"},
-            {"type": "speak", "value": "WHAT'S GOING ON?!"},
-            {"type": "speak", "value": "Is THIS Earth??"},
+            {"type": "speak", "value": "Oh NOOO!! We've CRASHED!"},
             {"type": "speak", "value": "Waaah!!!"},
-            {"type": "speak", "value": "Are we THERE yet?!"},
+            {"type": "speak", "value": "Where ARE we??!"},
+            {"type": "speak", "value": "Is THIS Earth??"},
+            {"type": "speak", "value": "WHAT'S GOING ON?!"},
             {"type": "speak", "value": "I'm scared!!"},
             {"type": "sound", "value": "OUCH2"},
             {"type": "speak", "value": "Did we MAKE it?!"},
-            {"type": "speak", "value": "I'm SO tired!!"},
             {"type": "speak", "value": "Wow that was such a long journey!!"},
-            {"type": "speak", "value": "Oh NOOO!! We've CRASHED!"},
-            {"type": "speak", "value": "The transmitter's broken!"},
+            {"type": "speak", "value": "I'm SO tired!!"},
+            {"type": "speak", "value": "OH NO!! The transmitter's broken!!"},
             {"type": "speak", "value": "I want GRANDMA!!!"}
         ]
+        self._squeal_action_index = random.randint(0, len(self._squeal_actions) - 1)
         
     async def _squeal_loop(self):
         """The main loop for the squealing activity."""
@@ -79,22 +79,24 @@ class SquealingActivity(BaseService):
                 
                 # Wait for a random delay with a red LED effect
                 if self._is_active:
-                    await self.publish({
-                        "type": "start_led_effect",
-                        "data": {
-                            "effect_name": "ROTATING_COLOR",
-                            "color": "red",
-                            "speed": 0.01, # Faster rotation for "panic"
-                            "brightness": self._LED_BRIGHTNESS
-                        }
-                    })
+                    if self._ENABLE_LED_EFFECTS:
+                        await self.publish({
+                            "type": "start_led_effect",
+                            "data": {
+                                "effect_name": "ROTATING_COLOR",
+                                "color": "red",
+                                "speed": 0.01, # Faster rotation for "panic"
+                                "brightness": self._LED_BRIGHTNESS
+                            }
+                        })
 
+                    # Pause between actions
                     delay = random.uniform(self._tts_delay_min_sec, self._tts_delay_max_sec)
                     self.logger.debug(f"Waiting for {delay:.2f} seconds.")
                     await asyncio.sleep(delay)
 
                     # Restore the calming green breathing effect if we are still active
-                    if self._is_active:
+                    if self._is_active and self._ENABLE_LED_EFFECTS:
                         await self.publish({
                             "type": "start_led_effect",
                             "data": {

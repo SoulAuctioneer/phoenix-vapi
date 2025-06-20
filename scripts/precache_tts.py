@@ -70,7 +70,7 @@ TEXTS_TO_CACHE = [
 ]
 
 # Add dynamically generated intro texts from ScavengerHuntConfig
-def _generate_intro_text(hunt_locations):
+def _generate_intro_text(hunt_locations, template: str):
     """Generates the intro text for a given list of hunt locations."""
     objectives = [loc.objective_name for loc in hunt_locations]
     if len(objectives) > 2:
@@ -83,10 +83,14 @@ def _generate_intro_text(hunt_locations):
     else:
         objectives_list_str = ScavengerHuntConfig.INTRO_FALLBACK_OBJECTIVES
     
-    return ScavengerHuntConfig.INTRO_TEXT_TEMPLATE.format(objectives_list_str=objectives_list_str)
+    return template.format(objectives_list_str=objectives_list_str)
 
-TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_ALPHA))
-TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_BETA))
+INTRO_TEXT_TEMPLATE_LEDS_ON: str = "Yay! My tummy light will spin faster the closer we get to a missing part. ... We need to find {objectives_list_str}. ... Let's go!"
+INTRO_TEXT_TEMPLATE_LEDS_OFF: str = "Yay! I can sense that the transmitter parts are scattered around. ... We need to find {objectives_list_str}. ... Let's go!"
+
+for template in [INTRO_TEXT_TEMPLATE_LEDS_ON, INTRO_TEXT_TEMPLATE_LEDS_OFF]:
+    TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_ALPHA, template))
+    TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_BETA, template))
 
 # Remove potential duplicates
 TEXTS_TO_CACHE = list(set(TEXTS_TO_CACHE))

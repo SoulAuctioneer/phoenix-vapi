@@ -1,19 +1,19 @@
 
 BEFORE REHEARSALS:
 * Git pull all peas.
-* Put bluetooth beacons out.
+* Don't bother with the lights on all the outdoorsy stuff, we won't see any of it!
+* BUG: Only the first scavenger hunt ALPHA runs, even with other intent. Looks like it's just using the default.
+* Put bluetooth beacons on props or tape to stuff.
 * Make one of the peas louder either #3 or #4 
-* Extend the VAPIs  time before asking "are you still there?"
+* Extend the VAPI's timeout before asking "are you still there?"
 * Change "We're ready too" intent to something non-sequential
-* More delay between the intro and the first 
 * Yawn has gone when sleeping from conversation.
-* Put peas in coats.
-* Put dock in lab.
-* Put LED lights in botany room.
+* Fix up the LED lights in botany room.
 * Make plantasia tune.
 * Clean up mic ports on #3. Check others.
 * Verify we got cache hits for everything scavenger hunty and cratery.
 * Do a full run-through.
+* Grandma is being triggered too often. Maybe add "grandma" to the script.
 
 AFTER REHEARSALS:
 * Fix LEDs not stopping when sleeping from a conversation.
