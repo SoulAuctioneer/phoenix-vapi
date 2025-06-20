@@ -7,7 +7,7 @@ context:
     activity_first_contact:
       - are you awake
     activity_scavenger_hunt_alpha:
-      - we're ready to find the transmitter pieces
+      - we're ready to help
     activity_scavenger_hunt_beta:
       - and we're ready too
     activity_grandma_pea:
