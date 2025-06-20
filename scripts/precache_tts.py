@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # This is slow, but necessary.
 from managers.voice_manager import VoiceManager
-from config import ElevenLabsConfig
+from config import ElevenLabsConfig, ScavengerHuntConfig
 
 # The default pitch used when an event doesn't specify one.
 # This must match VoiceService.DEFAULT_PITCH to ensure cache hits.
@@ -58,7 +58,32 @@ TEXTS_TO_CACHE = [
     "Yes, that's it! We're getting closer! The wiggles are getting stronger!",
     "Oh no, the feeling is getting weaker. I think we're going the wrong way.",
     "Oh dear, I've lost the signal completely. Where did it go?",
+
+    # from ScavengerHuntConfig (static)
+    ScavengerHuntConfig.VICTORY_TEXT,
 ]
+
+# Add dynamically generated intro texts from ScavengerHuntConfig
+def _generate_intro_text(hunt_locations):
+    """Generates the intro text for a given list of hunt locations."""
+    objectives = [loc.objective_name for loc in hunt_locations]
+    if len(objectives) > 2:
+        objectives_list_str = ", the ".join(objectives[:-1])
+        objectives_list_str = f"the {objectives_list_str}, and the {objectives[-1]}"
+    elif len(objectives) == 2:
+        objectives_list_str = f"the {objectives[0]} and the {objectives[1]}"
+    elif len(objectives) == 1:
+        objectives_list_str = f"the {objectives[0]}"
+    else:
+        objectives_list_str = ScavengerHuntConfig.INTRO_FALLBACK_OBJECTIVES
+    
+    return ScavengerHuntConfig.INTRO_TEXT_TEMPLATE.format(objectives_list_str=objectives_list_str)
+
+TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_ALPHA))
+TEXTS_TO_CACHE.append(_generate_intro_text(ScavengerHuntConfig.HUNT_BETA))
+
+# Remove potential duplicates
+TEXTS_TO_CACHE = list(set(TEXTS_TO_CACHE))
 
 # This logic is duplicated from VoiceService to avoid complex dependencies.
 def generate_cache_key(text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None) -> str:
