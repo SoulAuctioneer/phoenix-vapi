@@ -188,11 +188,13 @@ class AudioManager:
         
     def set_amplifier(self, amplifier):
         """Sets the amplifier instance for power management."""
-        self.amplifier = amplifier
-        # Ensure amp is off initially if we are just setting it
-        if self.amplifier and self._amp_enabled:
-            self.amplifier.disable()
-            self._amp_enabled = False
+        # Disabled as it's disabling when it shouldn't be.
+        pass
+        # self.amplifier = amplifier
+        # # Ensure amp is off initially if we are just setting it
+        # if self.amplifier and self._amp_enabled:
+        #     self.amplifier.disable()
+        #     self._amp_enabled = False
 
     def add_consumer(self, callback: Callable[[np.ndarray], None], chunk_size: Optional[int] = None) -> AudioConsumer:
         """Add a new audio consumer"""
