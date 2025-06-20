@@ -1,25 +1,24 @@
 
 NOW:
-* Test bug fix: Only the first scavenger hunt ALPHA runs, even with other intent. Looks like it's just using the default.
 * Conversation first part of audio is being cut off, looks like amp is disabled initially for a moment. Started happening after the attempted pitch refactor.
-* Put bluetooth beacons on props or tape to stuff.
 * Fix LEDs not stopping when sleeping from a conversation.
 * Make conversation voice sound childish. Maybe just do call/response from wakword+intent only.
 * Mix the audio for grandma pea finale.
 * Change "We're ready too" intent to something non-sequential
 * Yawn has gone when sleeping from conversation.
 * Clean up mic ports on #3. Check others.
-* Verify we got cache hits for everything scavenger hunty and cratery.
+* Get tune onto iPad and connect it to bluetooth speaker.
 * Make one of the peas louder either #3 or #4 
 
 TONIGHT:
 * Charge everything.
 
 TOMORROW:
-* Get tune onto iPad and connect it to bluetooth speaker.
+* Put bluetooth beacons on props or tape to stuff.
 * Git pull all peas.
 * Ask someone to fix up the LED lights in botany room. Instruct Lucy on the botany room.
 * Ask Sean for some shade over the crater.
+* Verify we got cache hits for everything scavenger hunty and cratery.
 * Do a full run-through.
 
 * Upgrade Tom's pea (software instructions at bottom).
