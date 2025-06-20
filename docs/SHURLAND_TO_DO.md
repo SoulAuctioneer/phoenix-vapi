@@ -1,7 +1,7 @@
 
 BEFORE REHEARSALS:
 * Increase power on other 3 beacons.
-* Create new Rhino model with only stuff that we need for the event.
+* Git pull all peas.
 * Re-run TTS caching.
 * Make plantasia tune.
 * Clean up mic ports on #3. Check others.
