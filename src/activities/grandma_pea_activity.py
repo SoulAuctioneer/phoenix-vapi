@@ -36,6 +36,8 @@ class GrandmaPeaActivity(BaseService):
         self._activity_task = None
         
         self._LED_BRIGHTNESS = 0.8
+        # IMPORTANT: This value MUST be reflected in `scripts/precache_tts.py`
+        # for these phrases to be properly cached.
         self._TTS_STABILITY = 0.6
         
         self._initial_delay_min_sec = 0.0

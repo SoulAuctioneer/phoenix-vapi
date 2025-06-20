@@ -31,6 +31,8 @@ class SquealingActivity(BaseService):
         self._LED_BRIGHTNESS = 0.6
         # NOTE: Lower stability is more expressive. ElevenLabs default is likely 0.75.
         # We set it lower for more "panicked" speech.
+        # IMPORTANT: This value MUST be reflected in `scripts/precache_tts.py`
+        # for these phrases to be properly cached.
         self._TTS_STABILITY = 0.5
         self._tts_delay_min_sec = 0.3
         self._tts_delay_max_sec = 1.5
