@@ -1,0 +1,51 @@
+context:
+  expressions:
+    conversation:
+      - let's have a chat
+    scavenger_hunt_one:
+      - we're ready to find the transmitter pieces
+    scavenger_hunt_two:
+      - and we're ready too
+    sleep:
+      - go to sleep (please)
+    move:
+      - lets play catch
+    play_music:
+      - play a tune
+    custom_command:
+      - custom command $pv.SingleDigitInteger:index
+    volume:
+      - volume $volume:command
+      - volume $pv.SingleDigitInteger:level
+    story:
+      - It's story time
+      - Tell me a story
+    poem:
+      - Let's make a poem
+      - Tell me a poem
+    color_hunt:
+      - Let's [play, go on] (a) color hunt
+    discovery:
+      - Let's learn together
+      - Let's play discovery
+    bedtime:
+      - Goodnight
+      - Night light
+      - It's time for bed
+      - It's bedtime
+    mummy_pea:
+      - Mommy's here
+      - Don't be [afraid, worried, sad]
+  slots:
+    contact:
+      - mom
+      - dad
+      - Ash
+      - Lucy
+      - Tom
+    volume:
+      - on
+      - off
+      - down
+      - up
+  macros: {}

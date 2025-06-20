@@ -1,0 +1,38 @@
+context:
+  expressions:
+    activity_conversation:
+      - let's have a chat
+    activity_squealing:
+      - we found you
+    activity_first_contact:
+      - are you awake
+    activity_scavenger_hunt_alpha:
+      - we're ready to find the transmitter pieces
+    activity_scavenger_hunt_beta:
+      - and we're ready too
+    activity_grandma_pea:
+      - I can see you
+    activity_sleep:
+      - go to sleep (please)
+    activity_move:
+      - let's play catch
+    activity_play_music:
+      - play some music
+    command_custom:
+      - custom command $pv.SingleDigitInteger:index
+    command_volume:
+      - volume $volume:command
+      - volume $pv.SingleDigitInteger:level
+  slots:
+    contact:
+      - mom
+      - dad
+      - Ash
+      - Lucy
+      - Tom
+    volume:
+      - on
+      - off
+      - down
+      - up
+  macros: {}
