@@ -21,11 +21,15 @@ class ConversationActivity(BaseService):
 
     async def stop(self):
         """Stop the service and any active conversation"""
+        self.logger.info("ConversationActivity stopping...")
         if self.is_active:
             await self.stop_conversation()
         if self.conversation_manager:
+            self.logger.info("Cleaning up ConversationManager...")
             await self.conversation_manager.cleanup()
+            self.logger.info("ConversationManager cleanup complete.")
         await super().stop()
+        self.logger.info("ConversationActivity stopped.")
         
     async def start_conversation(self, assistant_config: Dict[str, Any] = ASSISTANT_CONFIG, include_memories: bool = True):
         """Start a conversation with the AI assistant

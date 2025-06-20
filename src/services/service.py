@@ -174,7 +174,9 @@ class ServiceManager:
         try:
             # Unsubscribe from all events
             await self.unsubscribe("*", service.handle_event)
+            self.logger.info(f"Stopping service implementation for {name}...")
             await service.stop()
+            self.logger.info(f"Successfully stopped service implementation for {name}.")
             self.logger.debug(f"Stopped service: {name}")
         except Exception as e:
             self.logger.error(f"Error stopping service {name}: {e}", exc_info=True)

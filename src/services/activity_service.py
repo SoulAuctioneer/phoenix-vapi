@@ -299,7 +299,7 @@ class ActivityService(BaseService):
             services_to_stop_list.append(activity_service_name)
             
         # Stop all services for this activity
-        self.logger.info(f"Cleaning up supporting services for activity {activity.name}. Services to stop: {services_to_stop_list}")
+        self.logger.info(f"Cleaning up activity and its supporting services for activity {activity.name}. Services to stop: {services_to_stop_list}")
         await self._cleanup_services(services_to_stop_list)
             
         # Clear current activity before publishing event
