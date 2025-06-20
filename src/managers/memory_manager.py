@@ -65,7 +65,11 @@ class MemoryManager:
         self._ensure_memory_file_exists()
         
     def _ensure_memory_file_exists(self):
-        """Create the memory file if it doesn't exist"""
+        """Create the memory file and its directory if they don't exist"""
+        directory = os.path.dirname(self.memory_file_path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+            
         if not os.path.exists(self.memory_file_path):
             with open(self.memory_file_path, 'w') as f:
                 json.dump({"memories": []}, f)
