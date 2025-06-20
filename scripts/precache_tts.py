@@ -59,6 +59,12 @@ TEXTS_TO_CACHE = [
     "Oh no, the feeling is getting weaker. I think we're going the wrong way.",
     "Oh dear, I've lost the signal completely. Where did it go?",
 
+    # From GrandmaPeaActivity
+    "Yaay it's grandma pea! Weee!! We love you grandma!",
+    "Yippee!! It's Grandma Pea! We missed you SO much!!",
+    "Grandma!! It's really you! We're over the moon, but here on earth!!",
+    "Grandma Pea! Grandma Pea! You're our favorite in the whole galaxy!!",
+
     # from ScavengerHuntConfig (static)
     ScavengerHuntConfig.VICTORY_TEXT,
 ]
