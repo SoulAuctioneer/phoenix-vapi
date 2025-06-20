@@ -497,7 +497,7 @@ class AudioManager:
                 # Convert back to int16 and clip to prevent overflow
                 mixed_audio = np.clip(mixed_audio, -32768, 32767).astype(np.int16)
 
-                # TODO: Disabled for now as this is screwing up in ConversationManager.                         
+                # TODO: Disabled for now as this is screwing up in ConversationService.                         
                 # if active_producers > 0:
                 #     self._last_audio_activity_time = time.time()
                 #     if self.amplifier and not self._amp_enabled:

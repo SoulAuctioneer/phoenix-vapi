@@ -23,7 +23,7 @@ class AudioService(BaseService):
         try:
             # Initialize the amplifier if enabled for the current platform
             if AudioAmplifierConfig.IS_AMPLIFIER_ENABLED:
-                self.amplifier = Amplifier(shutdown_pin=AudioAmplifierConfig.ENABLE_PIN, initial_state='off')
+                self.amplifier = Amplifier(shutdown_pin=AudioAmplifierConfig.ENABLE_PIN, initial_state='on')
                 self.logger.info(f"Amplifier initialized on GPIO {AudioAmplifierConfig.ENABLE_PIN}")
 
             # Initialize audio manager with default config
