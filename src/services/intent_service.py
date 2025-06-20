@@ -184,27 +184,14 @@ class IntentService(BaseService):
             }
         })
 
-        # Re-map old intent names to new ones
-        intent = intent_data["intent"]
-        if intent == "wake_up":
-            intent = "conversation"
-
-        # Re-map volume intents
-        if intent == "custom_command":
+        # Re-map custom command and volume intents
+        if intent == "command_custom":
             slots = intent_data.get("slots", {})
             if slots and "index" in slots:
                 index_val = int(slots["index"])
                 if index_val == 0:
                     intent = "shut_down"
-                elif index_val == 1:
-                    intent = "volume_down"
-                elif index_val == 2:
-                    intent = "volume_up"
-                elif index_val == 3:
-                    intent = "squealing"
-                elif index_val == 4:
-                    intent = "first_contact"
-        elif intent == "volume":
+        elif intent == "command_volume":
             slots = intent_data.get("slots", {})
             if slots:
                 if "level" in slots:
@@ -220,8 +207,6 @@ class IntentService(BaseService):
                         intent = "volume_off"
                     elif command == "on":
                         intent = "volume_on"
-        elif intent == "hide_and_seek":
-            intent = "scavenger_hunt"
 
         # Publish the intent event first
         await self.publish({
