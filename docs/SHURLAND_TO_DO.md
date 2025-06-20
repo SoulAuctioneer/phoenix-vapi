@@ -1,6 +1,5 @@
 
-BEFORE REHEARSALS:
-* Git pull all peas.
+NOW:
 * BUG: Only the first scavenger hunt ALPHA runs, even with other intent. Looks like it's just using the default.
 * Still getting issue with git not ignoring data folder
 * Put bluetooth beacons on props or tape to stuff.
@@ -15,7 +14,13 @@ BEFORE REHEARSALS:
 * Do a full run-through.
 * Grandma is being triggered too often. Maybe add "grandma" to the script.
 
-AFTER REHEARSALS:
+TONIGHT:
+* Charge everything.
+
+TOMORROW:
+* Get tune onto iPad and connect it to bluetooth speaker.
+* Git pull all peas.
+
 * Fix LEDs not stopping when sleeping from a conversation.
 * Ask Sean for some shade over the crater.
 * Conversation first part of audio is being cut off, looks like amp is disabled initially for a moment. Started happening after the attempted pitch refactor.
@@ -101,6 +106,10 @@ Then finale: Mother pea voice recording says “Hey magic peas, don’t be afrai
 
 
 Update Tom's Pi:
+WiFi:
+SSID: Shurland-Appliance
+PASSWORD: 15321532
+
 git pull
 sudo apt-get update && sudo apt-get install -y build-essential gfortran libatlas-base-dev cpufrequtils rubberband-cli
 source .venv/bin/activate
