@@ -1151,11 +1151,11 @@ FIRST_CONTACT_CONTEXT = dedent("""
                                
     --- END OF SCRIPT ---
                                
-    Final instruction: After the script ends, use the endCallFunction function to end the call.
+    Final instruction: After the script ends, or you are told to sleep, immediately use the endCallFunction function to end the call. Do not do or say anything else.
     """).strip()
 
 ASSISTANT_CONFIG_FIRST_CONTACT = {
-    "endCallMessage": "Okay! ... I'm so, SO ready for a little nap!!",
+    "endCallMessage": "Okay!!",
     "context": BASE_ASSISTANT_CONTEXT 
         + "\n\n"
         + FIRST_CONTACT_CONTEXT
