@@ -84,7 +84,6 @@ class ConversationActivity(BaseService):
         finally:
             self.is_active = False
             self._is_stopping = False
-            await self.publish({"type": "conversation_ended"})
         
     async def handle_event(self, event: Dict[str, Any]):
         """Handle events from other services"""
@@ -112,8 +111,9 @@ class ConversationActivity(BaseService):
                                     
         elif event_type == "call_state":
             if event.get("state") == "ended" and self.is_active:
-                self.logger.info("Call ended event received, stopping conversation")
-                await self.stop_conversation()
+                self.logger.info("Call ended event received, stopping conversation activity.")
+                self.is_active = False # Immediately mark as inactive
+                await self.publish({"type": "conversation_ended"})
 
         elif event_type == "location_changed":
             # Disabled for now as we don't want this for the first meeting with Arianne
