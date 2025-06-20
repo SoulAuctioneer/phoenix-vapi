@@ -57,14 +57,15 @@ class ScavengerHuntActivity(BaseService):
         await self.publish({
             "type": "stop_led_effect"
         })
-        await self.publish({
-            "type": "start_led_effect",
-            "data": {
-                "effect_name": "ROTATING_BEACON",
-                "color": "yellow",
-                "speed": ScavengerHuntConfig.BEACON_SEARCH_SPEED
-            }
-        })
+        if ScavengerHuntConfig.ENABLE_LED_EFFECTS:
+            await self.publish({
+                "type": "start_led_effect",
+                "data": {
+                    "effect_name": "ROTATING_BEACON",
+                    "color": "yellow",
+                    "speed": ScavengerHuntConfig.BEACON_SEARCH_SPEED
+                }
+            })
         
         # Generate and speak the intro line
         all_objectives = [step.location.objective_name for step in self._all_hunt_steps]
@@ -185,13 +186,14 @@ class ScavengerHuntActivity(BaseService):
         self._game_active = False # Stop hint loop and other background processes
         
         # Start a celebratory LED effect
-        await self.publish({
-            "type": "start_led_effect",
-            "data": {
-                "effect_name": "MAGICAL_SPELL",
-                "speed": 0.03
-            }
-        })
+        if ScavengerHuntConfig.ENABLE_LED_EFFECTS:
+            await self.publish({
+                "type": "start_led_effect",
+                "data": {
+                    "effect_name": "MAGICAL_SPELL",
+                    "speed": 0.03
+                }
+            })
         
         # Victory speech
         victory_text = ScavengerHuntConfig.VICTORY_TEXT
@@ -214,14 +216,15 @@ class ScavengerHuntActivity(BaseService):
         else:
             self.logger.warning(f"No end voice line found for location: {self._current_step.location.name}")
             
-        await self.publish({
-            "type": "start_led_effect",
-            "data": {
-                "effect_name": "ROTATING_BEACON",
-                "color": "yellow",
-                "speed": ScavengerHuntConfig.BEACON_SEARCH_SPEED
-            }
-        })
+        if ScavengerHuntConfig.ENABLE_LED_EFFECTS:
+            await self.publish({
+                "type": "start_led_effect",
+                "data": {
+                    "effect_name": "ROTATING_BEACON",
+                    "color": "yellow",
+                    "speed": ScavengerHuntConfig.BEACON_SEARCH_SPEED
+                }
+            })
         await asyncio.sleep(ScavengerHuntConfig.INTER_STEP_SLEEP_TIME)
         await self._start_next_step()
     
