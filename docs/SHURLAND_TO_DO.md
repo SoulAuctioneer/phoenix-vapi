@@ -1,9 +1,11 @@
+iPad code: 0403
 
 NOW:
 * Conversation first part of audio is being cut off, looks like amp is disabled initially for a moment. Started happening after the attempted pitch refactor.
 * Fix LEDs not stopping when sleeping from a conversation.
 * Make conversation voice sound childish. Maybe just do call/response from wakword+intent only.
 * Mix the audio for grandma pea finale.
+* Charge iPad
 * Change "We're ready too" intent to something non-sequential
 * Yawn has gone when sleeping from conversation.
 * Clean up mic ports on #3. Check others.
