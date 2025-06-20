@@ -901,13 +901,6 @@ class ConversationManager:
             # Small delay to ensure client is fully released
             await asyncio.sleep(0.2)
             
-            # Reset to initialized state
-            logger.info("ConversationManager log point #1")
-            async with self.state_manager._state_lock:
-                logger.info("ConversationManager log point #2")
-                self.state_manager._state = CallState.INITIALIZED
-            logger.info("ConversationManager log point #3")
-            
             # Clear event handler
             self._event_handler = None
             
