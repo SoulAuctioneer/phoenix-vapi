@@ -902,9 +902,8 @@ class ConversationManager:
             await asyncio.sleep(0.2)
             
             # Reset to initialized state
-            logger.info("ConversationManager log point #1")
-            await self.state_manager.transition_to(CallState.INITIALIZED)
-            logger.info("ConversationManager log point #2")
+            async with self.state_manager._state_lock:
+                self.state_manager._state = CallState.INITIALIZED
             
             # Clear event handler
             self._event_handler = None
@@ -915,6 +914,7 @@ class ConversationManager:
             
         # Final delay to ensure all resources are cleaned up
         await asyncio.sleep(0.2)
+        logger.info("ConversationManager cleanup finished.")
 
     def send_app_message(self, message):
         """Send an application message to the assistant."""
