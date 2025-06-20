@@ -1155,7 +1155,7 @@ FIRST_CONTACT_CONTEXT = dedent("""
     """).strip()
 
 ASSISTANT_CONFIG_FIRST_CONTACT = {
-    "endCallMessage": "Okay, I'm so so ready for a nap!",
+    "endCallMessage": "Okay! ... I'm so, SO ready for a little nap!!",
     "context": BASE_ASSISTANT_CONTEXT 
         + "\n\n"
         + FIRST_CONTACT_CONTEXT
