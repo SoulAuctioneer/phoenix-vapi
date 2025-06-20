@@ -77,6 +77,8 @@ class ScavengerHuntActivity(BaseService):
 
         intro_text = ScavengerHuntConfig.INTRO_TEXT_TEMPLATE.format(objectives_list_str=objectives_list_str)
         await self._speak_and_update_timer(intro_text, wait_for_completion=True)
+
+        await asyncio.sleep(2.0)  # Check every second
         
         # Start the first step in our hunt.
         await self._start_next_step()

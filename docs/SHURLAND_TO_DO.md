@@ -4,7 +4,8 @@ BEFORE REHEARSALS:
 * Put bluetooth beacons out.
 * Make one of the peas louder either #3 or #4 
 * Extend the VAPIs  time before asking "are you still there?"
-* Change "We're ready 
+* Change "We're ready too" intent to something non-sequential
+* More delay between the intro and the first 
 * Yawn has gone when sleeping from conversation.
 * Put peas in coats.
 * Put dock in lab.
