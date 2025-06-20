@@ -825,9 +825,10 @@ class ConversationManager:
 
     async def leave(self):
         """Leave the call and clean up resources"""
-        if self.state_manager.state.is_terminal_state:
+        if self.state_manager.state.is_terminal_state or self.state_manager.state == CallState.LEAVING:
+            logger.debug(f"Leave called in terminal or leaving state ({self.state_manager.state.value}), nothing to do.")
             return
-            
+
         # First transition to LEAVING state
         await self.state_manager.transition_to(CallState.LEAVING)
         
