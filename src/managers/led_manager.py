@@ -291,7 +291,6 @@ class LEDManager:
             self._setup_revert_thread(previous_effect, duration)
 
         self.pixels.show()
-        time.sleep(random.uniform(0.3, 0.8))
 
     def show_color(self, color):
         """Show a specific color on the LEDs"""

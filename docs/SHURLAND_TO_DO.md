@@ -1,3 +1,5 @@
+Bug was introduced between "fix async block" 253968e0188d3d7f11d046e375a257774f4cc428 and "les noisy hunt" 2970033bf8109531700c1389e3871d70c94fc825
+
 iPad code: 0403
 
 NOW:
