@@ -334,10 +334,10 @@ class BLEConfig:
     }
     
     # RSSI thresholds for distance estimation (in dB)
-    RSSI_IMMEDIATE = -60  # Stronger than -60 dB = IMMEDIATE
-    RSSI_VERY_NEAR = -67  # Between -65 and -55 dB = VERY_NEAR
-    RSSI_NEAR = -75      # Between -75 and -65 dB = NEAR
-    RSSI_FAR = -85      # Between -85 and -75 dB = FAR
+    RSSI_IMMEDIATE = -65  # Stronger than -60 dB = IMMEDIATE
+    RSSI_VERY_NEAR = -75  # Between -65 and -55 dB = VERY_NEAR
+    RSSI_NEAR = -80      # Between -75 and -65 dB = NEAR
+    RSSI_FAR = -90      # Between -85 and -75 dB = FAR
     RSSI_VERY_FAR = -100  # Between -100 and -85 dB = VERY_FAR
                          # Weaker than -100 dB = UNKNOWN
     
@@ -349,17 +349,17 @@ class BLEConfig:
     
     # Scan intervals and timeouts (in seconds)
     SCAN_DURATION = 1.0          # Duration for BLE hardware to scan for devices
-    SCAN_INTERVAL = 2            # Time between periodic scans (was 3.0)
-    LOW_POWER_SCAN_INTERVAL = 15.0  # Scan interval when no activity
+    SCAN_INTERVAL = 1.5          # Time between periodic scans (was 3.0)
+    LOW_POWER_SCAN_INTERVAL = 5.0  # Scan interval when no activity
     ERROR_RETRY_INTERVAL = 5.0   # Retry interval after errors
     #UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
     
     # RSSI smoothing
     RSSI_EMA_ALPHA = 0.25  # Exponential moving average alpha (0-1) (was 0.2)
                           # Higher = more weight to recent readings
-    
+
     # Activity thresholds
-    NO_ACTIVITY_THRESHOLD = 10  # Number of empty scans before switching to low power
+    NO_ACTIVITY_THRESHOLD = 1000  # Number of empty scans before switching to low power
     
     # Add minimum consecutive readings before location change
     MIN_READINGS_FOR_CHANGE = 3  # Require multiple consistent readings (was 2)
@@ -367,20 +367,20 @@ class BLEConfig:
     # Define threshold for considering beacons as equidistant
     RSSI_EQUALITY_THRESHOLD = 10  # If RSSI difference is less than this, consider equal (was 8)
     
-    # Beacon timeout significantly increased
-    BEACON_TIMEOUT_SEC = 12.0    # Wait longer before declaring unknown (was 6.0)
+    # Beacon timeout
+    BEACON_TIMEOUT_SEC = 60.0    # Wait longer before declaring unknown (was 6.0)
     
     # Add minimum consecutive empty scans before unknown
-    MIN_EMPTY_SCANS_FOR_UNKNOWN = 20  # Require multiple empty scans (was 4)
+    MIN_EMPTY_SCANS_FOR_UNKNOWN = 50  # Require multiple empty scans (was 4)
     
     # Add preference for maintaining current location
     CURRENT_LOCATION_RSSI_BONUS = 6  # Add virtual dB to current location (was 5)
     
     # Minimum time between location changes
-    MIN_TIME_BETWEEN_CHANGES = 7.0  # Minimum seconds between location changes (was 15.0)
+    MIN_TIME_BETWEEN_CHANGES = 3.0  # Minimum seconds between location changes (was 15.0)
 
     # Interval for publishing all beacon data (in seconds)
-    ALL_BEACONS_UPDATE_INTERVAL = 5.0
+    ALL_BEACONS_UPDATE_INTERVAL = 3.0
 
 # Hide and Seek Activity Configuration
 class HideSeekConfig:
@@ -415,7 +415,7 @@ class ScavengerHuntLocationData:
 class ScavengerHuntConfig:
     ENABLE_LED_EFFECTS = False
     PROVIDE_INTERMEDIATE_HINTS = False
-    INTER_STEP_SLEEP_TIME: float = 5.0
+    INTER_STEP_SLEEP_TIME: float = 3.0
     INACTIVITY_HINT_INTERVAL: float = 10.0
     CHIRP_VOLUME = 0.5
     CHIRP_INTERVAL_SCALING_FACTOR = 10.0
