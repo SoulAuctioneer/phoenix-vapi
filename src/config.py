@@ -41,6 +41,8 @@ NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 
 # Which voice to use for TTS
 TTS_VOICE = clean_env_value(os.getenv('TTS_VOICE')) or "ana"
+if TTS_VOICE == "timmy":
+    TTS_VOICE = "ana"
 ASSISTANT_NAME = "Fifi" if TTS_VOICE == "ana" else "Wibble Woop"
 
 # Set in main.py during arg parsing (if applicable).
