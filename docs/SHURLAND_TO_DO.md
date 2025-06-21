@@ -1,35 +1,32 @@
-
-NOW:
+TO DO:
+* Scav: Allow skipping between distances, i.e. can be non-linear
+* Scav: Faster switching between distances
+* Scav: reset beacon found stuff on step. not saying lines.
+* Change broadcast frequency to 200ms
+Fix #? scavenger pea voice -- it's still Timmy and too quiet (* Make one of the peas louder either #3 or #4)
+pizero #0 no accelerom
+Crater wait a bit on acceleerom, too triggery
 * Make conversation voice sound childish.
-* Mix the audio for grandma pea finale.
-* Get tune onto iPad unlock code: 0403 and connect it to bluetooth speaker.
-* Clean up mic ports on #3. Check others.
-* Make one of the peas louder either #3 or #4 
-
-TONIGHT:
-* Charge everything.
-* Charge iPad
-
-TOMORROW:
 * Git pull all peas.
-* Put bluetooth beacons on props or tape to stuff.
 * Fix respeaker on #5.
+* Clean up mic ports on #3. Check others.
 * Verify we got cache hits for everything scavenger hunty and cratery.
-* Ask someone to fix up the LED lights in botany room. Instruct Lucy on the botany room.
-* Ask Sean for some shade over the crater.
 
+STRETCH GOALS:
+* Get tune onto iPad unlock code: 0403 and connect it to bluetooth speaker.
 * Upgrade Tom's pea (software instructions at bottom).
-
-LATER:
-* Need another PicoVoice account? ash.eldritch was disabled, but it seems to still be working?
-* Bug: "go to sleep" inside conversation doesn't shut down LEDs, maybe doesn't stop service properly. Only works via the intent.
-*	Amazon returns
-* Pay folks
 
 PEA ALLOCATIONS:
 * #3 and #4 - Scavenger Hunt
 * #6 - Lab
 * Bluetooth - Greenhouse
+
+
+
+LATER:
+*	Amazon returns
+* Pay folks
+
 
 
 GROW SONG:
@@ -39,7 +36,6 @@ Add 30-second SFX/giggles intro to plant growy song, for actor to find responses
 For the music: Add 20 seconds of discovery figuring out how the pea responds, effects on beat, responding a bit harder each time. Lil bit of trumpet, lil bit of beats, mostly giggles and chuckles. Then we do the full initial verse while kids play with the pea, then go into the lull.
 
 
-9.15-10.15 technical runthrough.
 
 Expenses:
 - Nad work hours
