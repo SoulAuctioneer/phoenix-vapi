@@ -280,28 +280,28 @@ class ScavengerHuntActivity(BaseService):
             
             self.logger.debug(f"Updating beacon speed to {speed_to_set:.3f} based on smoothed RSSI {smoothed_rssi}")
 
-            await self.publish({
-                "type": "start_or_update_effect",
-                "data": {
-                    "effect_name": "ROTATING_BEACON",
-                    "color": "yellow",
-                    "speed": speed_to_set
-                }
-            })
+            # await self.publish({
+            #     "type": "start_or_update_effect",
+            #     "data": {
+            #         "effect_name": "ROTATING_BEACON",
+            #         "color": "yellow",
+            #         "speed": speed_to_set
+            #     }
+            # })
 
         # If we've just lost the signal, say something and stop.
         if distance == Distance.UNKNOWN:
             if prev_distance and prev_distance != Distance.UNKNOWN:
                 self.logger.info("Signal lost for current step.")
                 await self._speak_and_update_timer(random.choice(ScavengerHuntConfig.LOST_SIGNAL_PHRASES))
-                await self.publish({
-                    "type": "start_or_update_effect",
-                    "data": {
-                        "effect_name": "ROTATING_BEACON",
-                        "color": "yellow",
-                        "speed": ScavengerHuntConfig.BEACON_LOST_SPEED
-                    }
-                })
+                # await self.publish({
+                #     "type": "start_or_update_effect",
+                #     "data": {
+                #         "effect_name": "ROTATING_BEACON",
+                #         "color": "yellow",
+                #         "speed": ScavengerHuntConfig.BEACON_LOST_SPEED
+                #     }
+                # })
             return
 
         # If we've found current location, either transition to next step or declare victory.
