@@ -355,7 +355,7 @@ class BLEConfig:
     #UNKNOWN_PUBLISH_INTERVAL = 60.0  # Minimum time between unknown location publishes
     
     # RSSI smoothing
-    RSSI_EMA_ALPHA = 0.25  # Exponential moving average alpha (0-1) (was 0.2)
+    RSSI_EMA_ALPHA = 0.4  # Exponential moving average alpha (0-1) (was 0.2)
                           # Higher = more weight to recent readings
 
     # Activity thresholds
