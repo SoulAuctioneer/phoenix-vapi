@@ -1,31 +1,24 @@
-Bug was introduced between "fix async block" 253968e0188d3d7f11d046e375a257774f4cc428 and "les noisy hunt" 2970033bf8109531700c1389e3871d70c94fc825
-
-iPad code: 0403
 
 NOW:
-* Conversation first part of audio is being cut off, looks like amp is disabled initially for a moment. Started happening after the attempted pitch refactor.
-* Make conversation voice sound childish. Maybe just do call/response from wakword+intent only.
+* Make conversation voice sound childish.
 * Mix the audio for grandma pea finale.
-* Change "We're ready too" intent to something non-sequential
+* Get tune onto iPad unlock code: 0403 and connect it to bluetooth speaker.
 * Clean up mic ports on #3. Check others.
-* Get tune onto iPad and connect it to bluetooth speaker.
 * Make one of the peas louder either #3 or #4 
-* Charge iPad
 
 TONIGHT:
 * Charge everything.
+* Charge iPad
 
 TOMORROW:
-* Put bluetooth beacons on props or tape to stuff.
 * Git pull all peas.
+* Put bluetooth beacons on props or tape to stuff.
+* Fix respeaker on #5.
+* Verify we got cache hits for everything scavenger hunty and cratery.
 * Ask someone to fix up the LED lights in botany room. Instruct Lucy on the botany room.
 * Ask Sean for some shade over the crater.
-* Verify we got cache hits for everything scavenger hunty and cratery.
-* Do a full run-through.
 
 * Upgrade Tom's pea (software instructions at bottom).
-* Fix respeaker on #5:
-  * NOTE: The thin wires on #0's LEDs might be causing the high power draw. If one of the others fails, could scavenge it.
 
 LATER:
 * Need another PicoVoice account? ash.eldritch was disabled, but it seems to still be working?
