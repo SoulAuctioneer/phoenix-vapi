@@ -1,41 +1,38 @@
 context:
   expressions:
-    conversation:
-      - let's have a chat
-    scavenger_hunt_one:
-      - we're ready to find the transmitter pieces
-    scavenger_hunt_two:
-      - and we're ready too
-    sleep:
+    activity_conversation:
+      - let's (have a) chat
+    activity_scavenger_hunt:
+      - (let's) play hide and seek
+      - (let's) (go on a) scavenger hunt
+    activity_sleep:
       - go to sleep (please)
-    move:
-      - lets play catch
-    play_music:
+    activity_move:
+      - let's play catch
+    activity_play_music:
       - play a tune
-    custom_command:
-      - custom command $pv.SingleDigitInteger:index
-    volume:
-      - volume $volume:command
-      - volume $pv.SingleDigitInteger:level
-    story:
+    activity_story:
       - It's story time
       - Tell me a story
-    poem:
+    activity_poem:
       - Let's make a poem
       - Tell me a poem
-    color_hunt:
-      - Let's [play, go on] (a) color hunt
-    discovery:
+    activity_discovery:
       - Let's learn together
       - Let's play discovery
-    bedtime:
+    activity_bedtime:
       - Goodnight
       - Night light
       - It's time for bed
       - It's bedtime
-    mummy_pea:
-      - Mommy's here
-      - Don't be [afraid, worried, sad]
+    activity_call:
+      - "[call, phone] $contact:contact please"
+      - Please [call, phone] $contact:contact
+    command_custom:
+      - custom command $pv.SingleDigitInteger:index
+    command_volume:
+      - volume $volume:command
+      - volume $pv.SingleDigitInteger:level
   slots:
     contact:
       - mom

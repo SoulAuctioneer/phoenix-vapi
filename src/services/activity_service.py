@@ -342,25 +342,9 @@ class ActivityService(BaseService):
                 # Start conversation activity
                 await self._queue_transition(ActivityType.CONVERSATION)
                 
-            elif intent == "activity_first_contact":
-                # Start first contact activity
-                await self._queue_transition(ActivityType.FIRST_CONTACT, assistant_config=ASSISTANT_CONFIG_FIRST_CONTACT, include_memories=False)
-
-            elif intent == "activity_scavenger_hunt_alpha":
+            elif intent == "activity_scavenger_hunt":
                 # Start scavenger hunt activity
                 await self._queue_transition(ActivityType.SCAVENGER_HUNT, hunt_variant="HUNT_ALPHA")
-
-            elif intent == "activity_scavenger_hunt_beta":
-                # Start scavenger hunt activity
-                await self._queue_transition(ActivityType.SCAVENGER_HUNT, hunt_variant="HUNT_BETA")
-
-            elif intent == "activity_squealing":
-                # Start squealing activity
-                await self._queue_transition(ActivityType.SQUEALING)
-
-            elif intent == "activity_grandma_pea":
-                # Start grandma pea activity
-                await self._queue_transition(ActivityType.GRANDMA_PEA)
 
             elif intent == "activity_cuddle":
                 # Start cuddle activity
