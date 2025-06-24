@@ -77,14 +77,17 @@ Below is a comprehensive list of events used throughout the system:
 ### Hardware Components
 
 The application integrates with various hardware components to enable interaction:
-- **Processor**: Raspberry Pi Zero 2 W
+- **Processor**: Raspberry Pi Zero 2 W (HDMI disabled, 1GHz quad ARM Cortex-A53, 512 MB RAM)
 - **Power Management**:
-  - 3.7V battery
-  - Adafruit Powerboost for charging and power management
+  - 3.7V 3,600 mAh LiPo battery
+  - Adafruit Powerboost 1000C for charging and power management (Max 2A input, 1A output + 1A for charging)
   - MAX17048 LiPoly/LiIon fuel gauge for battery monitoring
+  - 1000uf capacitor
+  - Power switch
 - **Audio**:
   - Respeaker Mic Array 2.0 for audio input (4 microphones), output, DSP, and RGB lighting
   - Class-D audio amplifier PAM8302A
+  - Tang Band W1-2025SA Driver 4W RMS 8W max, 4Ohm impedance 
 - **Sensors**:
   - BNO085 9-DOF IMU for motion detection
   - Touch sensors for physical interaction
