@@ -132,6 +132,20 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         echo ""
         echo "NeoPixel setup complete!"
         echo "NOTE: You may need to reboot for all changes to take effect"
+
+        # Pre-configure WiFi networks for headless setup
+        echo ""
+        echo "Pre-configuring known WiFi networks..."
+        if [ -f "scripts/add_wifi.sh" ]; then
+            bash scripts/add_wifi.sh "AshSpot" "d00mking"
+            bash scripts/add_wifi.sh "NuHaus Unified" "m4n5i0n5"
+            bash scripts/add_wifi.sh "Shurland-Appliance" "15321532"
+            bash scripts/add_wifi.sh "T" "latchford"
+            bash scripts/add_wifi.sh "Cairo Lodge Barn" "CLB2021!"
+        else
+            echo "Warning: scripts/add_wifi.sh not found. Skipping WiFi pre-configuration."
+        fi
+        echo ""
     fi
 fi
 
