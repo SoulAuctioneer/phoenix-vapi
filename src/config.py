@@ -685,9 +685,11 @@ ASSISTANT_ID = "0395930f-1aa4-47de-babd-bcfea73c41c1" # "Mister Wibble" VAPI age
 
 ACTIVITIES_CONFIG = {
     "poem_with_effects": {
+        "is_shortlist": True,
         "metadata": {
             "title": "Raindrops",
             "author": "Ash",
+            "synopsis": "A rainy poem, with light and sound effects."
         },
         "instructions": dedent("""
             With each line of this poem, you can play a special sound and light effect, by invoking the play_special_effect function, as shown for each line. 
@@ -700,44 +702,11 @@ ACTIVITIES_CONFIG = {
         ```json {{ "Vapi Speaker": "functions.play_special_effect", "parameters": {{ "effect_name": "RAINBOW" }} }} ``` Now a rainbow smiles at me, colorful for all to see!
         """).strip(),
     },
-    "poem": {
+
+    "story_portal": {
+        "is_shortlist": True,
         "metadata": {
-            "title": "The Invisible Beast",
-            "author": "Jack Prelutsky",
-        },
-        "instructions": """
-            To teach the poem, you say two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
-        """,
-        "content": dedent("""
-            The beast that is invisible
-            Is stalking through the park,
-            But you cannot see it coming
-            Though it isn't very dark.
-            Oh you know it's out there somewhere
-            Though just why you cannot tell,
-            But although you cannot see it
-            It can see you very well.
-            You sense its frightful features
-            And its ungainly form,
-            And you wish that you were home now
-            Where it's cozy, safe and warm.
-            And you know it's coming closer
-            For you smell its awful smell,
-            And although you cannot see it
-            It can see you very well.
-            Oh your heart is beating faster,
-            Beating louder than a drum,
-            For you hear its footsteps falling
-            And your body's frozen numb.
-            And you cannot scream for terror
-            And your fear you cannot quell,
-            For although you cannot see it
-            It can see you very well.
-            """)
-    },
-    "story": {
-        "metadata": {
-            "title": "Magical Portal Adventures",
+            "title": "Magical Portal Story",
             "synopsis": "Go on magical adventures by stepping through portals to wondrous places!"
         },
         "instructions": dedent("""
@@ -774,38 +743,26 @@ ACTIVITIES_CONFIG = {
         """).strip()
     },
 
-    "color_hunt": {
+    "story_chain": {
+        "is_shortlist": True,
         "metadata": {
-            "title": "Color Hunt",
-            "synopsis": "A color hunt is a game where you and your companion search for objects that match a specific color."
+            "title": "Story Chain",
+            "synopsis": "Create a silly story together, one sentence at a time."
         },
         "instructions": dedent("""
-            * Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
-            * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the `show_color` function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
-            * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
-            For example, ```json {{ "Vapi Speaker": "functions.show_color", "parameters": {{ "color": "red" }} }} ```
-            * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the `play_special_effect` function, and narrate the ending of the game. Then, suggest another activity to do.
-        """),
+            You and your companion take turns adding one sentence at a time to create a funny and magical story.
+            Keep the story whimsical and silly, and encourage imaginative additions. Respond enthusiastically and add playful twists!
+            """).strip(),
         "content": dedent("""
-            Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
-            """)
-    },
-
-    "obstacle_quest": {
-        "metadata": {
-            "title": "Obstacle Quest",
-            "synopsis": "An obstacle quest is a game where you and your companion search for objects that match a specific color."
-        },
-        "instructions": dedent("""
-            First ask where you are, and what is in the room. Then, craft a quest for your companion to complete, requiring them to use objects in the room to achieve a goal.
-            """),
-        "content": dedent("""
-            Here are some ideas, but be creative! You can make up your own quests:
-                * We need to unlock a secret door hidden in the room. Find the hidden door, then find a key in the room that can unlock the door.
-            """)
+            Start by suggesting a fun story idea, such as:
+            * "Once upon a time, there was a talking pancake named Flippy who wanted to explore the syrup sea..."
+            * "In a magical kingdom, a tiny dragon named Puffball dreamed of becoming the biggest dragon ever..."
+            * "A pair of socks named Lefty and Righty woke up one morning and decided they would no longer be socks..."
+            """).strip()
     },
 
     "magic_spell": {
+        "is_shortlist": True,
         "metadata": {
             "title": "Magical Spell",
             "synopsis": "A magic spell can be cast by pairing a lively dance with a fun chant or song."
@@ -824,9 +781,91 @@ ACTIVITIES_CONFIG = {
             """)
     },
 
-    "discovery": {
+    "counting_quest": {
+        "is_shortlist": True,
         "metadata": {
-            "title": "Learning and Discovery",
+            "title": "Counting Quest",
+            "synopsis": "Solve simple counting puzzles to practice numbers!"
+        },
+        "instructions": "Create easy, imaginative counting puzzles. Ask your companion to solve them. Encourage gently if they're struggling, and celebrate every correct answer joyfully!",
+        "content": "Example: Three ducks swim in a pond, two more join—how many ducks are swimming now?"
+    },
+
+    "learn_poem": {
+        "is_shortlist": False,
+        "metadata": {
+            "title": "Poem: The Invisible Beast",
+            "author": "Jack Prelutsky",
+            "synopsis": "Learn a poem together."
+        },
+        "instructions": """
+            To teach the poem, you say two lines, then your companion will repeat it back to you. If they get it wrong, let them know what was wrong and then repeat the line again. Then they'll try again. If they get it right, then you'll repeat the entire poem so far as well as the next two lines, and so on until the poem is complete. If they fail three times, suggest we take a break, and that we can try again later. 
+        """,
+        "content": dedent("""
+            The beast that is invisible
+            Is stalking through the park,
+            But you cannot see it coming
+            Though it isn't very dark.
+            Oh you know it's out there somewhere
+            Though just why you cannot tell,
+            But although you cannot see it
+            It can see you very well.
+            You sense its frightful features
+            And its ungainly form,
+            And you wish that you were home now
+            Where it's cozy, safe and warm.
+            And you know it's coming closer
+            For you smell its awful smell,
+            And although you cannot see it
+            It can see you very well.
+            Oh your heart is beating faster,
+            Beating louder than a drum,
+            For you hear its footsteps falling
+            And your body's frozen numb.
+            And you cannot scream for terror
+            And your fear you cannot quell,
+            For although you cannot see it
+            It can see you very well.
+            """)
+    },
+
+    "color_hunt": {
+        "is_shortlist": False,
+        "metadata": {
+            "title": "Color Hunt",
+            "synopsis": "Search for objects that match a specific color, to build a rainbow."
+        },
+        "instructions": dedent("""
+            * Have your companion look for one object of a randomly selected color, and when they find it, specify the next color and why.
+            * Every time you suggest a new color to find, explain why you need that color to complete the goal, and then use the `show_color` function, passing the color name as a parameter. IMPORTANT: Use the correct syntax function/tool-calling that you have been instructed to use.
+            * Colors you can use: red, orange, yellow, green, blue, purple, pink. 
+            For example, ```json {{ "Vapi Speaker": "functions.show_color", "parameters": {{ "color": "red" }} }} ```
+            * When the game is finished because you have found all the colors (limit it to 3 to 5 colors), the game is won, so show a rainbow effect using the `play_special_effect` function, and narrate the ending of the game. Then, suggest another activity to do.
+        """),
+        "content": dedent("""
+            Make the game relevant and exciting by providing a reason you need to find objects of certain colors, which fits into your background story and/or the current conversational topic.
+            """)
+    },
+
+    "obstacle_quest": {
+        "is_shortlist": False,
+        "metadata": {
+            "title": "Obstacle Quest",
+            "synopsis": "Objects in the room become obstacles to interact with to complete a quest."
+        },
+        "instructions": dedent("""
+            First ask where you are, and what is in the room. Then, craft a quest for your companion to complete, requiring them to use objects in the room to achieve a goal.
+            """),
+        "content": dedent("""
+            Here are some ideas, but be creative! You can make up your own quests:
+                * We need to unlock a secret door hidden in the room. Find the hidden door, then find a key in the room that can unlock the door.
+            """)
+    },
+
+    "discovery": {
+        "is_shortlist": False,
+        "metadata": {
+            "title": "Discovery Quest",
             "synopsis": "You want to learn about the Earth and about your companion. You can ask your companion to teach you."
         },
         "instructions": dedent("""
@@ -854,6 +893,7 @@ ACTIVITIES_CONFIG = {
     },
 
     "would_you_rather": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Would You Rather?",
             "synopsis": "Choose between two silly and magical scenarios."
@@ -875,24 +915,8 @@ ACTIVITIES_CONFIG = {
             """).strip()
     },
 
-    "story_chain": {
-        "metadata": {
-            "title": "Story Chain",
-            "synopsis": "Create a silly story together, one sentence at a time."
-        },
-        "instructions": dedent("""
-            You and your companion take turns adding one sentence at a time to create a funny and magical story.
-            Keep the story whimsical and silly, and encourage imaginative additions. Respond enthusiastically and add playful twists!
-            """).strip(),
-        "content": dedent("""
-            Start by suggesting a fun story idea, such as:
-            * "Once upon a time, there was a talking pancake named Flippy who wanted to explore the syrup sea..."
-            * "In a magical kingdom, a tiny dragon named Puffball dreamed of becoming the biggest dragon ever..."
-            * "A pair of socks named Lefty and Righty woke up one morning and decided they would no longer be socks..."
-            """).strip()
-    },
-
     "math_riddle": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Math Riddle",
             "synopsis": "Solve fun number puzzles together!"
@@ -910,6 +934,7 @@ ACTIVITIES_CONFIG = {
     },
 
     "animal_alphabet": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Animal Alphabet",
             "synopsis": "Take turns naming animals from A to Z!"
@@ -926,9 +951,10 @@ ACTIVITIES_CONFIG = {
     },
 
     "wrong_answers_only": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Wrong Answers Only",
-            "synopsis": "A hilarious game where you intentionally answer questions incorrectly!"
+            "synopsis": "A silly game where you intentionally answer questions incorrectly!"
         },
         "instructions": dedent("""
             * You will ask your companion silly or straightforward questions.
@@ -948,6 +974,7 @@ ACTIVITIES_CONFIG = {
     },
 
     "feelings_adventure": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Feelings Adventure",
             "synopsis": "Explore feelings by imagining different adventures and how you'd feel!"
@@ -957,6 +984,7 @@ ACTIVITIES_CONFIG = {
     },
 
     "word_rhyming_challenge": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Word Rhyming Challenge",
             "synopsis": "Find funny rhymes to match playful words!"
@@ -965,16 +993,8 @@ ACTIVITIES_CONFIG = {
         "content": "Examples of words to rhyme: cat, hat, dog, tree, frog, bee."
     },
 
-    "counting_quest": {
-        "metadata": {
-            "title": "Counting Quest",
-            "synopsis": "Solve simple counting puzzles to practice numbers!"
-        },
-        "instructions": "Create easy, imaginative counting puzzles. Ask your companion to solve them. Encourage gently if they're struggling, and celebrate every correct answer joyfully!",
-        "content": "Example: Three ducks swim in a pond, two more join—how many ducks are swimming now?"
-    },
-
     "voice_simon_says": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Voice Simon Says",
             "synopsis": "Play Simon Says using voice commands and silly actions!"
@@ -984,15 +1004,17 @@ ACTIVITIES_CONFIG = {
     },
 
     "if_i_were_game": {
+        "is_shortlist": False,
         "metadata": {
             "title": "If I Were...",
             "synopsis": "Imagine funny scenarios by pretending to be something silly!"
         },
         "instructions": "Ask your companion playful 'If you were...' questions. Listen excitedly to their answers and give your own funny ideas.",
-        "content": "Examples: If you were ice cream, if you were a dinosaur, if you were a balloon."
+        "content": "Examples: If you were ice cream, what flavor would you be? If you were a dinosaur, what would you eat?  if you were a balloon, where would you fly to?"
     },
 
     "animal_transformations": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Animal Transformations",
             "synopsis": "Imagine transforming into animals and having magical adventures!"
@@ -1002,6 +1024,7 @@ ACTIVITIES_CONFIG = {
     },
 
     "mystery_object": {
+        "is_shortlist": False,
         "metadata": {
             "title": "Mystery Object",
             "synopsis": "Guess the secret object using fun, creative clues!"
@@ -1012,25 +1035,22 @@ ACTIVITIES_CONFIG = {
 }
 
 
-# Generate a prompt that lists type and metadata for each activity in ACTIVITIES_CONFIG
+# Generate a prompt that lists type and metadata for each activity in ACTIVITIES_CONFIG, as well as a shorter list for the initial prompt
 activity_items = list(ACTIVITIES_CONFIG.items())
-num_to_select = min(5, len(activity_items))
-selected_activities = random.sample(activity_items, num_to_select)
-
-ACTIVITIES_PROMPT = dedent("""
-    Below is a list of a few possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
-    If your companion asks to play an activity that is not in this list, use the `list_activities` function to get a complete list of activities.
-    """) + "\n".join([
-        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} '
-        for key, value in selected_activities
-    ])
-
+activity_shortlist = [item for item in activity_items if item[1].get("is_shortlist")]
 FULL_ACTIVITIES_PROMPT = dedent("""
     Below is a list of all possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
     If your companion asks to play an activity that is not in this list, use the `list_activities` function to get a complete list of activities.
     """) + "\n".join([
         f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} ```'
         for key, value in activity_items
+    ])
+ACTIVITIES_PROMPT = dedent("""
+    Below is a list of a few possible activities. ALWAYS use the start_activity function to start an activity, using the exact syntax provided and follow the instructions for correctly invoking a function/tool call.
+    If your companion asks to play an activity that is not in this list, use the `list_activities` function to get a complete list of activities.
+    """) + "\n".join([
+        f'{key}: {" | ".join([f"{meta_key}: {meta_value}" for meta_key, meta_value in value["metadata"].items()])}. To start this activity, invoke the function: json {{ "Vapi Speaker": "functions.start_activity", "parameters": {{ "activity_key": "{key}" }} }} '
+        for key, value in activity_shortlist
     ])
 
 BASE_ASSISTANT_CONTEXT = dedent(f"""
