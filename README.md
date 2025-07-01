@@ -20,7 +20,6 @@ It is run on a Raspberry Pi that is embedded in a bouncy ball toy.
 - Adaptive Personalization: Phoenix evolves and unlocks new capabilities based on the child’s interaction patterns. It develops a personality and memory tied to the child’s traits and choices, and their shared experiences.
 - Adaptive Teaching.
 - Emotional Regulation.
-- Private and Secure.
 
 
 ## Prerequisites
