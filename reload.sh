@@ -9,6 +9,23 @@ else
     OWNER=$(stat -c '%U' .)
 fi
 
+# Wait for an active internet connection by pinging GitHub, with retries.
+MAX_RETRIES=3
+echo "Checking for internet connection..."
+for ((i=1; i<=MAX_RETRIES; i++)); do
+    if ping -c 1 -W 1 github.com &> /dev/null; then
+        echo "Internet connection established."
+        break
+    fi
+
+    if [ $i -lt $MAX_RETRIES ]; then
+        echo "No connection, retrying in 3 seconds... (Attempt $i/$MAX_RETRIES)"
+        sleep 3
+    else
+        echo "Could not establish internet connection after $MAX_RETRIES attempts. Continuing anyway..."
+    fi
+done
+
 # Run git pull as the owner of the directory to satisfy git's safe directory check.
 echo "Fetching latest from git as user $OWNER..."
 sudo -H -u "$OWNER" git reset --hard HEAD
