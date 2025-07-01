@@ -14,6 +14,7 @@ from activities.move_activity import MoveActivity
 from activities.call_activity import CallActivity
 from activities.play_music_activity import PlayMusicActivity
 from activities.grandma_pea_activity import GrandmaPeaActivity
+from activities.planet_activity import PlanetActivity
 import asyncio
 from config import ASSISTANT_CONFIG_FIRST_CONTACT
 from utils.system import shutdown_pi, reboot_pi, exit_app
@@ -32,6 +33,7 @@ class ActivityType(Enum):
     CALL = "call"
     PLAY_MUSIC = "play_music"
     GRANDMA_PEA = "grandma_pea"
+    PLANET_TOUR = "planet_tour"
 
 # Map activities to their required supporting services, activity-specific service, and optional start/stop sounds/TTS
 # Format: (list of supporting services, activity service name if any, start_sound, stop_sound, start_tts_text, stop_tts_text)
@@ -47,6 +49,7 @@ ACTIVITY_REQUIREMENTS: Dict[ActivityType, Tuple[List[str], Optional[str], Option
     ActivityType.CALL: ([], 'call', None, None, None, None),
     ActivityType.PLAY_MUSIC: ([], 'play_music', None, None, None, None),
     ActivityType.GRANDMA_PEA: ([], 'grandma_pea', None, None, None, None),
+    ActivityType.PLANET_TOUR: ([], 'planet_tour', "TADA", None, "Let's go on a tour of the planets!", None),
 }
 
 class ActivityService(BaseService):
@@ -74,6 +77,7 @@ class ActivityService(BaseService):
             'sleep': SleepActivity,
             'play_music': PlayMusicActivity,
             'grandma_pea': GrandmaPeaActivity,
+            'planet_tour': PlanetActivity,
         }
         self.initialized_services: Dict[str, BaseService] = {}
         self.active_services: Dict[str, BaseService] = {}
@@ -254,6 +258,12 @@ class ActivityService(BaseService):
                 await scavenger_hunt_activity.start_hunt(**kwargs)
             else:
                 self.logger.error("Scavenger hunt service not active for SCAVENGER_HUNT activity.")
+        elif activity == ActivityType.PLANET_TOUR:
+            planet_tour_activity = self.active_services.get('planet_tour')
+            if planet_tour_activity:
+                await planet_tour_activity.start_tour(**kwargs)
+            else:
+                self.logger.error("Planet tour service not active for PLANET_TOUR activity.")
                 
         self.current_activity = activity
         
@@ -374,6 +384,9 @@ class ActivityService(BaseService):
             elif intent == "activity_play_music":
                 await self._queue_transition(ActivityType.PLAY_MUSIC)
             
+            elif intent == "activity_planet_tour":
+                await self._queue_transition(ActivityType.PLANET_TOUR)
+
             elif intent == "system_shutdown":
                 self.logger.info("Shut down intent received. Shutting down system.")
                 await self.publish({"type": "speak_audio", "text": "OK, shutting down."})
