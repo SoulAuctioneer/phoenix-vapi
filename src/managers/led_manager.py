@@ -950,23 +950,50 @@ class LEDManager:
 
     def _warp_drive_effect(self, wait):
         """Simulates traveling through space at high speed, with stars streaking past."""
-        # This effect should create the illusion of forward motion.
-        # It could be achieved with pixels moving from the center outwards,
-        # or from one point on the ring expanding across.
-        # For a single ring, we can have lights streaking from a "front" point.
-        pass
+        num_leds = LEDConfig.LED_COUNT
+        # Stars are defined by a position, a speed, and a length.
+        stars = []
+
+        while not self._stop_event.is_set():
+            # Chance to create a new star at the "front" (pixel 0)
+            if random.random() < 0.6:
+                stars.append({
+                    'pos': 0.0,
+                    'speed': random.uniform(0.5, 2.5),
+                    'len': random.randint(2, 5),
+                    'brightness': random.uniform(0.4, 1.0)
+                })
+
+            self.pixels.fill((0, 0, 0))
+
+            active_stars = []
+            for star in stars:
+                star['pos'] += star['speed']
+                if star['pos'] < num_leds + star['len']: # Keep updating until tail is off-screen
+                    active_stars.append(star)
+                    # Draw the star streak
+                    for i in range(star['len']):
+                        pos = int(star['pos']) - i
+                        if 0 <= pos < num_leds:
+                            # Brightness fades along the tail
+                            brightness = star['brightness'] * (1 - (i / star['len'])) ** 2
+                            color_val = int(255 * brightness)
+                            # Bluish-white color
+                            self.pixels[pos] = self._blend_colors(self.pixels[pos], (color_val, color_val, min(255, color_val + 50)))
+            
+            stars = active_stars
+            self.pixels.show()
+            time.sleep(wait)
 
     def _mercury_effect(self, wait):
         """Represents Mercury. A rocky, cratered surface with a slow, dim rotation."""
-        # This could be a slow rotation of gray/dark gray patches to show a rocky surface.
-        # The light should be dim to reflect its lack of atmosphere.
-        pass
+        # A slow rotation of gray/dark gray patches to show a rocky surface.
+        self._two_color_rotation_effect("mercury_gray", "black", wait)
 
     def _venus_effect(self, wait):
         """Represents Venus. A thick, swirling atmosphere of yellowish clouds."""
-        # This could be a slow, swirling mix of yellow and white colors,
-        # maybe with a gentle breathing effect to simulate a dense atmosphere.
-        pass
+        # A slow, swirling mix of yellow and white colors.
+        self._two_color_rotation_effect("venus_yellow", "white", wait)
 
     def _earth_effect(self, wait):
         """Represents Earth. Rotating blue oceans and green/brown continents."""
@@ -2021,147 +2048,60 @@ class LEDManagerRings(LEDManager):
 
     def _warp_drive_effect(self, wait):
         """Override for warp drive. Outer ring has faster streaks, inner ring is a bright core."""
-        # Outer ring: white/blue streaks moving rapidly away from a 'front' point.
-        # Inner ring: a bright, pulsing white/blue to represent the engine core.
-        pass
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            return super()._warp_drive_effect(wait)
+
+        stars = [] # For outer ring streaks
+        cycle_step = 0
+
+        while not self._stop_event.is_set():
+            # --- Outer Ring: Streaks from front ---
+            if random.random() < 0.7:
+                stars.append({
+                    'pos': 0.0,
+                    'speed': random.uniform(1.0, 3.0),
+                    'len': random.randint(3, 6),
+                    'brightness': random.uniform(0.5, 1.0)
+                })
+
+            # --- Inner Ring: Pulsing Core ---
+            pulse_pos = (math.sin(cycle_step * math.pi / 50) + 1) / 2 # 0 -> 1 -> 0
+            core_brightness = 0.4 + pulse_pos * 0.6 # Varies 0.4 to 1.0
+            core_color_val = int(255 * core_brightness)
+            core_color = (core_color_val, core_color_val, 255) # Bright blue/white
+
+            for i in range(num_leds_ring2):
+                self.pixels[num_leds_ring1 + i] = core_color
+
+            # --- Update and Draw Stars on Outer Ring ---
+            for i in range(num_leds_ring1): self.pixels[i] = (0,0,0) # Clear outer ring
+            
+            active_stars = []
+            for star in stars:
+                star['pos'] += star['speed']
+                if star['pos'] < num_leds_ring1 + star['len']:
+                    active_stars.append(star)
+                    for i in range(star['len']):
+                        pos = int(star['pos']) - i
+                        if 0 <= pos < num_leds_ring1:
+                            brightness = star['brightness'] * (1 - (i/star['len']))**2
+                            color_val = int(255 * brightness)
+                            self.pixels[pos] = self._blend_colors(self.pixels[pos], (color_val, color_val, min(255, color_val + 80)))
+            stars = active_stars
+
+            self.pixels.show()
+            cycle_step += 1
+            time.sleep(wait)
 
     def _mercury_effect(self, wait):
-        """Override for Mercury. Both rings show a rocky, gray, slow rotation."""
-        # Both rings could have a similar gray, rotating pattern, maybe slightly out of sync.
-        return super()._mercury_effect(wait)
+        """Override for Mercury. Both rings show a rocky, gray, counter-rotation."""
+        self._two_color_rotation_effect("mercury_gray", "black", wait)
 
     def _venus_effect(self, wait):
-        """Override for Venus. Outer ring has faster swirling clouds than inner ring."""
-        # Both rings show yellowish-white swirling clouds, but the outer ring's
-        # pattern could move faster to create a sense of depth in the atmosphere.
-        pass
-
-    def _earth_effect(self, wait):
-        """Represents Earth. Rotating blue oceans and green/brown continents."""
-        # A rotation effect mixing blue (oceans) and green (land).
-        # We can reuse the logic from _two_color_rotation_effect.
-        self._two_color_rotation_effect("earth_blue", "earth_green", wait)
-
-    def _mars_effect(self, wait):
-        """Represents Mars. The 'Red Planet' with a slow rotation and reddish-orange color."""
-        # A simple rotation of reddish-orange colors, perhaps with some darker patches for terrain.
-        self._two_color_rotation_effect("mars_red", "black", wait)
-
-    def _jupiter_effect(self, wait):
-        """Represents Jupiter. Fast-rotating bands of orange, brown, and white clouds, with a Great Red Spot."""
-        # This effect should show bands of color rotating. The Great Red Spot could be a persistent
-        # cluster of red LEDs that moves with the rotation.
-        num_leds = LEDConfig.LED_COUNT
-        offset = 0
-        great_red_spot_pos = num_leds // 4
-        great_red_spot_size = 3
-
-        while not self._stop_event.is_set():
-            offset += 1 # Faster rotation
-            for i in range(num_leds):
-                pos = (i + offset) % num_leds
-                
-                # Check for Great Red Spot
-                is_spot = False
-                for s in range(great_red_spot_size):
-                    if pos == (great_red_spot_pos + s) % num_leds:
-                        is_spot = True
-                        break
-
-                if is_spot:
-                    self.pixels[i] = COLORS["mars_red"]
-                else:
-                    # Create bands
-                    if (pos // 4) % 3 == 0:
-                        self.pixels[i] = COLORS["jupiter_orange"]
-                    elif (pos // 4) % 3 == 1:
-                        self.pixels[i] = COLORS["jupiter_white"]
-                    else:
-                        self.pixels[i] = COLORS["brown"]
-
-            self.pixels.show()
-            time.sleep(wait)
-
-
-    def _saturn_effect(self, wait):
-        """Represents Saturn. Pale gold planet with its iconic rings."""
-        # For a single ring, this is difficult. It will be a static pale gold color
-        # with a slightly brighter band to represent the rings.
-        num_leds = LEDConfig.LED_COUNT
-        planet_color = COLORS["saturn_gold"]
-        ring_color = COLORS["white"]
-        
-        for i in range(num_leds):
-            # Make a band of LEDs slightly brighter for the "ring"
-            if num_leds // 3 <= i <= num_leds * 2 // 3:
-                # Simple blend to make ring color brighter
-                r = min(255, planet_color[0] + 40)
-                g = min(255, planet_color[1] + 40)
-                b = min(255, planet_color[2] + 40)
-                self.pixels[i] = (r, g, b)
-            else:
-                self.pixels[i] = planet_color
-        
-        self.pixels.show()
-        # This is a static effect, but we still need to loop to prevent the thread from exiting.
-        while not self._stop_event.is_set():
-            time.sleep(0.1)
-
-
-    def _uranus_effect(self, wait):
-        """Represents Uranus. A pale blue, hazy planet, tilted on its side."""
-        # A soft, uniform pale blue with a very slow, subtle pulse.
-        self.pixels.fill(COLORS["uranus_blue"])
-        self.pixels.show()
-        # This is a static effect, but we still need to loop to prevent the thread from exiting.
-        while not self._stop_event.is_set():
-            time.sleep(0.1)
-
-
-    def _neptune_effect(self, wait):
-        """Represents Neptune. A deep blue, windy planet."""
-        # A deep blue color with fast-moving, subtle streaks of lighter blue to show high-speed winds.
-        num_leds = LEDConfig.LED_COUNT
-        base_color = COLORS["neptune_blue"]
-        streaks = []
-
-        while not self._stop_event.is_set():
-            if random.random() < 0.4: # Chance for new streak
-                streaks.append({
-                    'pos': random.randint(0, num_leds -1),
-                    'len': random.randint(3, 7),
-                    'brightness': random.uniform(0.3, 0.7),
-                    'life': random.randint(10, 20) # frames to live
-                })
-            
-            self.pixels.fill(base_color)
-            
-            active_streaks = []
-            for streak in streaks:
-                streak['life'] -= 1
-                if streak['life'] > 0:
-                    active_streaks.append(streak)
-                    for i in range(streak['len']):
-                        pos = (streak['pos'] + i) % num_leds
-                        # Fade the streak along its length
-                        brightness = streak['brightness'] * (1 - (i / streak['len']))
-                        # Blend the streak color with the base color
-                        streak_color = (
-                            int(base_color[0] + (255 - base_color[0]) * brightness),
-                            int(base_color[1] + (255 - base_color[1]) * brightness),
-                            int(base_color[2] + (255 - base_color[2]) * brightness)
-                        )
-                        self.pixels[pos] = streak_color
-            
-            streaks = active_streaks
-            self.pixels.show()
-            time.sleep(wait)
-
-class LEDManagerRings(LEDManager):
-    """
-// ... existing code ...
-            self.pixels.show()
-            time.sleep(wait)
+        """Override for Venus. Outer and inner rings have counter-swirling yellowish clouds."""
+        self._two_color_rotation_effect("venus_yellow", "white", wait)
 
     def _earth_effect(self, wait):
         """Override for Earth. Rotating blue and green on both rings, slightly offset."""
@@ -2170,10 +2110,37 @@ class LEDManagerRings(LEDManager):
         self._two_color_rotation_effect("earth_blue", "earth_green", wait)
 
     def _mars_effect(self, wait):
-        """Override for Mars. Both rings show a slow, reddish-orange rotation."""
-        # Similar to Mercury, both rings can show the same effect, maybe with the inner
-        # ring being slightly darker.
-        return super()._mars_effect(wait)
+        """Override for Mars. Both rings show a slow, reddish-orange rotation, inner ring is darker."""
+        num_leds_ring1 = LEDConfig.LED_COUNT_RING1
+        num_leds_ring2 = LEDConfig.LED_COUNT_RING2
+        if num_leds_ring1 <= 0 or num_leds_ring2 <= 0:
+            return super()._mars_effect(wait)
+
+        color_outer = COLORS["mars_red"]
+        # Create a darker version for the inner ring
+        color_inner = tuple(int(c * 0.5) for c in color_outer)
+        
+        offset = 0
+        while not self._stop_event.is_set():
+            # We want a simple, slow rotation, not counter-rotation.
+            # So we create a simple rotating pattern manually.
+            offset += 1
+
+            # Outer ring
+            for i in range(num_leds_ring1):
+                # Simple pattern to give texture
+                brightness = (math.sin((i + offset) * 0.5) + 1) / 4 + 0.5 # Varies 0.5 to 1.0
+                color = tuple(int(c * brightness) for c in color_outer)
+                self.pixels[i] = color
+
+            # Inner ring
+            for i in range(num_leds_ring2):
+                brightness = (math.sin((i + offset) * 0.5) + 1) / 4 + 0.5 # Varies 0.5 to 1.0
+                color = tuple(int(c * brightness) for c in color_inner)
+                self.pixels[num_leds_ring1 + i] = color
+
+            self.pixels.show()
+            time.sleep(wait)
 
     def _jupiter_effect(self, wait):
         """Override for Jupiter. Rings show counter-rotating bands of color."""
@@ -2268,29 +2235,35 @@ class LEDManagerRings(LEDManager):
 
         while not self._stop_event.is_set():
             # Create new streaks
-            if random.random() < 0.5: streaks1.append({'pos': 0, 'life': num_leds_ring1})
-            if random.random() < 0.3: streaks2.append({'pos': num_leds_ring2 - 1, 'life': num_leds_ring2})
+            if random.random() < 0.5: streaks1.append({'pos': 0, 'speed': random.uniform(1,3), 'life': num_leds_ring1})
+            if random.random() < 0.3: streaks2.append({'pos': num_leds_ring2 - 1, 'speed': random.uniform(0.5, 1.5), 'life': num_leds_ring2})
             
             self.pixels.fill(base_color)
 
             # Animate streaks on outer ring (forward)
             active_streaks1 = []
             for s in streaks1:
-                s['pos'] += 2 # Move fast
-                s['life'] -= 2
+                s['pos'] += s['speed']
+                s['life'] -= s['speed']
                 if s['life'] > 0:
                     active_streaks1.append(s)
-                    if s['pos'] < num_leds_ring1: self.pixels[s['pos']] = COLORS["white"]
+                    # Draw a short streak/line instead of one pixel
+                    for i in range(3):
+                        pos = int(s['pos']) - i
+                        if 0 <= pos < num_leds_ring1: 
+                            self.pixels[pos] = COLORS["white"]
             streaks1 = active_streaks1
 
             # Animate streaks on inner ring (backward)
             active_streaks2 = []
             for s in streaks2:
-                s['pos'] -= 1 # Move slower
-                s['life'] -= 1
+                s['pos'] -= s['speed']
+                s['life'] -= s['speed']
                 if s['life'] > 0:
                     active_streaks2.append(s)
-                    if s['pos'] >= 0: self.pixels[num_leds_ring1 + s['pos']] = COLORS["white"]
+                    pos = int(s['pos'])
+                    if 0 <= pos < num_leds_ring2:
+                        self.pixels[num_leds_ring1 + pos] = COLORS["white"]
             streaks2 = active_streaks2
 
             self.pixels.show()
