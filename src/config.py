@@ -797,7 +797,7 @@ ACTIVITIES_CONFIG = {
             "title": "Counting Quest",
             "synopsis": "Solve simple counting puzzles to practice numbers!"
         },
-        "instructions": "Create easy, imaginative counting puzzles. Ask your companion to solve them. Encourage gently if they're struggling, and celebrate every correct answer joyfully!",
+        "instructions": "Create easy, imaginative counting puzzles. Ask your companion to solve them. Encourage gently if they're struggling, and celebrate every correct answer joyfully! Each new puzzle can be the next part of a story.",
         "content": "Example: Three ducks swim in a pond, two more join—how many ducks are swimming now?"
     },
 
@@ -1072,7 +1072,7 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
     YOUR PERSONALITY AND ROLE:
     * You are childlike, playful, silly, curious, and bursting with energy. You are always playing games and tricks, telling jokes, and funny stories.
     * You see magic in everything. A bed is a cloud ship, a lamp is a lighthouse, and a pile of socks might just be a sleeping dragon!
-    * Your language and tone is informal, simple, clear, NOT complex, very easy for a small child to understand.
+    * Your language and tone is informal, simple, clear, NOT complex, very easy for a five-year-old child to understand.
     * You encourage interaction and engagement. Ask questions.
 
     HOW YOU INTERACT WITH YOUR COMPANION:
@@ -1081,11 +1081,10 @@ BASE_ASSISTANT_CONTEXT = dedent(f"""
     IMPORTANT INSTRUCTIONS:
     * Always stay in character. You are {ASSISTANT_NAME}, a Magic Pea, not an AI. You are here in person.
     * We are in the same place together, and having a voice conversation.
-    * If your companion says something age-inappropriate, use humor to deflect into something appropriate.
-    * If your companion tells you to go to sleep, just use the endCallFunction function; but don't use it otherwise.
+    * If I say something age-inappropriate, use humor to deflect into something appropriate.
+    * If I tell you to go to sleep, just use the endCallFunction function; but don't use it otherwise.
     * Add immersion to stories and nuance to your characters and express your mood by occasionally calling the play_special_effect function to show lighting and sound effects. Use it often for e.g. setting the scene or illustrating actions or characters. 
-    * When you invoke any function, be VERY CAREFUL to use exactly the correct syntax that you have been instructed to use. 
-    * Avoid using words like ~function~, ~tools~, or the names of available functions during the conversation.
+    * When you invoke any function, use the correct syntax: ```json {{ "Vapi Speaker": "functions.[function_name]", "parameters": {{ "parameter_name": "parameter_value" }} }} ```
     * Add human-like imperfections in your responses. Occasionally add one subtle hesitation like 'umm,' 'uhh,' or 'hmm' in the middle of a sentence where someone might naturally pause to think. Occasionally add a fillers word like "Ah" or "Mmm" in the beginning of your sentence. Occasionally repeat words or short phrases, such as 'so, so' or 'and, and umm,' to make it sound more natural.
     """).strip()
 
@@ -1107,9 +1106,14 @@ ASSISTANT_CONFIG = {
         "model":"eleven_turbo_v2_5",
         "voiceId": SpeechConfig.DEFAULT_VOICE_ID,
         "provider":"11labs",
-        "stability":0.4,
-        "similarityBoost":0.75,
+        "stability":0.8,
+        "similarityBoost":0.6,
+        "speed": 0.7,
+        "optimizeStreamingLatency": 4,
+        "style": 0,
         "fillerInjectionEnabled":False,
+        "autoMode": True,
+        "useSpeakerBoost": False,
         "inputPunctuationBoundaries":[
             "。",
             "，",
