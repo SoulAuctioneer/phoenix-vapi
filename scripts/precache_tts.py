@@ -17,12 +17,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # This is slow, but necessary.
-from managers.voice_manager import VoiceManager
-from config import ElevenLabsConfig, ScavengerHuntConfig
-
-# The default pitch used when an event doesn't specify one.
-# This must match VoiceService.DEFAULT_PITCH to ensure cache hits.
-DEFAULT_PITCH = 4.0
+from managers.speech_manager import SpeechManager
+from config import SpeechConfig, ScavengerHuntConfig
 
 # --- List of texts to pre-cache ---
 # You can add any text here to pre-cache it.
@@ -115,8 +111,8 @@ for template in [INTRO_TEXT_TEMPLATE_LEDS_ON, INTRO_TEXT_TEMPLATE_LEDS_OFF]:
 # This logic is duplicated from VoiceService to avoid complex dependencies.
 def generate_cache_key(text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None) -> str:
     """Generate a unique cache key based on text and TTS parameters."""
-    voice_id = voice_id or ElevenLabsConfig.DEFAULT_VOICE_ID
-    model_id = model_id or ElevenLabsConfig.DEFAULT_MODEL_ID
+    voice_id = voice_id or SpeechConfig.DEFAULT_VOICE_ID
+    model_id = model_id or SpeechConfig.DEFAULT_MODEL_ID
     
     cache_string = f"{text}|{voice_id}|{model_id}|{stability}|{style}|{use_speaker_boost}|{pitch}"
     
@@ -129,17 +125,17 @@ async def precache_tts_audio():
     This script helps to reduce runtime latency by pre-generating audio files.
     """
     try:
-        voice_manager = VoiceManager()
+        speech_manager = SpeechManager()
     except ValueError as e:
-        logger.error(f"Failed to initialize VoiceManager: {e}")
+        logger.error(f"Failed to initialize SpeechManager: {e}")
         logger.error("Please ensure your ELEVENLABS_API_KEY is set in your .env file.")
         return
 
-    # NOTE: This path should match PRE_CACHE_DIR in VoiceService
+    # NOTE: This path should match PRE_CACHE_DIR in SpeechService
     pre_cache_dir = Path("assets/tts_cache")
     pre_cache_dir.mkdir(parents=True, exist_ok=True)
 
-    voices_to_cache = ElevenLabsConfig.VOICE_IDS
+    voices_to_cache = SpeechConfig.VOICE_IDS
     total_phrases = len(TEXTS_TO_CACHE) * len(voices_to_cache)
 
     logger.info(f"Starting TTS pre-caching for {len(TEXTS_TO_CACHE)} phrases across {len(voices_to_cache)} voices...")
@@ -156,11 +152,11 @@ async def precache_tts_audio():
             if isinstance(item, dict):
                 text_to_cache = item.get("text")
                 stability = item.get("stability")
-                pitch = item.get("pitch", DEFAULT_PITCH)
+                pitch = item.get("pitch", SpeechConfig.DEFAULT_PITCH)
             else:
                 text_to_cache = item
                 stability = None
-                pitch = DEFAULT_PITCH
+                pitch = SpeechConfig.DEFAULT_PITCH
 
             if not text_to_cache:
                 continue
@@ -179,7 +175,7 @@ async def precache_tts_audio():
             logger.info(f"Caching '{text_to_cache[:40]}...' for voice {voice_name} with stability={stability}, pitch={pitch}")
             
             try:
-                audio_stream = await voice_manager.generate_audio_stream(text_to_cache, voice_id=voice_id, stability=stability, pitch=pitch)
+                audio_stream = await speech_manager.generate_audio_stream(text_to_cache, voice_id=voice_id, stability=stability, pitch=pitch)
                 if audio_stream:
                     audio_bytes = b"".join([chunk async for chunk in audio_stream])
                     if audio_bytes:

@@ -41,9 +41,10 @@ NGROK_AUTH_TOKEN = clean_env_value(os.getenv('NGROK_AUTH_TOKEN'))
 
 # Which voice to use for TTS
 TTS_VOICE = clean_env_value(os.getenv('TTS_VOICE')) or "ana"
+# We don't like Timmy!
 if TTS_VOICE == "timmy":
     TTS_VOICE = "ana"
-ASSISTANT_NAME = "Fifi" if TTS_VOICE == "ana" else "Wibble Woop"
+ASSISTANT_NAME = "Fifi" if TTS_VOICE == "ana" else "Miss Wibble"
 
 # Set in main.py during arg parsing (if applicable).
 LOG_FILTERS = None
@@ -251,19 +252,28 @@ class SoundEffect(str, Enum):
             return None
 
 # ElevenLabs Configuration
-class ElevenLabsConfig:
+class SpeechConfig:
     """Configuration for ElevenLabs Text-to-Speech"""
 
     # TODO: pizero2 (Tom's and pizero5 (respeaker not working) don't have unique voices yet)
+    # VOICE_IDS = {
+    #     "timmy": "chcMmmtY1cmQh2ye1oXi",
+    #     "ana": "dPKFsZN0BnPRUfVI2DUW", # pizero
+    #     "blondie": "exsUS4vynmxd379XN4yO", # pizero3
+    #     "lucy": "lcMyyd2HUfFzxdCaC4Ta", # pizero4
+    #     "daria": "DUhzmIGFwXJ752SvgcCj" # pizero6
+    # }
+    # NOTE: I'm using the same custom-created voice for all devices now.
     VOICE_IDS = {
-        "timmy": "chcMmmtY1cmQh2ye1oXi",
-        "ana": "dPKFsZN0BnPRUfVI2DUW", # pizero
-        "blondie": "exsUS4vynmxd379XN4yO", # pizero3
-        "lucy": "lcMyyd2HUfFzxdCaC4Ta", # pizero4
-        "daria": "DUhzmIGFwXJ752SvgcCj" # pizero6
+        "timmy": "cq4DibL7LNeMr8sz7lCU",
+        "ana": "cq4DibL7LNeMr8sz7lCU",
+        "blondie": "cq4DibL7LNeMr8sz7lCU",
+        "lucy": "cq4DibL7LNeMr8sz7lCU",
+        "daria": "cq4DibL7LNeMr8sz7lCU"
     }
     # Find voice IDs using: https://api.elevenlabs.io/v1/voices
     DEFAULT_VOICE_ID = VOICE_IDS.get(TTS_VOICE, VOICE_IDS["ana"])
+    DEFAULT_PITCH = 0.0 # The default pitch shift in semitones.
 
     API_KEY = ELEVENLABS_API_KEY
     DEFAULT_MODEL_ID = "eleven_turbo_v2_5" # Or "eleven_turbo_v2_5" for lower latency
@@ -1095,7 +1105,7 @@ ASSISTANT_CONFIG = {
     "name": ASSISTANT_NAME,
     "voice": {
         "model":"eleven_turbo_v2_5",
-        "voiceId": ElevenLabsConfig.DEFAULT_VOICE_ID,
+        "voiceId": SpeechConfig.DEFAULT_VOICE_ID,
         "provider":"11labs",
         "stability":0.4,
         "similarityBoost":0.75,
@@ -1189,7 +1199,7 @@ ASSISTANT_CONFIG_FIRST_CONTACT = {
     "name": ASSISTANT_NAME,
     "voice": {
         "model":"eleven_turbo_v2_5",
-        "voiceId": ElevenLabsConfig.DEFAULT_VOICE_ID,
+        "voiceId": SpeechConfig.DEFAULT_VOICE_ID,
         "provider":"11labs",
         "stability":0.4,
         "similarityBoost":0.75,

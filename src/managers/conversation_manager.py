@@ -8,11 +8,9 @@ import asyncio
 import time
 import requests
 from enum import Enum
-import concurrent.futures
 from managers.audio_manager import AudioManager
 from config import ConversationConfig, FULL_ACTIVITIES_PROMPT, ACTIVITIES_CONFIG, ASSISTANT_CONTEXT_MEMORY_PROMPT, get_filter_logger
 import queue
-from utils.audio_processing import StreamingPitchShifter, STFTPITCHSHIFT_AVAILABLE
 
 logger = get_filter_logger('conversation_manager')
 logger.setLevel(logging.DEBUG)

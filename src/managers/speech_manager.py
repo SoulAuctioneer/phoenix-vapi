@@ -4,23 +4,23 @@ import numpy as np
 print("Importing elevenlabs.client. This is very slow...")
 from elevenlabs.client import ElevenLabs, AsyncElevenLabs
 print("Imported elevenlabs.client.")
-from config import ElevenLabsConfig, AudioBaseConfig, get_filter_logger
+from config import SpeechConfig, AudioBaseConfig, get_filter_logger
 from utils.audio_processing import pitch_shift_audio, pcm_bytes_to_numpy, PYRUBBERBAND_AVAILABLE
 
 logger = get_filter_logger(__name__)
 logger.setLevel(logging.DEBUG)
 
-class VoiceManager:
+class SpeechManager:
     """Manages interactions with the ElevenLabs API for TTS"""
     def __init__(self):
-        if not ElevenLabsConfig.API_KEY:
+        if not SpeechConfig.API_KEY:
             raise ValueError("ELEVENLABS_API_KEY not configured in environment variables or config.py")
             
         try:
             # Use synchronous client for initial setup/checks if needed,
             # but primarily use async client for generation.
-            self._client = ElevenLabs(api_key=ElevenLabsConfig.API_KEY)
-            self._async_client = AsyncElevenLabs(api_key=ElevenLabsConfig.API_KEY)
+            self._client = ElevenLabs(api_key=SpeechConfig.API_KEY)
+            self._async_client = AsyncElevenLabs(api_key=SpeechConfig.API_KEY)
             logger.info("ElevenLabs clients initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize ElevenLabs client: {e}")
@@ -43,8 +43,8 @@ class VoiceManager:
             An async iterator yielding audio chunks (bytes).
             Returns None if generation fails.
         """
-        voice_id = voice_id or ElevenLabsConfig.DEFAULT_VOICE_ID
-        model_id = model_id or ElevenLabsConfig.DEFAULT_MODEL_ID
+        voice_id = voice_id or SpeechConfig.DEFAULT_VOICE_ID
+        model_id = model_id or SpeechConfig.DEFAULT_MODEL_ID
         voice_settings = {}
         if stability is not None:
             voice_settings["stability"] = stability
@@ -64,7 +64,7 @@ class VoiceManager:
                 "text": text,
                 "voice_id": voice_id,
                 "model_id": model_id,
-                "output_format": ElevenLabsConfig.OUTPUT_FORMAT,
+                "output_format": SpeechConfig.OUTPUT_FORMAT,
             }
             if voice_settings:
                 stream_params["voice_settings"] = voice_settings

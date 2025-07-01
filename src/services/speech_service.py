@@ -1,5 +1,5 @@
 """
-Provides Text-to-Speech (TTS) functionality by interfacing with VoiceManager and AudioManager.
+Provides Text-to-Speech (TTS) functionality by interfacing with SpeechManager and AudioManager.
 
 This service manages the lifecycle of TTS requests, including caching, streaming from an API
 (like ElevenLabs), and handling playback completion notifications in a thread-safe manner.
@@ -15,11 +15,11 @@ TTS Event Flow:
 2.  **Event Distribution (`ServiceManager`)**:
     *   The `ServiceManager` broadcasts the `speak_audio` event to subscribers.
 
-3.  **TTS Handling (`VoiceService` - Main Thread)**:
-    *   `VoiceService.handle_event` receives the event and its payload.
-    *   It creates a non-blocking background task by calling `VoiceService.speak()`.
+3.  **TTS Handling (`SpeechService` - Main Thread)**:
+    *   `SpeechService.handle_event` receives the event and its payload.
+    *   It creates a non-blocking background task by calling `SpeechService.speak()`.
 
-4.  **Playback Preparation (`VoiceService.speak` - Main Thread)**:
+4.  **Playback Preparation (`SpeechService.speak` - Main Thread)**:
     *   A unique producer name is generated for the TTS request.
     *   A thread-safe callback, `_on_finish`, is defined to set the `on_finish_event`
       on the main event loop.
@@ -46,7 +46,7 @@ ASCII Flow Diagram:
 -------------------
 
 +--------------------------------+      +------------------+      +---------------------------------+      +-------------------------------------+
-| SquealingActivity              |      | ServiceManager   |      | VoiceService (Main Thread)      |      | AudioManager (Background Thread)    |
+| SquealingActivity              |      | ServiceManager   |      | SpeechService (Main Thread)      |      | AudioManager (Background Thread)    |
 | (or any other service)         |      |                  |      |                                 |      |                                     |
 +--------------------------------+      +------------------+      +---------------------------------+      +-------------------------------------+
                |                               |                                 |                                     |
@@ -97,27 +97,26 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
 from services.service import BaseService
-from managers.audio_manager import AudioManager, AudioConfig
-from config import AudioBaseConfig, get_filter_logger
+from managers.audio_manager import AudioManager
+from config import AudioBaseConfig, SpeechConfig, get_filter_logger
 from utils.audio_processing import pcm_bytes_to_numpy
 
 logger = get_filter_logger(__name__)
 logger.setLevel(logging.DEBUG)
 
-logger.info("Importing VoiceManager...")
-from managers.voice_manager import VoiceManager
-logger.info("Imported VoiceManager.")
+logger.info("Importing SpeechManager...")
+from managers.speech_manager import SpeechManager
+logger.info("Imported SpeechManager.")
 
-class VoiceService(BaseService):
-    """Service to manage Text-to-Speech using VoiceManager and AudioManager."""
+class SpeechService(BaseService):
+    """Service to manage Text-to-Speech using SpeechManager and AudioManager."""
     TTS_CACHE_DIR = "data/tts_cache"  # Directory to store cached TTS audio files
     PRE_CACHE_DIR = "assets/tts_cache" # Directory for pre-cached audio files
     TTS_PRODUCER_NAME = "elevenlabs_tts" # A constant name for the TTS audio producer
-    DEFAULT_PITCH = 4.0
 
     def __init__(self, service_manager):
         super().__init__(service_manager)
-        self.voice_manager = None
+        self.speech_manager = None
         self.audio_manager = None
         self._cache_dir = None
         self._pre_cache_dir = None
@@ -127,10 +126,10 @@ class VoiceService(BaseService):
         """Start the voice service."""
         await super().start()
         try:
-            self.voice_manager = VoiceManager()
+            self.speech_manager = SpeechManager()
             self.audio_manager = AudioManager.get_instance()
             if not self.audio_manager.is_running:
-                logger.warning("AudioManager is not running. VoiceService might not play audio correctly.")
+                logger.warning("AudioManager is not running. SpeechService might not play audio correctly.")
             
             # Initialize cache directories
             self._cache_dir = Path(self.TTS_CACHE_DIR)
@@ -143,14 +142,14 @@ class VoiceService(BaseService):
             else:
                 logger.warning(f"TTS pre-cache directory not found: {self._pre_cache_dir.absolute()}")
 
-            logger.info("VoiceService started successfully.")
+            logger.info("SpeechService started successfully.")
         except Exception as e:
-            logger.error(f"Failed to start VoiceService: {e}", exc_info=True)
+            logger.error(f"Failed to start SpeechService: {e}", exc_info=True)
             raise
 
     async def stop(self):
         """Stop the voice service."""
-        logger.info("Stopping VoiceService...")
+        logger.info("Stopping SpeechService...")
         
         # Cancel the active TTS task if it exists
         if self._current_tts_task:
@@ -168,16 +167,16 @@ class VoiceService(BaseService):
         if self.audio_manager:
             self.audio_manager.remove_producer(self.TTS_PRODUCER_NAME)
         
-        self.voice_manager = None # Release VoiceManager instance
+        self.speech_manager = None # Release SpeechManager instance
         await super().stop()
-        logger.info("VoiceService stopped.")
+        logger.info("SpeechService stopped.")
 
     def _generate_cache_key(self, text: str, voice_id: Optional[str] = None, model_id: Optional[str] = None, stability: Optional[float] = None, style: Optional[float] = None, use_speaker_boost: Optional[bool] = None, pitch: Optional[float] = None) -> str:
         """Generate a unique cache key based on text and TTS parameters."""
         # Use default values if not provided
-        from config import ElevenLabsConfig
-        voice_id = voice_id or ElevenLabsConfig.DEFAULT_VOICE_ID
-        model_id = model_id or ElevenLabsConfig.DEFAULT_MODEL_ID
+        from config import SpeechConfig
+        voice_id = voice_id or SpeechConfig.DEFAULT_VOICE_ID
+        model_id = model_id or SpeechConfig.DEFAULT_MODEL_ID
         
         # Create a unique string combining all parameters
         cache_string = f"{text}|{voice_id}|{model_id}|{stability}|{style}|{use_speaker_boost}|{pitch}"
@@ -303,8 +302,8 @@ class VoiceService(BaseService):
                     event["on_finish_event"].set()
                 return
 
-            if not self.voice_manager:
-                logger.error("VoiceManager not initialized. Cannot speak audio.")
+            if not self.speech_manager:
+                logger.error("SpeechManager not initialized. Cannot speak audio.")
                 if event.get("on_finish_event"):
                     event["on_finish_event"].set()
                 return
@@ -326,7 +325,7 @@ class VoiceService(BaseService):
         stability = event.get("stability")
         style = event.get("style")
         use_speaker_boost = event.get("use_speaker_boost")
-        pitch = event.get("pitch", self.DEFAULT_PITCH)
+        pitch = event.get("pitch", SpeechConfig.DEFAULT_PITCH)
         on_finish_event = event.get("on_finish_event")
 
         # 2. Define the on_finish callback for the producer
@@ -416,10 +415,10 @@ class VoiceService(BaseService):
             self.audio_manager.remove_producer(tts_producer.name)
 
     async def _stream_and_play_tts(self, tts_producer, text: str, voice_id: str = None, model_id: str = None, stability: float = None, style: float = None, use_speaker_boost: bool = None, pitch: float = 0.0):
-        """Generates audio stream using VoiceManager and plays it via AudioManager."""
+        """Generates audio stream using SpeechManager and plays it via AudioManager."""
         try:
             tts_producer.loading = True # Mark as loading to prevent premature cleanup
-            audio_stream_iterator = await self.voice_manager.generate_audio_stream(
+            audio_stream_iterator = await self.speech_manager.generate_audio_stream(
                 text,
                 voice_id=voice_id,
                 model_id=model_id,
@@ -430,7 +429,7 @@ class VoiceService(BaseService):
             )
 
             if not audio_stream_iterator:
-                logger.error(f"Failed to get audio stream from VoiceManager for '{tts_producer.name}'.")
+                logger.error(f"Failed to get audio stream from SpeechManager for '{tts_producer.name}'.")
                 self.audio_manager.remove_producer(tts_producer.name)
                 return
 
