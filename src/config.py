@@ -265,11 +265,11 @@ class SpeechConfig:
     # }
     # NOTE: I'm using the same custom-created voice for all devices now.
     VOICE_IDS = {
-        "timmy": "cq4DibL7LNeMr8sz7lCU",
-        "ana": "cq4DibL7LNeMr8sz7lCU",
-        "blondie": "cq4DibL7LNeMr8sz7lCU",
-        "lucy": "cq4DibL7LNeMr8sz7lCU",
-        "daria": "cq4DibL7LNeMr8sz7lCU"
+        "timmy": "wAzKlpi4w8VF0qWbwPtm",
+        "ana": "wAzKlpi4w8VF0qWbwPtm",
+        "blondie": "wAzKlpi4w8VF0qWbwPtm",
+        "lucy": "wAzKlpi4w8VF0qWbwPtm",
+        "daria": "wAzKlpi4w8VF0qWbwPtm"
     }
     # Find voice IDs using: https://api.elevenlabs.io/v1/voices
     DEFAULT_VOICE_ID = VOICE_IDS.get(TTS_VOICE, VOICE_IDS["ana"])
