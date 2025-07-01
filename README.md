@@ -102,3 +102,4 @@ python src/main.py
 ### Customizing Voice Interaction
 
 You can customize the Vapi AI behavior by modifying the configuration in `src/config.py`.
+
