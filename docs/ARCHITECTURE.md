@@ -123,7 +123,7 @@ The `src/services/` directory contains individual service implementations:
 
 - **Core Services**
   - `audio_service.py` - Manages audio input and output
-  - `voice_service.py` - Manages Text-to-Speech (TTS) and voice interactions via Vapi
+  - `speech_service.py` - Manages Text-to-Speech (TTS) and voice interactions via Vapi
   - `wakeword_service.py` - Handles wake word detection (using Picovoice Porcupine)
   - `intent_service.py` - Processes voice commands to determine user intent
   - `activity_service.py` - Orchestrates different activity modes and their required services

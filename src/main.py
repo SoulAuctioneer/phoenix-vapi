@@ -11,7 +11,7 @@ from services.special_effect_service import SpecialEffectService
 from services.wakeword_service import WakeWordService
 from services.activity_service import ActivityService
 from services.intent_service import IntentService
-from services.voice_service import VoiceService
+from services.speech_service import SpeechService
 from utils.system import set_shutdown_callback
 
 if PLATFORM == "raspberry-pi":
@@ -78,7 +78,7 @@ class PhoenixApp:
         # Initialize all services
         self.initialized_services = {
             'audio': AudioService(self.service_manager),
-            'voice': VoiceService(self.service_manager),
+            'speech': SpeechService(self.service_manager),
             'wakeword': WakeWordService(self.service_manager),
             'special_effect': SpecialEffectService(self.service_manager),
             'intent': IntentService(self.service_manager),
