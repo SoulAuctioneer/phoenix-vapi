@@ -10,7 +10,7 @@ else
 fi
 
 # Wait for an active internet connection by pinging GitHub, with retries.
-MAX_RETRIES=3
+MAX_RETRIES=5
 echo "Checking for internet connection..."
 for ((i=1; i<=MAX_RETRIES; i++)); do
     if ping -c 1 -W 1 github.com &> /dev/null; then
